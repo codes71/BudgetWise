@@ -31,7 +31,7 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
           </TableHeader>
           <TableBody>
             {sortedTransactions.map(transaction => (
-              <TableRow key={transaction.id}>
+              <TableRow key={transaction._id}>
                 <TableCell className="font-medium">{transaction.description}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className="flex items-center gap-2 w-fit">
