@@ -13,7 +13,9 @@ export async function getCurrentUser() {
     const decodedClaims = await admin.auth().verifySessionCookie(session, true);
     return decodedClaims;
   } catch (error) {
-    console.error('Error verifying session cookie:', error);
+    // Session cookie is invalid or expired.
+    // It's also possible that the user is trying to access a public route with an invalid cookie.
+    // The middleware will handle redirects.
     return null;
   }
 }
