@@ -1,6 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+'use client';
+
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { CategoryIcon } from '@/components/category-icon';
 import type { Transaction } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
@@ -10,16 +14,26 @@ interface RecentTransactionsProps {
   transactions: Transaction[];
 }
 
+const INITIAL_VISIBLE_COUNT = 10;
+const LOAD_MORE_COUNT = 10;
+
 export function RecentTransactions({ transactions }: RecentTransactionsProps) {
   const { currency } = useAuth();
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
   
-  const sortedTransactions = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
+  const sortedTransactions = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const visibleTransactions = sortedTransactions.slice(0, visibleCount);
   
+  const handleLoadMore = () => {
+    setVisibleCount(prevCount => prevCount + LOAD_MORE_COUNT);
+  };
+
   return (
     <Card className="shadow-sm">
       <CardHeader>
         <CardTitle>Recent Transactions</CardTitle>
-        <CardDescription>Your last 10 transactions.</CardDescription>
+        <CardDescription>Your most recent transactions.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -32,7 +46,7 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedTransactions.map(transaction => (
+            {visibleTransactions.map(transaction => (
               <TableRow key={transaction._id}>
                 <TableCell className="font-medium">{transaction.description}</TableCell>
                 <TableCell>
@@ -51,6 +65,13 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
           </TableBody>
         </Table>
       </CardContent>
+       {visibleCount < sortedTransactions.length && (
+        <CardFooter className="flex justify-center">
+          <Button onClick={handleLoadMore} variant="outline">
+            Load More
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 }
