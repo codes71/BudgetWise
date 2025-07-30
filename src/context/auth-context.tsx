@@ -25,8 +25,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setUser(user);
+       if (user) {
+        const idToken = await user.getIdToken();
+        // Create session cookie
+        await fetch('/api/login', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        });
+      } else {
+        // Clear session cookie
+        await fetch('/api/logout', { method: 'POST' });
+      }
       setLoading(false);
     });
 
@@ -36,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = async () => {
     try {
       await signInWithPopup(auth, provider);
-      router.push('/');
+      // onAuthStateChanged will handle the redirect and session creation
     } catch (error) {
       console.error("Error signing in with Google: ", error);
     }
@@ -45,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
+      // onAuthStateChanged will handle clearing the session
       router.push('/login');
     } catch (error) {
       console.error("Error signing out: ", error);
@@ -58,13 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
-
-export const getCurrentUser = (): Promise<User | null> => {
-  return new Promise((resolve) => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
-      unsubscribe();
-      resolve(user);
-    });
-  });
-};
+export function useAuth() {
+  return useContext(AuthContext);
+}

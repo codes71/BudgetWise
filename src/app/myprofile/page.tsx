@@ -43,7 +43,6 @@ export default function MyProfilePage() {
           </nav>
           <div className="flex flex-1 items-center justify-end space-x-2">
             <ThemeToggle />
-             <Button onClick={handleSignOut} variant="outline">Sign Out</Button>
           </div>
         </div>
       </header>
