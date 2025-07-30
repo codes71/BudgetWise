@@ -127,7 +127,7 @@ export default function BudgetsPage() {
         </div>
       </header>
 
-      <main className="flex-1 container py-6">
+      <main className="flex-1 container py-6 px-4 md:px-6">
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>

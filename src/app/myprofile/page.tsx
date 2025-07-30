@@ -95,7 +95,7 @@ export default function MyProfilePage() {
         </div>
       </header>
 
-      <main className="flex-1 container py-6">
+      <main className="flex-1 container py-6 px-4 md:px-6">
         <div className="mx-auto max-w-4xl space-y-8">
             <div>
                 <h1 className="text-3xl font-bold">My Profile</h1>

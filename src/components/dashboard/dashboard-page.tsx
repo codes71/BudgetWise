@@ -102,7 +102,7 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <main className="flex-1 container py-6">
+      <main className="flex-1 container py-6 px-4 md:px-6">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <OverviewCards data={overview} />
         </div>
