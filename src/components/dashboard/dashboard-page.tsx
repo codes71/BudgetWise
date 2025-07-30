@@ -1,47 +1,48 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Upload, Sparkles, PlusCircle, Settings, Landmark } from 'lucide-react';
+import { Sparkles, PlusCircle, Settings, Landmark, User } from 'lucide-react';
 import type { Transaction, Budget } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { OverviewCards } from './overview-cards';
 import { SpendingChart } from './spending-chart';
 import { BudgetGoals } from './budget-goals';
 import { RecentTransactions } from './recent-transactions';
-import { DataImporter } from './data-importer';
 import { AiSuggestions } from './ai-suggestions';
 import { ThemeToggle } from './theme-toggle';
 import { AddTransaction } from './add-transaction';
-import { getBudgets, getTransactions, addTransaction as addTx, importData as importDt } from '@/app/db-actions';
+import { getBudgets, getTransactions, addTransaction as addTx } from '@/app/db-actions';
 import Link from 'next/link';
+import { useAuth } from '@/context/auth-context';
+import { useRouter } from 'next/navigation';
 
 export function DashboardPage() {
+  const { user, loading, signOut } = useAuth();
+  const router = useRouter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
 
   useEffect(() => {
-    async function fetchData() {
-      const [transactionsData, budgetsData] = await Promise.all([
-        getTransactions(),
-        getBudgets(),
-      ]);
-      setTransactions(transactionsData);
-      setBudgets(budgetsData);
+    if (!loading && !user) {
+      router.push('/login');
     }
-    fetchData();
-  }, []);
+  }, [user, loading, router]);
 
-  const handleDataImported = async (importedTransactions: Transaction[], importedBudgets: Budget[]) => {
-    await importDt(importedTransactions, importedBudgets);
-    const [transactionsData, budgetsData] = await Promise.all([
-        getTransactions(),
-        getBudgets(),
-    ]);
-    setTransactions(transactionsData);
-    setBudgets(budgetsData);
-  };
+  useEffect(() => {
+    if (user) {
+      async function fetchData() {
+        const [transactionsData, budgetsData] = await Promise.all([
+          getTransactions(),
+          getBudgets(),
+        ]);
+        setTransactions(transactionsData);
+        setBudgets(budgetsData);
+      }
+      fetchData();
+    }
+  }, [user]);
 
-  const handleTransactionAdded = async (transaction: Omit<Transaction, 'id' | '_id' >) => {
+  const handleTransactionAdded = async (transaction: Omit<Transaction, 'id' | '_id' | 'userId' >) => {
     const newTransaction = await addTx(transaction);
     if(newTransaction) {
       setTransactions(prev => [newTransaction, ...prev]);
@@ -56,6 +57,10 @@ export function DashboardPage() {
     const balance = income - expenses;
     return { income, expenses, balance };
   }, [transactions]);
+  
+  if (loading || !user) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
   
   return (
     <div className="flex flex-col min-h-screen">
@@ -72,6 +77,7 @@ export function DashboardPage() {
            <nav className="hidden items-center space-x-6 text-sm font-medium md:flex">
             <Link href="/" className="text-foreground transition-colors hover:text-foreground">Dashboard</Link>
             <Link href="/budgets" className="text-muted-foreground transition-colors hover:text-foreground">Budgets</Link>
+            <Link href="/myprofile" className="text-muted-foreground transition-colors hover:text-foreground">My Profile</Link>
           </nav>
           <div className="flex flex-1 items-center justify-end space-x-2">
             <AddTransaction onTransactionAdded={handleTransactionAdded}>
@@ -79,22 +85,17 @@ export function DashboardPage() {
                 <PlusCircle /> Add Transaction
               </Button>
             </AddTransaction>
-            <Button asChild variant="outline">
-              <Link href="/budgets">
-                <Settings /> Set Budget
-              </Link>
-            </Button>
-             <DataImporter onDataImported={handleDataImported}>
-              <Button variant="outline">
-                <Upload /> Import
-              </Button>
-            </DataImporter>
             <AiSuggestions transactions={transactions} budgets={budgets}>
               <Button variant="outline">
                 <Sparkles/> AI Suggestions
               </Button>
             </AiSuggestions>
             <ThemeToggle />
+            <Button asChild variant="outline" size="icon">
+              <Link href="/myprofile">
+                <User />
+              </Link>
+            </Button>
           </div>
         </div>
       </header>

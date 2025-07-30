@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Landmark, Settings } from 'lucide-react';
+import { Landmark } from 'lucide-react';
 import type { Budget } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,22 +18,35 @@ import { getBudgets, setBudget } from '@/app/db-actions';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/dashboard/theme-toggle';
+import { useAuth } from '@/context/auth-context';
+import { useRouter } from 'next/navigation';
 
 const categories = ['Groceries', 'Utilities', 'Entertainment', 'Transport', 'Housing', 'Health', 'Other'];
 
 export default function BudgetsPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [newCategory, setNewCategory] = useState(categories[0]);
   const [newLimit, setNewLimit] = useState('');
   const { toast } = useToast();
+  
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
 
   useEffect(() => {
-    async function fetchData() {
-      const budgetsData = await getBudgets();
-      setBudgets(budgetsData);
+    if (user) {
+      async function fetchData() {
+        const budgetsData = await getBudgets();
+        setBudgets(budgetsData);
+      }
+      fetchData();
     }
-    fetchData();
-  }, []);
+  }, [user]);
 
   const handleUpdateBudget = async (category: string, limit: string) => {
     const numericLimit = parseFloat(limit);
@@ -46,7 +59,7 @@ export default function BudgetsPage() {
       return;
     }
     
-    await setBudget({ category, limit: numericLimit, _id: '' });
+    await setBudget({ category, limit: numericLimit });
     const newBudgets = await getBudgets();
     setBudgets(newBudgets);
     toast({
@@ -76,7 +89,7 @@ export default function BudgetsPage() {
         return;
     }
 
-    await setBudget({ category: newCategory, limit: numericLimit, _id: '' });
+    await setBudget({ category: newCategory, limit: numericLimit });
     const newBudgets = await getBudgets();
     setBudgets(newBudgets);
     setNewLimit('');
@@ -89,7 +102,10 @@ export default function BudgetsPage() {
   const handleLimitChange = (category: string, newLimit: string) => {
     setBudgets(budgets.map(b => b.category === category ? { ...b, limit: parseFloat(newLimit) || 0 } : b));
   };
-
+  
+  if (loading || !user) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -106,6 +122,7 @@ export default function BudgetsPage() {
            <nav className="flex items-center space-x-6 text-sm font-medium">
             <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">Dashboard</Link>
             <Link href="/budgets" className="text-foreground transition-colors hover:text-foreground">Budgets</Link>
+            <Link href="/myprofile" className="text-muted-foreground transition-colors hover:text-foreground">My Profile</Link>
           </nav>
           <div className="flex flex-1 items-center justify-end space-x-2">
             <ThemeToggle />

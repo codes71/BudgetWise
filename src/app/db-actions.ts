@@ -5,23 +5,35 @@ import TransactionModel from '@/lib/models/transaction';
 import BudgetModel from '@/lib/models/budget';
 import type { Transaction, Budget } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
+import { getCurrentUser } from '@/lib/auth';
+
+async function getUserId(): Promise<string> {
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('You must be logged in to perform this action.');
+  }
+  return user.uid;
+}
 
 export async function getTransactions(): Promise<Transaction[]> {
+  const userId = await getUserId();
   await dbConnect();
-  const transactions = await TransactionModel.find({}).sort({ date: -1 });
+  const transactions = await TransactionModel.find({ userId }).sort({ date: -1 });
   return JSON.parse(JSON.stringify(transactions));
 }
 
 export async function getBudgets(): Promise<Budget[]> {
+  const userId = await getUserId();
   await dbConnect();
-  const budgets = await BudgetModel.find({});
+  const budgets = await BudgetModel.find({ userId });
   return JSON.parse(JSON.stringify(budgets));
 }
 
-export async function addTransaction(transaction: Omit<Transaction, 'id' | '_id'>): Promise<Transaction | null> {
+export async function addTransaction(transaction: Omit<Transaction, 'id' | '_id' | 'userId'>): Promise<Transaction | null> {
+  const userId = await getUserId();
   await dbConnect();
   try {
-    const newTransaction = new TransactionModel(transaction);
+    const newTransaction = new TransactionModel({ ...transaction, userId });
     await newTransaction.save();
     revalidatePath('/');
     return JSON.parse(JSON.stringify(newTransaction));
@@ -31,26 +43,9 @@ export async function addTransaction(transaction: Omit<Transaction, 'id' | '_id'
   }
 }
 
-export async function setBudget(budget: Budget): Promise<void> {
+export async function setBudget(budget: Omit<Budget, 'userId' | '_id'>): Promise<void> {
+  const userId = await getUserId();
   await dbConnect();
-  await BudgetModel.updateOne({ category: budget.category }, { limit: budget.limit }, { upsert: true });
+  await BudgetModel.updateOne({ category: budget.category, userId }, { limit: budget.limit }, { upsert: true });
   revalidatePath('/');
-}
-
-export async function importData(transactions: Transaction[], budgets: Budget[]): Promise<void> {
-    await dbConnect();
-    if (transactions.length > 0) {
-        await TransactionModel.insertMany(transactions.map(({ _id, id, ...t }) => t));
-    }
-    if (budgets.length > 0) {
-        const budgetOps = budgets.map(b => ({
-            updateOne: {
-                filter: { category: b.category },
-                update: { $set: { limit: b.limit } },
-                upsert: true,
-            }
-        }));
-        await BudgetModel.bulkWrite(budgetOps);
-    }
-    revalidatePath('/');
 }
