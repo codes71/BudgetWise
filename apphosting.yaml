@@ -1,6 +1,14 @@
 # Settings to manage and configure a Firebase App Hosting backend.
 # https://firebase.google.com/docs/app-hosting/configure
 
+build:
+  buildpacks:
+    - code-build
+    - run-build
+  buildSystem: npm
+  spec:
+    dependencies:
+      bcryptjs: ^2.4.3
 runConfig:
   # Increase this value if you'd like to automatically spin up
   # more instances in response to increased traffic.

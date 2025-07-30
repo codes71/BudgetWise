@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { PlusCircle, Landmark, User, Menu } from 'lucide-react';
+import { PlusCircle, Landmark, Menu } from 'lucide-react';
 import type { Transaction, Budget } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { OverviewCards } from './overview-cards';
