@@ -5,14 +5,14 @@ import TransactionModel from '@/lib/models/transaction';
 import BudgetModel from '@/lib/models/budget';
 import type { Transaction, Budget } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUser } from '@/lib/auth';
+import { verifySession } from '@/lib/auth';
 
 async function getUserId(): Promise<string> {
-  const user = await getCurrentUser();
-  if (!user) {
+  const user = await verifySession();
+  if (!user || !user.userId) {
     throw new Error('You must be logged in to perform this action.');
   }
-  return user.uid;
+  return user.userId;
 }
 
 export async function getTransactions(): Promise<Transaction[]> {

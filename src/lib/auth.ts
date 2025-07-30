@@ -4,7 +4,7 @@ import { jwtVerify } from 'jose';
 
 const secretKey = new TextEncoder().encode(process.env.JWT_SECRET || 'your-super-secret-jwt-key-that-is-at-least-32-chars-long');
 
-interface UserPayload {
+export interface UserPayload {
     userId: string;
     email: string;
     fullName?: string;
@@ -33,5 +33,7 @@ export async function verifySession() {
 export async function getCurrentUser() {
   const session = await verifySession();
   if (!session) return null;
+  // This is a simplified user object for general use cases.
+  // The full payload is available from verifySession()
   return { uid: session.userId, email: session.email };
 }
