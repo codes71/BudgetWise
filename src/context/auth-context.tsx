@@ -2,13 +2,15 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User } from 'firebase/auth';
-import { auth, provider, signInWithPopup, signOut } from '@/lib/firebase';
+import { auth, provider, signInWithPopup, signOut as firebaseSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signUpWithEmail: (email: string, pass: string) => Promise<any>;
+  signInWithEmail: (email: string, pass: string) => Promise<any>;
   signOut: () => Promise<void>;
 }
 
@@ -16,6 +18,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signInWithGoogle: async () => {},
+  signUpWithEmail: async () => {},
+  signInWithEmail: async () => {},
   signOut: async () => {},
 });
 
@@ -52,8 +56,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // onAuthStateChanged will handle the redirect and session creation
     } catch (error) {
       console.error("Error signing in with Google: ", error);
+      throw error;
     }
   };
+  
+  const signUpWithEmail = async (email: string, pass: string) => {
+    try {
+       await createUserWithEmailAndPassword(auth, email, pass);
+    } catch (error) {
+      console.error("Error signing up with email: ", error);
+      throw error;
+    }
+  };
+  
+  const signInWithEmail = async (email: string, pass: string) => {
+    try {
+       await signInWithEmailAndPassword(auth, email, pass);
+    } catch (error) {
+      console.error("Error signing in with email: ", error);
+      throw error;
+    }
+  };
+
 
   const signOut = async () => {
     try {
@@ -66,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut, signUpWithEmail, signInWithEmail }}>
       {children}
     </AuthContext.Provider>
   );

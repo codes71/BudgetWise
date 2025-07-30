@@ -16,23 +16,22 @@ import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 
-
-const loginSchema = z.object({
+const signupSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
-  password: z.string().min(1, 'Password is required.'),
+  password: z.string().min(6, 'Password must be at least 6 characters long.'),
 });
 
-type LoginFormData = z.infer<typeof loginSchema>;
+type SignupFormData = z.infer<typeof signupSchema>;
 
 
-export default function LoginPage() {
-  const { user, loading, signInWithGoogle, signInWithEmail } = useAuth();
+export default function SignupPage() {
+  const { user, loading, signUpWithEmail, signInWithGoogle } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
     defaultValues: {
       email: '',
       password: '',
@@ -44,22 +43,21 @@ export default function LoginPage() {
       router.push('/');
     }
   }, [user, router]);
-
-  const onSubmit = async (data: LoginFormData) => {
+  
+  const onSubmit = async (data: SignupFormData) => {
     setIsSubmitting(true);
     try {
-      await signInWithEmail(data.email, data.password);
+      await signUpWithEmail(data.email, data.password);
       // onAuthStateChanged will handle the redirect
     } catch (error: any) {
        toast({
         variant: 'destructive',
-        title: 'Login Failed',
+        title: 'Sign Up Failed',
         description: error.message || 'An unexpected error occurred. Please try again.',
       });
       setIsSubmitting(false);
     }
   };
-
 
   if (loading || user) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
@@ -72,8 +70,8 @@ export default function LoginPage() {
           <div className="flex justify-center items-center mb-4">
             <Landmark className="h-10 w-10 text-primary" />
           </div>
-          <CardTitle className="text-3xl font-bold">Welcome Back</CardTitle>
-          <CardDescription>Sign in to manage your finances.</CardDescription>
+          <CardTitle className="text-3xl font-bold">Create an Account</CardTitle>
+          <CardDescription>Start managing your finances today.</CardDescription>
         </CardHeader>
         <CardContent>
            <Form {...form}>
@@ -105,23 +103,23 @@ export default function LoginPage() {
                 )}
               />
               <Button type="submit" className="w-full" disabled={isSubmitting || loading}>
-                {isSubmitting ? 'Signing In...' : 'Sign In'}
+                {isSubmitting ? 'Creating Account...' : 'Sign Up'}
               </Button>
             </form>
           </Form>
-          <div className="relative my-6">
+           <div className="relative my-6">
             <Separator />
             <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-background px-2 text-sm text-muted-foreground">OR</span>
           </div>
           <Button onClick={signInWithGoogle} className="w-full" variant="outline" disabled={loading}>
-            Sign In with Google
+            Sign Up with Google
           </Button>
         </CardContent>
         <CardFooter className="justify-center">
             <p className="text-sm text-muted-foreground">
-                Don't have an account?{' '}
-                <Link href="/signup" className="font-semibold text-primary hover:underline">
-                    Sign Up
+                Already have an account?{' '}
+                <Link href="/login" className="font-semibold text-primary hover:underline">
+                    Sign In
                 </Link>
             </p>
         </CardFooter>
