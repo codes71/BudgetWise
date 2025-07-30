@@ -7,6 +7,8 @@
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
+    "genkit:build": "genkit build",
+    "postinstall": "npm run genkit:build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
