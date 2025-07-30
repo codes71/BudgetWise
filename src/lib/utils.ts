@@ -11,6 +11,7 @@ export function formatCurrency(amount: number, currency: 'INR' | 'MMK', options?
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
+    currencyDisplay: 'symbol', // Explicitly use the symbol
     ...options,
   }).format(amount);
 };
