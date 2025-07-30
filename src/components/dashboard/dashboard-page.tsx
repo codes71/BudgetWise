@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 export function DashboardPage() {
   const { user, loading, setBudgets: setGlobalBudgets, setTransactions: setGlobalTransactions } = useAuth();
