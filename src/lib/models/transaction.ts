@@ -11,3 +11,6 @@ const TransactionSchema = new Schema({
 
 // Use a type assertion to avoid conflicts with the imported Transaction type
 const TransactionModel = (models.Transaction ||
+  mongoose.model('Transaction', TransactionSchema)) as Model<Transaction & Document>;
+
+export default TransactionModel;

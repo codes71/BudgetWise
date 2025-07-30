@@ -26,4 +26,8 @@ async function dbConnect() {
       return mongoose;
     });
   }
-  cached.conn
+  cached.conn = await cached.promise;
+  return cached.conn;
+}
+
+export default dbConnect;
