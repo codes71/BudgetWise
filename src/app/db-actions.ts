@@ -48,4 +48,5 @@ export async function setBudget(budget: Omit<Budget, 'userId' | '_id'>): Promise
   await dbConnect();
   await BudgetModel.updateOne({ category: budget.category, userId }, { limit: budget.limit }, { upsert: true });
   revalidatePath('/');
+  revalidatePath('/budgets');
 }

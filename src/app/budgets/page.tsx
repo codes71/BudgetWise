@@ -80,22 +80,13 @@ export default function BudgetsPage() {
       return;
     }
     
-    if (budgets.some(b => b.category === newCategory)) {
-        toast({
-            variant: 'destructive',
-            title: 'Category Exists',
-            description: `A budget for ${newCategory} already exists. You can edit it below.`,
-        });
-        return;
-    }
-
     await setBudget({ category: newCategory, limit: numericLimit });
     const newBudgets = await getBudgets();
     setBudgets(newBudgets);
     setNewLimit('');
      toast({
-      title: 'Budget Added',
-      description: `Budget for ${newCategory} has been added.`,
+      title: 'Budget Set',
+      description: `Budget for ${newCategory} has been set.`,
     });
   };
 
@@ -141,8 +132,8 @@ export default function BudgetsPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Add New Budget</CardTitle>
-                    <CardDescription>Create a new spending limit for a category.</CardDescription>
+                    <CardTitle>Set Budget</CardTitle>
+                    <CardDescription>Create or update a spending limit for a category.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleAddBudget} className="flex flex-col sm:flex-row items-end gap-4">
@@ -153,7 +144,7 @@ export default function BudgetsPage() {
                                     <SelectValue placeholder="Select a category" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                {categories.filter(c => !budgets.some(b => b.category === c)).map(category => (
+                                {categories.map(category => (
                                     <SelectItem key={category} value={category}>
                                     {category}
                                     </SelectItem>
@@ -165,7 +156,7 @@ export default function BudgetsPage() {
                             <Label htmlFor="limit">Limit</Label>
                             <Input id="limit" type="number" placeholder="e.g., 500" value={newLimit} onChange={(e) => setNewLimit(e.target.value)} />
                         </div>
-                        <Button type="submit">Add Budget</Button>
+                        <Button type="submit">Set Budget</Button>
                     </form>
                 </CardContent>
             </Card>
@@ -173,24 +164,14 @@ export default function BudgetsPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Existing Budgets</CardTitle>
-                    <CardDescription>Update your current budget limits here.</CardDescription>
+                    <CardDescription>Your current budget limits.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {budgets.map((budget) => (
                     <div key={budget._id} className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border rounded-lg">
                         <Label className="font-semibold text-lg">{budget.category}</Label>
                         <div className="flex items-center gap-2">
-                            <Input 
-                                type="number"
-                                value={budget.limit}
-                                onChange={(e) => handleLimitChange(budget.category, e.target.value)}
-                                onBlur={(e) => handleUpdateBudget(budget.category, e.target.value)}
-                                className="w-32"
-                                placeholder="Limit"
-                            />
-                             <Button size="sm" variant="outline" onClick={() => handleUpdateBudget(budget.category, String(budget.limit))}>
-                                Update
-                             </Button>
+                            <span className="text-lg font-mono">₹{budget.limit}</span>
                         </div>
                     </div>
                     ))}
