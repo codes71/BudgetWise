@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { DollarSign, Upload, Sparkles } from 'lucide-react';
+import { DollarSign, Upload, Sparkles, PlusCircle, Settings, Landmark } from 'lucide-react';
 import type { Transaction, Budget } from '@/lib/types';
 import { mockTransactions, mockBudgets } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,10 @@ import { BudgetGoals } from './budget-goals';
 import { RecentTransactions } from './recent-transactions';
 import { DataImporter } from './data-importer';
 import { AiSuggestions } from './ai-suggestions';
+import { ThemeToggle } from './theme-toggle';
+import { AddTransaction } from './add-transaction';
+import { SetBudget } from './set-budget';
+
 
 export function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
@@ -24,6 +28,23 @@ export function DashboardPage() {
       importedBudgets.forEach(b => budgetMap.set(b.category, b));
       return Array.from(budgetMap.values());
     });
+  };
+
+  const handleTransactionAdded = (transaction: Transaction) => {
+    setTransactions(prev => [transaction, ...prev]);
+  };
+  
+  const handleBudgetSet = (budget: Budget) => {
+     setBudgets(prev => {
+        const newBudgets = [...prev];
+        const existingBudgetIndex = newBudgets.findIndex(b => b.category === budget.category);
+        if (existingBudgetIndex > -1) {
+          newBudgets[existingBudgetIndex] = budget;
+        } else {
+          newBudgets.push(budget);
+        }
+        return newBudgets;
+     });
   };
   
   const overview = useMemo(() => {
@@ -39,23 +60,34 @@ export function DashboardPage() {
         <div className="container flex h-16 items-center">
           <div className="mr-4 flex">
             <a className="mr-6 flex items-center space-x-2" href="/">
-              <DollarSign className="h-6 w-6 text-primary" />
+              <Landmark className="h-6 w-6 text-primary" />
               <span className="font-bold font-headline sm:inline-block">
                 BudgetWise
               </span>
             </a>
           </div>
           <div className="flex flex-1 items-center justify-end space-x-2">
+            <AddTransaction onTransactionAdded={handleTransactionAdded}>
+              <Button>
+                <PlusCircle /> Add Transaction
+              </Button>
+            </AddTransaction>
+            <SetBudget onBudgetSet={handleBudgetSet}>
+              <Button variant="outline">
+                <Settings /> Set Budget
+              </Button>
+            </SetBudget>
              <DataImporter onDataImported={handleDataImported}>
               <Button variant="outline">
-                <Upload className="mr-2 h-4 w-4" /> Import
+                <Upload /> Import
               </Button>
             </DataImporter>
             <AiSuggestions transactions={transactions} budgets={budgets}>
-              <Button>
-                <Sparkles className="mr-2 h-4 w-4" /> AI Suggestions
+              <Button variant="outline">
+                <Sparkles/> AI Suggestions
               </Button>
             </AiSuggestions>
+            <ThemeToggle />
           </div>
         </div>
       </header>
