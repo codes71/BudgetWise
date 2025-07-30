@@ -14,8 +14,6 @@ export async function getCurrentUser() {
     return decodedClaims;
   } catch (error) {
     // Session cookie is invalid or expired.
-    // It's also possible that the user is trying to access a public route with an invalid cookie.
-    // The middleware will handle redirects.
     return null;
   }
 }
