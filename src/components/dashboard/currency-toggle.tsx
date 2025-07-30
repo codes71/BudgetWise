@@ -28,10 +28,10 @@ export function CurrencyToggle() {
         <DropdownMenuLabel>Currency</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => setCurrency('INR')}>
-          INR (₹)
+          Indian Rupee (₹)
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setCurrency('MMK')}>
-          MMK (K)
+          Myanmar Kyat (K)
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
