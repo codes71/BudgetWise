@@ -30,7 +30,7 @@ async function verifySession(request: NextRequest) {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isPublicRoute = pathname === '/login';
+  const isPublicRoute = pathname === '/login' || pathname === '/signup';
   
   const user = await verifySession(request);
 
@@ -46,5 +46,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api/login|api/logout|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api/|login|signup|_next/static|_next/image|favicon.ico).*)', '/', '/budgets', '/myprofile'],
 };
