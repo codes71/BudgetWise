@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Sparkles, PlusCircle, Settings, Landmark, User } from 'lucide-react';
+import { PlusCircle, Landmark, User } from 'lucide-react';
 import type { Transaction, Budget } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { OverviewCards } from './overview-cards';
 import { SpendingChart } from './spending-chart';
 import { BudgetGoals } from './budget-goals';
 import { RecentTransactions } from './recent-transactions';
-import { AiSuggestions } from './ai-suggestions';
 import { ThemeToggle } from './theme-toggle';
 import { CurrencyToggle } from './currency-toggle';
 import { AddTransaction } from './add-transaction';
@@ -18,7 +17,7 @@ import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 
 export function DashboardPage() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, setBudgets: setGlobalBudgets, setTransactions: setGlobalTransactions } = useAuth();
   const router = useRouter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -38,17 +37,22 @@ export function DashboardPage() {
         ]);
         setTransactions(transactionsData);
         setBudgets(budgetsData);
+        setGlobalTransactions(transactionsData);
+        setGlobalBudgets(budgetsData);
       }
       fetchData();
     }
-  }, [user]);
+  }, [user, setGlobalBudgets, setGlobalTransactions]);
 
   const handleTransactionAdded = async (transaction: Omit<Transaction, 'id' | '_id' | 'userId' >) => {
     const newTransaction = await addTx(transaction);
     if(newTransaction) {
-      setTransactions(prev => [newTransaction, ...prev]);
+      const updatedTransactions = [newTransaction, ...transactions];
+      setTransactions(updatedTransactions);
+      setGlobalTransactions(updatedTransactions);
       const newBudgets = await getBudgets();
       setBudgets(newBudgets);
+      setGlobalBudgets(newBudgets);
     }
   };
   
@@ -80,21 +84,17 @@ export function DashboardPage() {
             <Link href="/budgets" className="text-muted-foreground transition-colors hover:text-foreground">Budgets</Link>
             <Link href="/myprofile" className="text-muted-foreground transition-colors hover:text-foreground">My Profile</Link>
           </nav>
-          <div className="flex flex-1 items-center justify-end space-x-2">
+          <div className="flex flex-1 items-center justify-end space-x-4">
             <AddTransaction onTransactionAdded={handleTransactionAdded}>
               <Button>
                 <PlusCircle /> Add Transaction
               </Button>
             </AddTransaction>
-            <AiSuggestions transactions={transactions} budgets={budgets}>
-              <Button variant="outline">
-                <Sparkles/> AI Suggestions
-              </Button>
-            </AiSuggestions>
             <CurrencyToggle />
             <ThemeToggle />
-            <Button asChild variant="outline" size="icon">
+            <Button asChild variant="ghost" className="gap-2">
               <Link href="/myprofile">
+                <span>{user.fullName || user.email}</span>
                 <User />
               </Link>
             </Button>

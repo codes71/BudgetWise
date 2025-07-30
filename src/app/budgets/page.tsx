@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Landmark } from 'lucide-react';
+import { Landmark, User } from 'lucide-react';
 import type { Budget } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -117,6 +117,12 @@ export default function BudgetsPage() {
           </nav>
           <div className="flex flex-1 items-center justify-end space-x-2">
             <ThemeToggle />
+             <Button asChild variant="ghost" className="gap-2">
+              <Link href="/myprofile">
+                <span>{user.fullName || user.email}</span>
+                <User />
+              </Link>
+            </Button>
           </div>
         </div>
       </header>

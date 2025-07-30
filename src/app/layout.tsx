@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/context/auth-context';
+import { FloatingAiSuggestions } from '@/components/dashboard/floating-ai-suggestions';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -30,6 +31,7 @@ export default function RootLayout({
         >
           <AuthProvider>
             {children}
+            <FloatingAiSuggestions />
             <Toaster />
           </AuthProvider>
         </ThemeProvider>

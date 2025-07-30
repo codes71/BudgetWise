@@ -85,8 +85,9 @@ export default function MyProfilePage() {
           </nav>
           <div className="flex flex-1 items-center justify-end space-x-2">
             <ThemeToggle />
-             <Button asChild variant="outline" size="icon">
+            <Button asChild variant="ghost" className="gap-2">
               <Link href="/myprofile">
+                <span>{user.fullName || user.email}</span>
                 <User />
               </Link>
             </Button>

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode, Dispatch, SetStateAction } from 'react';
 import { verifySession } from '@/lib/auth';
+import type { Budget, Transaction } from '@/lib/types';
 
 type Currency = 'INR' | 'MMK';
 
@@ -20,6 +21,10 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   currency: Currency;
   setCurrency: Dispatch<SetStateAction<Currency>>;
+  transactions: Transaction[];
+  setTransactions: Dispatch<SetStateAction<Transaction[]>>;
+  budgets: Budget[];
+  setBudgets: Dispatch<SetStateAction<Budget[]>>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -29,6 +34,10 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   currency: 'INR',
   setCurrency: () => {},
+  transactions: [],
+  setTransactions: () => {},
+  budgets: [],
+  setBudgets: () => {},
 });
 
 
@@ -36,6 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState<Currency>('INR');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
 
   useEffect(() => {
     async function checkSession() {
@@ -66,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, signOut: handleSignOut, currency, setCurrency }}>
+    <AuthContext.Provider value={{ user, setUser, loading, signOut: handleSignOut, currency, setCurrency, transactions, setTransactions, budgets, setBudgets }}>
       {children}
     </AuthContext.Provider>
   );

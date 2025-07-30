@@ -8,18 +8,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { generateSuggestions } from '@/app/actions';
 import type { Transaction, Budget } from '@/lib/types';
+import { useAuth } from '@/context/auth-context';
 
 interface AiSuggestionsProps {
-  transactions: Transaction[];
-  budgets: Budget[];
   children: ReactNode;
 }
 
-export function AiSuggestions({ transactions, budgets, children }: AiSuggestionsProps) {
+export function AiSuggestions({ children }: AiSuggestionsProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const { transactions, budgets } = useAuth();
+
 
   const handleGetSuggestions = async () => {
     setIsLoading(true);
@@ -77,7 +78,7 @@ export function AiSuggestions({ transactions, budgets, children }: AiSuggestions
           )}
         </div>
         <DialogFooter>
-          <Button onClick={handleGetSuggestions} disabled={isLoading}>
+          <Button onClick={handleGetSuggestions} disabled={isLoading || !transactions.length || !budgets.length}>
             {isLoading ? 'Generating...' : suggestions.length > 0 ? 'Regenerate' : 'Get Suggestions'}
           </Button>
         </DialogFooter>
