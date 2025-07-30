@@ -33,7 +33,6 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import type { Budget } from '@/lib/types';
-import { mockBudgets } from '@/lib/data';
 
 const budgetSchema = z.object({
   category: z.string().min(1, 'Category is required'),
@@ -45,13 +44,15 @@ type BudgetFormData = z.infer<typeof budgetSchema>;
 interface SetBudgetProps {
   onBudgetSet: (budget: Budget) => void;
   children: ReactNode;
+  budgets: Budget[];
 }
 
-export function SetBudget({ onBudgetSet, children }: SetBudgetProps) {
+export function SetBudget({ onBudgetSet, children, budgets }: SetBudgetProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   
-  const categories = [...new Set(mockBudgets.map(b => b.category))];
+  const categories = ['Groceries', 'Utilities', 'Entertainment', 'Transport', 'Housing', 'Health', 'Other'];
+  const existingCategories = budgets.map(b => b.category);
 
   const form = useForm<BudgetFormData>({
     resolver: zodResolver(budgetSchema),
@@ -98,7 +99,7 @@ export function SetBudget({ onBudgetSet, children }: SetBudgetProps) {
                     <SelectContent>
                       {categories.map(category => (
                         <SelectItem key={category} value={category}>
-                          {category}
+                          {category} {existingCategories.includes(category) ? '' : '(New)'}
                         </SelectItem>
                       ))}
                     </SelectContent>

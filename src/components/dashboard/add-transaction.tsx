@@ -41,8 +41,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import type { Transaction } from '@/lib/types';
-import { mockBudgets } from '@/lib/data';
+import type { Transaction, Budget } from '@/lib/types';
 
 const transactionSchema = z.object({
   description: z.string().min(1, 'Description is required'),
@@ -55,15 +54,18 @@ const transactionSchema = z.object({
 type TransactionFormData = z.infer<typeof transactionSchema>;
 
 interface AddTransactionProps {
-  onTransactionAdded: (transaction: Transaction) => void;
+  onTransactionAdded: (transaction: Omit<Transaction, 'id' | '_id'>) => void;
   children: ReactNode;
+  budgets: Budget[];
 }
 
-export function AddTransaction({ onTransactionAdded, children }: AddTransactionProps) {
+export function AddTransaction({ onTransactionAdded, children, budgets }: AddTransactionProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   
-  const categories = [...new Set(mockBudgets.map(b => b.category))];
+  const categories = ['Groceries', 'Utilities', 'Entertainment', 'Transport', 'Housing', 'Health', 'Other', ...new Set(budgets.map(b => b.category))];
+  const uniqueCategories = [...new Set(categories)];
+
 
   const form = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
@@ -72,13 +74,12 @@ export function AddTransaction({ onTransactionAdded, children }: AddTransactionP
       amount: 0,
       type: 'expense',
       date: new Date(),
-      category: categories[0]
+      category: uniqueCategories[0]
     },
   });
 
   const onSubmit = (data: TransactionFormData) => {
-    const newTransaction: Transaction = {
-      id: `txn-${Date.now()}`,
+    const newTransaction = {
       ...data,
       date: format(data.date, 'yyyy-MM-dd'),
     };
@@ -143,7 +144,7 @@ export function AddTransaction({ onTransactionAdded, children }: AddTransactionP
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {categories.map(category => (
+                        {uniqueCategories.map(category => (
                           <SelectItem key={category} value={category}>
                             {category}
                           </SelectItem>

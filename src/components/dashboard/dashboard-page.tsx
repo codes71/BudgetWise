@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { DollarSign, Upload, Sparkles, PlusCircle, Settings, Landmark } from 'lucide-react';
 import type { Transaction, Budget } from '@/lib/types';
-import { mockTransactions, mockBudgets } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { OverviewCards } from './overview-cards';
 import { SpendingChart } from './spending-chart';
@@ -14,37 +13,45 @@ import { AiSuggestions } from './ai-suggestions';
 import { ThemeToggle } from './theme-toggle';
 import { AddTransaction } from './add-transaction';
 import { SetBudget } from './set-budget';
-
+import { getBudgets, getTransactions, addTransaction as addTx, setBudget as setBudg, importData as importDt } from '@/app/db-actions';
 
 export function DashboardPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
-  const [budgets, setBudgets] = useState<Budget[]>(mockBudgets);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
 
-  const handleDataImported = (importedTransactions: Transaction[], importedBudgets: Budget[]) => {
-    setTransactions(prev => [...prev, ...importedTransactions]);
-    // For budgets, we can decide to merge or replace. Here we'll merge/update.
-    setBudgets(prevBudgets => {
-      const budgetMap = new Map(prevBudgets.map(b => [b.category, b]));
-      importedBudgets.forEach(b => budgetMap.set(b.category, b));
-      return Array.from(budgetMap.values());
-    });
+  useEffect(() => {
+    async function fetchData() {
+      const [transactionsData, budgetsData] = await Promise.all([
+        getTransactions(),
+        getBudgets(),
+      ]);
+      setTransactions(transactionsData);
+      setBudgets(budgetsData);
+    }
+    fetchData();
+  }, []);
+
+  const handleDataImported = async (importedTransactions: Transaction[], importedBudgets: Budget[]) => {
+    await importDt(importedTransactions, importedBudgets);
+    const [transactionsData, budgetsData] = await Promise.all([
+        getTransactions(),
+        getBudgets(),
+    ]);
+    setTransactions(transactionsData);
+    setBudgets(budgetsData);
   };
 
-  const handleTransactionAdded = (transaction: Transaction) => {
-    setTransactions(prev => [transaction, ...prev]);
+  const handleTransactionAdded = async (transaction: Omit<Transaction, 'id' | '_id' >) => {
+    const newTransaction = await addTx(transaction);
+    if(newTransaction) {
+      setTransactions(prev => [newTransaction, ...prev]);
+    }
   };
   
-  const handleBudgetSet = (budget: Budget) => {
-     setBudgets(prev => {
-        const newBudgets = [...prev];
-        const existingBudgetIndex = newBudgets.findIndex(b => b.category === budget.category);
-        if (existingBudgetIndex > -1) {
-          newBudgets[existingBudgetIndex] = budget;
-        } else {
-          newBudgets.push(budget);
-        }
-        return newBudgets;
-     });
+  const handleBudgetSet = async (budget: Budget) => {
+     await setBudg(budget);
+     const newBudgets = await getBudgets();
+     setBudgets(newBudgets);
   };
   
   const overview = useMemo(() => {
@@ -67,12 +74,12 @@ export function DashboardPage() {
             </a>
           </div>
           <div className="flex flex-1 items-center justify-end space-x-2">
-            <AddTransaction onTransactionAdded={handleTransactionAdded}>
+            <AddTransaction onTransactionAdded={handleTransactionAdded} budgets={budgets}>
               <Button>
                 <PlusCircle /> Add Transaction
               </Button>
             </AddTransaction>
-            <SetBudget onBudgetSet={handleBudgetSet}>
+            <SetBudget onBudgetSet={handleBudgetSet} budgets={budgets}>
               <Button variant="outline">
                 <Settings /> Set Budget
               </Button>

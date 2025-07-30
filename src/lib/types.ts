@@ -1,4 +1,5 @@
 export interface Transaction {
+  _id: string;
   id: string;
   date: string;
   description: string;
@@ -8,6 +9,7 @@ export interface Transaction {
 }
 
 export interface Budget {
+  _id: string;
   category: string;
   limit: number;
 }
