@@ -38,17 +38,27 @@ const prompt = ai.definePrompt({
   name: 'spendingSuggestionsPrompt',
   input: {schema: SpendingSuggestionsInputSchema},
   output: {schema: SpendingSuggestionsOutputSchema},
-  prompt: `You are a personal finance advisor providing suggestions to users on how to cut spending based on their historical data and budget goals.
+  prompt: `You are a savvy personal finance advisor. Your goal is to provide highly specific, actionable, and data-driven advice to help a user cut spending.
 
-Analyze the following historical spending data:
+Analyze the user's historical spending data provided below. Compare it against their stated budget goals.
+
+**Historical Spending Data (CSV):**
+\`\`\`csv
 {{{historicalData}}}
+\`\`\`
 
-Consider these budget goals:
+**Budget Goals (CSV):**
+\`\`\`csv
 {{{budgetGoals}}}
+\`\`\`
 
-Provide a list of specific, actionable suggestions on areas where the user can cut spending. Focus on areas where spending exceeds budget goals or where historical spending shows potential for reduction.
+Based on your analysis, provide a list of concrete suggestions. For each suggestion:
+1.  **Identify a specific category** where spending is high or over budget.
+2.  **Quantify the problem.** For example, "You spent $150 on 'Entertainment' this month, which is $50 over your $100 budget."
+3.  **Offer a clear, actionable tip.** Instead of "spend less on food," suggest "try meal prepping for lunches to reduce your $200 'Restaurants' spending."
+4.  Keep each suggestion concise and to the point.
 
-Format your response as a list of strings.
+Generate at least 3 high-quality suggestions.
 `,
 });
 

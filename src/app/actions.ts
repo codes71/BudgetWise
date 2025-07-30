@@ -1,6 +1,7 @@
 'use server';
 
 import { getSpendingSuggestions } from '@/ai/flows/spending-suggestions';
+import { categorizeTransaction } from '@/ai/flows/categorize-transaction';
 import type { Transaction, Budget } from '@/lib/types';
 
 export async function generateSuggestions(transactions: Transaction[], budgets: Budget[]) {
@@ -20,4 +21,15 @@ export async function generateSuggestions(transactions: Transaction[], budgets: 
     console.error('Error generating suggestions:', error);
     return { error: 'Failed to generate suggestions. Please try again.' };
   }
+}
+
+export async function getCategorySuggestion(description: string, categories: string[]) {
+    try {
+        const result = await categorizeTransaction({ description, categories });
+        return { category: result.category };
+    } catch (error) {
+        console.error('Error generating category suggestion:', error);
+        // Don't return an error to the user, just fail silently
+        return { category: '' };
+    }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { DollarSign, Upload, Sparkles, PlusCircle, Settings, Landmark } from 'lucide-react';
+import { Upload, Sparkles, PlusCircle, Settings, Landmark } from 'lucide-react';
 import type { Transaction, Budget } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { OverviewCards } from './overview-cards';
@@ -12,8 +12,8 @@ import { DataImporter } from './data-importer';
 import { AiSuggestions } from './ai-suggestions';
 import { ThemeToggle } from './theme-toggle';
 import { AddTransaction } from './add-transaction';
-import { SetBudget } from './set-budget';
-import { getBudgets, getTransactions, addTransaction as addTx, setBudget as setBudg, importData as importDt } from '@/app/db-actions';
+import { getBudgets, getTransactions, addTransaction as addTx, importData as importDt } from '@/app/db-actions';
+import Link from 'next/link';
 
 export function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -45,13 +45,9 @@ export function DashboardPage() {
     const newTransaction = await addTx(transaction);
     if(newTransaction) {
       setTransactions(prev => [newTransaction, ...prev]);
+      const newBudgets = await getBudgets();
+      setBudgets(newBudgets);
     }
-  };
-  
-  const handleBudgetSet = async (budget: Budget) => {
-     await setBudg(budget);
-     const newBudgets = await getBudgets();
-     setBudgets(newBudgets);
   };
   
   const overview = useMemo(() => {
@@ -66,24 +62,28 @@ export function DashboardPage() {
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center">
           <div className="mr-4 flex">
-            <a className="mr-6 flex items-center space-x-2" href="/">
+            <Link className="mr-6 flex items-center space-x-2" href="/">
               <Landmark className="h-6 w-6 text-primary" />
               <span className="font-bold font-headline sm:inline-block">
                 BudgetWise
               </span>
-            </a>
+            </Link>
           </div>
+           <nav className="hidden items-center space-x-6 text-sm font-medium md:flex">
+            <Link href="/" className="text-foreground transition-colors hover:text-foreground">Dashboard</Link>
+            <Link href="/budgets" className="text-muted-foreground transition-colors hover:text-foreground">Budgets</Link>
+          </nav>
           <div className="flex flex-1 items-center justify-end space-x-2">
-            <AddTransaction onTransactionAdded={handleTransactionAdded} budgets={budgets}>
+            <AddTransaction onTransactionAdded={handleTransactionAdded}>
               <Button>
                 <PlusCircle /> Add Transaction
               </Button>
             </AddTransaction>
-            <SetBudget onBudgetSet={handleBudgetSet} budgets={budgets}>
-              <Button variant="outline">
+            <Button asChild variant="outline">
+              <Link href="/budgets">
                 <Settings /> Set Budget
-              </Button>
-            </SetBudget>
+              </Link>
+            </Button>
              <DataImporter onDataImported={handleDataImported}>
               <Button variant="outline">
                 <Upload /> Import
