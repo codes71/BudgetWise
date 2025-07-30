@@ -3,12 +3,15 @@
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { Transaction } from '@/lib/types';
+import { useAuth } from '@/context/auth-context';
+import { formatCurrency } from '@/lib/utils';
 
 interface SpendingChartProps {
   transactions: Transaction[];
 }
 
 export function SpendingChart({ transactions }: SpendingChartProps) {
+  const { currency } = useAuth();
   const spendingByCategory = transactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
@@ -31,7 +34,7 @@ export function SpendingChart({ transactions }: SpendingChartProps) {
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
             <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value: number) => `$${value}`} />
+            <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value: number) => formatCurrency(value, currency, { notation: 'compact' })} />
             <Tooltip
               cursor={{ fill: 'hsl(var(--muted))' }}
               contentStyle={{
@@ -39,6 +42,7 @@ export function SpendingChart({ transactions }: SpendingChartProps) {
                 border: '1px solid hsl(var(--border))',
                 borderRadius: 'var(--radius)',
               }}
+              formatter={(value: number) => formatCurrency(value, currency)}
             />
             <Legend iconType="circle" />
             <Bar dataKey="spending" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />

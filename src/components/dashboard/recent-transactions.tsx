@@ -3,13 +3,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { CategoryIcon } from '@/components/category-icon';
 import type { Transaction } from '@/lib/types';
+import { useAuth } from '@/context/auth-context';
+import { formatCurrency } from '@/lib/utils';
 
 interface RecentTransactionsProps {
   transactions: Transaction[];
 }
 
 export function RecentTransactions({ transactions }: RecentTransactionsProps) {
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  const { currency } = useAuth();
   
   const sortedTransactions = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
   
@@ -42,7 +44,7 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
                 <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
                 <TableCell className={`text-right font-semibold ${transaction.type === 'income' ? 'text-primary' : ''}`}>
                   {transaction.type === 'expense' ? '-' : '+'}
-                  {formatCurrency(transaction.amount)}
+                  {formatCurrency(transaction.amount, currency)}
                 </TableCell>
               </TableRow>
             ))}

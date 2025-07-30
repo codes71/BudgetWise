@@ -10,6 +10,7 @@ import { BudgetGoals } from './budget-goals';
 import { RecentTransactions } from './recent-transactions';
 import { AiSuggestions } from './ai-suggestions';
 import { ThemeToggle } from './theme-toggle';
+import { CurrencyToggle } from './currency-toggle';
 import { AddTransaction } from './add-transaction';
 import { getBudgets, getTransactions, addTransaction as addTx } from '@/app/db-actions';
 import Link from 'next/link';
@@ -90,6 +91,7 @@ export function DashboardPage() {
                 <Sparkles/> AI Suggestions
               </Button>
             </AiSuggestions>
+            <CurrencyToggle />
             <ThemeToggle />
             <Button asChild variant="outline" size="icon">
               <Link href="/myprofile">

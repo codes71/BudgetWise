@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode, Dispatch, SetStateAction } from 'react';
 import { verifySession } from '@/lib/auth';
 
+type Currency = 'INR' | 'MMK';
+
 interface User {
   userId: string;
   email: string;
@@ -16,6 +18,8 @@ interface AuthContextType {
   setUser: Dispatch<SetStateAction<User | null>>;
   loading: boolean;
   signOut: () => Promise<void>;
+  currency: Currency;
+  setCurrency: Dispatch<SetStateAction<Currency>>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -23,12 +27,15 @@ const AuthContext = createContext<AuthContextType>({
   setUser: () => {},
   loading: true,
   signOut: async () => {},
+  currency: 'INR',
+  setCurrency: () => {},
 });
 
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currency, setCurrency] = useState<Currency>('INR');
 
   useEffect(() => {
     async function checkSession() {
@@ -59,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, signOut: handleSignOut }}>
+    <AuthContext.Provider value={{ user, setUser, loading, signOut: handleSignOut, currency, setCurrency }}>
       {children}
     </AuthContext.Provider>
   );

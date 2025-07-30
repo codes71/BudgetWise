@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
+import { formatCurrency } from '@/lib/utils';
 
 interface OverviewCardsProps {
   data: {
@@ -11,18 +13,12 @@ interface OverviewCardsProps {
 
 export function OverviewCards({ data }: OverviewCardsProps) {
   const { income, expenses, balance } = data;
-  
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
+  const { currency } = useAuth();
   
   const overviewItems = [
-    { title: 'Total Income', value: formatCurrency(income), icon: TrendingUp },
-    { title: 'Total Expenses', value: formatCurrency(expenses), icon: TrendingDown },
-    { title: 'Balance', value: formatCurrency(balance), icon: Wallet },
+    { title: 'Total Income', value: formatCurrency(income, currency), icon: TrendingUp },
+    { title: 'Total Expenses', value: formatCurrency(expenses, currency), icon: TrendingDown },
+    { title: 'Balance', value: formatCurrency(balance, currency), icon: Wallet },
   ];
 
   return (

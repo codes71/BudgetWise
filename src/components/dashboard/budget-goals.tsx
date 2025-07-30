@@ -3,6 +3,8 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CategoryIcon } from '@/components/category-icon';
 import type { Transaction, Budget } from '@/lib/types';
+import { useAuth } from '@/context/auth-context';
+import { formatCurrency } from '@/lib/utils';
 
 interface BudgetGoalsProps {
   transactions: Transaction[];
@@ -10,14 +12,13 @@ interface BudgetGoalsProps {
 }
 
 export function BudgetGoals({ transactions, budgets }: BudgetGoalsProps) {
+  const { currency } = useAuth();
   const spendingByCategory = transactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
       acc[t.category] = (acc[t.category] || 0) + t.amount;
       return acc;
     }, {} as Record<string, number>);
-
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
   return (
     <Card className="h-full shadow-sm">
@@ -41,7 +42,7 @@ export function BudgetGoals({ transactions, budgets }: BudgetGoalsProps) {
                        <span className="text-sm font-medium">{budget.category}</span>
                     </div>
                     <span className={`text-sm ${isOverBudget ? 'text-destructive' : 'text-muted-foreground'}`}>
-                      {formatCurrency(spent)} / {formatCurrency(budget.limit)}
+                      {formatCurrency(spent, currency)} / {formatCurrency(budget.limit, currency)}
                     </span>
                   </div>
                   <Progress value={Math.min(progress, 100)} className={isOverBudget ? '[&>div]:bg-destructive' : ''} />
