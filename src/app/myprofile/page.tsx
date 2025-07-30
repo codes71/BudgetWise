@@ -6,13 +6,14 @@ import { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Landmark, User, Camera } from 'lucide-react';
+import { Landmark, User, Camera, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/dashboard/theme-toggle';
 import { signOut, updateUser } from '@/app/actions';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 
 export default function MyProfilePage() {
   const { user, loading, setUser } = useAuth();
@@ -70,25 +71,54 @@ export default function MyProfilePage() {
      <div className="flex flex-col min-h-screen">
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center px-4 md:px-6">
-          <div className="mr-4 flex">
+           <div className="mr-auto flex items-center">
+             <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="md:hidden mr-4">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Open Menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left">
+                <nav className="grid gap-6 text-lg font-medium mt-6">
+                  <SheetClose asChild>
+                    <Link href="/" className="flex items-center gap-2 text-lg font-semibold">
+                      <Landmark className="h-6 w-6 text-primary" />
+                      <span className="sr-only">BudgetWise</span>
+                    </Link>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">Dashboard</Link>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Link href="/budgets" className="text-muted-foreground transition-colors hover:text-foreground">Budgets</Link>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Link href="/myprofile" className="text-foreground transition-colors hover:text-foreground">My Profile</Link>
+                  </SheetClose>
+                </nav>
+              </SheetContent>
+            </Sheet>
             <Link className="mr-6 flex items-center space-x-2" href="/">
               <Landmark className="h-6 w-6 text-primary" />
-              <span className="font-bold font-headline sm:inline-block">
+              <span className="font-bold sm:inline-block">
                 BudgetWise
               </span>
             </Link>
+            <nav className="hidden items-center space-x-6 text-sm font-medium md:flex">
+              <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">Dashboard</Link>
+              <Link href="/budgets" className="text-muted-foreground transition-colors hover:text-foreground">Budgets</Link>
+              <Link href="/myprofile" className="text-foreground transition-colors hover:text-foreground">My Profile</Link>
+            </nav>
           </div>
-           <nav className="hidden items-center space-x-6 text-sm font-medium md:flex">
-            <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">Dashboard</Link>
-            <Link href="/budgets" className="text-muted-foreground transition-colors hover:text-foreground">Budgets</Link>
-             <Link href="/myprofile" className="text-foreground transition-colors hover:text-foreground">My Profile</Link>
-          </nav>
-          <div className="flex flex-1 items-center justify-end space-x-2">
+          <div className="flex flex-1 items-center justify-end space-x-2 sm:space-x-4">
             <ThemeToggle />
-            <Button asChild variant="ghost" className="gap-2">
-              <Link href="/myprofile">
-                <span>{user.fullName || user.email}</span>
-                <User />
+            <Button asChild variant="ghost" className="relative h-8 w-8 rounded-full">
+               <Link href="/myprofile">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={user.profilePhotoUrl || ''} alt={user.fullName || user.email || ''} />
+                  <AvatarFallback>{getInitials(user.fullName)}</AvatarFallback>
+                </Avatar>
               </Link>
             </Button>
           </div>
