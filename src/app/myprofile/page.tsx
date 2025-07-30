@@ -2,18 +2,23 @@
 
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useEffect, useState } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Landmark } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Landmark, User, Camera } from 'lucide-react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/dashboard/theme-toggle';
-import { signOut } from '@/app/actions';
+import { signOut, updateUser } from '@/app/actions';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 export default function MyProfilePage() {
-  const { user, loading } = useAuth();
+  const { user, loading, setUser } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -21,6 +26,29 @@ export default function MyProfilePage() {
     }
   }, [user, loading, router]);
 
+  const handleProfileUpdate = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    
+    const formData = new FormData(event.currentTarget);
+    const result = await updateUser(formData);
+
+    if (result.error) {
+        toast({
+            variant: 'destructive',
+            title: 'Update Failed',
+            description: result.error,
+        });
+    } else if (result.success && result.user) {
+        setUser(result.user);
+        toast({
+            title: 'Profile Updated',
+            description: 'Your profile has been successfully updated.',
+        });
+    }
+    setIsSubmitting(false);
+  };
+  
   if (loading || !user) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -28,6 +56,15 @@ export default function MyProfilePage() {
   const handleSignOut = async () => {
     await signOut();
   };
+  
+  const getInitials = (name?: string | null) => {
+    if (!name) return user.email?.charAt(0).toUpperCase() || '?';
+    const parts = name.split(' ');
+    if (parts.length > 1) {
+        return parts[0][0] + parts[parts.length - 1][0];
+    }
+    return name.charAt(0);
+  }
 
   return (
      <div className="flex flex-col min-h-screen">
@@ -48,27 +85,74 @@ export default function MyProfilePage() {
           </nav>
           <div className="flex flex-1 items-center justify-end space-x-2">
             <ThemeToggle />
+             <Button asChild variant="outline" size="icon">
+              <Link href="/myprofile">
+                <User />
+              </Link>
+            </Button>
           </div>
         </div>
       </header>
 
       <main className="flex-1 container py-6">
-        <Card className="max-w-md mx-auto">
-          <CardHeader>
-            <CardTitle className="text-center text-2xl">My Profile</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center space-y-4">
-            <Avatar className="h-24 w-24">
-              <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div className="text-center">
-              <p className="text-muted-foreground">{user.email}</p>
+        <div className="mx-auto max-w-4xl space-y-8">
+            <div>
+                <h1 className="text-3xl font-bold">My Profile</h1>
+                <p className="text-muted-foreground">Manage your personal information and settings.</p>
             </div>
-            <form action={signOut}>
-                <Button type="submit" variant="destructive">Sign Out</Button>
+            <form onSubmit={handleProfileUpdate}>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Profile Information</CardTitle>
+                        <CardDescription>Update your photo and personal details here.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                         <div className="flex items-center gap-6">
+                            <Avatar className="h-24 w-24">
+                                <AvatarImage src={user.profilePhotoUrl || ''} alt={user.fullName || user.email || ''} />
+                                <AvatarFallback>{getInitials(user.fullName)}</AvatarFallback>
+                            </Avatar>
+                            <div className="grid gap-2 flex-1">
+                                <Label htmlFor="profilePhotoUrl">Profile Photo URL</Label>
+                                <Input id="profilePhotoUrl" name="profilePhotoUrl" defaultValue={user.profilePhotoUrl || ''} placeholder="https://example.com/photo.jpg" />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="fullName">Full Name</Label>
+                                <Input id="fullName" name="fullName" defaultValue={user.fullName || ''} placeholder="John Doe"/>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="email">Email</Label>
+                                <Input id="email" type="email" defaultValue={user.email || ''} readOnly disabled />
+                            </div>
+                             <div className="grid gap-2">
+                                <Label htmlFor="phoneNumber">Phone Number</Label>
+                                <Input id="phoneNumber" name="phoneNumber" type="tel" defaultValue={user.phoneNumber || ''} placeholder="+1 (555) 123-4567" />
+                            </div>
+                        </div>
+                    </CardContent>
+                    <CardFooter className="border-t px-6 py-4 flex justify-between items-center">
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                    </CardFooter>
+                </Card>
             </form>
-          </CardContent>
-        </Card>
+
+            <Card>
+                 <CardHeader>
+                    <CardTitle>Account Actions</CardTitle>
+                    <CardDescription>Manage your account settings.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form action={signOut}>
+                        <Button type="submit" variant="destructive">Sign Out</Button>
+                    </form>
+                </CardContent>
+            </Card>
+        </div>
       </main>
     </div>
   );

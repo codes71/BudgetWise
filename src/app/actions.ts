@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 
 const secretKey = new TextEncoder().encode(process.env.JWT_SECRET || 'your-super-secret-jwt-key-that-is-at-least-32-chars-long');
 
@@ -50,6 +51,7 @@ export async function signUp(formData: FormData) {
   const newUser = new UserModel({
     email,
     password: hashedPassword,
+    fullName: email.split('@')[0], // Default full name
   });
 
   try {
@@ -86,7 +88,14 @@ export async function signIn(formData: FormData) {
 
   // Create session
   const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-  const session = await encrypt({ userId: user._id, email: user.email, expires });
+  const session = await encrypt({ 
+      userId: user._id, 
+      email: user.email,
+      fullName: user.fullName,
+      phoneNumber: user.phoneNumber,
+      profilePhotoUrl: user.profilePhotoUrl,
+      expires 
+    });
 
   cookies().set('session', session, { expires, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
@@ -96,6 +105,55 @@ export async function signIn(formData: FormData) {
 export async function signOut() {
   cookies().set('session', '', { expires: new Date(0) });
   redirect('/login');
+}
+
+export async function updateUser(formData: FormData) {
+    const session = cookies().get('session')?.value;
+    if (!session) {
+        return { error: 'Unauthorized' };
+    }
+    const payload = await decrypt(session);
+    if (!payload?.userId) {
+        return { error: 'Unauthorized' };
+    }
+
+    const userId = payload.userId;
+    const fullName = formData.get('fullName') as string;
+    const phoneNumber = formData.get('phoneNumber') as string;
+    const profilePhotoUrl = formData.get('profilePhotoUrl') as string;
+
+    await dbConnect();
+
+    try {
+        const updatedUser = await UserModel.findByIdAndUpdate(userId, {
+            fullName,
+            phoneNumber,
+            profilePhotoUrl,
+        }, { new: true });
+
+        if (!updatedUser) {
+            return { error: 'User not found' };
+        }
+        
+        // Re-encrypt the session with the new data
+        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        const newSession = await encrypt({
+            userId: updatedUser._id,
+            email: updatedUser.email,
+            fullName: updatedUser.fullName,
+            phoneNumber: updatedUser.phoneNumber,
+            profilePhotoUrl: updatedUser.profilePhotoUrl,
+            expires
+        });
+        cookies().set('session', newSession, { expires, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+        
+        revalidatePath('/myprofile');
+        return { success: true, user: JSON.parse(JSON.stringify(updatedUser)) };
+
+    } catch (error) {
+        console.error('Error updating user:', error);
+        return { error: 'An unexpected error occurred.' };
+    }
 }
 
 

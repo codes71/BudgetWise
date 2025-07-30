@@ -2,12 +2,18 @@ import mongoose, { Schema, Document, models, Model } from 'mongoose';
 
 export interface IUser extends Document {
   email: string;
-  password?: string; // Password is not always present, e.g., for Google sign-in in the future
+  password?: string;
+  fullName?: string;
+  phoneNumber?: string;
+  profilePhotoUrl?: string;
 }
 
 const UserSchema = new Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: false },
+  fullName: { type: String, required: false },
+  phoneNumber: { type: String, required: false },
+  profilePhotoUrl: { type: String, required: false },
 });
 
 const UserModel = (models.User || 

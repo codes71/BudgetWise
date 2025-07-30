@@ -4,6 +4,14 @@ import { jwtVerify } from 'jose';
 
 const secretKey = new TextEncoder().encode(process.env.JWT_SECRET || 'your-super-secret-jwt-key-that-is-at-least-32-chars-long');
 
+interface UserPayload {
+    userId: string;
+    email: string;
+    fullName?: string;
+    phoneNumber?: string;
+    profilePhotoUrl?: string;
+}
+
 export async function verifySession() {
   const sessionCookie = cookies().get('session')?.value;
   if (!sessionCookie) {
@@ -14,7 +22,7 @@ export async function verifySession() {
     const { payload } = await jwtVerify(sessionCookie, secretKey, {
       algorithms: ['HS256'],
     });
-    return payload as { userId: string; email: string };
+    return payload as UserPayload;
   } catch (error) {
     console.error('Failed to verify session:', error);
     return null;
@@ -23,5 +31,7 @@ export async function verifySession() {
 
 
 export async function getCurrentUser() {
-  return await verifySession();
+  const session = await verifySession();
+  if (!session) return null;
+  return { uid: session.userId, email: session.email };
 }
