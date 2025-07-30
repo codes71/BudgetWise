@@ -40,10 +40,10 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
-    if (user) {
+    if (!loading && user) {
       router.push('/');
     }
-  }, [user, router]);
+  }, [user, loading, router]);
 
   const onSubmit = async (data: LoginFormData) => {
     setIsSubmitting(true);
@@ -61,7 +61,7 @@ export default function LoginPage() {
   };
 
 
-  if (loading || user) {
+  if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
