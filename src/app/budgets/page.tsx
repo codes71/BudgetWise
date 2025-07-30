@@ -48,8 +48,8 @@ export default function BudgetsPage() {
     }
   }, [user]);
 
-  const handleUpdateBudget = async (category: string, limit: string) => {
-    const numericLimit = parseFloat(limit);
+  const handleUpdateBudget = async (category: string, limit: string | number) => {
+    const numericLimit = typeof limit === 'string' ? parseFloat(limit) : limit;
     if (isNaN(numericLimit) || numericLimit <= 0) {
       toast({
         variant: 'destructive',
@@ -175,9 +175,16 @@ export default function BudgetsPage() {
                 <CardContent className="space-y-4">
                     {budgets.map((budget) => (
                     <div key={budget._id} className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border rounded-lg">
-                        <Label className="font-semibold text-lg">{budget.category}</Label>
-                        <div className="flex items-center gap-2">
-                            <span className="text-lg font-mono">₹{budget.limit}</span>
+                        <Label className="font-semibold text-lg flex-1">{budget.category}</Label>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <Input
+                                type="number"
+                                value={budget.limit}
+                                onChange={(e) => handleLimitChange(budget.category, e.target.value)}
+                                className="w-full sm:w-32"
+                                placeholder="e.g., 500"
+                            />
+                            <Button onClick={() => handleUpdateBudget(budget.category, budget.limit)}>Update</Button>
                         </div>
                     </div>
                     ))}
