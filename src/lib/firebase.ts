@@ -1,7 +1,7 @@
-'use client';
+// This file can be used for other Firebase services like Storage or Firestore if needed.
+// For now, it's minimal as Auth has been moved to a custom implementation.
 
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
 export const firebaseConfig = {
   apiKey: "AIzaSyB_wvYiCGTPb6Ag-Pl24zwo64-OiGkixBE",
@@ -13,9 +13,8 @@ export const firebaseConfig = {
 };
 
 
-
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const provider = new GoogleAuthProvider();
 
-export { signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword };
+// You can export other firebase services here if you add them
+// e.g. import { getFirestore } from "firebase/firestore";
+// export const db = getFirestore(app);

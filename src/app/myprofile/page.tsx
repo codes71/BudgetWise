@@ -3,15 +3,16 @@
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Landmark } from 'lucide-react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/dashboard/theme-toggle';
+import { signOut } from '@/app/actions';
 
 export default function MyProfilePage() {
-  const { user, loading, signOut: handleSignOut } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -23,6 +24,10 @@ export default function MyProfilePage() {
   if (loading || !user) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
+  
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
      <div className="flex flex-col min-h-screen">
@@ -54,14 +59,14 @@ export default function MyProfilePage() {
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-4">
             <Avatar className="h-24 w-24">
-              <AvatarImage src={user.photoURL || ''} alt={user.displayName || 'User'} />
-              <AvatarFallback>{user.displayName?.charAt(0)}</AvatarFallback>
+              <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="text-center">
-              <h2 className="text-xl font-semibold">{user.displayName}</h2>
               <p className="text-muted-foreground">{user.email}</p>
             </div>
-            <Button onClick={handleSignOut} variant="destructive">Sign Out</Button>
+            <form action={signOut}>
+                <Button type="submit" variant="destructive">Sign Out</Button>
+            </form>
           </CardContent>
         </Card>
       </main>

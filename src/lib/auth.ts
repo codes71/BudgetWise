@@ -1,19 +1,27 @@
 'use server';
 import { cookies } from 'next/headers';
-import { admin } from './firebase-admin';
+import { jwtVerify } from 'jose';
 
-export async function getCurrentUser() {
-  const session = cookies().get('session')?.value || '';
+const secretKey = new TextEncoder().encode(process.env.JWT_SECRET || 'your-super-secret-jwt-key-that-is-at-least-32-chars-long');
 
-  if (!session) {
+export async function verifySession() {
+  const sessionCookie = cookies().get('session')?.value;
+  if (!sessionCookie) {
     return null;
   }
 
   try {
-    const decodedClaims = await admin.auth().verifySessionCookie(session, true);
-    return decodedClaims;
+    const { payload } = await jwtVerify(sessionCookie, secretKey, {
+      algorithms: ['HS256'],
+    });
+    return payload as { userId: string; email: string };
   } catch (error) {
-    // Session cookie is invalid or expired.
+    console.error('Failed to verify session:', error);
     return null;
   }
+}
+
+
+export async function getCurrentUser() {
+  return await verifySession();
 }
