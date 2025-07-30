@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User } from 'firebase/auth';
-import { auth, provider, signInWithPopup, signOut as firebaseSignOut } from '@/lib/firebase';
+import { auth, provider, signInWithPopup, signOut } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {

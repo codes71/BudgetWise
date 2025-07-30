@@ -1,9 +1,9 @@
 'use client';
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 
-const firebaseConfig = {
+export const firebaseConfig = {
   "projectId": "budgetwise-5psqg",
   "appId": "1:493161832375:web:51ee63a889bb788235d232",
   "storageBucket": "budgetwise-5psqg.firebasestorage.app",
@@ -13,8 +13,15 @@ const firebaseConfig = {
   "messagingSenderId": "493161832375"
 };
 
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
+function createFirebaseApp() {
+    if (getApps().length > 0) {
+        return getApp();
+    }
+    return initializeApp(firebaseConfig);
+}
 
-export { app, auth, provider, signInWithPopup, signOut };
+export const firebaseApp = createFirebaseApp();
+export const auth = getAuth(firebaseApp);
+export const provider = new GoogleAuthProvider();
+
+export { signInWithPopup, signOut };
