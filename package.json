@@ -10,7 +10,7 @@
     "prebuild": "npm install patch-package",
     "build": "npm run genkit:build && next build",
     "postbuild": "patch-package",
-    "genkit:build": "cross-env GENKIT_TELEMETRY_DISABLED=1 genkit build --config src/ai/genkit.ts",
+    "genkit:build": "cross-env GENKIT_TELEMETRY_DISABLED=1 genkit build src/ai/genkit.ts",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
