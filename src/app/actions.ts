@@ -103,12 +103,13 @@ export async function signIn(formData: FormData) {
 }
 
 export async function signOut() {
-  cookies().set('session', '', { expires: new Date(0) });
+  await cookies().set('session', '', { expires: new Date(0) });
   redirect('/login');
 }
 
 export async function updateUser(formData: FormData) {
-    const session = cookies().get('session')?.value;
+    const cookiesList = await cookies();
+    const session = cookiesList.get('session')?.value;
     if (!session) {
         return { error: 'Unauthorized' };
     }
@@ -134,7 +135,7 @@ export async function updateUser(formData: FormData) {
         if (!updatedUser) {
             return { error: 'User not found' };
         }
-        
+
         // Re-encrypt the session with the new data
         const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
         const newSession = await encrypt({
@@ -146,7 +147,7 @@ export async function updateUser(formData: FormData) {
             expires
         });
         cookies().set('session', newSession, { expires, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
-        
+
         revalidatePath('/myprofile');
         return { success: true, user: JSON.parse(JSON.stringify(updatedUser)) };
 
@@ -164,8 +165,13 @@ export async function generateSuggestions(transactions: Transaction[], budgets: 
       .filter((t) => t.type === 'expense')
       .map((t) => `${t.category},${t.amount},${t.date}`)
       .join('\n');
-      
-  const budgetGoals = 'category,budget\n' + budgets.map((b) => `${b.limit ? `${b.category},${b.limit}` : ''}`).filter(Boolean).join('\n');
+
+  const budgetGoals =
+    'category,budget\n' +
+    budgets
+      .map((b) => (b.limit ? `${b.category},${b.limit}` : ''))
+      .filter(Boolean)
+      .join('\n');
 
   try {
     const result = await getSpendingSuggestions({ historicalData, budgetGoals });
