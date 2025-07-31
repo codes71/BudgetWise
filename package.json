@@ -10,7 +10,7 @@
     "prebuild": "npm install patch-package",
     "build": "npm run genkit:build && next build",
     "postbuild": "patch-package",
-    "genkit:build": "GENKIT_TELEMETRY_DISABLED=1 genkit build",
+    "genkit:build": "genkit build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
