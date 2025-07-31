@@ -31,15 +31,18 @@ export default function LoginPage() {
     setIsSubmitting(true);
     
     const formData = new FormData(event.currentTarget);
-    const result = await signIn(formData);
-    
-    // signIn action now handles redirect on success
-    if (result?.error) {
-       toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: result.error,
-      });
+    try {
+      const result = await signIn(formData);
+      if (result?.error) {
+        toast({
+          variant: 'destructive',
+          title: 'Login Failed',
+          description: result.error,
+        });
+      }
+    } catch (error) {
+      // Redirects are handled by Next.js, so we don't need to do anything here.
+    } finally {
       setIsSubmitting(false);
     }
   };

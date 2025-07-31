@@ -97,19 +97,21 @@ export async function signIn(formData: FormData) {
       expires 
     });
 
-  cookies().set('session', session, { expires, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+  const cookieStore = await cookies();
+  cookieStore.set('session', session, { expires, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
   redirect('/');
 }
 
 export async function signOut() {
-  await cookies().set('session', '', { expires: new Date(0) });
+  const cookieStore = await cookies();
+  cookieStore.set('session', '', { expires: new Date(0) });
   redirect('/login');
 }
 
 export async function updateUser(formData: FormData) {
-    const cookiesList = await cookies();
-    const session = cookiesList.get('session')?.value;
+    const cookieStore = await cookies();
+    const session = cookieStore.get('session')?.value;
     if (!session) {
         return { error: 'Unauthorized' };
     }
@@ -146,7 +148,8 @@ export async function updateUser(formData: FormData) {
             profilePhotoUrl: updatedUser.profilePhotoUrl,
             expires
         });
-        cookies().set('session', newSession, { expires, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+        const cookieStore = await cookies();
+        cookieStore.set('session', newSession, { expires, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
         revalidatePath('/myprofile');
         return { success: true, user: JSON.parse(JSON.stringify(updatedUser)) };
