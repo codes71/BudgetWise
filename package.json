@@ -10,7 +10,7 @@
     "prebuild": "npm install patch-package",
     "build": "npm run genkit:build && next build",
     "postbuild": "patch-package",
-    "genkit:build": "genkit build",
+    "genkit:build": "cross-env GENKIT_TELEMETRY_DISABLED=1 genkit build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
@@ -43,6 +43,7 @@
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cross-env": "^10.0.0",
     "date-fns": "^3.6.0",
     "dotenv": "^16.5.0",
     "embla-carousel-react": "^8.6.0",
