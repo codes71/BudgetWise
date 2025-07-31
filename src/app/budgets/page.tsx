@@ -149,19 +149,17 @@ export default function BudgetsPage() {
               <Link href="/myprofile" className="text-muted-foreground transition-colors hover:text-foreground">My Profile</Link>
             </nav>
           </div>
-          <div className="flex flex-1 items-center justify-end space-x-2 sm:space-x-4">
+          <div className="flex items-center justify-end gap-2 sm:gap-4">
             <ThemeToggle />
-             <Button asChild variant="ghost" className="relative h-8 w-8 rounded-full">
-              <Link href="/myprofile" className="flex items-center gap-2">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={user.profilePhotoUrl || ''} alt={user.fullName || user.email || ''} />
-                  <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                {user.fullName && <span className="hidden lg:inline-block font-semibold">{user.fullName}</span>}
-              </Link>
-            </Button>
+            <Link href="/myprofile" className="flex items-center gap-2">
+              <Avatar className="h-9 w-9">
+                <AvatarImage src={user.profilePhotoUrl || ''} alt={user.fullName || user.email || ''} />
+                <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              {user.fullName && <span className="hidden lg:inline-block font-semibold">{user.fullName}</span>}
+            </Link>
             <form action={handleSignOut}>
-                <Button variant="ghost" size="icon" type="submit">
+                <Button variant="ghost" size="icon" type="submit" aria-label="Sign Out">
                     <LogOut className="h-5 w-5 text-muted-foreground" />
                     <span className="sr-only">Sign Out</span>
                 </Button>
