@@ -6,6 +6,8 @@ import BudgetModel from '@/lib/models/budget';
 import type { Transaction, Budget } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { verifySession } from '@/lib/auth';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 async function getUserId(): Promise<string> {
   const user = await verifySession();
@@ -49,4 +51,9 @@ export async function setBudget(budget: Omit<Budget, 'userId' | '_id'>): Promise
   await BudgetModel.updateOne({ category: budget.category, userId }, { limit: budget.limit }, { upsert: true });
   revalidatePath('/');
   revalidatePath('/budgets');
+}
+
+export async function signOut() {
+  await cookies().set('session', '', { expires: new Date(0) });
+  redirect('/login');
 }

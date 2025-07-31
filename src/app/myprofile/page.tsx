@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Landmark, User, Camera, Menu } from 'lucide-react';
+import { Landmark, User, Camera, Menu, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/dashboard/theme-toggle';
 import { signOut, updateUser } from '@/app/actions';
@@ -114,13 +114,20 @@ export default function MyProfilePage() {
           <div className="flex flex-1 items-center justify-end space-x-2 sm:space-x-4">
             <ThemeToggle />
             <Button asChild variant="ghost" className="relative h-8 w-8 rounded-full">
-               <Link href="/myprofile">
+               <Link href="/myprofile" className="flex items-center gap-2">
                 <Avatar className="h-9 w-9">
                   <AvatarImage src={user.profilePhotoUrl || ''} alt={user.fullName || user.email || ''} />
                   <AvatarFallback>{getInitials(user.fullName)}</AvatarFallback>
                 </Avatar>
+                {user.fullName && <span className="hidden lg:inline-block font-semibold">{user.fullName}</span>}
               </Link>
             </Button>
+            <form action={handleSignOut}>
+                <Button variant="ghost" size="icon" type="submit">
+                    <LogOut className="h-5 w-5 text-muted-foreground" />
+                    <span className="sr-only">Sign Out</span>
+                </Button>
+            </form>
           </div>
         </div>
       </header>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { PlusCircle, Landmark, Menu } from 'lucide-react';
+import { PlusCircle, Landmark, Menu, LogOut } from 'lucide-react';
 import type { Transaction, Budget } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { OverviewCards } from './overview-cards';
@@ -11,7 +11,7 @@ import { RecentTransactions } from './recent-transactions';
 import { ThemeToggle } from './theme-toggle';
 import { CurrencyToggle } from './currency-toggle';
 import { AddTransaction } from './add-transaction';
-import { getBudgets, getTransactions, addTransaction as addTx } from '@/app/db-actions';
+import { getBudgets, getTransactions, addTransaction as addTx, signOut } from '@/app/db-actions';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
@@ -69,6 +69,10 @@ export function DashboardPage() {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
   
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
        <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -124,13 +128,20 @@ export function DashboardPage() {
             <CurrencyToggle />
             <ThemeToggle />
             <Button asChild variant="ghost" className="relative h-8 w-8 rounded-full">
-              <Link href="/myprofile">
+              <Link href="/myprofile" className="flex items-center gap-2">
                 <Avatar className="h-9 w-9">
                   <AvatarImage src={user.profilePhotoUrl || ''} alt={user.fullName || user.email || ''} />
                   <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
+                {user.fullName && <span className="hidden lg:inline-block font-semibold">{user.fullName}</span>}
               </Link>
             </Button>
+            <form action={handleSignOut}>
+                <Button variant="ghost" size="icon" type="submit">
+                    <LogOut className="h-5 w-5 text-muted-foreground" />
+                    <span className="sr-only">Sign Out</span>
+                </Button>
+            </form>
           </div>
         </div>
       </header>
