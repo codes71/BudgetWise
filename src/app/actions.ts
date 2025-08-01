@@ -100,6 +100,7 @@ export async function signIn(formData: FormData) {
   const cookieStore = await cookies();
   cookieStore.set('session', session, { expires, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
+  revalidatePath('/');
   redirect('/');
 }
 

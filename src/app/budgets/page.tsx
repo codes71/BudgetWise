@@ -2,26 +2,26 @@
 
 import { useState, useEffect } from 'react';
 import { Landmark, User, Menu, LogOut } from 'lucide-react';
-import type { Budget } from '@/lib/types';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import type { Budget } from '../../lib/types';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { getBudgets, setBudget, signOut } from '@/app/db-actions';
-import { useToast } from '@/hooks/use-toast';
+} from '../../components/ui/select';
+import { getBudgets, setBudget, signOut } from '../db-actions';
+import { useToast } from '../../hooks/use-toast';
 import Link from 'next/link';
-import { ThemeToggle } from '@/components/dashboard/theme-toggle';
-import { useAuth } from '@/context/auth-context';
+import { ThemeToggle } from '../../components/dashboard/theme-toggle';
+import { useAuth } from '../../context/auth-context';
 import { useRouter } from 'next/navigation';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from '../../components/ui/sheet';
+import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
 
 
 const categories = ['Groceries', 'Utilities', 'Entertainment', 'Transport', 'Housing', 'Health', 'Other'];
