@@ -6,11 +6,11 @@
     "predev": "npm run genkit:build",
     "dev": "next dev --turbopack -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
+    "genkit:build": "cross-env GENKIT_TELEMETRY_DISABLED=1 node src/ai/genkit-build.ts dotenv_config_path=.env",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "prebuild": "npm install patch-package",
-    "build": "next build",
+    "build": "npm run genkit:build && next build",
     "postbuild": "patch-package",
-    "genkit:build": "cross-env GENKIT_TELEMETRY_DISABLED=1 genkit build src/ai/genkit.ts",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
@@ -68,7 +68,8 @@
     "recharts": "^2.15.1",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "typescript": "^5.9.2"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -77,7 +78,6 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "postcss": "^8",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "tailwindcss": "^3.4.1"
   }
 }

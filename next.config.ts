@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  webpack: (config) => {
+    config.resolve.fallback = { require: false };
+    config.resolve.alias['@'] = require('path').resolve(__dirname, 'src');
+    return config;
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
