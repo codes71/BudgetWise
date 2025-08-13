@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { verifySession } from '@/lib/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { logger } from '@/lib/logger';
 
 async function getUserId(): Promise<string> {
   const user = await verifySession();
@@ -40,7 +41,7 @@ export async function addTransaction(transaction: Omit<Transaction, 'id' | '_id'
     revalidatePath('/');
     return JSON.parse(JSON.stringify(newTransaction));
   } catch (error) {
-    console.error('Error adding transaction:', error);
+    logger.error('Error adding transaction', error as Error);
     return null;
   }
 }
@@ -54,6 +55,7 @@ export async function setBudget(budget: Omit<Budget, 'userId' | '_id'>): Promise
 }
 
 export async function signOut() {
-  await cookies().set('session', '', { expires: new Date(0) });
+  const cookieStore = await Promise.resolve(cookies());
+  await cookieStore.set('session', '', { expires: new Date(0) });
   redirect('/login');
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, Dispatch, SetStateAction } from 'react';
+import { useRouter } from 'next/navigation';
 import { verifySession } from '@/lib/auth';
 import type { Budget, Transaction } from '@/lib/types';
 
@@ -47,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrency] = useState<Currency>('INR');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     async function checkSession() {
@@ -64,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     checkSession();
-  }, []);
+  }, [router.pathname]);
   
   const handleSignOut = async () => {
     // This will be handled by a server action now, but we can keep a client function for components

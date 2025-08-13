@@ -26,11 +26,7 @@ export default function LoginPage() {
     setShowPassword((prev) => !prev);
   };
 
-  useEffect(() => {
-    if (!loading && user) {
-      router.push('/');
-    }
-  }, [user, loading, router]);
+  
   
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

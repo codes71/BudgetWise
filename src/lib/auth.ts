@@ -21,8 +21,14 @@ interface ExpectedPayload extends JWTPayload {
 }
 
 export async function verifySession() {
-  const sessionCookie = (await cookies()).get('session')?.value;
+  const cookieStore = await cookies();
+  if (!cookieStore) {
+    console.error('No cookie store found');
+    return null;
+  }
+  const sessionCookie = cookieStore.get('session')?.value;
   if (!sessionCookie) {
+    console.error('No session cookie found');
     return null;
   }
 

@@ -10,6 +10,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/logger';
 
 const secretKey = new TextEncoder().encode(process.env.JWT_SECRET || 'your-super-secret-jwt-key-that-is-at-least-32-chars-long');
 
@@ -59,7 +60,7 @@ export async function signUp(formData: FormData) {
     // Automatically sign in the user after registration
     return await signIn(formData);
   } catch (error) {
-    console.error('Error signing up:', error);
+    logger.error('Error signing up', error as Error);
     return { error: 'An unexpected error occurred.' };
   }
 }
@@ -88,8 +89,8 @@ export async function signIn(formData: FormData) {
 
   // Create session
   const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-  const session = await encrypt({ 
-      userId: user._id, 
+  const session = await encrypt({
+      userId: user._id,
       email: user.email,
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
@@ -105,7 +106,7 @@ export async function signIn(formData: FormData) {
 }
 
 export async function signOut() {
-  const cookieStore = await cookies();
+  const cookieStore = await Promise.resolve(cookies());
   cookieStore.set('session', '', { expires: new Date(0) });
   redirect('/login');
 }
@@ -156,7 +157,7 @@ export async function updateUser(formData: FormData) {
         return { success: true, user: JSON.parse(JSON.stringify(updatedUser)) };
 
     } catch (error) {
-        console.error('Error updating user:', error);
+        logger.error('Error updating user', error as Error);
         return { error: 'An unexpected error occurred.' };
     }
 }
@@ -181,7 +182,7 @@ export async function generateSuggestions(transactions: Transaction[], budgets: 
     const result = await getSpendingSuggestions({ historicalData, budgetGoals });
     return { suggestions: result.suggestions };
   } catch (error) {
-    console.error('Error generating suggestions:', error);
+    logger.error('Error generating suggestions', error as Error);
     return { error: 'Failed to generate suggestions. Please try again.' };
   }
 }
@@ -191,7 +192,7 @@ export async function getCategorySuggestion(description: string, categories: str
         const result = await categorizeTransaction({ description, categories });
         return { category: result.category };
     } catch (error) {
-        console.error('Error generating category suggestion:', error);
+        logger.error('Error generating category suggestion', error as Error);
         // Don't return an error to the user, just fail silently
         return { category: '' };
     }

@@ -9,9 +9,16 @@ export default {
   ],
   theme: {
     extend: {
+      container: {
+        center: true,
+        padding: '2rem',
+        screens: {
+          '2xl': '1400px',
+        },
+      },
       fontFamily: {
-        body: ['"PT Sans"', 'sans-serif'],
-        headline: ['"PT Sans"', 'sans-serif'],
+        body: ['"Open Sans"', 'sans-serif'],
+        headline: ['"Open Sans"', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
