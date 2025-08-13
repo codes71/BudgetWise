@@ -18,6 +18,18 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push(
+        '@genkit-ai/googleai',
+        'genkit',
+        'handlebars',
+        'dotprompt'
+      );
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
