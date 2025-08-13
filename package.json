@@ -11,8 +11,7 @@
     "postbuild": "patch-package",
     "genkit:build": "cross-env GENKIT_TELEMETRY_DISABLED=1 genkit start -- tsx src/ai/genkit.ts",
     "start": "next start",
-    "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "lint": "next lint"
   },
   "dependencies": {
     "@genkit-ai/firebase": "^1.15.5",
@@ -77,6 +76,6 @@
     "@types/react-dom": "^18",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.9.2"
+    "typescript": "5.9.2"
   }
 }
