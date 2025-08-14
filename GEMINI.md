@@ -69,3 +69,22 @@
     - Diagnosed an issue where the Next.js development server was performing a full reload instead of using Fast Refresh.
     - Identified the cause as a conflicting `webpack` configuration in `next.config.ts`.
     - Modified the `next.config.ts` file to conditionally apply the `webpack` configuration, enabling Fast Refresh in development while preserving the production configuration.
+
+## Friday, August 15, 2025
+
+### Refactor Logging in Auth Module
+- **Time:** [Current Time - Placeholder]
+- **Details:**
+    - Modified `src/lib/auth.ts` to ensure cookie verification errors are logged only in the `development` environment, not in `production`.
+
+### Enhance Login and Signup Flow
+- **Time:** [Current Time - Placeholder]
+- **Details:**
+    - Updated `signIn` and `signUp` server actions in `src/app/actions.ts` to return `UserPayload` directly.
+    - Ensured `userId` is converted to a string in `src/app/actions.ts` to prevent serialization issues.
+    - Modified `src/app/login/page.tsx` and `src/app/signup/page.tsx` to handle the `UserPayload` return, update `AuthContext`, and perform client-side redirects.
+
+### Fix User Profile Data Fetching
+- **Time:** [Current Time - Placeholder]
+- **Details:**
+    - Corrected the call to `getUserDetails` in `src/app/myprofile/page.tsx` to pass the `userId` argument correctly.

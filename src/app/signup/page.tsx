@@ -32,6 +32,7 @@ export default function SignupPage() {
     }
   }, [user, loading, router]);
   
+  const { setUser } = useAuth();
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -49,15 +50,26 @@ export default function SignupPage() {
         return;
     }
 
-    const result = await signUp(formData);
+    try {
+      const result = await signUp(formData);
 
-    // signUp action now handles redirect on success
-    if (result?.error) {
-       toast({
+      if (result?.error) {
+        toast({
+          variant: 'destructive',
+          title: 'Sign Up Failed',
+          description: result.error,
+        });
+      } else if (result?.user) {
+        setUser(result.user);
+        router.push('/');
+      }
+    } catch (error) {
+      toast({
         variant: 'destructive',
         title: 'Sign Up Failed',
-        description: result.error,
+        description: 'An unexpected error occurred.',
       });
+    } finally {
       setIsSubmitting(false);
     }
   };

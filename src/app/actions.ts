@@ -2,7 +2,7 @@
 
 import { getSpendingSuggestions } from '@/ai/flows/spending-suggestions';
 import { categorizeTransaction } from '@/ai/flows/categorize-transaction';
-import type { Transaction, Budget } from '@/lib/types';
+import type { Transaction, Budget, UserPayload } from '@/lib/types';
 import dbConnect from '@/lib/db';
 import UserModel from '@/lib/models/user';
 import bcrypt from 'bcryptjs';
@@ -34,7 +34,7 @@ async function decrypt(token: string): Promise<any> {
   }
 }
 
-export async function signUp(formData: FormData) {
+export async function signUp(formData: FormData): Promise<{ error: string } | { user: UserPayload }> {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
@@ -66,7 +66,7 @@ export async function signUp(formData: FormData) {
   }
 }
 
-export async function signIn(formData: FormData) {
+export async function signIn(formData: FormData): Promise<{ error: string } | { user: UserPayload }> {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
@@ -90,20 +90,19 @@ export async function signIn(formData: FormData) {
 
   // Create session
   const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-  const session = await encrypt({
-      userId: user._id,
+  const userPayload = {
+      userId: user._id.toString(),
       email: user.email,
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
       profilePhotoUrl: user.profilePhotoUrl,
-      expires 
-    });
+  };
+  const session = await encrypt({ ...userPayload, expires });
 
   const cookieStore = await cookies();
   cookieStore.set('session', session, { expires, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
-  revalidatePath('/');
-  redirect('/');
+  return { user: userPayload };
 }
 
 export async function signOut() {
@@ -144,7 +143,7 @@ export async function updateUser(formData: FormData) {
         // Re-encrypt the session with the new data
         const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
         const newSession = await encrypt({
-            userId: updatedUser._id,
+            userId: updatedUser._id.toString(),
             email: updatedUser.email,
             fullName: updatedUser.fullName,
             phoneNumber: updatedUser.phoneNumber,

@@ -28,6 +28,7 @@ export default function LoginPage() {
 
   
   
+  const { setUser } = useAuth();
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -41,9 +42,16 @@ export default function LoginPage() {
           title: 'Login Failed',
           description: result.error,
         });
+      } else if (result?.user) {
+        setUser(result.user);
+        router.push('/');
       }
     } catch (error) {
-      // Redirects are handled by Next.js, so we don't need to do anything here.
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: 'An unexpected error occurred.',
+      });
     } finally {
       setIsSubmitting(false);
     }

@@ -29,7 +29,7 @@ export default function MyProfilePage() {
       router.push('/login');
     } else if (user && !fullUser) {
       async function fetchFullUser() {
-        const details = await getUserDetails(user.userId);
+        const details = await getUserDetails();
         if (details) {
           setFullUser(details);
         }

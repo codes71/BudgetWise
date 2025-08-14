@@ -1,16 +1,10 @@
 'use server';
 import { cookies } from 'next/headers';
+import { logger } from '@/lib/logger';
 import { jwtVerify, type JWTPayload } from 'jose';
+import { UserPayload } from '@/lib/types';
 
 const secretKey = new TextEncoder().encode(process.env.JWT_SECRET || 'your-super-secret-jwt-key-that-is-at-least-32-chars-long');
-
-export interface UserPayload {
-    userId: string;
-    email: string;
-    fullName?: string;
-    phoneNumber?: string;
-    profilePhotoUrl?: string;
-}
 
 interface ExpectedPayload extends JWTPayload {
   userId?: string;
@@ -23,12 +17,16 @@ interface ExpectedPayload extends JWTPayload {
 export async function verifySession() :Promise<{userId:string} | null> {
   const cookieStore = await cookies();
   if (!cookieStore) {
-    console.error('No cookie store found');
+    if (process.env.NODE_ENV === 'development') {
+      logger.error('No cookie store found');
+    }
     return null;
   }
   const sessionCookie = cookieStore.get('session')?.value;
   if (!sessionCookie) {
-    console.error('No session cookie found');
+    if (process.env.NODE_ENV === 'development') {
+      logger.error('No session cookie found');
+    }
     return null;
   }
 
@@ -39,13 +37,23 @@ export async function verifySession() :Promise<{userId:string} | null> {
 
     // Check if the payload has the expected properties
     if (typeof payload.userId !== 'string' || typeof payload.email !== 'string') {
-        console.error('Invalid payload in session cookie');
+        if (process.env.NODE_ENV === 'development') {
+          logger.error('Invalid payload in session cookie');
+        }
         return null;
     }
 
-    return payload;
+    return {
+      userId: payload.userId,
+      email: payload.email,
+      fullName: payload.fullName || null,
+      phoneNumber: payload.phoneNumber || null,
+      profilePhotoUrl: payload.profilePhotoUrl || null,
+    } as UserPayload;
   } catch (error) {
-    console.error('Failed to verify session:', error);
+    if (process.env.NODE_ENV === 'development') {
+      logger.error('Failed to verify session:', error);
+    }
     return null;
   }
 }

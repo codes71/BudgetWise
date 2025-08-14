@@ -15,3 +15,11 @@ export interface Budget {
   category: string;
   limit: number;
 }
+
+export interface UserPayload {
+  userId: string;
+  email: string;
+  fullName?: string | null;
+  phoneNumber?: string | null;  
+  profilePhotoUrl?: string | null;
+}

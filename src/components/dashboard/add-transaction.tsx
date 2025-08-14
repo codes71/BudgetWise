@@ -57,7 +57,7 @@ const transactionSchema = z.object({
 type TransactionFormData = z.infer<typeof transactionSchema>;
 
 interface AddTransactionProps {
-  onTransactionAdded: (transaction: Omit<Transaction, 'id' | '_id'>) => void;
+  onTransactionAdded: (transaction: Omit<Transaction, 'id' | '_id' | 'userId'>) => void;
   children: ReactNode;
 }
 
@@ -191,7 +191,7 @@ export function AddTransaction({ onTransactionAdded, children }: AddTransactionP
             Enter the details of your new transaction below.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mt-3">
           <input
             type="file"
             accept="image/*"
@@ -209,7 +209,7 @@ export function AddTransaction({ onTransactionAdded, children }: AddTransactionP
           </Button>
         </div>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 ">
              <div className="grid grid-cols-2 gap-4">
                 <FormField
                     control={form.control}
