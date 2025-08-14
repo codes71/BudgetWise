@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     checkSession();
-  }, [router.pathname]);
+  }, []);
   
   const handleSignOut = async () => {
     // This will be handled by a server action now, but we can keep a client function for components

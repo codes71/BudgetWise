@@ -1,4 +1,4 @@
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 import path from 'path';
 
 const nextConfig: NextConfig = {
@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  webpack: (config, { isServer }) => {
+  webpack: process.env.NODE_ENV === 'development' ? undefined : (config, { isServer }) => {
     config.resolve.alias['@'] = path.resolve(__dirname, 'src');
     if (isServer) {
       config.externals = config.externals || [];

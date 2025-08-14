@@ -44,3 +44,28 @@
 - **Details:**
     - Identified that `src/app/signup/page.tsx` was not performing a client-side redirect after successful signup.
     - Modified `src/app/signup/page.tsx` to call `setUser(result.user)` and `router.push('/')` after a successful `signUp` call, similar to the login page.
+
+## Thursday, August 14, 2025
+
+### Implement Delete Transaction Feature
+- **Time:** [Current Time - Placeholder]
+- **Details:**
+    - Investigated how to delete a transaction and found that the functionality was not implemented.
+    - Added a "Delete" button to the `recent-transactions.tsx` component.
+    - Implemented a confirmation dialog to prevent accidental deletions.
+    - Created a `deleteTransaction` server action in `src/app/db-actions.ts` to handle the backend logic.
+    - Connected the frontend to the backend to complete the delete functionality.
+    - Fixed an issue where the UI was not updating after a transaction was deleted by managing the state locally in the `recent-transactions.tsx` component.
+
+### Fix Spending Chart
+- **Time:** [Current Time - Placeholder]
+- **Details:**
+    - Identified an issue where the spending chart would show categories with no spending.
+    - Modified the `SpendingChart.tsx` component to filter out categories with a total spending of 0.
+
+### Fix Next.js Fast Refresh
+- **Time:** [Current Time - Placeholder]
+- **Details:**
+    - Diagnosed an issue where the Next.js development server was performing a full reload instead of using Fast Refresh.
+    - Identified the cause as a conflicting `webpack` configuration in `next.config.ts`.
+    - Modified the `next.config.ts` file to conditionally apply the `webpack` configuration, enabling Fast Refresh in development while preserving the production configuration.

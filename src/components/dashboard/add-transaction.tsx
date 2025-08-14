@@ -61,7 +61,7 @@ interface AddTransactionProps {
   children: ReactNode;
 }
 
-// const expenseCategories = ['Groceries', 'Utilities', 'Entertainment', 'Transport', 'Housing', 'Health','Food and Drink Item', 'Other']; // Removed hardcoded categories
+
 
 export function AddTransaction({ onTransactionAdded, children }: AddTransactionProps) {
   const [open, setOpen] = useState(false);

@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, models, Model } from 'mongoose';
+import mongoose, { Schema, Document, models, Model } from "mongoose";
 
 export interface IUser extends Document {
   email: string;
@@ -16,7 +16,7 @@ const UserSchema = new Schema({
   profilePhotoUrl: { type: String, required: false },
 });
 
-const UserModel = (models.User || 
-  mongoose.model('User', UserSchema)) as Model<IUser>;
+const UserModel = (models.User ||
+  mongoose.model("User", UserSchema)) as Model<IUser>;
 
 export default UserModel;

@@ -22,7 +22,9 @@ async function getUserId(): Promise<string> {
 export async function getTransactions(): Promise<Transaction[]> {
   const userId = await getUserId();
   await dbConnect();
-  const transactions = await TransactionModel.find({ userId }).sort({ date: -1 });
+  const transactions = await TransactionModel.find({ userId }).sort({
+    date: -1,
+  });
   return JSON.parse(JSON.stringify(transactions));
 }
 
@@ -38,11 +40,15 @@ export async function getCategories(): Promise<string[]> {
   const userId = await getUserId(); // Categories can be user-specific or global
   await dbConnect();
   // For now, fetch all categories. Later, can filter by userId if needed.
-  const categories = await CategoryModel.find({ $or: [{ userId: userId }, { userId: { $exists: false } }] });
-  return categories.map(cat => cat.name);
+  const categories = await CategoryModel.find({
+    $or: [{ userId: userId }, { userId: { $exists: false } }],
+  });
+  return categories.map((cat) => cat.name);
 }
 
-export async function addTransaction(transaction: Omit<Transaction, 'id' | '_id' | 'userId'>): Promise<Transaction | null> {
+export async function addTransaction(
+  transaction: Omit<Transaction, 'id' | '_id' | 'userId'>
+): Promise<Transaction | null> {
   const userId = await getUserId();
   await dbConnect();
   try {
@@ -56,12 +62,37 @@ export async function addTransaction(transaction: Omit<Transaction, 'id' | '_id'
   }
 }
 
-export async function setBudget(budget: Omit<Budget, 'userId' | '_id'>): Promise<void> {
+export async function setBudget(
+  budget: Omit<Budget, 'userId' | '_id'>
+): Promise<void> {
   const userId = await getUserId();
   await dbConnect();
-  await BudgetModel.updateOne({ category: budget.category, userId }, { limit: budget.limit }, { upsert: true });
+  await BudgetModel.updateOne(
+    { category: budget.category, userId },
+    { limit: budget.limit },
+    { upsert: true }
+  );
   revalidatePath('/');
   revalidatePath('/budgets');
+}
+
+export async function deleteTransaction(transactionId: string): Promise<{ success: boolean, error?: string }> {
+  try {
+    const userId = await getUserId();
+    await dbConnect();
+
+    const result = await TransactionModel.deleteOne({ _id: transactionId, userId });
+
+    if (result.deletedCount === 0) {
+      return { success: false, error: 'Transaction not found or you do not have permission to delete it.' };
+    }
+
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    logger.error('Error deleting transaction', error as Error);
+    return { success: false, error: 'Failed to delete transaction' };
+  }
 }
 
 export async function signOut() {

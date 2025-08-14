@@ -210,7 +210,7 @@ export async function processScreenshot(base64Image: string) {
     // No need for complex parsing or checks like .output().
 
     // Log the result for debugging
-    logger.info("Successfully extracted data:", { data: extractedData });
+    // logger.info("Successfully extracted data:", { data: extractedData });
 
     return { success: true, data: extractedData };
   } catch (error) {
@@ -222,5 +222,30 @@ export async function processScreenshot(base64Image: string) {
         (error as Error).message ||
         "Failed to process screenshot. Please try again.",
     };
+  }
+}
+export async function getUserDetails() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('session')?.value;
+  if (!sessionCookie) {
+    return null;
+  }
+
+  try {
+    const payload = await decrypt(sessionCookie);
+    if (!payload || !payload.userId) {
+      return null;
+    }
+
+    await dbConnect();
+    const user = await UserModel.findById(payload.userId).select('-password');
+    if (!user) {
+      return null;
+    }
+
+    return JSON.parse(JSON.stringify(user));
+  } catch (error) {
+    logger.error('Error fetching user details', error as Error);
+    return null;
   }
 }

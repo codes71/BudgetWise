@@ -1,5 +1,5 @@
 import { genkit } from 'genkit';
-import { gemini15Flash, googleAI } from '@genkit-ai/googleai';
+import { gemini20Flash, googleAI } from '@genkit-ai/googleai';
 import { z } from 'zod';
 
 // First, create the Genkit instance.
@@ -36,11 +36,11 @@ export const extractTransactionData = ai.defineFlow(
       - Description: A brief description of the transaction.
       - Category Hint: A suggestion for the transaction category (e.g., Food, Travel, Utilities, Shopping).
 
-      If a piece of information is not found, omit it from the output.
+      If a piece of information is not found, omit it from the output. If the photo does not contain any transaction data, return an empty object. 
     `;
 
     const modelResponse = await ai.generate({
-      model: gemini15Flash,
+      model: gemini20Flash,
       prompt: [
         { text: promptText },
         { media: { url: input.image, contentType: 'image/jpeg' } },

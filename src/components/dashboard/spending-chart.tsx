@@ -7,7 +7,9 @@ import { useAuth } from '@/context/auth-context';
 import { formatCurrency } from '@/lib/utils';
 import { getCategories } from '@/app/db-actions'; 
 
-
+interface SpendingChartProps {
+  transactions: Transaction[];
+}
 
 export function SpendingChart({ transactions }: SpendingChartProps) {
   const { currency, categories } = useAuth(); // Get categories from context
@@ -18,11 +20,11 @@ export function SpendingChart({ transactions }: SpendingChartProps) {
       return acc;
     }, {} as Record<string, number>);
 
-  // Generate chartData to include all categories, even if spending is 0
+  // Generate chartData and filter out categories with no spending
   const chartData = categories.map(categoryName => ({
     name: categoryName,
-    spending: spendingByCategory[categoryName] || 0, // Use 0 if no spending
-  }));
+    spending: spendingByCategory[categoryName] || 0,
+  })).filter(item => item.spending > 0);
   
   return (
     <Card className="h-full shadow-sm">
