@@ -43,7 +43,7 @@ export async function verifySession() {
         return null;
     }
 
-    return payload as UserPayload;
+    return payload;
   } catch (error) {
     console.error('Failed to verify session:', error);
     return null;

@@ -11,6 +11,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/logger';
+import { extractTransactionData } from '@/ai/flows/extract-transaction-data';
 
 const secretKey = new TextEncoder().encode(process.env.JWT_SECRET || 'your-super-secret-jwt-key-that-is-at-least-32-chars-long');
 
@@ -196,4 +197,30 @@ export async function getCategorySuggestion(description: string, categories: str
         // Don't return an error to the user, just fail silently
         return { category: '' };
     }
+}
+export async function processScreenshot(base64Image: string) {
+  try {
+    // Call the Genkit flow function directly with the input.
+    // The flow function itself is the callable server action.
+    const extractedData = await extractTransactionData({
+      image: base64Image,
+    });
+
+    // The flow's output is already a structured and validated object.
+    // No need for complex parsing or checks like .output().
+
+    // Log the result for debugging
+    logger.info("Successfully extracted data:", { data: extractedData });
+
+    return { success: true, data: extractedData };
+  } catch (error) {
+    // Catch any errors from the flow's internal logic.
+    logger.error("Error processing screenshot", error as Error);
+    return {
+      success: false,
+      error:
+        (error as Error).message ||
+        "Failed to process screenshot. Please try again.",
+    };
+  }
 }

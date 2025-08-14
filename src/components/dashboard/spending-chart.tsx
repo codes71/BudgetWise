@@ -5,13 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import type { Transaction } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { formatCurrency } from '@/lib/utils';
+import { getCategories } from '@/app/db-actions'; 
 
-interface SpendingChartProps {
-  transactions: Transaction[];
-}
+
 
 export function SpendingChart({ transactions }: SpendingChartProps) {
-  const { currency } = useAuth();
+  const { currency, categories } = useAuth(); // Get categories from context
   const spendingByCategory = transactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
@@ -19,9 +18,10 @@ export function SpendingChart({ transactions }: SpendingChartProps) {
       return acc;
     }, {} as Record<string, number>);
 
-  const chartData = Object.entries(spendingByCategory).map(([category, amount]) => ({
-    name: category,
-    spending: amount,
+  // Generate chartData to include all categories, even if spending is 0
+  const chartData = categories.map(categoryName => ({
+    name: categoryName,
+    spending: spendingByCategory[categoryName] || 0, // Use 0 if no spending
   }));
   
   return (

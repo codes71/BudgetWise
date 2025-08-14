@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, Dispatch, Se
 import { useRouter } from 'next/navigation';
 import { verifySession } from '@/lib/auth';
 import type { Budget, Transaction } from '@/lib/types';
+import { getCategories } from '@/app/db-actions'; // New import
 
 type Currency = 'INR' | 'MMK';
 
@@ -26,6 +27,8 @@ interface AuthContextType {
   setTransactions: Dispatch<SetStateAction<Transaction[]>>;
   budgets: Budget[];
   setBudgets: Dispatch<SetStateAction<Budget[]>>;
+  categories: string[]; // New
+  setCategories: Dispatch<SetStateAction<string[]>>; // New
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -39,6 +42,8 @@ const AuthContext = createContext<AuthContextType>({
   setTransactions: () => {},
   budgets: [],
   setBudgets: () => {},
+  categories: [], // New
+  setCategories: () => {},
 });
 
 
@@ -48,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrency] = useState<Currency>('INR');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [categories, setCategories] = useState<string[]>([]); // New
   const router = useRouter();
 
   useEffect(() => {
@@ -61,6 +67,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             phoneNumber: sessionUser.phoneNumber,
             profilePhotoUrl: sessionUser.profilePhotoUrl,
         });
+        // Fetch categories after user is authenticated
+        try {
+          const fetchedCategories = await getCategories();
+          setCategories(fetchedCategories);
+        } catch (error) {
+          console.error('Failed to fetch categories:', error); // Use logger here later
+        }
       }
       setLoading(false);
     }
@@ -79,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, signOut: handleSignOut, currency, setCurrency, transactions, setTransactions, budgets, setBudgets }}>
+    <AuthContext.Provider value={{ user, setUser, loading, signOut: handleSignOut, currency, setCurrency, transactions, setTransactions, budgets, setBudgets, categories, setCategories }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode, useEffect, useCallback } from 'react';
+import { useState, type ReactNode, useEffect, useCallback, useRef } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -43,7 +43,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Transaction } from '@/lib/types';
-import { getCategorySuggestion } from '@/app/actions';
+import { getCategorySuggestion, processScreenshot } from '@/app/actions';
+import { useAuth } from '@/context/auth-context'; // New import
 
 const transactionSchema = z.object({
   description: z.string().min(1, 'Description is required'),
@@ -60,11 +61,14 @@ interface AddTransactionProps {
   children: ReactNode;
 }
 
-const expenseCategories = ['Groceries', 'Utilities', 'Entertainment', 'Transport', 'Housing', 'Health','Food and Drink Item', 'Other'];
+// const expenseCategories = ['Groceries', 'Utilities', 'Entertainment', 'Transport', 'Housing', 'Health','Food and Drink Item', 'Other']; // Removed hardcoded categories
 
 export function AddTransaction({ onTransactionAdded, children }: AddTransactionProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const { categories } = useAuth(); // Get categories from context
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
@@ -80,16 +84,68 @@ export function AddTransaction({ onTransactionAdded, children }: AddTransactionP
   const transactionType = useWatch({ control: form.control, name: 'type' });
   const description = useWatch({ control: form.control, name: 'description' });
 
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessingImage(true);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64Image = reader.result as string;
+      try {
+        const result = await processScreenshot(base64Image);
+        if (result.success && result.data) {
+          const { amount, date, description: extractedDescription, merchant, transactionId, categoryHint } = result.data; // Added merchant, transactionId, categoryHint
+          if (amount) form.setValue('amount', amount, { shouldValidate: true });
+          if (date) form.setValue('date', new Date(date), { shouldValidate: true });
+          
+          let newDescription = '';
+          if (merchant) newDescription += merchant;
+          if (transactionId) newDescription += ` (ID: ${transactionId})`;
+          if (extractedDescription) newDescription += ` ${extractedDescription}`;
+
+          if (newDescription) form.setValue('description', newDescription.trim(), { shouldValidate: true });
+          
+          if (categoryHint && categories.includes(categoryHint)) { // Use categories from context
+            form.setValue('category', categoryHint, { shouldValidate: true });
+          }
+          toast({
+            title: 'Screenshot Processed',
+            description: 'Transaction details extracted successfully.',
+          });
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Processing Failed',
+            description: result.error || 'Could not extract details from screenshot.',
+          });
+        }
+      } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Processing Error',
+          description: 'An unexpected error occurred during processing.',
+        });
+      } finally {
+        setIsProcessingImage(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''; // Clear the input
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const debouncedCategoryFetch = useCallback(
     debounce(async (desc: string) => {
       if (desc && transactionType === 'expense') {
-        const { category } = await getCategorySuggestion(desc, expenseCategories);
-        if (category && expenseCategories.includes(category)) {
+        const { category } = await getCategorySuggestion(desc, categories); // Use categories from context
+        if (category && categories.includes(category)) { // Use categories from context
           form.setValue('category', category, { shouldValidate: true });
         }
       }
     }, 500),
-    [transactionType, form.setValue]
+    [transactionType, form.setValue, categories] // Add categories to dependency array
   );
 
   useEffect(() => {
@@ -135,6 +191,23 @@ export function AddTransaction({ onTransactionAdded, children }: AddTransactionP
             Enter the details of your new transaction below.
           </DialogDescription>
         </DialogHeader>
+        <div className="flex justify-center mb-4">
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isProcessingImage}
+          >
+            {isProcessingImage ? 'Processing...' : 'Upload Screenshot'}
+          </Button>
+        </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
              <div className="grid grid-cols-2 gap-4">
@@ -200,7 +273,7 @@ export function AddTransaction({ onTransactionAdded, children }: AddTransactionP
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        {expenseCategories.map(category => (
+                        {categories.map(category => (
                             <SelectItem key={category} value={category}>
                             {category}
                             </SelectItem>

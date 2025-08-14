@@ -1,6 +1,12 @@
+'use server';
 import mongoose from 'mongoose';
+import loadConfig from 'next/dist/server/config';
 
-const MONGODB_URI = process.env.MONGODB_URI;
+// const config = loadConfig()
+// if (!config) {;
+//   throw new Error('Failed to load Next.js configuration');
+// }
+const MONGODB_URI = process.env.MONGODB_URI ;
 
 if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable inside .env');

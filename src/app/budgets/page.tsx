@@ -24,13 +24,14 @@ import { Sheet, SheetContent, SheetTrigger, SheetClose } from '../../components/
 import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
 
 
-const categories = ['Groceries', 'Utilities', 'Entertainment', 'Transport', 'Housing', 'Health', 'Other'];
+
 
 export default function BudgetsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [newCategory, setNewCategory] = useState(categories[0]);
+  const { categories } = useAuth();
+  const [newCategory, setNewCategory] = useState(categories.length > 0 ? categories[0] : '');
   const [newLimit, setNewLimit] = useState('');
   const { toast } = useToast();
   

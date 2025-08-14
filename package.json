@@ -9,11 +9,13 @@
     "build": "next build",
     "genkit:build": "cross-env GENKIT_TELEMETRY_DISABLED=1 genkit start -- tsx src/ai/genkit.ts",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:categories": "tsx scripts/seedCategories.ts" 
   },
   "dependencies": {
+    "@genkit-ai/core": "^1.16.1",
     "@genkit-ai/firebase": "^1.15.5",
-    "@genkit-ai/googleai": "^1.15.5",
+    "@genkit-ai/googleai": "^1.16.1",
     "@genkit-ai/next": "^1.15.5",
     "@hookform/resolvers": "^4.1.3",
     "@opentelemetry/exporter-jaeger": "^2.0.1",

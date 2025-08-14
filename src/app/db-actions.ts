@@ -3,6 +3,7 @@
 import dbConnect from '@/lib/db';
 import TransactionModel from '@/lib/models/transaction';
 import BudgetModel from '@/lib/models/budget';
+import CategoryModel from '@/lib/models/category'; // New import
 import type { Transaction, Budget } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { verifySession } from '@/lib/auth';
@@ -30,6 +31,15 @@ export async function getBudgets(): Promise<Budget[]> {
   await dbConnect();
   const budgets = await BudgetModel.find({ userId });
   return JSON.parse(JSON.stringify(budgets));
+}
+
+// New function to get categories
+export async function getCategories(): Promise<string[]> {
+  const userId = await getUserId(); // Categories can be user-specific or global
+  await dbConnect();
+  // For now, fetch all categories. Later, can filter by userId if needed.
+  const categories = await CategoryModel.find({ $or: [{ userId: userId }, { userId: { $exists: false } }] });
+  return categories.map(cat => cat.name);
 }
 
 export async function addTransaction(transaction: Omit<Transaction, 'id' | '_id' | 'userId'>): Promise<Transaction | null> {
