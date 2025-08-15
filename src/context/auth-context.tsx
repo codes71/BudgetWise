@@ -1,10 +1,11 @@
+// src/context/auth-context.tsx
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, Dispatch, SetStateAction } from 'react';
-import { useRouter } from 'next/navigation';
+import { getCategories, getBudgets, getTransactions } from '@/app/db-actions';
 import { verifySession } from '@/lib/auth';
 import type { Budget, Transaction } from '@/lib/types';
-import { getCategories } from '@/app/db-actions'; // New import
+import { signOut as performSignOut } from '@/app/db-actions';
 
 type Currency = 'INR' | 'MMK';
 
@@ -27,8 +28,10 @@ interface AuthContextType {
   setTransactions: Dispatch<SetStateAction<Transaction[]>>;
   budgets: Budget[];
   setBudgets: Dispatch<SetStateAction<Budget[]>>;
-  categories: string[]; // New
-  setCategories: Dispatch<SetStateAction<string[]>>; // New
+  categories: string[];
+  setCategories: Dispatch<SetStateAction<string[]>>;
+  // Add a function to fetch all user data after login
+  fetchUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -42,10 +45,10 @@ const AuthContext = createContext<AuthContextType>({
   setTransactions: () => {},
   budgets: [],
   setBudgets: () => {},
-  categories: [], // New
+  categories: [],
   setCategories: () => {},
+  fetchUserData: async () => {},
 });
-
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -53,46 +56,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrency] = useState<Currency>('INR');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [categories, setCategories] = useState<string[]>([]); // New
-  const router = useRouter();
+  const [categories, setCategories] = useState<string[]>([]);
+
+  // Function to fetch all data for a logged-in user
+  const fetchUserData = async () => {
+    try {
+      const [fetchedCategories, fetchedBudgets, fetchedTransactions] = await Promise.all([
+        getCategories(),
+        getBudgets(),
+        getTransactions(),
+      ]);
+      setCategories(fetchedCategories);
+      setBudgets(fetchedBudgets);
+      setTransactions(fetchedTransactions);
+    } catch (error) {
+      console.error("Failed to fetch user data:", error);
+      // Handle error, e.g., set some error state
+    }
+  };
 
   useEffect(() => {
-    async function checkSession() {
-      const sessionUser = await verifySession();
-      if (sessionUser) {
-        setUser({
+    async function checkSessionAndFetchData() {
+      try {
+        const sessionUser = await verifySession();
+        if (sessionUser) {
+          setUser({
             userId: sessionUser.userId,
             email: sessionUser.email,
             fullName: sessionUser.fullName,
             phoneNumber: sessionUser.phoneNumber,
             profilePhotoUrl: sessionUser.profilePhotoUrl,
-        });
-        // Fetch categories after user is authenticated
-        try {
-          const fetchedCategories = await getCategories();
-          setCategories(fetchedCategories);
-        } catch (error) {
-          console.error('Failed to fetch categories:', error); // Use logger here later
+          });
+          await fetchUserData(); // Fetch data if a session already exists
         }
+      } catch (error) {
+        console.error("Failed to verify session or fetch initial data:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
-
-    checkSession();
+    checkSessionAndFetchData();
   }, []);
-  
+
   const handleSignOut = async () => {
-    // This will be handled by a server action now, but we can keep a client function for components
-    // The actual cookie removal and redirect happens on the server.
-    // For a better UX, we can optimistically update the state.
     setUser(null);
-    // The server action will handle the redirect.
-    // No need to call router.push here.
+    // setLoading(true);
+    await performSignOut();
   };
 
-
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, signOut: handleSignOut, currency, setCurrency, transactions, setTransactions, budgets, setBudgets, categories, setCategories }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        setUser,
+        loading,
+        signOut: handleSignOut,
+        currency,
+        setCurrency,
+        transactions,
+        setTransactions,
+        budgets,
+        setBudgets,
+        categories,
+        setCategories,
+        fetchUserData, // Provide the new function
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

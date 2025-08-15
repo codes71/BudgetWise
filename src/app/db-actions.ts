@@ -21,6 +21,7 @@ async function getUserId(): Promise<string> {
 
 export async function getTransactions(): Promise<Transaction[]> {
   const userId = await getUserId();
+  console.log('Fetching transactions for user:', userId);
   await dbConnect();
   const transactions = await TransactionModel.find({ userId }).sort({
     date: -1,
@@ -43,6 +44,7 @@ export async function getCategories(): Promise<string[]> {
   const categories = await CategoryModel.find({
     $or: [{ userId: userId }, { userId: { $exists: false } }],
   });
+  console.log('Fetched categories');
   return categories.map((cat) => cat.name);
 }
 

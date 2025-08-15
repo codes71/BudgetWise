@@ -21,16 +21,16 @@ interface RecentTransactionsProps {
 const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
 
-export function RecentTransactions({ transactions: initialTransactions }: RecentTransactionsProps) {
-  const { currency } = useAuth();
+export function RecentTransactions() {
+  const { currency,transactions,setTransactions } = useAuth();
   const { toast } = useToast();
-  const [transactions, setTransactions] = useState(initialTransactions);
+  // const [transactions, setTransactions] = useState(initialTransactions);
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
 
-  useEffect(() => {
-    setTransactions(initialTransactions);
-  }, [initialTransactions]);
+  // useEffect(() => {
+  //   setTransactions(initialTransactions);
+  // }, [initialTransactions]);
 
   const sortedTransactions = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 

@@ -13,7 +13,7 @@ import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/logger';
 import { extractTransactionData } from '@/ai/flows/extract-transaction-data';
 
-const secretKey = new TextEncoder().encode(process.env.JWT_SECRET || 'your-super-secret-jwt-key-that-is-at-least-32-chars-long');
+const secretKey = new TextEncoder().encode(process.env.JWT_SECRET);
 
 async function encrypt(payload: any) {
   return new SignJWT(payload)

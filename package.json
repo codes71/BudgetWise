@@ -10,7 +10,7 @@
     "genkit:build": "cross-env GENKIT_TELEMETRY_DISABLED=1 genkit start -- tsx src/ai/genkit.ts",
     "start": "next start",
     "lint": "next lint",
-    "seed:categories": "tsx scripts/seedCategories.ts" 
+    "seed:categories": "tsx scripts/seedCategories.ts"
   },
   "dependencies": {
     "@genkit-ai/core": "^1.16.1",

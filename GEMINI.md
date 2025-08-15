@@ -5,6 +5,7 @@
 ### Initial Context Setup
 - **Time:** [Current Time - I don't have access to the exact current time, so I'll leave this as a placeholder for now.]
 - **Details:** The Gemini CLI session was initiated. The current working directory was identified as `/home/codes/Projects/BudgetWise`, and the folder structure was provided. Operating system was identified as Linux.
+- **User Instructions** - Never run the project after altering a file. only give instruction on how to run them. Before changing a file about anything, display a plan and what we are gonna do and ask for user confirmation, only after that, the modification should happen.
 
 ### Refactor Categories to use DB
 - **Time:** [Current Time - Placeholder]
@@ -88,3 +89,27 @@
 - **Time:** [Current Time - Placeholder]
 - **Details:**
     - Corrected the call to `getUserDetails` in `src/app/myprofile/page.tsx` to pass the `userId` argument correctly.
+
+### Refactor Categories and Budgets to use AuthContext
+- **Time:** [Current Time - Placeholder]
+- **Details:**
+    - Modified `src/context/auth-context.tsx` to fetch categories and budgets from the database upon user session verification, ensuring a single source of truth for this data.
+    - Updated `src/app/budgets/page.tsx` to use `categories` and `budgets` from `useAuth()` and to update the global state after setting/updating a budget. Removed redundant local budget fetching logic.
+    - Removed unused import `getCategories` from `src/components/dashboard/spending-chart.tsx`.
+- **Files Modified:** `src/context/auth-context.tsx`, `src/app/budgets/page.tsx`, `src/components/dashboard/spending-chart.tsx`.
+
+### Enhance Sign Out User Experience and Fix Login Loading Issue
+- **Time:** [Current Time - Placeholder]
+- **Details:**
+    - Identified that the "stuck in loading" issue on the login page after sign-out was caused by `setLoading(true)` in `AuthContext`'s `handleSignOut` function, which conflicted with the subsequent page load's `loading` state.
+    - **Solution (Proposed, but not yet executed):** Remove `setLoading(true)` from `src/context/auth-context.tsx`.
+    - Added a "Signing out, see you soon!" toast notification when the sign-out process is initiated in `src/components/dashboard/dashboard-page.tsx` and `src/app/budgets/page.tsx` (and `src/app/myprofile/page.tsx`'s direct sign-out button) to provide better user feedback during the transition.
+- **Files Modified:** `src/components/dashboard/dashboard-page.tsx`, `src/app/budgets/page.tsx`, `src/app/myprofile/page.tsx`.
+
+### Modularize Navigation Bar
+- **Time:** [Current Time - Placeholder]
+- **Details:**
+    - Created a reusable `AppHeader` component in `src/components/layout/app-header.tsx` to encapsulate the common navigation bar structure.
+    - Replaced the duplicated header code in `src/app/budgets/page.tsx`, `src/components/dashboard/dashboard-page.tsx`, and `src/app/myprofile/page.tsx` with the new `AppHeader` component.
+    - Configured `AppHeader` to accept `activePath` and `rightHandElements` props for customization.
+- **Files Modified:** `src/components/layout/app-header.tsx`, `src/app/budgets/page.tsx`, `src/components/dashboard/dashboard-page.tsx`, `src/app/myprofile/page.tsx`.

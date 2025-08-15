@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Landmark, User, Menu, LogOut } from 'lucide-react';
 import type { Budget } from '../../lib/types';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
@@ -14,22 +13,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select';
-import { getBudgets, setBudget, signOut } from '../db-actions';
+import { setBudget, getBudgets } from '../db-actions'; // signOut removed
 import { useToast } from '../../hooks/use-toast';
-import Link from 'next/link';
-import { ThemeToggle } from '../../components/dashboard/theme-toggle';
 import { useAuth } from '../../context/auth-context';
 import { useRouter } from 'next/navigation';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '../../components/ui/sheet';
-import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
+import { AppHeader } from '../../components/layout/app-header'; // New import
 
 
 
 
 export default function BudgetsPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, budgets, setBudgets} = useAuth();
   const router = useRouter();
-  const [budgets, setBudgets] = useState<Budget[]>([]);
   const { categories } = useAuth();
   const [newCategory, setNewCategory] = useState(categories.length > 0 ? categories[0] : '');
   const [newLimit, setNewLimit] = useState('');
@@ -41,16 +36,7 @@ export default function BudgetsPage() {
     }
   }, [user, loading, router]);
 
-
-  useEffect(() => {
-    if (user) {
-      async function fetchData() {
-        const budgetsData = await getBudgets();
-        setBudgets(budgetsData);
-      }
-      fetchData();
-    }
-  }, [user]);
+  // Removed the local useEffect that fetches budgets, as AuthContext now manages this.
 
   const handleUpdateBudget = async (category: string, limit: string | number) => {
     const numericLimit = typeof limit === 'string' ? parseFloat(limit) : limit;
@@ -64,8 +50,8 @@ export default function BudgetsPage() {
     }
     
     await setBudget({ category, limit: numericLimit });
-    const newBudgets = await getBudgets();
-    setBudgets(newBudgets);
+    const updatedBudgets = await getBudgets(); // Fetch updated budgets
+    setBudgets(updatedBudgets); // Update global state
     toast({
       title: 'Budget Updated',
       description: `Budget for ${category} has been updated.`,
@@ -85,8 +71,8 @@ export default function BudgetsPage() {
     }
     
     await setBudget({ category: newCategory, limit: numericLimit });
-    const newBudgets = await getBudgets();
-    setBudgets(newBudgets);
+    const updatedBudgets = await getBudgets(); // Fetch updated budgets
+    setBudgets(updatedBudgets); // Update global state
     setNewLimit('');
      toast({
       title: 'Budget Set',
@@ -103,71 +89,16 @@ export default function BudgetsPage() {
   }
   
   const handleSignOut = async () => {
+    toast({
+      title: 'Signing Out',
+      description: 'See you soon!',
+    });
     await signOut();
   };
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center px-4 md:px-6">
-          <div className="mr-auto flex items-center">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="md:hidden mr-4">
-                  <Menu className="h-5 w-5" />
-                  <span className="sr-only">Open Menu</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left">
-                <nav className="grid gap-6 text-lg font-medium mt-6">
-                  <SheetClose asChild>
-                    <Link href="/" className="flex items-center gap-2 text-lg font-semibold">
-                      <Landmark className="h-6 w-6 text-primary" />
-                      <span className="sr-only">BudgetWise</span>
-                    </Link>
-                  </SheetClose>
-                  <SheetClose asChild>
-                    <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">Dashboard</Link>
-                  </SheetClose>
-                  <SheetClose asChild>
-                    <Link href="/budgets" className="text-foreground transition-colors hover:text-foreground">Budgets</Link>
-                  </SheetClose>
-                  <SheetClose asChild>
-                    <Link href="/myprofile" className="text-muted-foreground transition-colors hover:text-foreground">My Profile</Link>
-                  </SheetClose>
-                </nav>
-              </SheetContent>
-            </Sheet>
-            <Link className="mr-6 flex items-center space-x-2" href="/">
-              <Landmark className="h-6 w-6 text-primary" />
-              <span className="font-bold sm:inline-block">
-                BudgetWise
-              </span>
-            </Link>
-             <nav className="hidden items-center space-x-6 text-sm font-medium md:flex">
-              <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">Dashboard</Link>
-              <Link href="/budgets" className="text-foreground transition-colors hover:text-foreground">Budgets</Link>
-              <Link href="/myprofile" className="text-muted-foreground transition-colors hover:text-foreground">My Profile</Link>
-            </nav>
-          </div>
-          <div className="flex items-center justify-end gap-2 sm:gap-4">
-            <ThemeToggle />
-            <Link href="/myprofile" className="flex items-center gap-2">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={user.profilePhotoUrl || ''} alt={user.fullName || user.email || ''} />
-                <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              {user.fullName && <span className="hidden lg:inline-block font-semibold">{user.fullName}</span>}
-            </Link>
-            <form action={handleSignOut}>
-                <Button variant="ghost" size="icon" type="submit" aria-label="Sign Out">
-                    <LogOut className="h-5 w-5 text-muted-foreground" />
-                    <span className="sr-only">Sign Out</span>
-                </Button>
-            </form>
-          </div>
-        </div>
-      </header>
+      <AppHeader activePath="/budgets" />
 
       <main className="flex-1 container py-6 px-4 md:px-6">
         <div className="space-y-6">

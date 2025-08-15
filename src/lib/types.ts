@@ -8,7 +8,10 @@ export interface Transaction {
   category: string;
   type: 'income' | 'expense';
 }
-
+export interface Category {
+  id: string;
+  name: string;
+}
 export interface Budget {
   _id: string;
   userId: string;
