@@ -3,23 +3,16 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode, Dispatch, SetStateAction } from 'react';
 import { getCategories, getBudgets, getTransactions } from '@/app/db-actions';
+import { getUserDetails } from '@/app/actions'; // New import for fetching user details
 import { verifySession } from '@/lib/auth';
-import type { Budget, Transaction } from '@/lib/types';
+import type { Budget, Transaction, UserPayload } from '@/lib/types';
 import { signOut as performSignOut } from '@/app/db-actions';
 
 type Currency = 'INR' | 'MMK';
 
-interface User {
-  userId: string;
-  email: string;
-  fullName?: string | null;
-  phoneNumber?: string | null;
-  profilePhotoUrl?: string | null;
-}
-
 interface AuthContextType {
-  user: User | null;
-  setUser: Dispatch<SetStateAction<User | null>>;
+  user: UserPayload | null;
+  setUser: Dispatch<SetStateAction<UserPayload | null>>;
   loading: boolean;
   signOut: () => Promise<void>;
   currency: Currency;
@@ -30,8 +23,8 @@ interface AuthContextType {
   setBudgets: Dispatch<SetStateAction<Budget[]>>;
   categories: string[];
   setCategories: Dispatch<SetStateAction<string[]>>;
-  // Add a function to fetch all user data after login
   fetchUserData: () => Promise<void>;
+  handleLogin: (user: UserPayload) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -48,30 +41,33 @@ const AuthContext = createContext<AuthContextType>({
   categories: [],
   setCategories: () => {},
   fetchUserData: async () => {},
+  handleLogin: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState<Currency>('INR');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
 
-  // Function to fetch all data for a logged-in user
   const fetchUserData = async () => {
     try {
-      const [fetchedCategories, fetchedBudgets, fetchedTransactions] = await Promise.all([
+      const [fetchedCategories, fetchedBudgets, fetchedTransactions, userDetails] = await Promise.all([
         getCategories(),
         getBudgets(),
         getTransactions(),
+        getUserDetails(),
       ]);
       setCategories(fetchedCategories);
       setBudgets(fetchedBudgets);
       setTransactions(fetchedTransactions);
+      if (userDetails) {
+        setUser(userDetails);
+      }
     } catch (error) {
       console.error("Failed to fetch user data:", error);
-      // Handle error, e.g., set some error state
     }
   };
 
@@ -80,14 +76,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const sessionUser = await verifySession();
         if (sessionUser) {
-          setUser({
-            userId: sessionUser.userId,
-            email: sessionUser.email,
-            fullName: sessionUser.fullName,
-            phoneNumber: sessionUser.phoneNumber,
-            profilePhotoUrl: sessionUser.profilePhotoUrl,
-          });
-          await fetchUserData(); // Fetch data if a session already exists
+          await fetchUserData();
+        } else {
+          setUser(null);
         }
       } catch (error) {
         console.error("Failed to verify session or fetch initial data:", error);
@@ -97,6 +88,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     checkSessionAndFetchData();
   }, []);
+
+  const handleLogin = async (user: UserPayload) => {
+    setUser(user);
+    await fetchUserData();
+  };
 
   const handleSignOut = async () => {
     setUser(null);
@@ -119,7 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setBudgets,
         categories,
         setCategories,
-        fetchUserData, // Provide the new function
+        fetchUserData,
+        handleLogin,
       }}
     >
       {children}

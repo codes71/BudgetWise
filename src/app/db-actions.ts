@@ -66,16 +66,25 @@ export async function addTransaction(
 
 export async function setBudget(
   budget: Omit<Budget, 'userId' | '_id'>
-): Promise<void> {
-  const userId = await getUserId();
-  await dbConnect();
-  await BudgetModel.updateOne(
-    { category: budget.category, userId },
-    { limit: budget.limit },
-    { upsert: true }
-  );
-  revalidatePath('/');
-  revalidatePath('/budgets');
+): Promise<Budget | null> {
+  try {
+    const userId = await getUserId();
+    await dbConnect();
+    
+    const updatedBudget = await BudgetModel.findOneAndUpdate(
+      { category: budget.category, userId },
+      { limit: budget.limit },
+      { new: true, upsert: true, runValidators: true }
+    );
+
+    revalidatePath('/');
+    revalidatePath('/budgets');
+    
+    return JSON.parse(JSON.stringify(updatedBudget));
+  } catch (error) {
+    logger.error('Error setting budget', error as Error);
+    return null;
+  }
 }
 
 export async function deleteTransaction(transactionId: string): Promise<{ success: boolean, error?: string }> {

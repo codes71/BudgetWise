@@ -40,13 +40,37 @@ export function DashboardPage() {
   const handleTransactionAdded = async (
     transaction: Omit<Transaction, "id" | "_id" | "userId">
   ) => {
-    const newTransaction = await addTx(transaction);
-    if (newTransaction) {
-      const updatedTransactions = [newTransaction, ...transactions];
-      setTransactions(updatedTransactions);
-      // To ensure budgets and categories are up-to-date after adding a transaction,
-      // you might need to re-fetch them. A better approach would be to update
-      // them optimistically or to have the server action return updated budgets.
+    const optimisticTransaction: Transaction = {
+      _id: `optimistic-${Date.now()}`,
+      ...transaction,
+      userId: user!.userId, // Assume user is logged in
+    };
+
+    // Optimistically update the UI
+    setTransactions([optimisticTransaction, ...transactions]);
+
+    try {
+      const newTransaction = await addTx(transaction);
+      if (newTransaction) {
+        // Replace the optimistic transaction with the real one from the server
+        setTransactions(currentTransactions =>
+          currentTransactions.map(t =>
+            t._id === optimisticTransaction._id ? newTransaction : t
+          )
+        );
+      } else {
+        throw new Error("Failed to add transaction");
+      }
+    } catch (error) {
+      // If the API call fails, revert the optimistic update
+      setTransactions(currentTransactions =>
+        currentTransactions.filter(t => t._id !== optimisticTransaction._id)
+      );
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add transaction. Please try again.",
+      });
     }
   };
 

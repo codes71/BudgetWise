@@ -14,7 +14,7 @@ import { signIn } from '@/app/actions';
 
 export default function LoginPage() {
   // 1. Call all hooks unconditionally at the top of the component
-  const { user, loading, setUser, fetchUserData } = useAuth();
+  const { user, loading, handleLogin } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,8 +45,7 @@ export default function LoginPage() {
           description: result.error,
         });
       } else if (result?.user) {
-        setUser(result.user);
-        await fetchUserData();
+        await handleLogin(result.user);
         router.push('/');
       }
     } catch (error) {

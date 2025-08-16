@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select';
-import { setBudget, getBudgets } from '../db-actions'; // signOut removed
+import { setBudget } from '../db-actions'; // signOut removed
 import { useToast } from '../../hooks/use-toast';
 import { useAuth } from '../../context/auth-context';
 import { useRouter } from 'next/navigation';
@@ -48,10 +48,12 @@ export default function BudgetsPage() {
       });
       return;
     }
-    
-    await setBudget({ category, limit: numericLimit });
-    const updatedBudgets = await getBudgets(); // Fetch updated budgets
-    setBudgets(updatedBudgets); // Update global state
+
+    const updatedBudget = await setBudget({ category, limit: numericLimit });
+    if (updatedBudget) {
+      setBudgets(budgets.map(b => b.category === category ? updatedBudget : b));
+    } 
+
     toast({
       title: 'Budget Updated',
       description: `Budget for ${category} has been updated.`,
@@ -61,7 +63,7 @@ export default function BudgetsPage() {
   const handleAddBudget = async (e: React.FormEvent) => {
     e.preventDefault();
     const numericLimit = parseFloat(newLimit);
-     if (isNaN(numericLimit) || numericLimit <= 0) {
+    if (isNaN(numericLimit) || numericLimit <= 0) {
       toast({
         variant: 'destructive',
         title: 'Invalid Input',
@@ -69,12 +71,14 @@ export default function BudgetsPage() {
       });
       return;
     }
+
+    const newBudget = await setBudget({ category: newCategory, limit: numericLimit });
+    if (newBudget) {
+        setBudgets([...budgets, newBudget]);
+    }
     
-    await setBudget({ category: newCategory, limit: numericLimit });
-    const updatedBudgets = await getBudgets(); // Fetch updated budgets
-    setBudgets(updatedBudgets); // Update global state
     setNewLimit('');
-     toast({
+    toast({
       title: 'Budget Set',
       description: `Budget for ${newCategory} has been set.`,
     });
