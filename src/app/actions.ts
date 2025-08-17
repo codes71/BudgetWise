@@ -93,7 +93,7 @@ export async function signIn(formData: FormData): Promise<{ error: string } | { 
   // Create session
   const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
   const userPayload = {
-      userId: user._id.toString(),
+      userId: (user._id as mongoose.Types.ObjectId).toString(),
       email: user.email,
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
@@ -131,7 +131,7 @@ export async function signInAsGuest(): Promise<{ error?: string; user?: UserPayl
   }
 }
 
-export async function signOut(redirectTo: string = '/login') {
+export async function signOut(redirectTo: string = '/') {
   const cookieStore = await Promise.resolve(cookies());
   cookieStore.set('session', '', { expires: new Date(0) });
   redirect(redirectTo);
@@ -169,7 +169,7 @@ export async function updateUser(formData: FormData) {
         // Re-encrypt the session with the new data
         const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
         const newSession = await encrypt({
-            userId: updatedUser._id.toString(),
+            userId: updatedUser._id,
             email: updatedUser.email,
             fullName: updatedUser.fullName,
             phoneNumber: updatedUser.phoneNumber,

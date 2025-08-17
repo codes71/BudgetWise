@@ -113,3 +113,16 @@
     - Replaced the duplicated header code in `src/app/budgets/page.tsx`, `src/components/dashboard/dashboard-page.tsx`, and `src/app/myprofile/page.tsx` with the new `AppHeader` component.
     - Configured `AppHeader` to accept `activePath` and `rightHandElements` props for customization.
 - **Files Modified:** `src/components/layout/app-header.tsx`, `src/app/budgets/page.tsx`, `src/components/dashboard/dashboard-page.tsx`, `src/app/myprofile/page.tsx`.
+
+## Sunday, August 17, 2025
+
+### Finalize "Dashboard 2.0" Features
+- **Time:** [Current Time - Placeholder]
+- **Details:**
+    - **Guest Dashboard Experience:** Implemented a system to provide a rich demo for guest users. The `AuthContext` now detects a guest session and populates the dashboard with hardcoded sample data from a new `src/lib/guest-data.ts` file. Actions unavailable to guests (like adding or deleting transactions) are now disabled and show a toast notification prompting the user to sign up.
+    - **Enhanced Landing Page:** Overhauled the main landing page (`/`) to be more informative. Replaced the dummy preview with a detailed "Features" section and added an "About the Developer" card.
+    - **Corrected User Information:** Fixed an error where an incorrect, fabricated developer name was displayed. Corrected the name to "Thura Kyaw" and saved this information for future interactions.
+    - **Improved Sign-Out Flow:** Changed the default sign-out redirect destination from `/login` to the main landing page (`/`) for a better user experience.
+    - **Themed 404 Page:** Redesigned the "Not Found" page to match the application's visual theme.
+    - **Finalized Documentation:** Updated the `Issues.md` file to mark the "Dashboard 2.0" project as complete and added a summary of the final implementation.
+- **Files Modified:** `src/context/auth-context.tsx`, `src/lib/guest-data.ts`, `src/app/page.tsx`, `src/components/dashboard/dashboard-page.tsx`, `src/components/dashboard/recent-transactions.tsx`, `src/app/actions.ts`, `src/app/not-found.tsx`, `Issues.md`, `GEMINI.md`.

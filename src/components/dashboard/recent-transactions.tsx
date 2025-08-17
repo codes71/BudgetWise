@@ -22,9 +22,8 @@ const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
 
 export function RecentTransactions() {
-  const { currency,transactions,setTransactions } = useAuth();
+  const { user, currency, transactions, setTransactions } = useAuth();
   const { toast } = useToast();
-  // const [transactions, setTransactions] = useState(initialTransactions);
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
 
@@ -49,6 +48,15 @@ export function RecentTransactions() {
   };
 
   const handleConfirmDelete = async () => {
+    if (user?.isGuest) {
+      toast({
+        title: 'Feature Locked',
+        description: 'Sign up or log in to delete transactions.',
+      });
+      setTransactionToDelete(null);
+      return;
+    }
+
     if (transactionToDelete) {
       const result = await deleteTransaction(transactionToDelete._id);
       if (result.success) {

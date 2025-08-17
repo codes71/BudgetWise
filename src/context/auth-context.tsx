@@ -6,6 +6,7 @@ import { getCategories, getBudgets, getTransactions } from '@/app/db-actions';
 import { getUserDetails } from '@/app/actions'; // New import for fetching user details
 import { verifySession } from '@/lib/auth';
 import type { Budget, Transaction, UserPayload } from '@/lib/types';
+import { guestBudgets, guestCategories, guestTransactions } from '@/lib/guest-data';
 import { signOut as performSignOut } from '@/app/actions';
 
 type Currency = 'INR' | 'MMK';
@@ -71,12 +72,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const fetchGuestUserData = (guestUser: UserPayload) => {
+    setUser(guestUser);
+    setCategories(guestCategories);
+    setTransactions(guestTransactions);
+    setBudgets(guestBudgets);
+  };
+
   useEffect(() => {
     async function checkSessionAndFetchData() {
       try {
         const sessionUser = await verifySession();
         if (sessionUser) {
-          await fetchUserData();
+          if (sessionUser.isGuest) {
+            fetchGuestUserData(sessionUser);
+          } else {
+            await fetchUserData();
+          }
         } else {
           setUser(null);
         }
@@ -90,12 +102,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleLogin = async (user: UserPayload) => {
-    setUser(user);
-    await fetchUserData();
+    if (user.isGuest) {
+      fetchGuestUserData(user);
+    } else {
+      setUser(user);
+      await fetchUserData();
+    }
   };
 
   const handleSignOut = async (redirectTo?: string) => {
     setUser(null);
+    setTransactions([]);
+    setBudgets([]);
+    setCategories([]);
     await performSignOut(redirectTo);
   };
 

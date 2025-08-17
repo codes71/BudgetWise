@@ -14,7 +14,7 @@ interface ExpectedPayload extends JWTPayload {
   profilePhotoUrl?: string;
 }
 
-export async function verifySession() :Promise<{userId:string} | null> {
+export async function verifySession(): Promise<UserPayload | null> {
   const cookieStore = await cookies();
   if (!cookieStore) {
     if (process.env.NODE_ENV === 'development') {

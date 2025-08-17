@@ -81,17 +81,20 @@ export function DashboardPage() {
       <AppHeader
         activePath="/dashboard"
         rightHandElements={
-          <>
-            <AddTransaction onTransactionAdded={handleTransactionAdded}>
-              <Button>
-                <PlusCircle className="h-5 w-5" />
-                <span className="hidden sm:inline-block sm:ml-2">
-                  Add Transaction
-                </span>
-              </Button>
-            </AddTransaction>
-            <CurrencyToggle />
-          </>
+          // Only show the Add Transaction and Currency Toggle buttons to real, logged-in users
+          !user?.isGuest && (
+            <>
+              <AddTransaction onTransactionAdded={handleTransactionAdded}>
+                <Button>
+                  <PlusCircle className="h-5 w-5" />
+                  <span className="hidden sm:inline-block sm:ml-2">
+                    Add Transaction
+                  </span>
+                </Button>
+              </AddTransaction>
+              <CurrencyToggle />
+            </>
+          )
         }
       />
 
