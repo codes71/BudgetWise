@@ -25,4 +25,6 @@ export interface UserPayload {
   fullName?: string | null;
   phoneNumber?: string | null;  
   profilePhotoUrl?: string | null;
+  isGuest?: boolean;
+  createdAt?: string; // ISO date string
 }

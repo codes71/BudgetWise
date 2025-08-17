@@ -6,7 +6,7 @@ import { getCategories, getBudgets, getTransactions } from '@/app/db-actions';
 import { getUserDetails } from '@/app/actions'; // New import for fetching user details
 import { verifySession } from '@/lib/auth';
 import type { Budget, Transaction, UserPayload } from '@/lib/types';
-import { signOut as performSignOut } from '@/app/db-actions';
+import { signOut as performSignOut } from '@/app/actions';
 
 type Currency = 'INR' | 'MMK';
 
@@ -14,7 +14,7 @@ interface AuthContextType {
   user: UserPayload | null;
   setUser: Dispatch<SetStateAction<UserPayload | null>>;
   loading: boolean;
-  signOut: () => Promise<void>;
+  signOut: (redirectTo?: string) => Promise<void>;
   currency: Currency;
   setCurrency: Dispatch<SetStateAction<Currency>>;
   transactions: Transaction[];
@@ -94,10 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetchUserData();
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (redirectTo?: string) => {
     setUser(null);
-    // setLoading(true);
-    await performSignOut();
+    await performSignOut(redirectTo);
   };
 
   return (

@@ -13,6 +13,8 @@ import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/logger';
 import { extractTransactionData } from '@/ai/flows/extract-transaction-data';
 
+import mongoose from 'mongoose';
+
 const secretKey = new TextEncoder().encode(process.env.JWT_SECRET);
 
 async function encrypt(payload: any) {
@@ -96,6 +98,7 @@ export async function signIn(formData: FormData): Promise<{ error: string } | { 
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
       profilePhotoUrl: user.profilePhotoUrl,
+      createdAt: user.createdAt ? user.createdAt.toISOString() : undefined,
   };
   const session = await encrypt({ ...userPayload, expires });
 
@@ -105,10 +108,33 @@ export async function signIn(formData: FormData): Promise<{ error: string } | { 
   return { user: userPayload };
 }
 
-export async function signOut() {
+export async function signInAsGuest(): Promise<{ error?: string; user?: UserPayload }> {
+  try {
+    const guestId = `guest-${Date.now()}`;
+    const userPayload: UserPayload = {
+      userId: guestId,
+      email: `${guestId}@example.com`,
+      fullName: 'Guest User',
+      isGuest: true,
+    };
+
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const session = await encrypt({ ...userPayload, expires });
+
+    const cookieStore = await cookies();
+    cookieStore.set('session', session, { expires, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+
+    return { user: userPayload };
+  } catch (error) {
+    logger.error('Error signing in as guest', error as Error);
+    return { error: 'An unexpected error occurred during guest sign-in.' };
+  }
+}
+
+export async function signOut(redirectTo: string = '/login') {
   const cookieStore = await Promise.resolve(cookies());
   cookieStore.set('session', '', { expires: new Date(0) });
-  redirect('/login');
+  redirect(redirectTo);
 }
 
 export async function updateUser(formData: FormData) {
@@ -148,6 +174,7 @@ export async function updateUser(formData: FormData) {
             fullName: updatedUser.fullName,
             phoneNumber: updatedUser.phoneNumber,
             profilePhotoUrl: updatedUser.profilePhotoUrl,
+            createdAt: updatedUser.createdAt.toISOString(),
             expires
         });
         const cookieStore = await cookies();
@@ -236,13 +263,22 @@ export async function getUserDetails() {
       return null;
     }
 
-    await dbConnect();
-    const user = await UserModel.findById(payload.userId).select('-password');
-    if (!user) {
-      return null;
+    // If it's a guest user, return the payload directly as they are not in the DB
+    if (payload.isGuest) {
+      return payload;
     }
 
-    return JSON.parse(JSON.stringify(user));
+    await dbConnect();
+    // Only query the database if it's a regular user with a valid ObjectId
+    if (mongoose.Types.ObjectId.isValid(payload.userId)) {
+      const user = await UserModel.findById(payload.userId).select('-password');
+      if (!user) {
+        return null;
+      }
+      return JSON.parse(JSON.stringify(user));
+    }
+    // This case should ideally not happen for non-guest users, but as a fallback
+    return null;
   } catch (error) {
     logger.error('Error fetching user details', error as Error);
     return null;

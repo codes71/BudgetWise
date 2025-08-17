@@ -23,7 +23,7 @@ export default function LoginPage() {
   // 2. The useEffect hook must be called on every render
   useEffect(() => {
     if (user) {
-      router.push('/');
+      router.push('/dashboard');
     }
   }, [user, router]); // Dependency array ensures it only runs when 'user' or 'router' changes
 
@@ -46,7 +46,7 @@ export default function LoginPage() {
         });
       } else if (result?.user) {
         await handleLogin(result.user);
-        router.push('/');
+        router.push('/dashboard');
       }
     } catch (error) {
       toast({

@@ -13,7 +13,6 @@ import { CurrencyToggle } from "./currency-toggle";
 import { AddTransaction } from "./add-transaction";
 import { addTransaction as addTx } from "@/app/db-actions";
 import { useAuth } from "@/context/auth-context";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { AppHeader } from "@/components/layout/app-header"; // New import
 
@@ -21,21 +20,13 @@ export function DashboardPage() {
   // Call all hooks unconditionally at the top of the function
   const {
     user,
-    loading,
     transactions,
     budgets,
     setTransactions,
     signOut,
   } = useAuth();
   
-  const router = useRouter();
   const { toast } = useToast(); // New
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
-    }
-  }, [user, loading, router]);
 
   const handleTransactionAdded = async (
     transaction: Omit<Transaction, "id" | "_id" | "userId">
@@ -85,19 +76,10 @@ export function DashboardPage() {
     return { income, expenses, balance };
   }, [transactions]);
 
-  // Use a single conditional render based on the loading state
-  if (loading || !user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        Loading...
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col min-h-screen">
       <AppHeader
-        activePath="/"
+        activePath="/dashboard"
         rightHandElements={
           <>
             <AddTransaction onTransactionAdded={handleTransactionAdded}>

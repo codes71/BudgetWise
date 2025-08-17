@@ -25,7 +25,29 @@ export function AppHeader({ activePath, rightHandElements }: AppHeaderProps) {
       title: 'Signed Out',
       description: 'See you soon!',
     });
+    // No redirect path provided, so it will use the default '/login'
     await signOut();
+  };
+
+  const handleGuestRedirect = async (path: string) => {
+    try {
+      // For guests, we provide the specific path to redirect to after sign-out.
+      await signOut(path);
+    } catch (error: any) {
+      // The signOut action throws a NEXT_REDIRECT error when it calls redirect().
+      // This is expected behavior. We need to catch it to prevent the app from crashing.
+      if (error.digest?.startsWith('NEXT_REDIRECT')) {
+        // We can safely ignore this error as the redirect is already happening.
+      } else {
+        // Handle any other unexpected errors
+        console.error('An unexpected error occurred during sign out:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Could not sign out. Please try again.',
+        });
+      }
+    }
   };
 
   // Helper function to determine active link class
@@ -49,13 +71,13 @@ export function AppHeader({ activePath, rightHandElements }: AppHeaderProps) {
             <SheetContent side="left">
               <nav className="grid gap-6 text-lg font-medium mt-6">
                 <SheetClose asChild>
-                  <Link href="/" className="flex items-center gap-2 text-lg font-semibold">
+                  <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold">
                     <img src="/logo.png" alt="BudgetWise Logo" className="h-10 w-10" />
                     <span className="sr-only">BudgetWise</span>
                   </Link>
                 </SheetClose>
                 <SheetClose asChild>
-                  <Link href="/" className={getLinkClassName('/')}>Dashboard</Link>
+                  <Link href="/dashboard" className={getLinkClassName('/dashboard')}>Dashboard</Link>
                 </SheetClose>
                 <SheetClose asChild>
                   <Link href="/budgets" className={getLinkClassName('/budgets')}>Budgets</Link>
@@ -66,32 +88,52 @@ export function AppHeader({ activePath, rightHandElements }: AppHeaderProps) {
               </nav>
             </SheetContent>
           </Sheet>
-          <Link className="mr-6 flex items-center space-x-2" href="/">
+          <Link className="mr-6 flex items-center space-x-2" href="/dashboard">
             <img src="/logo.png" alt="BudgetWise Logo" className="h-10 w-10" />
             <span className="font-bold sm:inline-block">BudgetWise</span>
           </Link>
           <nav className="hidden items-center space-x-6 text-sm font-medium md:flex">
-            <Link href="/" className={getLinkClassName('/')}>Dashboard</Link>
+            <Link href="/dashboard" className={getLinkClassName('/dashboard')}>Dashboard</Link>
             <Link href="/budgets" className={getLinkClassName('/budgets')}>Budgets</Link>
             <Link href="/myprofile" className={getLinkClassName('/myprofile')}>My Profile</Link>
           </nav>
         </div>
         <div className="flex items-center justify-end gap-2 sm:gap-4">
-          {rightHandElements} {/* Render varying elements here */}
+          {rightHandElements}
           <ThemeToggle />
-          <Link href="/myprofile" className="flex items-center gap-2">
-            <Avatar className="h-9 w-9">
-              <AvatarImage src={user?.profilePhotoUrl || ''} alt={user?.fullName || user?.email || ''} />
-              <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            {user?.fullName && <span className="hidden lg:inline-block font-semibold">{user.fullName}</span>}
-          </Link>
-          <form action={handleSignOut}>
-            <Button variant="ghost" size="icon" type="submit" aria-label="Sign Out">
-              <LogOut className="h-5 w-5 text-muted-foreground" />
-              <span className="sr-only">Sign Out</span>
-            </Button>
-          </form>
+          {user?.isGuest ? (
+            <>
+              <span className="text-sm font-medium text-muted-foreground hidden sm:inline-block">Guest Mode</span>
+              <Button variant="outline" onClick={() => handleGuestRedirect('/login')}>
+                Log In
+              </Button>
+              <Button onClick={() => handleGuestRedirect('/signup')}>
+                Sign Up
+              </Button>
+              <form action={handleSignOut}>
+                <Button variant="ghost" size="icon" type="submit" aria-label="Sign Out">
+                  <LogOut className="h-5 w-5 text-muted-foreground" />
+                  <span className="sr-only">Sign Out</span>
+                </Button>
+              </form>
+            </>
+          ) : (
+            <>
+              <Link href="/myprofile" className="flex items-center gap-2">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={user?.profilePhotoUrl || ''} alt={user?.fullName || user?.email || ''} />
+                  <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                {user?.fullName && <span className="hidden lg:inline-block font-semibold">{user.fullName}</span>}
+              </Link>
+              <form action={handleSignOut}>
+                <Button variant="ghost" size="icon" type="submit" aria-label="Sign Out">
+                  <LogOut className="h-5 w-5 text-muted-foreground" />
+                  <span className="sr-only">Sign Out</span>
+                </Button>
+              </form>
+            </>
+          )}
         </div>
       </div>
     </header>

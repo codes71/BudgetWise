@@ -1,40 +1,32 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { Budget } from '../../lib/types';
-import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
+import type { Budget } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../components/ui/select';
-import { setBudget } from '../db-actions'; // signOut removed
-import { useToast } from '../../hooks/use-toast';
-import { useAuth } from '../../context/auth-context';
-import { useRouter } from 'next/navigation';
-import { AppHeader } from '../../components/layout/app-header'; // New import
+} from '@/components/ui/select';
+import { setBudget } from '@/app/db-actions';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/auth-context';
+import { AppHeader } from '@/components/layout/app-header';
 
 
 
 
 export default function BudgetsPage() {
-  const { user, loading, budgets, setBudgets} = useAuth();
-  const router = useRouter();
+  const { user, budgets, setBudgets, signOut} = useAuth();
   const { categories } = useAuth();
   const [newCategory, setNewCategory] = useState(categories.length > 0 ? categories[0] : '');
   const [newLimit, setNewLimit] = useState('');
   const { toast } = useToast();
-  
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
 
   // Removed the local useEffect that fetches budgets, as AuthContext now manages this.
 
@@ -87,10 +79,6 @@ export default function BudgetsPage() {
   const handleLimitChange = (category: string, newLimit: string) => {
     setBudgets(budgets.map(b => b.category === category ? { ...b, limit: parseFloat(newLimit) || 0 } : b));
   };
-  
-  if (loading || !user) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  }
   
   const handleSignOut = async () => {
     toast({

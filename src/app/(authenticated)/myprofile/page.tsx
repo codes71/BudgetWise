@@ -1,8 +1,7 @@
 'use client';
 
 import { useAuth } from '@/context/auth-context';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -13,16 +12,9 @@ import { useToast } from '@/hooks/use-toast';
 import { AppHeader } from '@/components/layout/app-header';
 
 export default function MyProfilePage() {
-  const { user, loading, setUser, signOut } = useAuth();
-  const router = useRouter();
+  const { user, setUser, signOut } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
 
   const handleProfileUpdate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -46,10 +38,6 @@ export default function MyProfilePage() {
     }
     setIsSubmitting(false);
   };
-  
-  if (loading || !user) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  }
   
   const getInitials = (name?: string | null) => {
     if (!name) return user?.email?.charAt(0).toUpperCase() || '?';
@@ -100,6 +88,10 @@ export default function MyProfilePage() {
                                     <div className="grid gap-2">
                                         <Label htmlFor="phoneNumber">Phone Number</Label>
                                         <Input id="phoneNumber" name="phoneNumber" type="tel" defaultValue={user.phoneNumber || ''} placeholder="+1 (555) 123-4567" />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="createdAt">Member Since</Label>
+                                        <Input id="createdAt" type="text" defaultValue={user.createdAt ? new Date(user.createdAt).toLocaleDateString() : ''} readOnly disabled />
                                     </div>
                                 </div>
                             </CardContent>
