@@ -1,88 +1,117 @@
 # BudgetWise 💰📊✨
 
-BudgetWise is your intelligent personal finance companion, designed to help you effortlessly track your expenses, manage your budgets, and gain insights into your spending habits. With AI-powered suggestions and a user-friendly interface, taking control of your finances has never been easier!
+BudgetWise is a modern, AI-powered personal finance application built with Next.js and Firebase. It empowers users to track expenses, manage budgets, visualize spending patterns, and receive intelligent insights—all in a secure, responsive interface. This project showcases full-stack development skills, including server-side rendering, real-time data handling, and seamless AI integration for enhanced user experience.
 
-## ✨ Features
+## ✨ Key Features
 
-*   **Intuitive Dashboard:** Get a quick overview of your financial health. 📈
-*   **Transaction Tracking:** Easily add and categorize your income and expenses. 💸
-*   **Budget Management:** Set and monitor spending limits for different categories. 🎯
-*   **AI-Powered Insights:** Receive smart suggestions to optimize your spending. 🧠
-*   **Category Management:** Organize your transactions with custom categories. 🏷️
-*   **Secure Authentication:** Safe and reliable user login and signup. 🔒
-*   **Responsive Design:** Access your finances on any device. 📱💻
+- **Interactive Dashboard**: Real-time overview of financial health with overview cards, recent transactions, spending charts (using Recharts), and budget progress trackers. 📊
+- **Smart Transaction Management**: Add, categorize, and track income/expenses with AI-assisted data extraction and categorization flows. 💳
+- **Budget & Goal Setting**: Create and monitor category-based budgets with visual progress indicators and goal alerts. 🎯
+- **AI-Powered Suggestions**: Get personalized spending recommendations, anomaly detection, and optimization tips via Genkit AI flows. 🧠🤖
+- **Custom Categories & Icons**: Organize finances with user-defined categories and intuitive icon selection for better visualization. 🏷️
+- **Secure User Authentication**: Robust signup/login with Firebase Auth, including protected routes and session management. 🔒
+- **Guest Mode & Responsive UI**: Explore features without signup; fully responsive design works on desktop, tablet, and mobile. 📱💻
+- **Theme Support**: Light/dark mode toggle for personalized experience. 🌙☀️
 
-## 🚀 Technologies Used
+## 🏗️ Project Architecture & Skills Showcased
 
-*   **Next.js:** React framework for production-grade applications. ⚛️
-*   **TypeScript:** Strongly typed JavaScript for enhanced code quality. 📘
-*   **MongoDB:** NoSQL database for flexible data storage. 🍃
-*   **Mongoose:** MongoDB object data modeling (ODM) for Node.js.  ODM
-*   **NextAuth.js:** Authentication for Next.js applications. 🔑
-*   **Tailwind CSS:** Utility-first CSS framework for rapid UI development. 🎨
-*   **Shadcn/ui:** Reusable UI components built with Tailwind CSS. 🧩
-*   **Genkit:** AI framework for building intelligent applications. 🤖
-*   **Bcrypt.js:** Library for hashing passwords. 🛡️
+This application demonstrates advanced full-stack capabilities:
+
+- **Next.js 15 App Router**: Organized routing with `(authenticated)` layout for protected pages, server actions for form handling (`actions.ts`, `db-actions.ts`), and middleware for auth checks (`src/middleware.ts`).
+- **Type-Safe Data Models**: Custom TypeScript models for users, budgets, categories, and transactions (`src/lib/models/`), ensuring robust data integrity.
+- **AI Integration with Genkit**: Custom flows for transaction data extraction, categorization, and spending suggestions (`src/ai/flows/`), powered by Google AI. Development server runs concurrently with the app for seamless testing.
+- **State Management & Hooks**: Context providers for auth and theme (`src/context/`), custom hooks like `use-toast` for UI feedback.
+- **UI Components**: Reusable Shadcn/UI components (built on Radix UI and Tailwind) for modals, charts, forms, and more, emphasizing accessible and customizable design.
+- **Validation & Forms**: Zod schemas integrated with React Hook Form for secure, client/server-side validation.
+- **Real-Time & Security**: Firebase for authentication, Firestore for data storage/retrieval, with admin SDK for server-side ops. Bcryptjs for password hashing and Jose for JWT handling.
+- **Performance Optimizations**: Turbopack for dev, lazy loading, and efficient charting with Recharts.
+
+The codebase follows best practices: clean separation of concerns, ESLint/Prettier linting, and scripts for seeding data (`scripts/seedCategories.ts`).
+
+## 🚀 Tech Stack
+
+### Frontend
+- **Next.js 15.3.3** ⚛️: Server-side rendering, API routes, and static generation.
+- **TypeScript 5.9.2** 📘: Type safety across the application.
+- **Tailwind CSS 3.4.1** 🎨: Utility-first styling with animations.
+- **Shadcn/UI** 🧩: Headless UI components (Accordion, Dialog, Chart, etc.) on Radix UI.
+- **Recharts 2.15.1** 📈: Declarative charting for spending visualizations.
+- **React Hook Form 7.54.2 + Zod 3.24.2** 📝: Form handling and validation.
+- **Next Themes 0.3.0** 🌙: Theme management.
+- **Lucide React 0.475.0** 🔍: Icons for UI elements.
+
+### Backend & Database
+- **Firebase 11.9.1 + Firebase Admin 12.2.0** 🔥: Authentication, Firestore for real-time data, and cloud functions compatibility.
+- **Jose 5.6.3 + Bcryptjs 2.4.3** 🔑: JWT tokens and password security.
+
+### AI & Integrations
+- **Genkit 1.15.5** 🤖: AI framework with Google AI integration (`@genkit-ai/googleai`).
+- **Date-fns 3.6.0** 📅: Date manipulation for transactions.
+
+### Tools & Utils
+- **Concurrently 9.2.0**: Parallel dev servers for Next.js and Genkit.
+- **Class Variance Authority (CVA) + Clsx + Tailwind Merge**: Dynamic class composition for components.
+- **Lodash 4.17.21**: Utility functions.
 
 ## 🛠️ Getting Started
 
-Follow these steps to set up and run BudgetWise on your local machine.
-
 ### Prerequisites
-
-*   Node.js (v18 or higher)
-*   npm or Yarn
-*   MongoDB instance (local or cloud-hosted)
+- Node.js (v18 or higher)
+- npm or pnpm
+- Firebase project (for auth and database)
 
 ### Installation
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/your-username/budgetwise.git
-    cd budgetwise
-    ```
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    # or yarn install
-    ```
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/codes71/BudgetWise.git
+   cd BudgetWise
+   ```
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
 ### Environment Variables
-
-Create a `.env.local` file in the root of the project and add the following environment variables:
-
+Create a `.env.local` file in the project root with Firebase configuration:
 ```
-MONGODB_URI="your_mongodb_connection_string"
-JWT_SECRET="a_very_long_and_random_secret_key_at_least_32_characters_long"
-GOOGLE_API_KEY="your_google_api_key_for_genkit"
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+FIREBASE_CLIENT_EMAIL=your-client-email@project.iam.gserviceaccount.com
+GOOGLE_API_KEY=your-google-api-key-for-genkit
+NEXTAUTH_SECRET=your-nextauth-secret (if using additional auth)
 ```
-
-*   Replace `your_mongodb_connection_string` with your MongoDB connection URI.
-*   Replace `a_very_long_and_random_secret_key_at_least_32_characters_long` with a strong, unique secret key for JWT encryption.
-*   Replace `your_google_api_key_for_genkit` with your Google API Key if you plan to use Genkit AI features.
+- Set up Firebase: Create a project at [console.firebase.google.com](https://console.firebase.google.com), enable Authentication and Firestore.
+- Download service account key JSON and extract values above.
+- For AI features, get a Google API key from [makersuite.google.com](https://makersuite.google.com).
 
 ### Running the Application
-
 #### Development Mode
-
 ```bash
 npm run dev
-# or yarn dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+This starts Next.js on http://localhost:9002 and Genkit dev server concurrently. Open [http://localhost:9002](http://localhost:9002) in your browser.
+
+#### Seed Categories (Optional)
+```bash
+npm run seed:categories
+```
 
 #### Production Build
-
 ```bash
 npm run build
 npm start
 ```
-The application will be served on the port specified in your environment (default is 3000).
+
+### Deployment
+- **Vercel**: Push to GitHub and connect to Vercel; it auto-detects Next.js. Configure Firebase env vars in Vercel dashboard.
+- Ensure Genkit is built: `npm run genkit:build` before deploy.
 
 ## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a pull request or open an issue.
+Contributions welcome! Fork the repo, create a feature branch, and submit a PR. For major changes, open an issue first.
 
 ## 📄 License
+MIT License. See [LICENSE](LICENSE) for details.
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+---
+
+*Built with passion for clean code and innovative finance tools. 🚀*
