@@ -16,6 +16,8 @@ object AsrLicenses {
         Source("Raj-1.7B", "Apache-2.0", "raj-1.7b", listOf("NOTICE", "LICENSE", "UPSTREAM-LICENSE.txt")),
         Source("llama.cpp", "MIT", "llama.cpp", listOf("LICENSE")),
         Source("android-vad", "MIT", "android-vad", listOf("LICENSE")),
+        // WebRTC VAD C sources are compiled into android-vad's native library; its license is separate.
+        Source("WebRTC VAD", "BSD-3-Clause", "webrtc-vad", listOf("LICENSE")),
     )
 
     fun all(context: Context): List<LicenseEntry> = SOURCES.map { source ->

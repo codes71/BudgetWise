@@ -20,3 +20,4 @@ dependencyResolutionManagement {
 rootProject.name = "budgetwise-android"
 
 include(":asr")
+include(":asr-demo")

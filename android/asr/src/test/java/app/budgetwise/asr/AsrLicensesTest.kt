@@ -33,6 +33,14 @@ class AsrLicensesTest {
     }
 
     @Test
+    fun includesWebRtcVadBsd3() {
+        val vad = AsrLicenses.all(context).single { it.component == "WebRTC VAD" }
+        assertEquals("BSD-3-Clause", vad.license)
+        assertTrue(vad.text.contains("WebRTC"))
+        assertTrue(vad.text.contains("Redistribution and use in source and binary forms"))
+    }
+
+    @Test
     fun everyEntryNonEmpty() {
         val entries = AsrLicenses.all(context)
         assertTrue(entries.isNotEmpty())
