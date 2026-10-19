@@ -106,11 +106,75 @@ class DefaultModelManagerTest {
     }
 
     @Test
-    fun markerWithWrongSizeIsNotVerified() {
+    fun missingFileIsNotVerified() {
         val v = RajVariant.RAJ_0_6B
         val dir = installVerified(v)
         ModelStore.fileFor(dir, v.mmproj).delete()
         assertNull(manager().filesFor(v))
+    }
+
+    @Test
+    fun truncatedFileIsNotVerified() {
+        val v = RajVariant.RAJ_0_6B
+        val dir = installVerified(v)
+        java.io.RandomAccessFile(ModelStore.fileFor(dir, v.model), "rw").use { it.setLength(v.model.bytes - 1) }
+        assertNull(manager().filesFor(v))
+    }
+
+    @Test
+    fun markerWithMismatchedShaIsNotVerified() {
+        val v = RajVariant.RAJ_0_6B
+        val dir = installVerified(v)
+        val marker = File(dir, ModelStore.MARKER)
+        marker.writeText(marker.readText().replace(v.model.sha256, "0".repeat(64)))
+        assertNull(manager().filesFor(v))
+    }
+
+    @Test
+    fun corruptMarkerIsNotVerifiedAndDoesNotCrash() {
+        val v = RajVariant.RAJ_0_6B
+        val dir = installVerified(v)
+        File(dir, ModelStore.MARKER).writeText("{not json")
+        val m = manager()
+        assertNull(m.filesFor(v))
+        File(dir, ModelStore.MARKER).writeText("")
+        assertNull(m.filesFor(v))
+    }
+
+    /** Runs a download for [v] that fails with a hash mismatch and waits for the manager to show Failed. */
+    private suspend fun failDownload(m: DefaultModelManager, v: RajVariant) {
+        ModelDownloadWorker.fetcher = { _, f, _, _ -> throw app.budgetwise.asr.download.DownloadException.HashMismatch(f.path) }
+        m.ensureDownloaded(v)
+        WorkManagerTestInitHelper.getTestDriver(context)!!.setAllConstraintsMet(workInfos(v).single().id)
+        awaitValue { m.state.value as? ModelState.Failed }
+    }
+
+    @Test
+    fun deletingOtherVariantKeepsFailedState() = runBlocking<Unit> {
+        val a = RajVariant.RAJ_0_6B
+        val b = RajVariant.RAJ_1_7B
+        installVerified(b)
+        val m = manager()
+        failDownload(m, a)
+        m.delete(b)
+        Thread.sleep(300)
+        assertTrue(m.state.value is ModelState.Failed)
+    }
+
+    @Test
+    fun restartRestoresFailedStateFromWork() = runBlocking<Unit> {
+        val a = RajVariant.RAJ_0_6B
+        failDownload(manager(), a)
+        val again = manager()
+        val s = awaitValue { again.state.value as? ModelState.Failed }
+    }
+
+    @Test
+    fun restartRestoresDownloadingStateFromWork() = runBlocking<Unit> {
+        val a = RajVariant.RAJ_0_6B
+        manager().ensureDownloaded(a)
+        val again = manager()
+        val s = awaitValue { again.state.value as? ModelState.Downloading }
     }
 
     @Test

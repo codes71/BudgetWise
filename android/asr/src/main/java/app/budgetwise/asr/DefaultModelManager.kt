@@ -7,6 +7,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.await
 import androidx.work.workDataOf
 import app.budgetwise.asr.download.ModelDownloadWorker
 import app.budgetwise.asr.download.ModelStore
@@ -87,9 +88,7 @@ class DefaultModelManager(
     }
 
     override suspend fun delete(variant: RajVariant) {
-        workManager.cancelUniqueWork(ModelDownloadWorker.uniqueName(variant)).result.get()
-        // Drop finished records so a stale FAILED does not resurface after deletion.
-        workManager.pruneWork().result.get()
+        workManager.cancelUniqueWork(ModelDownloadWorker.uniqueName(variant)).await()
         withContext(Dispatchers.IO) { ModelStore.variantRoot(context, variant).deleteRecursively() }
         if (localFailure.value?.first == variant) localFailure.value = null
         if (_activeVariant.value == variant) _state.value = ModelState.Missing
@@ -107,7 +106,11 @@ class DefaultModelManager(
 
     private fun stateFor(v: RajVariant, infos: List<WorkInfo>): ModelState {
         if (filesFor(v) != null) return ModelState.Ready(dirOf(v))
-        return mapWork(infos)
+        val mapped = mapWork(infos)
+        // Finished records are stale once the variant's files were deleted.
+        val finished = mapped is ModelState.Failed || infos.lastOrNull()?.state?.isFinished == true
+        if (finished && !ModelStore.variantRoot(context, v).exists()) return ModelState.Missing
+        return mapped
     }
 
     companion object {

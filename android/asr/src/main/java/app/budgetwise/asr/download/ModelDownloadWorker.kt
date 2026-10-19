@@ -13,6 +13,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import app.budgetwise.asr.ModelFile
 import app.budgetwise.asr.RajVariant
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -74,7 +75,12 @@ class ModelDownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
 
     private suspend fun showForeground(variant: RajVariant, fraction: Float) {
         // Starting a foreground service can be refused (background start limits); the download still runs.
-        runCatching { setForeground(foregroundInfo(variant, fraction)) }
+        try {
+            setForeground(foregroundInfo(variant, fraction))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
     }
 
     private fun foregroundInfo(variant: RajVariant?, fraction: Float): ForegroundInfo {
