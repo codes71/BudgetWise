@@ -57,8 +57,12 @@ android {
 
 dependencies {
     implementation(libs.android.vad.webrtc)
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.junit)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.kotlinx.coroutines.test)
 
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
