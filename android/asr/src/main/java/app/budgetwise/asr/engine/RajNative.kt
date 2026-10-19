@@ -13,14 +13,18 @@ internal object RajNative {
      * Loads every ggml backend library found in [nativeLibDir] and returns a
      * description of the registered backends, one per line.
      */
-    external fun initBackends(nativeLibDir: String): String
+    private external fun initBackends(nativeLibDir: String): String
 
     /** [initBackends] at most once per process, returning the first call's description. */
     @Synchronized
     fun initBackendsOnce(context: Context): String =
         backends ?: initBackends(context.applicationInfo.nativeLibraryDir).also { backends = it }
 
-    /** Returns 0 on failure, with the reason in `lastError(0)`. A null [forced] means auto mode. */
+    /**
+     * Returns 0 on failure, with the reason in `lastError(0)`. That error is process-wide, so it is
+     * only meaningful right after a failed load, with loads serialized by the caller. A null [forced]
+     * means auto mode.
+     */
     external fun load(model: String, mmproj: String, threads: Int, nCtx: Int, forced: String?): Long
 
     /**

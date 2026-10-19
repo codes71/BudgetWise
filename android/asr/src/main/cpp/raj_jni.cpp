@@ -92,9 +92,13 @@ void throw_new(JNIEnv *env, const char *cls, const char *msg) {
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_app_budgetwise_asr_engine_RajNative_initBackends(JNIEnv *env, jobject /* this */, jstring native_lib_dir) {
+    if (native_lib_dir == nullptr) {
+        throw_new(env, "java/lang/NullPointerException", "nativeLibDir");
+        return nullptr;
+    }
     Utf8Chars dir(env, native_lib_dir);
     if (dir.get() == nullptr) {
-        return nullptr;  // OutOfMemoryError or NullPointerException is pending
+        return nullptr;  // OutOfMemoryError is pending
     }
     ggml_backend_load_all_from_path(dir.get());
 
@@ -125,8 +129,12 @@ Java_app_budgetwise_asr_engine_RajNative_initBackends(JNIEnv *env, jobject /* th
 extern "C" JNIEXPORT jlong JNICALL
 Java_app_budgetwise_asr_engine_RajNative_load(JNIEnv *env, jobject /* this */, jstring model, jstring mmproj,
                                               jint threads, jint n_ctx, jstring forced) {
+    if (model == nullptr || mmproj == nullptr) {
+        set_load_error("model or mmproj path is null");
+        return 0;
+    }
     Utf8Chars model_path(env, model);
-    if (model_path.get() == nullptr) return 0;
+    if (model_path.get() == nullptr) return 0;  // OutOfMemoryError is pending
     Utf8Chars mmproj_path(env, mmproj);
     if (mmproj_path.get() == nullptr) return 0;
     std::string forced_language;

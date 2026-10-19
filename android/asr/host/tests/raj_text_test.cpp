@@ -142,6 +142,18 @@ static void utf16_maps_invalid_bytes_to_fffd() {
     }
 }
 
+static void utf16_drops_truncated_tail_and_rejects_out_of_range() {
+    if (raj_utf8_to_utf16("ab\xE1\x80") != std::u16string(u"ab")) {
+        std::fprintf(stderr, "FAIL truncated tail\n");
+        std::exit(1);
+    }
+    // U+110000 is above the Unicode range: four invalid bytes
+    if (raj_utf8_to_utf16("\xF4\x90\x80\x80") != std::u16string({0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD})) {
+        std::fprintf(stderr, "FAIL above U+10FFFF\n");
+        std::exit(1);
+    }
+}
+
 static void utf16_empty_input() {
     if (!raj_utf8_to_utf16("").empty()) {
         std::fprintf(stderr, "FAIL empty utf16\n");
@@ -167,6 +179,7 @@ int main() {
     prompt_context_in_system();
     utf16_converts_burmese_and_astral();
     utf16_maps_invalid_bytes_to_fffd();
+    utf16_drops_truncated_tail_and_rejects_out_of_range();
     utf16_empty_input();
     std::puts("raj_text: all tests passed");
     return 0;

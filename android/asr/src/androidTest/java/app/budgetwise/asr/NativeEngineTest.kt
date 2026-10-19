@@ -10,6 +10,7 @@ import app.budgetwise.asr.engine.RajEngine
 import app.budgetwise.asr.engine.RajNative
 import java.io.File
 import java.util.concurrent.CancellationException
+import java.util.concurrent.atomic.AtomicLong
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -21,8 +22,12 @@ import org.junit.runner.RunWith
 
 /*
  * Inputs are never committed. The test reads targetContext.getExternalFilesDir("raj"); for the :asr
- * library the target context is the test APK, so push to the test package's external dir:
+ * library the target context is the test APK, so the files go to the test package's external dir.
+ * Do NOT use connectedDebugAndroidTest: it uninstalls the test APK afterwards, which deletes
+ * Android/data/app.budgetwise.asr.test and its pushed files, and a rerun would skip every test.
+ * Run from android/ with JAVA_HOME set to Android Studio's JBR:
  *
+ *   ./gradlew :asr:installDebugAndroidTest
  *   adb shell mkdir -p /sdcard/Android/data/app.budgetwise.asr.test/files/raj
  *   adb push ~/.cache/budgetwise-eval/raj-0.6b/gguf/Raj-0.6B-Q8_0.gguf \
  *       /sdcard/Android/data/app.budgetwise.asr.test/files/raj/
@@ -30,13 +35,11 @@ import org.junit.runner.RunWith
  *       /sdcard/Android/data/app.budgetwise.asr.test/files/raj/
  *   adb push ~/.cache/budgetwise-eval/clips/wav/fleurs_02.wav \
  *       /sdcard/Android/data/app.budgetwise.asr.test/files/raj/
+ *   adb shell am instrument -w -e class app.budgetwise.asr.NativeEngineTest \
+ *       app.budgetwise.asr.test/androidx.test.runner.AndroidJUnitRunner
  *
- * Run from android/ with JAVA_HOME set to Android Studio's JBR:
- *
- *   ./gradlew :asr:connectedDebugAndroidTest \
- *       -Pandroid.testInstrumentationRunnerArguments.class=app.budgetwise.asr.NativeEngineTest
- *
- * Missing files skip the tests (assumeTrue).
+ * Missing files skip the tests (assumeTrue), so a green run is only proof if logcat (tag
+ * NativeEngineTest) shows the "RAN <test>" evidence lines.
  */
 @RunWith(AndroidJUnit4::class)
 class NativeEngineTest {
@@ -94,6 +97,7 @@ class NativeEngineTest {
         val engine = openEngine()
         val out = engine.transcribe(WavReader.readMono16(clip), maxNewTokens = 256)
         val want = expectedText()
+        Log.i(TAG, "RAN transcribesGoldenClip")
         Log.i(TAG, "device: ${out.text}")
         Log.i(TAG, "host:   $want")
         Log.i(TAG, "encodeMs=${out.encodeMs} decodeMs=${out.decodeMs} genTokens=${out.genTokens}")
@@ -107,22 +111,22 @@ class NativeEngineTest {
         val engine = openEngine()
         val pcm = WavReader.readMono16(clip)
         val first = engine.transcribe(pcm, maxNewTokens = 256)
-        val abortAfterMs = first.encodeMs + 300
+        assumeTrue("decode too short to abort mid-run", first.decodeMs >= 1000)
+        val abortAfterMs = first.encodeMs + first.decodeMs / 2
 
-        var abortedAt = 0L
+        val abortedAt = AtomicLong(0)
         val aborter = Thread {
             Thread.sleep(abortAfterMs)
-            abortedAt = System.nanoTime()
+            abortedAt.set(System.nanoTime())
             engine.abort()
         }
-        // Generation must still be running at abort time, so the budget is far above the clip's need.
         aborter.start()
         try {
-            engine.transcribe(pcm, maxNewTokens = 600)
-            fail("expected CancellationException (generation ended before the abort at ${abortAfterMs}ms)")
+            engine.transcribe(pcm, maxNewTokens = 256)
+            fail("expected CancellationException (run ended before the abort at ${abortAfterMs}ms)")
         } catch (e: CancellationException) {
-            val latencyMs = (System.nanoTime() - abortedAt) / 1_000_000
-            Log.i(TAG, "abort latency ${latencyMs}ms (abort issued ${abortAfterMs}ms after start)")
+            val latencyMs = (System.nanoTime() - abortedAt.get()) / 1_000_000
+            Log.i(TAG, "RAN abortStopsWithin500ms: abort latency ${latencyMs}ms (issued ${abortAfterMs}ms after start)")
             assertTrue("abort took ${latencyMs}ms", latencyMs <= 500)
         } finally {
             aborter.join()
@@ -134,18 +138,23 @@ class NativeEngineTest {
         val engine = openEngine()
         val pcm = WavReader.readMono16(clip)
         val first = engine.transcribe(pcm, maxNewTokens = 256)
+        assumeTrue("decode too short to abort mid-run", first.decodeMs >= 1000)
         val aborter = Thread {
-            Thread.sleep(first.encodeMs + 300)
+            Thread.sleep(first.encodeMs + first.decodeMs / 2)
             engine.abort()
         }
         aborter.start()
+        var cancelled = false
         try {
-            engine.transcribe(pcm, maxNewTokens = 600)
+            engine.transcribe(pcm, maxNewTokens = 256)
         } catch (_: CancellationException) {
+            cancelled = true
         } finally {
             aborter.join()
         }
+        assertTrue("the abort never hit a run", cancelled)
         val again = engine.transcribe(pcm, maxNewTokens = 256)
+        Log.i(TAG, "RAN transcribeAfterAbortSucceeds: after abort -> ${again.text}")
         assertTrue("empty text after abort", again.text.isNotEmpty())
         assertEquals(first.text, again.text)
     }
@@ -171,7 +180,7 @@ class NativeEngineTest {
             val handle = RajNative.load(truncated.path, mmproj.path, 4, 1024, null)
             assertEquals(0L, handle)
             val err = RajNative.lastError(0L)
-            Log.i(TAG, "load error: $err")
+            Log.i(TAG, "RAN loadFailsCleanlyOnTruncatedFile: load error: $err")
             assertTrue("lastError empty", err.isNotEmpty())
         } finally {
             truncated.delete()
@@ -183,6 +192,7 @@ class NativeEngineTest {
         val engine = openEngine()
         engine.close()
         engine.close()
+        Log.i(TAG, "RAN freeTwiceIsSafe")
     }
 
     @Test
@@ -199,6 +209,7 @@ class NativeEngineTest {
             fail("expected IllegalStateException")
         } catch (_: IllegalStateException) {
         }
+        Log.i(TAG, "RAN transcribeAfterCloseThrows")
     }
 
     private companion object {

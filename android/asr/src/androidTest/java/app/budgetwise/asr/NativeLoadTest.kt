@@ -14,7 +14,7 @@ class NativeLoadTest {
     @Test
     fun cpuBackendRegisteredOnDevice() {
         val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
-        val description = RajNative.initBackends(context.applicationInfo.nativeLibraryDir)
+        val description = RajNative.initBackendsOnce(context)
 
         assertTrue("no CPU backend in: $description", description.contains("CPU"))
         assertTrue("no android_armv variant in: $description", description.contains("android_armv"))
