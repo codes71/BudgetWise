@@ -2,6 +2,11 @@ plugins {
     alias(libs.plugins.android.library)
 }
 
+// Short SHA of the pinned llama.cpp checkout, reported in AsrResult.modelId.
+val llamaCppSha = providers.exec {
+    commandLine("git", "-C", file("third_party/llama.cpp").path, "rev-parse", "--short=7", "HEAD")
+}.standardOutput.asText.map { it.trim() }
+
 android {
     namespace = "app.budgetwise.asr"
     compileSdk = 37
@@ -12,6 +17,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+        buildConfigField("String", "LLAMA_CPP_SHA", "\"${llamaCppSha.get()}\"")
 
         ndk {
             abiFilters += "arm64-v8a"
@@ -40,6 +46,10 @@ android {
             path("src/main/cpp/CMakeLists.txt")
             version = "3.31.6"
         }
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
