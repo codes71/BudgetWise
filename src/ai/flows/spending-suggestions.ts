@@ -8,8 +8,8 @@
  * - SpendingSuggestionsOutput - The return type for the getSpendingSuggestions function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import * as z from 'zod/v4';
+import { generateStructured } from '@/ai/claude';
 
 const SpendingSuggestionsInputSchema = z.object({
   historicalData: z
@@ -31,25 +31,21 @@ const SpendingSuggestionsOutputSchema = z.object({
 export type SpendingSuggestionsOutput = z.infer<typeof SpendingSuggestionsOutputSchema>;
 
 export async function getSpendingSuggestions(input: SpendingSuggestionsInput): Promise<SpendingSuggestionsOutput> {
-  return spendingSuggestionsFlow(input);
-}
-
-const prompt = ai.definePrompt({
-  name: 'spendingSuggestionsPrompt',
-  input: {schema: SpendingSuggestionsInputSchema},
-  output: {schema: SpendingSuggestionsOutputSchema},
-  prompt: `You are a savvy personal finance advisor. Your goal is to provide highly specific, actionable, and data-driven advice to help a user cut spending.
+  return generateStructured({
+    schema: SpendingSuggestionsOutputSchema,
+    effort: 'medium',
+    content: `You are a savvy personal finance advisor. Your goal is to provide highly specific, actionable, and data-driven advice to help a user cut spending.
 
 Analyze the user's historical spending data provided below. Compare it against their stated budget goals.
 
 **Historical Spending Data (CSV):**
 \`\`\`csv
-{{{historicalData}}}
+${input.historicalData}
 \`\`\`
 
 **Budget Goals (CSV):**
 \`\`\`csv
-{{{budgetGoals}}}
+${input.budgetGoals}
 \`\`\`
 
 Based on your analysis, provide a list of concrete suggestions. For each suggestion:
@@ -60,16 +56,5 @@ Based on your analysis, provide a list of concrete suggestions. For each suggest
 
 Generate at least 3 high-quality suggestions.
 `,
-});
-
-const spendingSuggestionsFlow = ai.defineFlow(
-  {
-    name: 'spendingSuggestionsFlow',
-    inputSchema: SpendingSuggestionsInputSchema,
-    outputSchema: SpendingSuggestionsOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);
+  });
+}
