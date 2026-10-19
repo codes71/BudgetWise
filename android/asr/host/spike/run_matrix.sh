@@ -11,6 +11,7 @@ CONFIGS=(
   "raj-1.7b-q8_0|$CACHE/raj-1.7b/gguf/Raj-1.7B-Q8_0.gguf|$CACHE/raj-1.7b/gguf/mmproj-Raj-1.7B-Q8_0.gguf"
 )
 ONLY=${ONLY:-}
+if curl -sf http://127.0.0.1:8089/health >/dev/null; then echo "port 8089 already in use"; exit 1; fi
 for cfg in "${CONFIGS[@]}"; do
   IFS='|' read -r label model mmproj <<<"$cfg"
   [ -n "$ONLY" ] && [ "$ONLY" != "$label" ] && continue
@@ -18,7 +19,7 @@ for cfg in "${CONFIGS[@]}"; do
     >"$CACHE/server-$label.log" 2>&1 &
   pid=$!
   until curl -sf http://127.0.0.1:8089/health >/dev/null; do
-    kill -0 $pid 2>/dev/null || { echo "server for $label died"; break; }; sleep 1; done
+    kill -0 $pid 2>/dev/null || { echo "server for $label died"; exit 1; }; sleep 1; done
   for mode in auto forced; do
     python3 -I "$HERE/run_spike.py" --server http://127.0.0.1:8089 --clips "$CLIPS" \
       --mode $mode --label "$label" --out "$HERE/golden/$label-$mode.jsonl" 2>"$CACHE/run-$label-$mode.log" | tail -1

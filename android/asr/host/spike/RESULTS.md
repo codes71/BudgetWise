@@ -1,6 +1,6 @@
 # Raj Mac spike results (Task 1, gate G1 PROVISIONAL)
 
-Run 2026-10-19 on Apple Silicon (M-series, 15 cores, 24 GB, Metal), llama.cpp `fb34fc262c1b43f1832c7472429fb2247d650493`
+Re-scored and regenerated 2026-10-19 (fix round 1). Run 2026-10-19 on Apple Silicon (M-series, 15 cores, 24 GB, Metal), llama.cpp `fb34fc262c1b43f1832c7472429fb2247d650493`
 (built by `build_llamacpp.sh`), greedy decoding (`--temp 0`, `n_predict` 512, `cache_prompt` false).
 Model files match the Q1 sha256 values (all four GGUFs). Q5_K_M and Q4_K_M are `llama-quantize --allow-requantize`
 from Q8_0 (mmproj stays Q8_0); no published mirror exists, so the shipped default stays the published Q8_0.
@@ -11,33 +11,33 @@ No recorded budget phrases exist yet (user Decision 6 open). Used instead:
 30 FLEURS `my_mm` test utterances (google/fleurs, CC-BY-4.0, 3 to 15 s, evenly spaced, built by `make_clips.py`,
 mean 12.3 s) plus 3 generated 5 s clips (digital silence, low pink noise, louder brown-noise hum).
 FLEURS may overlap Raj's training data, so SER is optimistic. Audio is not in git; `golden/*.jsonl` hold text only
-(model output for FLEURS clips; the last line of each file is the summary object).
+(model output for FLEURS clips; the last line of each file is the summary object). Silence/noise clips use fixed ffmpeg seeds (`make_clips.py`)..
 SER is syllable error rate (minimal sylbreak split, Burmese punctuation stripped), pooled over all FLEURS clips.
 Refs spell numbers as words in some clips and digits in others, so SER includes style mismatches.
 
 ## Matrix
 
-| Config | Mode | SER | CER | Loops | Silence non-empty (of 3) | Mean tokens / audio s | p50 wall ms (12.3 s mean clip) |
+| Config | Mode | SER | CER | Loops | Silence non-empty (of 3) | Pooled tokens / audio s | p50 server ms, prompt + decode (12.3 s mean clip) |
 |---|---|---|---|---|---|---|---|
-| 0.6B Q8_0 | auto | 19.9% | 12.2% | 0 | 0 | 16.6 | 841 |
-| 0.6B Q8_0 | forced | 20.4% | 12.2% | 0 | 3 | 16.4 | 870 |
-| 0.6B Q5_K_M | auto | 22.3% | 13.4% | 0 | 0 | 16.6 | 770 |
-| 0.6B Q5_K_M | forced | 22.1% | 13.3% | 0 | 3 | 16.4 | 767 |
-| 0.6B Q4_K_M | auto | 25.8% | 16.2% | 0 | 0 | 16.4 | 729 |
-| 0.6B Q4_K_M | forced | 26.1% | 16.1% | 0 | 3 | 16.2 | 689 |
-| 1.7B Q8_0 | auto | 18.4% | 11.8% | 0 | 0 | 16.4 | 1720 |
-| 1.7B Q8_0 | forced | 18.4% | 11.4% | 0 | 3 | 16.2 | 1925 |
+| 0.6B Q8_0 | auto | 19.8% | 12.2% | 0 | 0 | 16.6 | 801 |
+| 0.6B Q8_0 | forced | 20.2% | 12.2% | 0 | 3 | 16.4 | 806 |
+| 0.6B Q5_K_M | auto | 22.0% | 13.4% | 0 | 0 | 16.6 | 795 |
+| 0.6B Q5_K_M | forced | 21.7% | 13.3% | 0 | 3 | 16.4 | 779 |
+| 0.6B Q4_K_M | auto | 25.6% | 16.2% | 0 | 0 | 16.4 | 720 |
+| 0.6B Q4_K_M | forced | 25.5% | 16.1% | 0 | 3 | 16.2 | 702 |
+| 1.7B Q8_0 | auto | 18.6% | 11.8% | 0 | 0 | 16.4 | 1718 |
+| 1.7B Q8_0 | forced | 18.7% | 11.4% | 0 | 3 | 16.2 | 1750 |
 
 Latency is Mac Metal only (prompt about 65 ms, decode about 250 tok/s for 0.6B Q8_0, about 120 tok/s for 1.7B); it says nothing
-about the phone (G2 measures that). Budget-phrase columns (amount hits) are PENDING.
+about the phone (G2 measures that). Amount hits are N/A on FLEURS (the summary shows 0 of 0) and PENDING on budget phrases.
 
-Quant verdict: Q4_K_M is 5.9 SER points worse than Q8_0 (limit 3), so it is rejected. Q5_K_M is 2.4 points worse, within the 3 point
-limit, but we have no hosting for modified weights, so Q8_0 stays the default. 1.7B gains only 1.5 SER points for 2x latency.
+Quant verdict: Q4_K_M is 5.8 SER points worse than Q8_0 (limit 3), so it is rejected. Q5_K_M is 2.2 points worse, within the 3 point
+limit, but we have no hosting for modified weights, so Q8_0 stays the default. 1.7B gains only 1.2 SER points for 2x latency.
 
 ## Silence behaviour
 
 - auto: all 3 silence clips return `language None<asr_text>` with empty text (4 tokens), for every config.
-- forced `language Burmese`: all 3 clips hallucinate a short word (0.6B Q8_0 returns `အဲ့ဒါ` three times; Q4 returns `အဲ့ဒီ`/`အာရုံ`; 1.7B returns `မြန်မာ`).
+- forced `language Burmese`: all 3 clips hallucinate a short word (0.6B Q8_0 returns `အဲ့ဒါ` three times; Q4 returns `အဲ့ဒီ`/`အာရုံ`; 1.7B returns `မြန်မာ`, `အဲ့ဒါ`, `အဲ့ဒါ`).
 - Recommendation: use **auto**, and keep the WS3 VAD pre-trim so silence never reaches the decoder.
 
 ## Facts for later tasks
@@ -46,20 +46,27 @@ limit, but we have no hosting for modified weights, so Q8_0 stays the default. 1
   gave `None`). `parse_raw` returns `("None", text)`. To force, append `language Burmese<asr_text>` to the assistant prefix; it works
   (SER equal to auto) but is not needed. When forced, the server returns only the text after the tag.
 - **Stop/format.** Output ends with the Burmese full stop `။` on most sentences. Strip `။ ၊` before scoring or parsing.
-- **Tokens per audio second.** Decoded tokens / audio second over the 30 FLEURS clips: mean 16.6 (0.6B Q8_0 auto), per-clip min 8.6, max 26.8
-  (read speech of long sentences). Budget phrases are shorter and likely slower speech, but unmeasured. Recommended **K = 30** for
-  `max_new_tokens = ceil(seconds x K) + 16` (above the observed max; the context's 1.5 x mean = 25 would have cut the densest clip).
-  Observed max tokens for a 14 s clip: 376 (limit 512 never reached, 0 loops in 66 runs).
+- **Tokens per audio second.** Pooled over the 30 FLEURS clips (0.6B Q8_0 auto): 16.6 tokens per audio second. Per clip: mean 17.0, min 8.6, max 26.8
+  (max across all 8 configs 27.2, Q4 auto). Recommended **K = 30** for `max_new_tokens = ceil(seconds x K) + 16` (covers every observed clip; the
+  context's 1.5 x mean would be 25 and would cut the densest clip). Largest single output was 387 tokens, so `n_predict` 512 was never reached
+  (0 loops in 264 runs). Budget phrases are unmeasured: short phrases carry about 4 fixed overhead tokens, so tokens per second can exceed 27;
+  the `+ 16` term is what covers that, so Task 10 should keep it.
 - **Prompt.** `<|im_start|>system\n<|im_end|>\n<|im_start|>user\n<MARKER><|im_end|>\n<|im_start|>assistant\n` (+ `language Burmese<asr_text>` when forced).
-  **llama-server randomizes the media marker per process**: read `media_marker` from `GET /props` (here `<__media_...__>`), a literal
-  `<__media__>` gives HTTP 400 "number of media markers in text (0) does not match". `mtmd_default_marker()` is `<__media__>` for in-process use
-  (libmtmd, `llama-mtmd-cli -p "<__media__>"`). `run_spike.build_prompt(forced, marker="<__media__>")` takes the marker as an argument.
-- **Number spelling** (0.6B Q8_0 auto, FLEURS clips; ref -> model):
+  `llama-server` uses a per-process random media marker. Source at the pin: `tools/server/server-common.cpp:134-144` (`get_media_marker()`) returns
+  `LLAMA_MEDIA_MARKER` from the environment if set, else `"<__media_" + random_string() + "__>"`; it is exposed as `media_marker` by `GET /props`
+  (`tools/server/server-context.cpp:4623`) and passed to mtmd (`server-context.cpp:1057`). A literal `<__media__>` sent to the server therefore gives
+  HTTP 400 ("number of media markers in text (0) does not match number of bitmaps (1)"). Options: read `/props` (what `run_spike.py` does) or set
+  `LLAMA_MEDIA_MARKER` when starting the server. The **libmtmd C API** (what Task 5's engine calls directly) uses `mtmd_default_marker()`, which
+  returns the fixed `"<__media__>"` (`tools/mtmd/mtmd.cpp:445-447`, default in `mtmd_context_params_default` at `:465`); `llama-mtmd-cli -p "<__media__>"`
+  relies on it. `run_spike.build_prompt(forced, marker="<__media__>")` takes the marker as an argument.
+- **Number spelling** (0.6B Q8_0 auto; every example below is in a committed golden file: 1 and 5 in `golden/raj-0.6b-q8_0-auto.jsonl`
+  rows fleurs_00, fleurs_23, fleurs_25; 2 to 4 in `golden/numprobe-raj-0.6b-q8_0-auto.jsonl` rows num_01, num_07, num_11, num_12, produced by
+  `probe_numbers.py` on 14 extra FLEURS clips that are not part of the G1 set). ref -> model:
   1. `ကိုး` (word) -> `၉` (Burmese digit), in "၉ ဦးပါသော"
-  2. `၂၀ ရာခိုင်နှုန်း` -> `၂၀ ရာခိုင်နှုန်း` (digits; a second recording gave `၂၀%`, ASCII percent sign)
-  3. `နှစ်ဆယ့်တစ်ရာစု` (words) -> `၂၁ ရာစု` (digits)
-  4. `ည ၁၁၃၅` -> `ည ၁၁ နာရီ ၃၅` or `ည ၁၁ ၃၅` (digits, split by hour)
-  5. `M၁၆` -> `M ၁၆`; `၂၀၀၂` -> `၂၀၀၀` (digits, with errors)
+  2. `၂၀ ရာခိုင်နှုန်း` -> `၂၀ ရာခိုင်နှုန်း` (num_00) and `၂၀%` with an ASCII percent sign (num_01)
+  3. `နှစ်ဆယ့်တစ်ရာစု` (words) -> `၂၁ ရာစု` (digits, num_07)
+  4. `ည ၁၁၃၅` -> `ည ၁၁ နာရီ ၃၅` (num_11) or `ည ၁၁ ၃၅` (num_12), digits split by hour
+  5. `M၁၆` -> `M ၁၆` (fleurs_23); `၂၀၀၂` -> `၂၀၀၀` (fleurs_25), digits with errors
   Small counts stay as words (`နှစ်ခု`, `တစ်ပုဒ်`). Digits are Burmese (U+1040 to U+1049); ASCII digits never appeared, ASCII `%` once.
   Kyat magnitude words (`ထောင်`, `သောင်း`, `သိန်း`) with amounts are UNVERIFIED: no budget audio yet. WS4 must accept words, Burmese digits and
   ASCII digits.
@@ -70,17 +77,21 @@ limit, but we have no hosting for modified weights, so Q8_0 stays the default. 1
   `llama-server -m ~/.cache/budgetwise-eval/raj-0.6b/gguf/Raj-0.6B-Q8_0.gguf --mmproj ~/.cache/budgetwise-eval/raj-0.6b/gguf/mmproj-Raj-0.6B-Q8_0.gguf -c 4096 --temp 0 --port 8089`
   Request: POST `/completion` `{"prompt":{"prompt_string":<build_prompt(None, marker)>,"multimodal_data":[<b64 wav>]},"temperature":0,"n_predict":512,"cache_prompt":false}`.
   The response `content` begins `language None<asr_text>`.
-- **`llama-mtmd-cli` vs server.** Same text on all 3 clips tried (fleurs_23, fleurs_13, fleurs_17; `-p "<__media__>" --temp 0 -n 256`), byte for byte.
-
+- **`llama-mtmd-cli` vs server.** Identical raw text on 3 of 3 clips (fleurs_23, fleurs_13, fleurs_17) with
+  `-p "<__media__>" --temp 0 -n 256` against `golden/raj-0.6b-q8_0-auto.jsonl`. Record: `parity-mtmd-cli.txt`, reproduce with `parity_cli.py`.
+- **Golden files.** The Metal golden for Task 5 host parity is **`golden/raj-0.6b-q8_0-auto.jsonl`** (recommended mode). `raw` in every golden file
+  is the unmodified server `content`: auto rows start `language None<asr_text>`; forced rows contain the text only (the server does not echo the
+  forced prefix), and `language` is the forced label. The last line of each file is the summary object.
+- **Provenance.** `checksums.txt` records the four sha256 values verified against Q1 and the pinned HF revisions.
 ## Gate G1 (PROVISIONAL)
 
 Measured on FLEURS, not budget phrases, for 0.6B Q8_0 auto:
-- SER 19.9% (< 40%): pass on FLEURS.
+- SER 19.8% (< 40%): pass on FLEURS.
 - Repetition loops: 0 of 33 clips: pass.
 - Silence: empty text on 3 of 3 clips (auto): pass.
 - Amount phrase exact in at least 16 of 20 budget clips: **PENDING user voice testing** (Decision 6).
 
-Provisional GO to continue with Task 2 using 0.6B Q8_0, auto mode. Final G1 needs the 20 recorded budget phrases.
+Provisional GO to continue with Task 2 using 0.6B Q8_0, auto mode. Amount scoring (`run_spike.amount_hit`) compares integers: words, Burmese digits and ASCII digits are normalized, so `သုံးထောင်` equals `၃၀၀၀` and differs from `သုံးသောင်း`. Final G1 needs the 20 recorded budget phrases.
 
 ## Reproduce
 

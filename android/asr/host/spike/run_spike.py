@@ -2,6 +2,7 @@
 """Mac spike harness for Raj Burmese ASR through llama-server (stdlib only)."""
 import argparse
 import base64
+import collections
 import json
 import re
 import statistics
@@ -40,7 +41,7 @@ def parse_raw(raw):
 # is not followed by asat/virama and not preceded by virama; Burmese digit runs
 # are their own units. Spaces are dropped. WS5 syllables.py replaces this.
 _CUT = re.compile(
-    r"(?<!\u1039)[\u1000-\u102A\u103F\u104C-\u104F](?![\u103A\u1039])|[\u1040-\u1049]+"
+    r"(?<!\u1039)[\u1000-\u102A\u103F\u104C-\u104F](?![\u103A\u1039]|\u1037\u103A)|[\u1040-\u1049]+"
 )
 
 
@@ -86,22 +87,79 @@ def cer(ref, hyp):
 
 
 _DIGITS = str.maketrans("၀၁၂၃၄၅၆၇၈၉", "0123456789")
-_WORDS = "တစ်|နှစ်|သုံး|လေး|ငါး|ခြောက်|ခုနစ်|ရှစ်|ကိုး|ဆယ့်|ဆယ်|ရာ့|ရာ|ထောင့်|ထောင်|သောင်း|သိန်း|သန်း|ဝ"
-_NUM = re.compile(r"[၀-၉0-9][၀-၉0-9,]*|(?:" + _WORDS + r")+")
+_DIGIT_RUN = re.compile(r"([၀-၉0-9][၀-၉0-9,]*)")
+# Whole-syllable number words, so ordinary words (ဝယ်) never match by substring.
+_DIGIT_WORDS = {"တစ်": 1, "နှစ်": 2, "သုံး": 3, "လေး": 4, "ငါး": 5, "ခြောက်": 6,
+                "ရှစ်": 8, "ကိုး": 9}
+_UNIT_WORDS = {"ဆယ်": 10, "ဆယ့်": 10, "ရာ": 100, "ရာ့": 100, "ထောင်": 1000, "ထောင့်": 1000,
+               "သောင်း": 10_000, "သိန်း": 100_000, "သန်း": 1_000_000}
+# ရာ + these is "percent" / "century", not one hundred.
+_NOT_HUNDRED = {"ခိုင်", "စု"}
 
 
-def number_phrases(text):
-    return [m.group(0).translate(_DIGITS).replace(",", "")
-            for m in _NUM.finditer("".join(text.split()))]
+def _number_tokens(text):
+    """Tokens: ('d', int) for digit strings, ('w', syllable) for Burmese syllables."""
+    toks = []
+    for i, chunk in enumerate(_DIGIT_RUN.split(strip_punct(text))):
+        if i % 2:
+            toks.append(("d", int(chunk.translate(_DIGITS).replace(",", "") or 0)))
+        else:
+            toks.extend(("w", s) for s in syllables(chunk))
+    return toks
+
+
+def _classify(toks, i):
+    """Return ('digit'|'unit', value, width) for the token at i, or None."""
+    kind, v = toks[i]
+    if kind == "d":
+        return "digit", v, 1
+    if v == "ခု" and i + 1 < len(toks) and toks[i + 1] == ("w", "နစ်"):
+        return "digit", 7, 2
+    if v in _DIGIT_WORDS:
+        return "digit", _DIGIT_WORDS[v], 1
+    if v in _UNIT_WORDS:
+        if _UNIT_WORDS[v] == 100 and i + 1 < len(toks) and toks[i + 1][1] in _NOT_HUNDRED:
+            return None
+        return "unit", _UNIT_WORDS[v], 1
+    return None
+
+
+def numbers(text):
+    """Integer values of every number-bearing span: digit strings and number-word runs,
+    so သုံးထောင် == ၃၀၀၀ == 3000 and သုံးသောင်း == 30000."""
+    toks = _number_tokens(text)
+    out, i = [], 0
+    while i < len(toks):
+        c = _classify(toks, i)
+        if c is None:
+            i += 1
+            continue
+        total = pending = 0
+        have_pending = False
+        while i < len(toks):
+            c = _classify(toks, i)
+            if c is None:
+                break
+            kind, v, width = c
+            if kind == "digit":
+                if have_pending:  # two digits in a row start a new number
+                    break
+                pending, have_pending = v, True
+            else:
+                total += (pending if have_pending else 1) * v
+                pending, have_pending = 0, False
+            i += width
+        out.append(total + pending)
+    return out
 
 
 def amount_hit(ref, hyp):
-    """True when every number phrase of ref appears verbatim among hyp's phrases."""
-    want = number_phrases(ref)
+    """True when the multiset of numbers in ref is contained in the numbers of hyp."""
+    want = numbers(ref)
     if not want:
         return False
-    have = number_phrases(hyp)
-    return all(w in have for w in want)
+    have = collections.Counter(numbers(hyp))
+    return not (collections.Counter(want) - have)
 
 
 def has_loop(text, n_predicted=0):
@@ -155,10 +213,11 @@ def transcribe(server, wav_path, forced):
 
 def run_clip(server, clip, forced):
     resp = transcribe(server, clip["wav"], forced)
-    raw = resp.get("content", "")
-    if forced and ASR_TAG not in raw:
-        raw = "language " + forced + ASR_TAG + raw
-    language, text = parse_raw(raw)
+    raw = resp.get("content", "")  # stored unmodified: forced mode returns text only
+    if forced:
+        language, text = forced, raw.strip()
+    else:
+        language, text = parse_raw(raw)
     t = resp.get("timings", {})
     return {
         "id": clip["id"], "kind": clip.get("kind", ""), "raw": raw, "text": text,

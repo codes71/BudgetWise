@@ -1,0 +1,6 @@
+# sha256 of the pinned GGUFs, computed 2026-10-19 with shasum -a 256 and equal to Q1 in ws3-context.md
+# Raj-0.6B @ 92b89bafb8b48fe47857665ca834390b7303c7d8, Raj-1.7B @ 7dbed379408543ec4b88b6a28f2435422b83c5fe
+eb8b09623dcd0e6d135c7f119e8504b66edbeeacd5f961c014ac76974fc3b70a  Raj-0.6B-Q8_0.gguf
+a940a9645e849d1456c0c6e6297e902907794d8422014759f3d28593904fcab9  mmproj-Raj-0.6B-Q8_0.gguf
+7888844eb4b5f7a7d6123d07255cf93b6f35671abd2d4da13a557fc125ffd180  Raj-1.7B-Q8_0.gguf
+1345a70dda8fc0b4d7984961d6c5ad868d7d47cf91d3f7f963b30f218fbf16ba  mmproj-Raj-1.7B-Q8_0.gguf
