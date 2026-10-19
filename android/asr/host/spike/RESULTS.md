@@ -101,3 +101,40 @@ python3 -I android/asr/host/spike/make_clips.py          # needs fleurs/test.tsv
 android/asr/host/spike/run_matrix.sh ~/.cache/budgetwise-eval/llama.cpp/build/bin ~/.cache/budgetwise-eval ~/.cache/budgetwise-eval/clips/clips.jsonl
 python3 -m pytest android/asr/host/spike/test_run_spike.py
 ```
+
+## Gate G2 (PENDING, no phone paired)
+
+Status: **PENDING.** `adb devices` listed no phone when Task 2 was implemented. The tooling is built and self-tested; the numbers below are not measured.
+
+Phone class: not recorded yet (fill in `getprop ro.soc.model` and `MemTotal` from the first run). There is one phone, so G2 is evaluated against the P1 thresholds. The 1.7B criterion (P2) is "not evaluated, one phone" unless the phone has at least 7.5 GB RAM, in which case also run 1.7B Q8_0 at 4 threads.
+
+Build evidence (arm64-v8a, NDK 29.0.13113456, pinned llama.cpp fb34fc2): `build_android_cli.sh` produced `bin/llama-mtmd-cli` (ARM aarch64 ELF) and the ggml CPU variants `android_armv8.0_1`, `armv8.2_1`, `armv8.2_2`, `armv8.6_1`, `armv9.0_1`, `armv9.2_1`, `armv9.2_2`. Install tree is 22 MB, kept outside the repo in `~/.cache/budgetwise-eval/android-cli/install`. ggml loads dlopen'd backends only from the executable's directory, so the CPU variants sit in `bin/` and the other libs in `lib/` (run with `LD_LIBRARY_PATH=lib`).
+
+Clips (10 FLEURS my_mm, no budget-phrase audio exists): fleurs_02 (6.7 s), fleurs_10 (7.5 s), fleurs_08 (8.4 s), fleurs_17 (9.1 s), fleurs_23 (10.2 s), fleurs_03 (9.8 s), fleurs_13 (12.7 s), fleurs_00 (14.3 s), fleurs_25 (14.2 s), fleurs_20 (15.0 s). Only fleurs_02 and fleurs_10 are 8 s or shorter, so the p95 wall check on clips <= 8 s uses those two; report the wall time of the longer clips too.
+
+Run (phone connected, USB debugging on; `SERIAL` from `adb devices`):
+
+```
+android/asr/host/spike/build_android_cli.sh
+M=~/.cache/budgetwise-eval/raj-0.6b/gguf
+C=~/.cache/budgetwise-eval/clips/wav
+for T in 2 4; do
+  android/asr/host/spike/bench_phone.sh "$SERIAL" q8_0-t$T "$M/Raj-0.6B-Q8_0.gguf" "$M/mmproj-Raj-0.6B-Q8_0.gguf" "$C" $T > g2-q8_0-t$T.csv
+done
+# fallback if Q8_0 fails: Q4_K_M at 2 threads
+android/asr/host/spike/bench_phone.sh "$SERIAL" q4km-t2 "$M/Raj-0.6B-Q4_K_M.gguf" "$M/mmproj-Raj-0.6B-Q8_0.gguf" "$C" 2 > g2-q4km-t2.csv
+```
+
+Output is CSV `id,audio_ms,wall_ms,rtf,vmhwm_kb`; SoC, MemTotal, `asimddp`/`i8mm` features and the loaded CPU variant are printed to stderr as `#` lines. A SIGILL (exit 132 or "Illegal instruction") aborts the run with exit status 3.
+
+G2 thresholds on P1 (4 GB, Helio G85/G99 or Snapdragon 680 class), chosen 0.6B quant:
+
+| Check | Threshold | Measured |
+|---|---|---|
+| p50 RTF | <= 1.0 (WS5 M0) | PENDING |
+| p95 wall, clips <= 8 s | <= 8 s | PENDING |
+| VmHWM | <= 1.6 GB (1,677,722 kB) | PENDING |
+| SIGILL | none | PENDING |
+| 1.7B on P2 (p50 RTF <= 1.5, VmHWM <= 3.2 GB) | only if offered | not evaluated, one phone |
+
+If P1 fails: retry Q4_K_M at 2 threads, then NO-GO (Decision 5). Self-test (no phone, NDK or models): `bash android/asr/host/spike/bench_phone.sh --self-test`.
