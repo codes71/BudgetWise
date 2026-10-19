@@ -91,6 +91,10 @@ class DemoActivity : ComponentActivity() {
         )
 
         downloadButton.setOnClickListener { onDownloadClicked() }
+        // Pending Wi-Fi only work ignores the box, so changing it while Downloading re-requests with the new setting.
+        meteredCheck.setOnCheckedChangeListener { _, _ ->
+            if (modelState is ModelState.Downloading) startDownload()
+        }
         deleteButton.setOnClickListener {
             lifecycleScope.launch {
                 try {
@@ -123,12 +127,19 @@ class DemoActivity : ComponentActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 app.modelManager.state.collect { state ->
                     modelState = state
-                    if (state is ModelState.Ready) warmUpOnce()
+                    if (state is ModelState.Ready) warmUp()
                     render()
                 }
             }
         }
         render()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // MemoryGuard may have released the engine while we were away; reload it now so the first
+        // take does not count model load as decode time. No-op when the engine is still loaded.
+        if (modelState is ModelState.Ready) warmUp()
     }
 
     override fun onStop() {
@@ -144,18 +155,14 @@ class DemoActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    private fun warmUpOnce() {
+    private fun warmUp() {
         val stt = app.speech()
-        if (app.warmedUp) return
-        app.warmedUp = true
         lifecycleScope.launch {
             try {
                 stt.warmUp()
             } catch (e: CancellationException) {
-                app.warmedUp = false
                 throw e
             } catch (e: Exception) {
-                app.warmedUp = false
                 errorLine = getString(R.string.error_line, e.message ?: e.javaClass.simpleName)
                 render()
             }
@@ -301,7 +308,7 @@ class DemoActivity : ComponentActivity() {
         val downloading = state is ModelState.Downloading
         val ready = state is ModelState.Ready
         downloadButton.isEnabled = !downloading && !ready
-        meteredCheck.isEnabled = !downloading && !ready
+        meteredCheck.isEnabled = !ready
         deleteButton.isEnabled = phase == Phase.IDLE && (ready || downloading || state is ModelState.Failed)
 
         talkButton.isEnabled = ready && phase != Phase.TRANSCRIBING

@@ -19,7 +19,7 @@ internal object Pcm {
         r.decodeMs / 1000.0,
         rtf(r.audioMs, r.decodeMs),
         r.modelId,
-    )
+    ) + if (r.truncatedSegments > 0) ", truncated ${r.truncatedSegments}" else ""
 }
 
 internal object MicErrors {

@@ -17,13 +17,9 @@ class DemoApp : Application() {
     private var stt: RajSpeechToText? = null
     private var guard: MemoryGuard? = null
 
-    /** True once warmUp was started for the current engine instance. */
-    var warmedUp = false
-
     @Synchronized
     fun speech(): RajSpeechToText = stt ?: RajSpeechToText.create(this, modelManager).also {
         stt = it
-        warmedUp = false
         guard = MemoryGuard(it).also { g -> registerComponentCallbacks(g) }
     }
 
@@ -34,6 +30,5 @@ class DemoApp : Application() {
         guard = null
         stt?.close()
         stt = null
-        warmedUp = false
     }
 }

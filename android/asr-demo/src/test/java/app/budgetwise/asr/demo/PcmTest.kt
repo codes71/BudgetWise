@@ -66,6 +66,12 @@ class PcmTest {
     }
 
     @Test
+    fun metricsLineAppendsTruncatedCountOnlyWhenPositive() {
+        val r = AsrResult("x", "id", 3200, 4100, truncatedSegments = 2)
+        assertEquals("audio 3.2 s, decode 4.1 s, RTF 1.28, id, truncated 2", Pcm.metricsLine(r))
+    }
+
+    @Test
     fun readErrorMessagesAreDistinctAndMentionCode() {
         val codes = listOf(
             android.media.AudioRecord.ERROR_INVALID_OPERATION,

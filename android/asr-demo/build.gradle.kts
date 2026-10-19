@@ -5,6 +5,8 @@ plugins {
 android {
     namespace = "app.budgetwise.asr.demo"
     compileSdk = 37
+    // Same NDK as :asr so AGP can strip the native libraries (unstripped, libllama.so is 40 MB).
+    ndkVersion = "29.0.13113456"
 
     defaultConfig {
         applicationId = "app.budgetwise.asr.demo"
