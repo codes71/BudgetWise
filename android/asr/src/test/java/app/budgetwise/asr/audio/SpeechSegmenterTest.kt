@@ -62,4 +62,52 @@ class SpeechSegmenterTest {
         assertEquals(1, result.size)
         assertEquals(8_000, result[0].size)
     }
+
+    @Test
+    fun interiorPauseDoesNotSplitUtterance() {
+        val result = segmenter.segments(audio(5.0, 0.5 to 2.0, 3.0 to 4.5))
+        assertEquals(1, result.size)
+        assertEquals(4.4 * rate, result[0].size.toDouble(), 2 * frame)
+    }
+
+    @Test
+    fun flickerGapKeepsShortRunWithLongRun() {
+        // frames 0-7 speech (240 ms, under minSpeech), frame 8 gap, frames 9-100 speech
+        val a = FloatArray(200 * 480)
+        for (i in 0 until 8 * 480) a[i] = 0.5f
+        for (i in 9 * 480 until 101 * 480) a[i] = 0.5f
+        val result = segmenter.segments(a)
+        assertEquals(1, result.size)
+        assertEquals(101 * 480 + 3200, result[0].size)
+        assertEquals(0.5f, result[0][100], 0f)
+    }
+
+    @Test
+    fun longestPauseInWindowWins() {
+        // pauses at 13.0-13.4 (mid 13.2) and 17.0-18.0 (mid 17.5) both in 12..20 s; longer wins
+        val result = segmenter.segments(audio(30.0, 0.0 to 13.0, 13.4 to 17.0, 18.0 to 30.0))
+        assertEquals(2, result.size)
+        assertEquals(17.2 * rate, result[0].size.toDouble(), 2 * frame)
+        assertEquals(12.2 * rate, result[1].size.toDouble(), 2 * frame)
+    }
+
+    @Test
+    fun pauseBeforeLowerBoundIsIgnored() {
+        // only pause is at 10.5 s, before the 12 s lower bound, so hard cut at 20 s
+        val result = segmenter.segments(audio(30.0, 0.0 to 10.0, 11.0 to 30.0))
+        assertEquals(listOf(20 * rate, 10 * rate), result.map { it.size })
+    }
+
+    @Test
+    fun keptSamplesAreSpeechAndPaddingTailIsZero() {
+        val result = segmenter.segments(audio(0.4, 0.0 to 0.4))
+        assertEquals(8_000, result[0].size)
+        assertTrue((0 until 6_400).all { result[0][it] == 0.5f })
+        assertTrue((6_400 until 8_000).all { result[0][it] == 0f })
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsTooSmallMaxSegment() {
+        SpeechSegmenter(classifier, maxSegmentMs = 0)
+    }
 }
