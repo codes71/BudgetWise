@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -166,52 +167,160 @@ class RajSpeechToTextTest {
 
     @Test
     fun concurrentCallsAreSerialized() = runBlocking {
+        val gate = CountDownLatch(1)
         val factory = Factory { f ->
             object : FakeEngine(f) {
                 override fun run(n: Int): EngineOutput {
-                    Thread.sleep(40)
+                    gate.await(10, TimeUnit.SECONDS)
                     return super.run(n)
                 }
             }
         }
         val s = stt(factory = factory)
         val jobs = List(4) { async(poolDispatcher) { s.transcribe(audio()) } }
+        delay(150) // let the other three reach the mutex while the first is blocked in the engine
+        assertEquals(1, factory.opened.single().running.get())
+        gate.countDown()
         jobs.forEach { it.await() }
         val engine = factory.opened.single()
         assertEquals(4, engine.transcribeCalls.get())
         assertEquals(1, engine.maxRunning.get())
     }
 
+    /** Engine whose first call blocks until [abortsNeeded] aborts arrived, then holds on [hold]. */
+    private class BlockingEngine(
+        files: ModelFiles,
+        val started: CountDownLatch,
+        val hold: CountDownLatch,
+        val abortsNeeded: Int,
+    ) : FakeEngine(files) {
+        private val abortSeen = CountDownLatch(1)
+        @Volatile var abortArrived = false
+
+        override fun run(n: Int): EngineOutput {
+            if (n > 1) return super.run(n)
+            started.countDown()
+            abortArrived = abortSeen.await(10, TimeUnit.SECONDS)
+            hold.await(10, TimeUnit.SECONDS)
+            throw CancellationException("aborted")
+        }
+
+        override fun abort() {
+            if (aborts.incrementAndGet() >= abortsNeeded) abortSeen.countDown()
+        }
+    }
+
     @Test
     fun cancellationCallsAbortAndNextCallWorks() = runBlocking {
         val started = CountDownLatch(1)
-        val abortLatch = CountDownLatch(1)
-        val factory = Factory { f ->
-            object : FakeEngine(f) {
-                override fun run(n: Int): EngineOutput {
-                    if (n > 1) return super.run(n)
-                    started.countDown()
-                    abortLatch.await(10, TimeUnit.SECONDS)
-                    throw CancellationException("aborted")
-                }
-
-                override fun abort() {
-                    super.abort()
-                    abortLatch.countDown()
-                }
-            }
-        }
+        val hold = CountDownLatch(1)
+        val factory = Factory { BlockingEngine(it, started, hold, abortsNeeded = 1) }
         val s = stt(factory = factory)
         val job = launch(poolDispatcher) { s.transcribe(audio()) }
         assertTrue(started.await(5, TimeUnit.SECONDS))
-        job.cancelAndJoin()
-        val engine = factory.opened.single()
-        assertTrue(engine.aborts.get() >= 1)
+        job.cancel()
+        val engine = factory.opened.single() as BlockingEngine
+        while (engine.aborts.get() < 1) delay(10)
+        // The aborted native call has not returned yet, so the outer call must still be running.
+        delay(100)
+        assertFalse(job.isCompleted)
+        hold.countDown()
+        job.join()
+        assertTrue("abort() must release the blocked call", engine.abortArrived)
         assertFalse(engine.closed)
 
         assertEquals("text2", s.transcribe(audio()).text)
         assertEquals(1, factory.opened.size)
         assertEquals(1, engine.maxRunning.get())
+    }
+
+    @Test
+    fun lostFirstAbortIsReissued() = runBlocking {
+        val started = CountDownLatch(1)
+        val hold = CountDownLatch(1).also { it.countDown() }
+        val factory = Factory { BlockingEngine(it, started, hold, abortsNeeded = 2) }
+        val s = stt(factory = factory)
+        val job = launch(poolDispatcher) { s.transcribe(audio()) }
+        assertTrue(started.await(5, TimeUnit.SECONDS))
+        job.cancelAndJoin()
+        val engine = factory.opened.single() as BlockingEngine
+        assertTrue("second abort must free the call", engine.abortArrived)
+        assertTrue(engine.aborts.get() >= 2)
+        assertEquals("text2", s.transcribe(audio()).text)
+    }
+
+    @Test
+    fun releaseDuringThrowingCallClosesEngine() = runBlocking {
+        val started = CountDownLatch(1)
+        val proceed = CountDownLatch(1)
+        val factory = Factory { f ->
+            object : FakeEngine(f) {
+                override fun run(n: Int): EngineOutput {
+                    started.countDown()
+                    proceed.await(10, TimeUnit.SECONDS)
+                    throw AsrException.EngineFailure(2, "boom")
+                }
+            }
+        }
+        val s = stt(factory = factory)
+        val call = async(poolDispatcher) { runCatching { s.transcribe(audio()) } }
+        assertTrue(started.await(5, TimeUnit.SECONDS))
+        s.release()
+        proceed.countDown()
+        assertTrue(call.await().exceptionOrNull() is AsrException.EngineFailure)
+        assertTrue(factory.opened.single().closed)
+    }
+
+    @Test
+    fun callQueuedBehindCloseThrows() = runBlocking {
+        val started = CountDownLatch(1)
+        val proceed = CountDownLatch(1)
+        val factory = Factory { f ->
+            object : FakeEngine(f) {
+                override fun run(n: Int): EngineOutput {
+                    started.countDown()
+                    proceed.await(10, TimeUnit.SECONDS)
+                    return super.run(n)
+                }
+            }
+        }
+        val s = stt(factory = factory)
+        val first = async(poolDispatcher) { s.transcribe(audio()) }
+        assertTrue(started.await(5, TimeUnit.SECONDS))
+        val queued = async(poolDispatcher) { runCatching { s.transcribe(audio()) } }
+        delay(100)
+        s.close()
+        proceed.countDown()
+        assertEquals("text1", first.await().text)
+        assertTrue(queued.await().exceptionOrNull() is IllegalStateException)
+        assertEquals(1, factory.opened.size)
+        assertEquals(1, factory.opened.single().transcribeCalls.get())
+        assertTrue(factory.opened.single().closed)
+        s.warmUp() // no-op after close
+        assertEquals(1, factory.opened.size)
+    }
+
+    @Test
+    fun engineRunsOnInjectedDispatcherThread() = runBlocking {
+        val executor = Executors.newSingleThreadExecutor { Thread(it, "stt-test-thread") }
+        try {
+            val seen = mutableListOf<String>()
+            val factory = Factory { f ->
+                object : FakeEngine(f) {
+                    override fun run(n: Int): EngineOutput {
+                        synchronized(seen) { seen += Thread.currentThread().name }
+                        return super.run(n)
+                    }
+                }
+            }
+            val caller = Thread.currentThread().name
+            stt(factory = factory, dispatcher = executor.asCoroutineDispatcher()).transcribe(audio())
+            assertEquals(1, seen.size)
+            assertTrue(seen.single().startsWith("stt-test-thread")) // coroutine debug appends a suffix
+            assertFalse(caller == "stt-test-thread")
+        } finally {
+            executor.shutdownNow()
+        }
     }
 
     @Test

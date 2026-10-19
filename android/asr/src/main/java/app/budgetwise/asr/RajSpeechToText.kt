@@ -17,6 +17,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.Closeable
 import java.util.concurrent.CancellationException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -42,30 +43,36 @@ class RajSpeechToText(
     private val closeRequested = AtomicBoolean(false)
 
     override suspend fun transcribe(audio: FloatArray): AsrResult {
-        check(!closeRequested.get()) { "RajSpeechToText is closed" }
-        val result = mutex.withLock {
-            try {
-                withContext(dispatcher) { transcribeLocked(audio) }
-            } finally {
-                cleanupInCall()
+        check(!closeRequested.get()) { CLOSED_MESSAGE }
+        try {
+            return mutex.withLock {
+                try {
+                    check(!closeRequested.get()) { CLOSED_MESSAGE }
+                    withContext(dispatcher) { transcribeLocked(audio) }
+                } finally {
+                    cleanupInCall()
+                }
             }
+        } finally {
+            drainCleanup()
         }
-        drainCleanup()
-        return result
     }
 
-    /** Loads the engine for the active variant ahead of the first call. No-op when no model is ready. */
+    /** Loads the engine for the active variant ahead of the first call. No-op when no model is ready or after close. */
     suspend fun warmUp() {
-        check(!closeRequested.get()) { "RajSpeechToText is closed" }
-        mutex.withLock {
-            try {
-                val (variant, files) = readyModel() ?: return@withLock
-                withContext(dispatcher) { engineFor(variant, files) }
-            } finally {
-                cleanupInCall()
+        try {
+            mutex.withLock {
+                try {
+                    if (closeRequested.get()) return@withLock
+                    val (variant, files) = readyModel() ?: return@withLock
+                    withContext(dispatcher) { engineFor(variant, files) }
+                } finally {
+                    cleanupInCall()
+                }
             }
+        } finally {
+            drainCleanup()
         }
-        drainCleanup()
     }
 
     /**
@@ -112,7 +119,14 @@ class RajSpeechToText(
         try {
             call.await()
         } catch (e: CancellationException) {
-            runCatching { engine.abort() }
+            // One abort can land before the native call clears its flag at start, so repeat it
+            // until the call has actually returned.
+            withContext(NonCancellable) {
+                while (!call.isCompleted) {
+                    runCatching { engine.abort() }
+                    withTimeoutOrNull(ABORT_RETRY_MS) { call.join() }
+                }
+            }
             throw e
         }
     }
@@ -181,6 +195,8 @@ class RajSpeechToText(
     }
 
     companion object {
+        private const val CLOSED_MESSAGE = "RajSpeechToText is closed"
+        private const val ABORT_RETRY_MS = 50L
         private const val SAMPLE_RATE = 16_000
         private const val SAMPLES_PER_MS = SAMPLE_RATE / 1000
         private const val TOKENS_PER_SECOND = 30
