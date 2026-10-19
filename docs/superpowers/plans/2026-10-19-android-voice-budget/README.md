@@ -73,6 +73,10 @@ Base `/api/v1`. `Authorization: Bearer <token>` on every route except `auth/toke
 - Existing web transactions have no `clientId`. The unique index on `{ userId, clientId }` must be partial so they stay valid.
 - The web form already stores `date` as `yyyy-MM-dd` (`src/components/dashboard/add-transaction.tsx`, `format(data.date, 'yyyy-MM-dd')`), so the DTO date needs no conversion for rows created on the web.
 
+### Contract amendment from WS3 execution
+
+- `AsrResult` gains a fifth, defaulted field `truncatedSegments: Int = 0` (segments that stopped at the token limit, so their text may be cut short). Four-argument constructor calls still compile.
+
 ### Contract amendments from the cross-review
 
 The five drafts were checked against each other. These resolutions win over anything a workstream file says.

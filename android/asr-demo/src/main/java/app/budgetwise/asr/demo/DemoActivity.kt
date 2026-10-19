@@ -91,7 +91,8 @@ class DemoActivity : ComponentActivity() {
         )
 
         downloadButton.setOnClickListener { onDownloadClicked() }
-        // Pending Wi-Fi only work ignores the box, so changing it while Downloading re-requests with the new setting.
+        // Waiting Wi-Fi only work ignores the box, so changing it while Downloading re-requests with the new
+        // setting. A download that is already running keeps going unchanged.
         meteredCheck.setOnCheckedChangeListener { _, _ ->
             if (modelState is ModelState.Downloading) startDownload()
         }
@@ -99,6 +100,8 @@ class DemoActivity : ComponentActivity() {
             lifecycleScope.launch {
                 try {
                     app.modelManager.delete(variant)
+                    // Unmaps the deleted files now instead of on the next call.
+                    app.speech().release()
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {

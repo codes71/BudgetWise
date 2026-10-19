@@ -22,5 +22,8 @@ llama.cpp), so CI and fresh checkouts need network access. The llama.cpp submodu
 - The app module needs `ndkVersion = "29.0.13113456"` (otherwise native libraries ship unstripped, about 138 MB
   extracted instead of about 19 MB), `ndk { abiFilters += "arm64-v8a" }` and
   `packaging { jniLibs { useLegacyPackaging = true } }` (ggml loads its CPU variants from the native library dir).
-- A cached engine is closed on the next `transcribe`/`warmUp` once `ModelManager.filesFor` returns null. If your
-  `ModelManager` is not `DefaultModelManager`, call `release()` after deleting a model to unmap it right away.
+- After `ModelManager.delete`, call `release()` so the engine unmaps the deleted files right away. Otherwise the
+  cached engine is closed only on the next `transcribe`/`warmUp` that finds `filesFor` null, and a Download in
+  between reuses the engine that still maps the deleted files.
+- `ensureDownloaded` with a different `allowMetered` replaces a download that is waiting for its network, but not
+  one that is already running.

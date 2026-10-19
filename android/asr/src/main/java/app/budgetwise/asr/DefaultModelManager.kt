@@ -85,15 +85,8 @@ class DefaultModelManager(
             .setConstraints(Constraints.Builder().setRequiredNetworkType(network).build())
             .build()
         val name = ModelDownloadWorker.uniqueName(variant)
-        // Pending work keeps its network constraint, so a changed request replaces it (for example
-        // Wi-Fi only work waiting on a phone that left Wi-Fi). Replacing is cheap because the worker
-        // leaves the .part file and the new run resumes it. An identical request keeps the running work.
         val pending = workManager.getWorkInfosForUniqueWorkFlow(name).first().lastOrNull { !it.state.isFinished }
-        val policy = if (pending != null && pending.constraints.requiredNetworkType != network) {
-            ExistingWorkPolicy.REPLACE
-        } else {
-            ExistingWorkPolicy.KEEP
-        }
+        val policy = policyFor(pending?.state, pending?.constraints?.requiredNetworkType, network)
         workManager.enqueueUniqueWork(name, policy, request)
     }
 
@@ -126,6 +119,21 @@ class DefaultModelManager(
     companion object {
         private const val PREFS = "raj_model_manager"
         private const val KEY_ACTIVE = "active_variant"
+
+        /**
+         * Waiting work keeps its network constraint, so a request with a different network type replaces it
+         * (for example Wi-Fi only work waiting on a phone that left Wi-Fi). Replacing is cheap because the
+         * worker leaves the .part file and the new run resumes it. Running work is never replaced: WorkManager
+         * stops it cooperatively, so a replacement could start while the old run still writes the .part file.
+         */
+        internal fun policyFor(
+            pendingState: WorkInfo.State?,
+            pendingNetwork: NetworkType?,
+            requested: NetworkType,
+        ): ExistingWorkPolicy {
+            val waiting = pendingState == WorkInfo.State.ENQUEUED || pendingState == WorkInfo.State.BLOCKED
+            return if (waiting && pendingNetwork != requested) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
+        }
 
         /** Maps the unique work's records to a state, ignoring file checks. */
         internal fun mapWork(infos: List<WorkInfo>): ModelState {

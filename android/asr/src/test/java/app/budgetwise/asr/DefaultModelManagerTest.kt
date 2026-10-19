@@ -3,7 +3,9 @@ package app.budgetwise.asr
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.testing.WorkManagerTestInitHelper
 import app.budgetwise.asr.download.ModelDownloadWorker
@@ -211,6 +213,19 @@ class DefaultModelManagerTest {
         val live = workInfos(v).filter { !it.state.isFinished }
         assertEquals(1, live.size)
         assertEquals(NetworkType.CONNECTED, live.single().constraints.requiredNetworkType)
+    }
+
+    @Test
+    fun onlyWaitingWorkIsReplacedOnNetworkChange() {
+        val connected = NetworkType.CONNECTED
+        val unmetered = NetworkType.UNMETERED
+        assertEquals(ExistingWorkPolicy.KEEP, DefaultModelManager.policyFor(null, null, connected))
+        assertEquals(ExistingWorkPolicy.REPLACE, DefaultModelManager.policyFor(WorkInfo.State.ENQUEUED, unmetered, connected))
+        assertEquals(ExistingWorkPolicy.REPLACE, DefaultModelManager.policyFor(WorkInfo.State.BLOCKED, unmetered, connected))
+        assertEquals(ExistingWorkPolicy.KEEP, DefaultModelManager.policyFor(WorkInfo.State.ENQUEUED, connected, connected))
+        // A running worker is never replaced: its cancellation is cooperative, so a replacement
+        // could start while it still writes the same .part file.
+        assertEquals(ExistingWorkPolicy.KEEP, DefaultModelManager.policyFor(WorkInfo.State.RUNNING, unmetered, connected))
     }
 
     @Test
