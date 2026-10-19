@@ -16,3 +16,8 @@ std::string raj_fix_repetitions(const std::string & s, int threshold = 20);
 
 // Strip prefix, fix repeats, drop U+200B, collapse spaces, trim.
 std::string raj_postprocess(const std::string & raw);
+
+// UTF-8 to UTF-16 for JNI NewString (NewStringUTF rejects 4-byte sequences). Each invalid byte
+// becomes U+FFFD and a sequence cut off by the end of input is dropped, so unsanitized model
+// output (raw) is safe to convert. Code points above U+FFFF become surrogate pairs.
+std::u16string raj_utf8_to_utf16(const std::string & s);

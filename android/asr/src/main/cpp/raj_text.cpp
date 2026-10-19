@@ -233,3 +233,17 @@ std::string raj_postprocess(const std::string & raw) {
     }
     return trim(encode(out));
 }
+
+std::u16string raj_utf8_to_utf16(const std::string & s) {
+    std::u16string out;
+    for (char32_t cp : decode(s)) {
+        if (cp < 0x10000) {
+            out.push_back((char16_t) cp);
+        } else {
+            cp -= 0x10000;
+            out.push_back((char16_t) (0xD800 + (cp >> 10)));
+            out.push_back((char16_t) (0xDC00 + (cp & 0x3FF)));
+        }
+    }
+    return out;
+}

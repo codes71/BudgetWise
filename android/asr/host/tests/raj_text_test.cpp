@@ -116,6 +116,39 @@ static void prompt_context_in_system() {
              "<|im_start|>system\nctx<|im_end|>\n<|im_start|>user\n<__media__><|im_end|>\n<|im_start|>assistant\n");
 }
 
+static void utf16_converts_burmese_and_astral() {
+    const std::u16string burmese = raj_utf8_to_utf16("\xE1\x80\x99\xE1\x80\x84\xE1\x80\xB9");
+    if (burmese != std::u16string({0x1019, 0x1004, 0x1039})) {
+        std::fprintf(stderr, "FAIL burmese utf16\n");
+        std::exit(1);
+    }
+    const std::u16string emoji = raj_utf8_to_utf16("a\xF0\x9F\x98\x80z");  // U+1F600
+    if (emoji != std::u16string({u'a', 0xD83D, 0xDE00, u'z'})) {
+        std::fprintf(stderr, "FAIL surrogate pair\n");
+        std::exit(1);
+    }
+}
+
+static void utf16_maps_invalid_bytes_to_fffd() {
+    const std::u16string out = raj_utf8_to_utf16("a\xC0\x80z\xFF");
+    if (out != std::u16string({u'a', 0xFFFD, 0xFFFD, u'z', 0xFFFD})) {
+        std::fprintf(stderr, "FAIL invalid bytes\n");
+        std::exit(1);
+    }
+    // lone surrogate encoded in UTF-8 is invalid and must not leak into UTF-16
+    if (raj_utf8_to_utf16("\xED\xA0\x80") != std::u16string({0xFFFD, 0xFFFD, 0xFFFD})) {
+        std::fprintf(stderr, "FAIL encoded surrogate\n");
+        std::exit(1);
+    }
+}
+
+static void utf16_empty_input() {
+    if (!raj_utf8_to_utf16("").empty()) {
+        std::fprintf(stderr, "FAIL empty utf16\n");
+        std::exit(1);
+    }
+}
+
 int main() {
     strips_language_prefix();
     language_none_is_empty();
@@ -132,6 +165,9 @@ int main() {
     prompt_matches_spike();
     prompt_matches_spike_auto();
     prompt_context_in_system();
+    utf16_converts_burmese_and_astral();
+    utf16_maps_invalid_bytes_to_fffd();
+    utf16_empty_input();
     std::puts("raj_text: all tests passed");
     return 0;
 }

@@ -16,7 +16,7 @@ set(GGML_OPENMP ON)
 set(LLAMA_SRC ${CMAKE_CURRENT_LIST_DIR}/../../../third_party/llama.cpp)
 add_subdirectory(${LLAMA_SRC} build-llama)
 
-add_library(raj_jni SHARED raj_jni.cpp)
+add_library(raj_jni SHARED raj_jni.cpp raj_text.cpp raj_engine.cpp)
 
 target_include_directories(raj_jni PRIVATE
     ${LLAMA_SRC}/include
