@@ -56,6 +56,8 @@ android {
 }
 
 dependencies {
+    implementation(libs.android.vad.webrtc)
+
     testImplementation(libs.junit)
 
     androidTestImplementation(libs.androidx.test.runner)
