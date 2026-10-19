@@ -3,6 +3,10 @@
 #        bench_phone.sh --self-test
 # Runs the stock llama-mtmd-cli (built by build_android_cli.sh) on the phone over adb, once per clip, and prints
 # CSV: id,audio_ms,wall_ms,rtf,vmhwm_kb. Device facts and the loaded CPU variant go to stderr as '#' lines.
+# Each clip is a fresh process, so wall_ms and rtf include process start and model load (the first clip is also
+# cold, marked by a '# cold:' line on stderr). They are a load-inclusive upper bound, not the warm RTF: G2's p50
+# RTF is judged on the warm path from OnDeviceBenchmarkTest. This script gives the 2 vs 4 thread comparison,
+# SIGILL detection, the CPU variant and VmHWM.
 # CLIP_IDS (space separated, default: the 10 G2 clips) selects the wavs from <clipdir>. INSTALL overrides the
 # install tree. Greedy auto mode, same arguments as parity_cli.py.
 set -euo pipefail
@@ -12,28 +16,35 @@ REMOTE=/data/local/tmp/raj
 CSV_HEADER="id,audio_ms,wall_ms,rtf,vmhwm_kb"
 DEFAULT_CLIPS="fleurs_02 fleurs_10 fleurs_08 fleurs_17 fleurs_23 fleurs_03 fleurs_13 fleurs_00 fleurs_25 fleurs_20"
 
-# Runs on the phone, one clip per call: starts the CLI, polls VmHWM every 200 ms, prints the CLI log then markers.
+# Runs on the phone, one clip per call. The CLI is timed with `wait` (end timestamp right after it returns); VmHWM
+# is polled every 200 ms by a separate background loop that exits when the pid disappears.
 read -r -d '' DEVICE_RUNNER <<'RUNNER' || true
 #!/system/bin/sh
 # args: threads model mmproj wav
 cd /data/local/tmp/raj
 export LD_LIBRARY_PATH=lib
+rm -f run.hwm
 start=$(date +%s%N)
-./bin/llama-mtmd-cli -m "$2" --mmproj "$3" --audio "$4" -p "<__media__>" --temp 0 -n 256 -t "$1" >/data/local/tmp/raj/run.out 2>/data/local/tmp/raj/run.err </dev/null &
+./bin/llama-mtmd-cli -m "$2" --mmproj "$3" --audio "$4" -p "<__media__>" --temp 0 -n 256 -t "$1" >run.out 2>run.err </dev/null &
 pid=$!
-hwm=0
-while kill -0 "$pid" 2>/dev/null; do
-  v=$(grep VmHWM "/proc/$pid/status" 2>/dev/null | tr -dc '0-9')
-  if [ -n "$v" ] && [ "$v" -gt "$hwm" ]; then hwm=$v; fi
-  sleep 0.2
-done
+(
+  hwm=0
+  while kill -0 "$pid" 2>/dev/null; do
+    v=$(grep VmHWM "/proc/$pid/status" 2>/dev/null | tr -dc '0-9')
+    if [ -n "$v" ] && [ "$v" -gt "$hwm" ]; then hwm=$v; fi
+    sleep 0.2
+  done
+  echo "$hwm" >run.hwm
+) &
+poller=$!
 rc=0
 wait "$pid" || rc=$?
 end=$(date +%s%N)
-cat /data/local/tmp/raj/run.err
-cat /data/local/tmp/raj/run.out
+wait "$poller" || true
+cat run.err
+cat run.out
 echo "BENCH_WALL_NS=$((end - start))"
-echo "BENCH_VMHWM_KB=$hwm"
+echo "BENCH_VMHWM_KB=$(cat run.hwm 2>/dev/null || echo 0)"
 echo "BENCH_EXIT=$rc"
 RUNNER
 
@@ -72,12 +83,35 @@ self_test() {
   local tmp; tmp=$(mktemp); trap 'rm -f "$tmp"' RETURN
   sed 's/^BENCH_EXIT=0/BENCH_EXIT=132/' "$fx" >"$tmp"
   if parse_run "$tmp" x 1000 >/dev/null 2>&1; then echo "FAIL: exit 132 not flagged" >&2; return 1; fi
+  local ms; ms=$(wav_ms "$HERE/fixtures/wav_list_header.bin")
+  [ "$ms" = 10000 ] || { echo "FAIL wav_ms with LIST chunk: got '$ms' want 10000" >&2; return 1; }
   echo "self-test PASS"
 }
 
-wav_ms() {  # 16 kHz mono 16-bit PCM with a 44-byte header
-  local bytes; bytes=$(stat -f %z "$1")
-  echo $(( (bytes - 44) / 32 ))
+# wav_ms <file>: audio length in ms from the RIFF header (walks chunks to fmt and data, so LIST chunks are fine).
+wav_ms() {
+  python3 -I - "$1" <<'PY'
+import struct, sys
+f = open(sys.argv[1], "rb")
+if f.read(4) != b"RIFF":
+    sys.exit("not a RIFF file")
+f.read(4)
+if f.read(4) != b"WAVE":
+    sys.exit("not a WAVE file")
+byte_rate = None
+while True:
+    h = f.read(8)
+    if len(h) < 8:
+        sys.exit("no data chunk")
+    cid, size = struct.unpack("<4sI", h)
+    if cid == b"fmt ":
+        byte_rate = struct.unpack("<I", f.read(size)[8:12])[0]
+    elif cid == b"data":
+        print(size * 1000 // byte_rate)
+        break
+    else:
+        f.seek(size + (size & 1), 1)
+PY
 }
 
 main() {
@@ -93,7 +127,7 @@ main() {
   "${adb[@]}" push "$install/bin" "$install/lib" "$REMOTE/" >/dev/null
   push_if_new() {  # skip the push when the device file already has the same size
     local src=$1 dst=$2 size remote_size
-    size=$(stat -f %z "$src")
+    size=$(wc -c <"$src" | tr -d ' ')
     remote_size=$("${adb[@]}" shell "stat -c %s '$dst' 2>/dev/null || echo 0" | tr -d '\r')
     [ "$size" = "$remote_size" ] || "${adb[@]}" push "$src" "$dst" >/dev/null
   }
@@ -112,6 +146,7 @@ main() {
   } >&2
 
   echo "$CSV_HEADER"
+  echo "# cold: ${ids%% *} (first row includes first-touch page cache; every row includes process start and model load)" >&2
   local logdir; logdir=$(mktemp -d); local variant_done=0
   for id in $ids; do
     wav=$clipdir/$id.wav

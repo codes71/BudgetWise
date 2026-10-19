@@ -125,7 +125,7 @@ done
 android/asr/host/spike/bench_phone.sh "$SERIAL" q4km-t2 "$M/Raj-0.6B-Q4_K_M.gguf" "$M/mmproj-Raj-0.6B-Q8_0.gguf" "$C" 2 > g2-q4km-t2.csv
 ```
 
-Output is CSV `id,audio_ms,wall_ms,rtf,vmhwm_kb`; SoC, MemTotal, `asimddp`/`i8mm` features and the loaded CPU variant are printed to stderr as `#` lines. A SIGILL (exit 132 or "Illegal instruction") aborts the run with exit status 3.
+Output is CSV `id,audio_ms,wall_ms,rtf,vmhwm_kb`. Each clip runs in a fresh process, so wall_ms and rtf include process start and model load, and the first row is also cold (`# cold: <id>` on stderr). This is a load-inclusive upper bound. By controller ruling, the G2 p50 RTF threshold is judged on the warm production path from `OnDeviceBenchmarkTest` (instrumented, Task 11b, excludes warmUp); this CLI benchmark supplies the 2 vs 4 thread comparison, SIGILL detection, the CPU variant and VmHWM. Other output: SoC, MemTotal, `asimddp`/`i8mm` features and the loaded CPU variant are printed to stderr as `#` lines. A SIGILL (exit 132 or "Illegal instruction") aborts the run with exit status 3.
 
 G2 thresholds on P1 (4 GB, Helio G85/G99 or Snapdragon 680 class), chosen 0.6B quant:
 
