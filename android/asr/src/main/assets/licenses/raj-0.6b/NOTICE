@@ -1,0 +1,16 @@
+Raj 0.6B
+Copyright (c) 2026 Aung Zay Thant — Raj adaptations and documentation.
+
+Base model: Qwen/Qwen3-ASR-0.6B
+https://huggingface.co/Qwen/Qwen3-ASR-0.6B
+Qwen3-ASR: https://github.com/QwenLM/Qwen3-ASR
+Upstream copyright: Copyright 2026 Alibaba Cloud.
+Upstream license: Apache License 2.0 (UPSTREAM-LICENSE.txt).
+
+Modification notice: these quantized weights contain Raj adaptations for Burmese
+and Burmese-English speech. Release documentation was added. The Raj
+adaptations are licensed under the Apache License, Version 2.0 (LICENSE);
+upstream rights remain intact. No upstream endorsement is implied.
+
+The good-listener image is user-provided artwork from the existing Raj-0 card.
+Third-party image/likeness rights are not granted by the model license.
