@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run genkit:dev\" \"next dev --turbopack -p 9002\"",
+    "dev": "next dev --turbopack -p 9002",
     "genkit:dev": " genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
@@ -13,6 +13,7 @@
     "seed:categories": "tsx scripts/seedCategories.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
     "@genkit-ai/core": "^1.16.1",
     "@genkit-ai/firebase": "^1.15.5",
     "@genkit-ai/googleai": "^1.16.1",

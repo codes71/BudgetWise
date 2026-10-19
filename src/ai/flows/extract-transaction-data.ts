@@ -1,14 +1,8 @@
-import { genkit } from 'genkit';
-import { gemini20Flash, googleAI } from '@genkit-ai/googleai';
-import { z } from 'zod';
-
-// First, create the Genkit instance.
-const ai = genkit({
-  plugins: [googleAI()],
-});
+import * as z from 'zod/v4';
+import { generateStructured } from '@/ai/claude';
 
 const ExtractTransactionInputSchema = z.object({
-  image: z.string().describe('Base64 encoded image of the UPI screenshot'),
+  image: z.string().describe('Base64 data URL of the UPI screenshot'),
 });
 
 const ExtractTransactionOutputSchema = z.object({
@@ -20,45 +14,37 @@ const ExtractTransactionOutputSchema = z.object({
   categoryHint: z.string().optional(),
 });
 
-export const extractTransactionData = ai.defineFlow(
-  {
-    name: 'extractTransactionData',
-    inputSchema: ExtractTransactionInputSchema,
-    outputSchema: ExtractTransactionOutputSchema,
-  },
-  async (input) => {
-    const promptText = `
+export async function extractTransactionData(
+  input: z.infer<typeof ExtractTransactionInputSchema>
+): Promise<z.infer<typeof ExtractTransactionOutputSchema>> {
+  // The client sends a FileReader data URL: data:image/png;base64,....
+  const match = /^data:(image\/(?:jpeg|png|gif|webp));base64,(.+)$/.exec(input.image);
+  if (!match) {
+    throw new Error('Unsupported image. Please upload a JPEG, PNG, GIF or WebP screenshot.');
+  }
+  const [, mediaType, data] = match;
+
+  const promptText = `
       Analyze the following UPI transaction screenshot. Extract the following information:
       - Amount: The transaction amount.
-      - Date: The date of the transaction.
+      - Date: The date of the transaction, formatted as YYYY-MM-DD.
       - Merchant: The name of the merchant or recipient.
       - Transaction ID: Any unique transaction reference number.
       - Description: A brief description of the transaction.
       - Category Hint: A suggestion for the transaction category (e.g., Food, Travel, Utilities, Shopping).
 
-      If a piece of information is not found, omit it from the output. If the photo does not contain any transaction data, return an empty object. 
+      If a piece of information is not found, omit it from the output. If the photo does not contain any transaction data, return an empty object.
     `;
 
-    const modelResponse = await ai.generate({
-      model: gemini20Flash,
-      prompt: [
-        { text: promptText },
-        { media: { url: input.image, contentType: 'image/jpeg' } },
-      ],
-      config: {
-        temperature: 0.1,
+  return generateStructured({
+    schema: ExtractTransactionOutputSchema,
+    effort: 'low',
+    content: [
+      {
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data },
       },
-      output: {
-        schema: ExtractTransactionOutputSchema,
-      },
-    });
-
-    const output = modelResponse.output;
-
-    if (!output) {
-      throw new Error('Failed to extract transaction data. Model response did not match schema.');
-    }
-
-    return output;
-  }
-);
+      { type: 'text', text: promptText },
+    ],
+  });
+}

@@ -8,8 +8,8 @@
  * - CategorizeTransactionOutput - The return type for the categorizeTransaction function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import * as z from 'zod/v4';
+import { generateStructured } from '@/ai/claude';
 
 const CategorizeTransactionInputSchema = z.object({
   description: z.string().describe('The transaction description, e.g., "Starbucks Coffee"'),
@@ -23,38 +23,22 @@ const CategorizeTransactionOutputSchema = z.object({
 export type CategorizeTransactionOutput = z.infer<typeof CategorizeTransactionOutputSchema>;
 
 export async function categorizeTransaction(input: CategorizeTransactionInput): Promise<CategorizeTransactionOutput> {
-  return categorizeTransactionFlow(input);
-}
+  if (!input.description?.trim()) {
+    return { category: '' };
+  }
 
-const prompt = ai.definePrompt({
-  name: 'categorizeTransactionPrompt',
-  input: {schema: CategorizeTransactionInputSchema},
-  output: {schema: CategorizeTransactionOutputSchema},
-  prompt: `You are an expert at categorizing financial transactions.
+  return generateStructured({
+    schema: CategorizeTransactionOutputSchema,
+    effort: 'low',
+    content: `You are an expert at categorizing financial transactions.
 Based on the transaction description, select the most appropriate category from the provided list.
 
-Transaction Description: "{{{description}}}"
+Transaction Description: "${input.description}"
 
 Available Categories:
-{{#each categories}}
-- {{{this}}}
-{{/each}}
+${input.categories.map((category) => `- ${category}`).join('\n')}
 
 Select only one category from the list.
 `,
-});
-
-const categorizeTransactionFlow = ai.defineFlow(
-  {
-    name: 'categorizeTransactionFlow',
-    inputSchema: CategorizeTransactionInputSchema,
-    outputSchema: CategorizeTransactionOutputSchema,
-  },
-  async input => {
-    if (!input.description?.trim()) {
-        return { category: '' };
-    }
-    const {output} = await prompt(input);
-    return output!;
-  }
-);
+  });
+}
