@@ -1,5 +1,6 @@
 package app.budgetwise.asr.demo
 
+import android.media.AudioRecord
 import app.budgetwise.asr.AsrResult
 import java.util.Locale
 
@@ -19,6 +20,17 @@ internal object Pcm {
         rtf(r.audioMs, r.decodeMs),
         r.modelId,
     )
+}
+
+internal object MicErrors {
+    const val UNAVAILABLE = "Microphone unavailable (in use by another app?)"
+
+    fun readError(code: Int): String = when (code) {
+        AudioRecord.ERROR_DEAD_OBJECT -> "Microphone disconnected (read error $code)"
+        AudioRecord.ERROR_INVALID_OPERATION -> "Microphone stopped unexpectedly (read error $code)"
+        AudioRecord.ERROR_BAD_VALUE -> "Microphone read failed: bad value (read error $code)"
+        else -> "Microphone read failed (read error $code)"
+    }
 }
 
 /** In-memory PCM16 accumulator. Grows in chunks and never holds more than [maxSamples]. */
@@ -43,7 +55,11 @@ internal class PcmBuffer(private val maxSamples: Int) {
 
     fun toFloatArray(): FloatArray {
         val out = FloatArray(size)
-        for (i in 0 until size) out[i] = chunks[i / CHUNK][i % CHUNK] / 32768f
+        for ((index, chunk) in chunks.withIndex()) {
+            val start = index * CHUNK
+            val part = Pcm.toFloat(chunk, minOf(CHUNK, size - start))
+            System.arraycopy(part, 0, out, start, part.size)
+        }
         return out
     }
 

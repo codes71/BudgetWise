@@ -64,4 +64,23 @@ class PcmTest {
         val r = AsrResult("x", "raj-0.6b-q8_0@92b89ba+llama.cpp@fb34fc2", 3200, 4100)
         assertEquals("audio 3.2 s, decode 4.1 s, RTF 1.28, raj-0.6b-q8_0@92b89ba+llama.cpp@fb34fc2", Pcm.metricsLine(r))
     }
+
+    @Test
+    fun readErrorMessagesAreDistinctAndMentionCode() {
+        val codes = listOf(
+            android.media.AudioRecord.ERROR_INVALID_OPERATION,
+            android.media.AudioRecord.ERROR_BAD_VALUE,
+            android.media.AudioRecord.ERROR_DEAD_OBJECT,
+            android.media.AudioRecord.ERROR,
+        )
+        val messages = codes.map { MicErrors.readError(it) }
+        assertEquals(codes.size, messages.toSet().size)
+        assertTrue(MicErrors.readError(-99).contains("-99"))
+        assertTrue(MicErrors.readError(android.media.AudioRecord.ERROR_DEAD_OBJECT).contains("disconnected"))
+    }
+
+    @Test
+    fun micUnavailableMessage() {
+        assertEquals("Microphone unavailable (in use by another app?)", MicErrors.UNAVAILABLE)
+    }
 }

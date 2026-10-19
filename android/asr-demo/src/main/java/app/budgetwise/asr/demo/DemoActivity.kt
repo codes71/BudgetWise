@@ -92,7 +92,16 @@ class DemoActivity : ComponentActivity() {
 
         downloadButton.setOnClickListener { onDownloadClicked() }
         deleteButton.setOnClickListener {
-            lifecycleScope.launch { app.modelManager.delete(variant) }
+            lifecycleScope.launch {
+                try {
+                    app.modelManager.delete(variant)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    errorLine = getString(R.string.error_line, e.message ?: e.javaClass.simpleName)
+                    render()
+                }
+            }
         }
         licensesButton.setOnClickListener { showLicenses() }
         talkButton.setOnTouchListener { v, event ->
@@ -136,9 +145,9 @@ class DemoActivity : ComponentActivity() {
     }
 
     private fun warmUpOnce() {
+        val stt = app.speech()
         if (app.warmedUp) return
         app.warmedUp = true
-        val stt = app.speech()
         lifecycleScope.launch {
             try {
                 stt.warmUp()
@@ -182,11 +191,20 @@ class DemoActivity : ComponentActivity() {
         }
         micDeniedHint = false
         errorLine = null
-        val rec = PushToTalkRecorder { if (phase == Phase.LISTENING) finishRecording(transcribe = true) }
+        val rec = PushToTalkRecorder(
+            onLimit = { if (phase == Phase.LISTENING) finishRecording(transcribe = true) },
+            onError = { message ->
+                if (phase == Phase.LISTENING) {
+                    finishRecording(transcribe = false)
+                    errorLine = message
+                    render()
+                }
+            },
+        )
         try {
             rec.start()
         } catch (e: IllegalStateException) {
-            errorLine = getString(R.string.error_line, e.message ?: "microphone failed")
+            errorLine = e.message ?: MicErrors.UNAVAILABLE
             render()
             return
         }
@@ -210,7 +228,7 @@ class DemoActivity : ComponentActivity() {
         }
         if (audio.size < MIN_SAMPLES) {
             audio.fill(0f)
-            showTranscript(getString(R.string.no_speech), null)
+            errorLine = getString(R.string.status_too_short)
             phase = Phase.IDLE
             render()
             return
@@ -284,7 +302,7 @@ class DemoActivity : ComponentActivity() {
         val ready = state is ModelState.Ready
         downloadButton.isEnabled = !downloading && !ready
         meteredCheck.isEnabled = !downloading && !ready
-        deleteButton.isEnabled = ready || downloading || state is ModelState.Failed
+        deleteButton.isEnabled = phase == Phase.IDLE && (ready || downloading || state is ModelState.Failed)
 
         talkButton.isEnabled = ready && phase != Phase.TRANSCRIBING
         status.text = errorLine ?: when {
@@ -300,7 +318,7 @@ class DemoActivity : ComponentActivity() {
         const val HISTORY_SIZE = 10
         const val PAD = 32
 
-        /** Taps shorter than 0.2 s hold no speech worth decoding. */
-        const val MIN_SAMPLES = Pcm.SAMPLE_RATE / 5
+        /** Taps shorter than 0.3 s hold no speech worth decoding. */
+        const val MIN_SAMPLES = Pcm.SAMPLE_RATE * 3 / 10
     }
 }

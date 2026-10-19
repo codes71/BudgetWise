@@ -16,6 +16,7 @@
     <string name="status_not_ready">Not ready: download the model first</string>
     <string name="status_mic_denied">Microphone permission is needed. Press again to allow.</string>
     <string name="talk_button">Hold to talk</string>
+    <string name="status_too_short">Hold the button while you speak</string>
     <string name="no_speech">(no speech detected)</string>
     <string name="history_title">History</string>
     <string name="error_line">Error: %1$s</string>
