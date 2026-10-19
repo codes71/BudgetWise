@@ -64,7 +64,7 @@ class ModelDownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
             Result.failure(failure("download corrupted (hash mismatch for ${e.file})"))
         } catch (e: DownloadException.Http) {
             if (e.code >= 500 && runAttemptCount < MAX_ATTEMPTS) Result.retry()
-            else Result.failure(failure("server error ${e.code}"))
+            else Result.failure(failure("http error ${e.code}"))
         } catch (e: IOException) {
             if (runAttemptCount < MAX_ATTEMPTS) Result.retry()
             else Result.failure(failure("network error: ${e.message}"))

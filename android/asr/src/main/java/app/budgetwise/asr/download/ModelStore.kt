@@ -26,7 +26,7 @@ internal object ModelStore {
         val tmp = File(dir, "$MARKER.tmp")
         tmp.writeText(json.toString())
         File(dir, MARKER).delete()
-        check(tmp.renameTo(File(dir, MARKER))) { "could not write $MARKER" }
+        if (!tmp.renameTo(File(dir, MARKER))) throw java.io.IOException("could not write $MARKER")
     }
 
     /** Cheap check: marker lists the expected hashes and both files have the expected sizes. */
