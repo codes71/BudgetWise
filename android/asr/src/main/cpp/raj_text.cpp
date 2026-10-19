@@ -155,13 +155,18 @@ std::string raj_build_prompt(const std::string & context, const std::string & fo
     return p;
 }
 
-std::string raj_strip_asr_prefix(const std::string & raw, std::string * language_out) {
+namespace {
+
+// Shared by raj_strip_asr_prefix (trimmed) and raj_postprocess (untrimmed, so the repetition
+// fix sees the transcript exactly as decoded).
+std::string strip_prefix(const std::string & raw, std::string * language_out, bool do_trim) {
+    const auto fin = [do_trim](const std::string & t) { return do_trim ? trim(t) : t; };
     if (language_out) language_out->clear();
     const size_t pos = raw.find(kAsrTag);
-    if (pos == std::string::npos) return trim(raw);
+    if (pos == std::string::npos) return fin(raw);
 
     const std::string head = raw.substr(0, pos);
-    const std::string tail = trim(raw.substr(pos + std::char_traits<char>::length(kAsrTag)));
+    const std::string tail = fin(raw.substr(pos + std::char_traits<char>::length(kAsrTag)));
 
     // Mirror upstream parse_asr_output: "language none" means unknown language, and the label
     // is taken from the first non-empty line starting with "language".
@@ -186,6 +191,12 @@ std::string raj_strip_asr_prefix(const std::string & raw, std::string * language
     return tail;
 }
 
+}  // namespace
+
+std::string raj_strip_asr_prefix(const std::string & raw, std::string * language_out) {
+    return strip_prefix(raw, language_out, true);
+}
+
 // Ported from QwenLM/Qwen3-ASR qwen_asr/inference/utils.py detect_and_fix_repetitions,
 // upstream commit 9567667698f195fa807b1581de5c03184e63d2b0 (last change to that file on main).
 std::string raj_fix_repetitions(const std::string & s, int threshold) {
@@ -194,7 +205,7 @@ std::string raj_fix_repetitions(const std::string & s, int threshold) {
 }
 
 std::string raj_postprocess(const std::string & raw) {
-    const std::string fixed = raj_fix_repetitions(raj_strip_asr_prefix(raw, nullptr));
+    const std::string fixed = raj_fix_repetitions(strip_prefix(raw, nullptr, false));
     u32 out;
     bool prev_space = false;
     for (char32_t c : decode(fixed)) {

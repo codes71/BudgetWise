@@ -63,9 +63,16 @@ static void collapses_char_run_over_threshold() {
 static void collapses_repeated_phrase() {
     const std::string phrase = "ကော်ဖီ ";
     CHECK_EQ(raj_fix_repetitions(repeat(phrase, 25)), phrase);
-    // raj_postprocess trims before fixing (as upstream does), so the final copy has no trailing
-    // space and survives as a second, shorter tail.
-    CHECK_EQ(raj_postprocess(repeat(phrase, 25) + "x"), "ကော်ဖီ x");
+}
+
+static void postprocess_collapses_repeated_phrase() {
+    CHECK_EQ(raj_postprocess("language None<asr_text>" + repeat("ကော်ဖီ ", 25)), "ကော်ဖီ");
+}
+
+static void postprocess_loop_without_trailing_space() {
+    // Upstream-faithful: the final copy lacks the trailing space so it is not part of the
+    // matched run and survives as a leftover tail.
+    CHECK_EQ(raj_postprocess(repeat("ကော်ဖီ ", 24) + "ကော်ဖီ"), "ကော်ဖီ ကော်ဖီ");
 }
 
 static void keeps_short_repeats() {
@@ -96,6 +103,8 @@ int main() {
     no_tag_returns_whole_text();
     collapses_char_run_over_threshold();
     collapses_repeated_phrase();
+    postprocess_collapses_repeated_phrase();
+    postprocess_loop_without_trailing_space();
     keeps_short_repeats();
     postprocess_cleans_whitespace_and_zwsp();
     prompt_matches_spike();
