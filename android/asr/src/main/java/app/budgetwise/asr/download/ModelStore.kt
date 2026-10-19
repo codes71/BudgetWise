@@ -18,6 +18,16 @@ internal object ModelStore {
 
     fun fileFor(dir: File, f: ModelFile): File = File(dir, f.path.substringAfterLast('/'))
 
+    /** Bytes already downloaded for [v]: completed files plus `.part` files, each capped at its pinned size. */
+    fun bytesOnDisk(context: Context, v: RajVariant): Long {
+        val dir = dir(context, v)
+        return listOf(v.model, v.mmproj).sumOf { f ->
+            val dest = fileFor(dir, f)
+            val part = File(dest.path + ".part")
+            minOf(maxOf(dest.length(), part.length()), f.bytes)
+        }
+    }
+
     fun writeMarker(dir: File, v: RajVariant) {
         val json = JSONObject()
             .put("revision", v.revision)

@@ -41,6 +41,15 @@ class AsrLicensesTest {
     }
 
     @Test
+    fun includesKleidiAiApache2() {
+        val kai = AsrLicenses.all(context).single { it.component == "KleidiAI" }
+        assertEquals("Apache-2.0", kai.license)
+        assertTrue(kai.text.contains("Arm Limited"))
+        assertTrue(kai.text.contains("Apache License"))
+        assertTrue(kai.text.contains("Version 2.0, January 2004"))
+    }
+
+    @Test
     fun everyEntryNonEmpty() {
         val entries = AsrLicenses.all(context)
         assertTrue(entries.isNotEmpty())

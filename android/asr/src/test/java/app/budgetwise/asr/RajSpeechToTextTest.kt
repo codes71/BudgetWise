@@ -154,6 +154,56 @@ class RajSpeechToTextTest {
     }
 
     @Test
+    fun countsSegmentsThatHitTheTokenLimit() = runBlocking {
+        val factory = Factory { f ->
+            object : FakeEngine(f) {
+                override fun transcribe(pcm: FloatArray, maxNewTokens: Int): EngineOutput {
+                    val n = transcribeCalls.incrementAndGet()
+                    val hit = n != 2
+                    return EngineOutput("t$n", "t$n", if (hit) maxNewTokens else maxNewTokens - 1, 0, 0)
+                }
+            }
+        }
+        val result = stt(factory = factory, segmenter = segmenter(max = 500)).transcribe(audio(24_000))
+        assertEquals("t1 t2 t3", result.text)
+        assertEquals(2, result.truncatedSegments)
+    }
+
+    @Test
+    fun noTruncationReportsZero() = runBlocking {
+        assertEquals(0, stt().transcribe(audio()).truncatedSegments)
+    }
+
+    @Test
+    fun deletedModelClosesCachedEngineOnTranscribe() = runBlocking {
+        val manager = FakeManager()
+        val factory = Factory()
+        val s = stt(manager, factory)
+        s.transcribe(audio())
+        manager.verified = false
+        try {
+            s.transcribe(audio())
+            fail("expected ModelNotReady")
+        } catch (_: AsrException.ModelNotReady) {
+        }
+        assertTrue(factory.opened.single().closed)
+        manager.verified = true
+        s.transcribe(audio())
+        assertEquals(2, factory.opened.size)
+    }
+
+    @Test
+    fun deletedModelClosesCachedEngineOnWarmUp() = runBlocking {
+        val manager = FakeManager()
+        val factory = Factory()
+        val s = stt(manager, factory)
+        s.warmUp()
+        manager.verified = false
+        s.warmUp()
+        assertTrue(factory.opened.single().closed)
+    }
+
+    @Test
     fun audioMsFrom16kSamples() = runBlocking {
         assertEquals(2000L, stt().transcribe(audio(32_000)).audioMs)
     }
@@ -232,6 +282,30 @@ class RajSpeechToTextTest {
         assertEquals("text2", s.transcribe(audio()).text)
         assertEquals(1, factory.opened.size)
         assertEquals(1, engine.maxRunning.get())
+    }
+
+    @Test
+    fun cancellationAbortsOnSingleThreadDispatcher() = runBlocking {
+        val executor = Executors.newSingleThreadExecutor { Thread(it, "native-single") }
+        try {
+            val started = CountDownLatch(1)
+            val hold = CountDownLatch(1)
+            val factory = Factory { BlockingEngine(it, started, hold, abortsNeeded = 1) }
+            val s = stt(factory = factory, dispatcher = executor.asCoroutineDispatcher())
+            val job = launch(poolDispatcher) { s.transcribe(audio()) }
+            assertTrue(started.await(5, TimeUnit.SECONDS))
+            job.cancel()
+            val engine = factory.opened.single() as BlockingEngine
+            // The only native thread is blocked in the call, so abort must not need it.
+            val deadline = System.currentTimeMillis() + 3_000
+            while (engine.aborts.get() < 1 && System.currentTimeMillis() < deadline) delay(10)
+            assertTrue("abort must be issued while the native thread is blocked", engine.aborts.get() >= 1)
+            hold.countDown()
+            job.join()
+            assertEquals("text2", s.transcribe(audio()).text)
+        } finally {
+            executor.shutdownNow()
+        }
     }
 
     @Test

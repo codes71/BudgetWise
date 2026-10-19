@@ -133,7 +133,7 @@ G2 thresholds on P1 (4 GB, Helio G85/G99 or Snapdragon 680 class), chosen 0.6B q
 |---|---|---|
 | p50 RTF | <= 1.0 (WS5 M0) | PENDING |
 | p95 wall, clips <= 8 s | <= 8 s | PENDING |
-| VmHWM | <= 1.6 GB (1,677,722 kB) | PENDING |
+| VmHWM | <= 1,600,000 kB | PENDING |
 | SIGILL | none | PENDING |
 | 1.7B on P2 (p50 RTF <= 1.5, VmHWM <= 3.2 GB) | only if offered | not evaluated, one phone |
 

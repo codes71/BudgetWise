@@ -1,0 +1,9 @@
+KleidiAI
+Copyright 2024-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
+Licensed under the Apache License, Version 2.0 (SPDX: Apache-2.0).
+
+Compiled into the ggml CPU backend libraries by llama.cpp (GGML_CPU_KLEIDIAI=ON).
+Version: v1.24.0
+Source: https://github.com/ARM-software/kleidiai/releases/download/v1.24.0/kleidiai-v1.24.0-src.tar.gz
+(archive MD5 2f02ebe29573d45813e671eb304f2a00, as pinned by ggml/src/ggml-cpu/CMakeLists.txt)
+The license text below is LICENSES/Apache-2.0.txt from that archive, unmodified.

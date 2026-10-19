@@ -15,6 +15,8 @@ object AsrLicenses {
         Source("Raj-0.6B", "Apache-2.0", "raj-0.6b", listOf("NOTICE", "LICENSE", "UPSTREAM-LICENSE.txt")),
         Source("Raj-1.7B", "Apache-2.0", "raj-1.7b", listOf("NOTICE", "LICENSE", "UPSTREAM-LICENSE.txt")),
         Source("llama.cpp", "MIT", "llama.cpp", listOf("LICENSE")),
+        // KleidiAI micro-kernels are compiled into every ggml CPU variant (GGML_CPU_KLEIDIAI=ON).
+        Source("KleidiAI", "Apache-2.0", "kleidiai", listOf("NOTICE", "LICENSE")),
         Source("android-vad", "MIT", "android-vad", listOf("LICENSE")),
         // WebRTC VAD C sources are compiled into android-vad's native library; its license is separate.
         Source("WebRTC VAD", "BSD-3-Clause", "webrtc-vad", listOf("LICENSE")),

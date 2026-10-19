@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -71,20 +72,29 @@ class DefaultModelManager(
     override suspend fun ensureDownloaded(variant: RajVariant, allowMetered: Boolean) {
         setActive(variant)
         if (filesFor(variant) != null) return
-        if (!storage.hasRoomFor(variant.downloadBytes)) {
+        val remaining = (variant.downloadBytes - withContext(Dispatchers.IO) { ModelStore.bytesOnDisk(context, variant) })
+            .coerceAtLeast(0L)
+        if (!storage.hasRoomFor(remaining)) {
             localFailure.value = variant to "Not enough free storage to download ${variant.displayName}"
             return
         }
         localFailure.value = null
+        val network = if (allowMetered) NetworkType.CONNECTED else NetworkType.UNMETERED
         val request = OneTimeWorkRequestBuilder<ModelDownloadWorker>()
             .setInputData(workDataOf(ModelDownloadWorker.KEY_VARIANT to variant.name))
-            .setConstraints(
-                Constraints.Builder()
-                    .setRequiredNetworkType(if (allowMetered) NetworkType.CONNECTED else NetworkType.UNMETERED)
-                    .build(),
-            )
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(network).build())
             .build()
-        workManager.enqueueUniqueWork(ModelDownloadWorker.uniqueName(variant), ExistingWorkPolicy.KEEP, request)
+        val name = ModelDownloadWorker.uniqueName(variant)
+        // Pending work keeps its network constraint, so a changed request replaces it (for example
+        // Wi-Fi only work waiting on a phone that left Wi-Fi). Replacing is cheap because the worker
+        // leaves the .part file and the new run resumes it. An identical request keeps the running work.
+        val pending = workManager.getWorkInfosForUniqueWorkFlow(name).first().lastOrNull { !it.state.isFinished }
+        val policy = if (pending != null && pending.constraints.requiredNetworkType != network) {
+            ExistingWorkPolicy.REPLACE
+        } else {
+            ExistingWorkPolicy.KEEP
+        }
+        workManager.enqueueUniqueWork(name, policy, request)
     }
 
     override suspend fun delete(variant: RajVariant) {

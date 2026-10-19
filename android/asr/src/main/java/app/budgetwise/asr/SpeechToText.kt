@@ -11,4 +11,6 @@ data class AsrResult(
     val modelId: String,
     val audioMs: Long,
     val decodeMs: Long,
+    /** Segments whose generation stopped at the token limit, so their text may be cut short. */
+    val truncatedSegments: Int = 0,
 )

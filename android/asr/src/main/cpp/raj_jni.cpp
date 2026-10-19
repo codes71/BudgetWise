@@ -1,7 +1,9 @@
 #include <jni.h>
 
+#include <android/log.h>
 #include <dlfcn.h>
 
+#include <atomic>
 #include <exception>
 #include <memory>
 #include <new>
@@ -10,6 +12,9 @@
 #include <vector>
 
 #include "ggml-backend.h"
+#include "llama.h"
+#include "mtmd.h"
+#include "mtmd-helper.h"
 #include "raj_engine.h"
 #include "raj_text.h"
 
@@ -29,6 +34,26 @@ std::string library_of(ggml_backend_reg_t reg) {
         return slash == std::string::npos ? path : path.substr(slash + 1);
     }
     return "built-in";
+}
+
+// Forwards llama.cpp, ggml and mtmd log lines at WARN and above to logcat. INFO and DEBUG are
+// dropped so nothing that could echo a prompt or transcript is ever written. CONT lines follow the
+// level of the line they continue.
+std::atomic<int> g_last_log_level{GGML_LOG_LEVEL_NONE};
+
+void android_log_callback(ggml_log_level level, const char *text, void * /* user_data */) {
+    if (text == nullptr) return;
+    int effective = level;
+    if (level == GGML_LOG_LEVEL_CONT) {
+        effective = g_last_log_level.load();
+    } else {
+        g_last_log_level.store(level);
+    }
+    if (effective == GGML_LOG_LEVEL_ERROR) {
+        __android_log_print(ANDROID_LOG_ERROR, "RajNative", "%s", text);
+    } else if (effective == GGML_LOG_LEVEL_WARN) {
+        __android_log_print(ANDROID_LOG_WARN, "RajNative", "%s", text);
+    }
 }
 
 // What a jlong handle points to. The engine is shared so that free can drop it while a transcribe
@@ -100,6 +125,9 @@ Java_app_budgetwise_asr_engine_RajNative_initBackends(JNIEnv *env, jobject /* th
     if (dir.get() == nullptr) {
         return nullptr;  // OutOfMemoryError is pending
     }
+    llama_log_set(android_log_callback, nullptr);
+    ggml_log_set(android_log_callback, nullptr);
+    mtmd_helper_log_set(android_log_callback, nullptr);
     ggml_backend_load_all_from_path(dir.get());
 
     std::string out;

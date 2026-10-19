@@ -29,12 +29,16 @@ class DefaultModelManagerTest {
     private lateinit var context: Context
     private lateinit var workManager: WorkManager
     private var roomForDownload = true
+    private val requestedRoom = mutableListOf<Long>()
     private var fetchCalls = 0
     private val savedFetcher = ModelDownloadWorker.fetcher
 
     private val storage by lazy {
         object : StorageCheck(context) {
-            override fun hasRoomFor(bytes: Long) = roomForDownload
+            override fun hasRoomFor(bytes: Long): Boolean {
+                requestedRoom += bytes
+                return roomForDownload
+            }
         }
     }
 
@@ -195,6 +199,51 @@ class DefaultModelManagerTest {
         val v = RajVariant.RAJ_1_7B
         manager().ensureDownloaded(v, allowMetered = true)
         assertEquals(NetworkType.CONNECTED, workInfos(v).single().constraints.requiredNetworkType)
+    }
+
+    @Test
+    fun allowMeteredUpgradesPendingUnmeteredWork() = runBlocking<Unit> {
+        val v = RajVariant.RAJ_0_6B
+        val m = manager()
+        m.ensureDownloaded(v)
+        assertEquals(NetworkType.UNMETERED, workInfos(v).single().constraints.requiredNetworkType)
+        m.ensureDownloaded(v, allowMetered = true)
+        val live = workInfos(v).filter { !it.state.isFinished }
+        assertEquals(1, live.size)
+        assertEquals(NetworkType.CONNECTED, live.single().constraints.requiredNetworkType)
+    }
+
+    @Test
+    fun replacingWorkKeepsPartFile() = runBlocking<Unit> {
+        val v = RajVariant.RAJ_0_6B
+        val dir = ModelStore.dir(context, v)
+        dir.mkdirs()
+        val part = File(ModelStore.fileFor(dir, v.model).path + ".part").apply { writeBytes(ByteArray(1024)) }
+        val m = manager()
+        m.ensureDownloaded(v)
+        m.ensureDownloaded(v, allowMetered = true)
+        assertTrue(part.exists())
+        assertEquals(1024L, part.length())
+    }
+
+    @Test
+    fun storageCheckSubtractsBytesAlreadyOnDisk() = runBlocking<Unit> {
+        val v = RajVariant.RAJ_0_6B
+        val dir = ModelStore.dir(context, v)
+        dir.mkdirs()
+        // Model file is complete but unmarked; mmproj is half downloaded.
+        java.io.RandomAccessFile(ModelStore.fileFor(dir, v.model), "rw").use { it.setLength(v.model.bytes) }
+        java.io.RandomAccessFile(File(ModelStore.fileFor(dir, v.mmproj).path + ".part"), "rw")
+            .use { it.setLength(1_000_000) }
+        manager().ensureDownloaded(v)
+        assertEquals(listOf(v.mmproj.bytes - 1_000_000), requestedRoom)
+    }
+
+    @Test
+    fun storageCheckAsksForFullSizeWhenNothingOnDisk() = runBlocking<Unit> {
+        val v = RajVariant.RAJ_1_7B
+        manager().ensureDownloaded(v)
+        assertEquals(listOf(v.downloadBytes), requestedRoom)
     }
 
     @Test

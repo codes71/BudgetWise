@@ -5,6 +5,7 @@ import android.os.SystemClock
 import app.budgetwise.asr.audio.FrameClassifier
 import app.budgetwise.asr.audio.SpeechSegmenter
 import app.budgetwise.asr.audio.WebRtcFrameClassifier
+import app.budgetwise.asr.engine.EngineOutput
 import app.budgetwise.asr.engine.ModelFiles
 import app.budgetwise.asr.engine.NativeRajEngineFactory
 import app.budgetwise.asr.engine.RajEngine
@@ -17,9 +18,12 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.Closeable
 import java.util.concurrent.CancellationException
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.ceil
 
@@ -39,6 +43,7 @@ class RajSpeechToText(
     private var engine: RajEngine? = null
     private var engineVariant: RajVariant? = null
     private var ownedClassifier: Closeable? = null
+    private var ownedExecutor: ExecutorService? = null
     private val releaseRequested = AtomicBoolean(false)
     private val closeRequested = AtomicBoolean(false)
 
@@ -48,7 +53,7 @@ class RajSpeechToText(
             return mutex.withLock {
                 try {
                     check(!closeRequested.get()) { CLOSED_MESSAGE }
-                    withContext(dispatcher) { transcribeLocked(audio) }
+                    transcribeLocked(audio)
                 } finally {
                     cleanupInCall()
                 }
@@ -64,7 +69,10 @@ class RajSpeechToText(
             mutex.withLock {
                 try {
                     if (closeRequested.get()) return@withLock
-                    val (variant, files) = readyModel() ?: return@withLock
+                    val (variant, files) = readyModel() ?: run {
+                        dropEngineIfModelGone()
+                        return@withLock
+                    }
                     withContext(dispatcher) { engineFor(variant, files) }
                 } finally {
                     cleanupInCall()
@@ -91,13 +99,24 @@ class RajSpeechToText(
 
     private suspend fun transcribeLocked(audio: FloatArray): AsrResult {
         val startedAt = clock()
-        val (variant, files) = readyModel() ?: throw AsrException.ModelNotReady(modelManager.state.value)
-        val segments = segmenter.segments(audio)
+        val (variant, files) = readyModel() ?: run {
+            dropEngineIfModelGone()
+            throw AsrException.ModelNotReady(modelManager.state.value)
+        }
+        // Only the blocking native work runs on [dispatcher]. The awaiting coroutine stays off it, so
+        // a cancel can issue the abort even while a single native thread is stuck inside a call.
+        val segments = withContext(dispatcher) { segmenter.segments(audio) }
+        var truncated = 0
         val text = if (segments.isEmpty()) {
             ""
         } else {
-            val engine = engineFor(variant, files)
-            segments.map { transcribeSegment(engine, it) }
+            val engine = withContext(dispatcher) { engineFor(variant, files) }
+            segments.map { segment ->
+                val limit = maxNewTokens(segment.size)
+                val out = transcribeSegment(engine, segment, limit)
+                if (out.genTokens >= limit) truncated++
+                out.text
+            }
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .joinToString(" ")
@@ -107,6 +126,7 @@ class RajSpeechToText(
             modelId = "${variant.modelId}+llama.cpp@${BuildConfig.LLAMA_CPP_SHA}",
             audioMs = audio.size.toLong() / SAMPLES_PER_MS,
             decodeMs = clock() - startedAt,
+            truncatedSegments = truncated,
         )
     }
 
@@ -114,8 +134,8 @@ class RajSpeechToText(
      * The native call blocks and ignores coroutine cancellation, so cancellation aborts it, and the
      * scope waits for the aborted call to return before the caller's mutex is released.
      */
-    private suspend fun transcribeSegment(engine: RajEngine, segment: FloatArray): String = coroutineScope {
-        val call = async(dispatcher) { engine.transcribe(segment, maxNewTokens(segment.size)).text }
+    private suspend fun transcribeSegment(engine: RajEngine, segment: FloatArray, limit: Int): EngineOutput = coroutineScope {
+        val call = async(dispatcher) { engine.transcribe(segment, limit) }
         try {
             call.await()
         } catch (e: CancellationException) {
@@ -135,6 +155,12 @@ class RajSpeechToText(
         val variant = modelManager.activeVariant.value ?: return null
         val files = modelManager.filesFor(variant) ?: return null
         return variant to files
+    }
+
+    /** The model was deleted or became unverified: unmap the cached engine. Caller holds the mutex. */
+    private suspend fun dropEngineIfModelGone() {
+        if (engine == null) return
+        withContext(NonCancellable + dispatcher) { closeEngine() }
     }
 
     /** Caller holds the mutex. */
@@ -162,6 +188,8 @@ class RajSpeechToText(
         if (closing) {
             ownedClassifier?.close()
             ownedClassifier = null
+            ownedExecutor?.shutdown()
+            ownedExecutor = null
         }
     }
 
@@ -205,12 +233,19 @@ class RajSpeechToText(
         /** For WS2's Hilt binding. Nothing native is touched until the first transcribe or warmUp. */
         fun create(context: Context, modelManager: ModelManager): RajSpeechToText {
             val classifier = LazyClassifier()
+            // One stable thread for every native call keeps libomp's master thread constant and
+            // leaves Dispatchers.Default free. close() shuts it down after the last cleanup.
+            val executor = Executors.newSingleThreadExecutor { r -> Thread(r, "raj-native").apply { isDaemon = true } }
             return RajSpeechToText(
                 modelManager = modelManager,
                 engineFactory = NativeRajEngineFactory(context.applicationContext, null),
                 segmenter = SpeechSegmenter(classifier),
                 device = DeviceProfile.detect(context),
-            ).also { it.ownedClassifier = classifier }
+                dispatcher = executor.asCoroutineDispatcher(),
+            ).also {
+                it.ownedClassifier = classifier
+                it.ownedExecutor = executor
+            }
         }
 
         /** ceil(seconds x K) + margin, K = 30 generated tokens per audio second (Task 1: max 26.8). */
