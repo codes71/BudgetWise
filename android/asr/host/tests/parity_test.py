@@ -74,6 +74,9 @@ def test_host_matches_server_golden(tmp_path):
     diffs = [f"{i}\n  host: {host[i]['text']}\n  cpu:  {cpu[i]['text']}"
              for i in PARITY_IDS if host[i]["text"] != cpu[i]["text"]]
     assert not diffs, "host text differs from the CPU server:\n" + "\n".join(diffs)
+    raw_diffs = [f"{i}\n  host: {host[i]['raw']}\n  cpu:  {cpu[i]['raw']}"
+                 for i in PARITY_IDS if host[i]["raw"] != cpu[i]["raw"]]
+    assert not raw_diffs, "host raw differs from the CPU server:\n" + "\n".join(raw_diffs)
 
     assert host[SILENCE_ID]["text"] == ""
 

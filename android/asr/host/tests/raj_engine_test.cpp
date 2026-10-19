@@ -12,6 +12,7 @@
 #include <fstream>
 #include <string>
 #include <thread>
+#include <unistd.h>
 #include <vector>
 
 #include "llama.h"
@@ -58,23 +59,39 @@ static std::string truncated_copy(const std::string & src, long long n, const ch
     return dst.string();
 }
 
-static void expect_load_fails(const std::string & model, const std::string & mmproj, const char * what) {
+static void expect_load_fails(const std::string & model, const std::string & mmproj, const RajParams & p,
+                              const char * what) {
     std::string err;
-    std::unique_ptr<RajEngine> e = RajEngine::load(model, mmproj, RajParams(), &err);
+    std::unique_ptr<RajEngine> e = RajEngine::load(model, mmproj, p, &err);
     std::printf("load %s: %s, err=[%s]\n", what, e ? "LOADED" : "nullptr", err.c_str());
     CHECK(e == nullptr);
     CHECK(!err.empty());
 }
 
+// Loads a copy of the model (or mmproj) cut to n bytes and expects failure; the copy is deleted right after.
+static void expect_truncated_fails(bool cut_model, long long n, const char * what) {
+    const std::string cut = truncated_copy(cut_model ? g_model : g_mmproj, n, cut_model ? "model.gguf" : "mmproj.gguf");
+    expect_load_fails(cut_model ? cut : g_model, cut_model ? g_mmproj : cut, RajParams(), what);
+    fs::remove(cut);
+}
+
 static void load_fails_cleanly() {
-    expect_load_fails(g_model + ".missing", g_mmproj, "missing model");
-    expect_load_fails(g_model, g_mmproj + ".missing", "missing mmproj");
-    expect_load_fails(truncated_copy(g_model, 10 << 20, "model-10mb.gguf"), g_mmproj, "model first 10 MB");
-    expect_load_fails(g_model, truncated_copy(g_mmproj, 10 << 20, "mmproj-10mb.gguf"), "mmproj first 10 MB");
-    expect_load_fails(truncated_copy(g_model, -1024, "model-cut.gguf"), g_mmproj, "model minus last 1 KB");
-    expect_load_fails(g_model, truncated_copy(g_mmproj, -1024, "mmproj-cut.gguf"), "mmproj minus last 1 KB");
-    expect_load_fails(truncated_copy(g_model, -1, "model-cut1.gguf"), g_mmproj, "model minus last byte");
-    expect_load_fails(g_model, truncated_copy(g_mmproj, -1, "mmproj-cut1.gguf"), "mmproj minus last byte");
+    expect_load_fails(g_model + ".missing", g_mmproj, RajParams(), "missing model");
+    expect_load_fails(g_model, g_mmproj + ".missing", RajParams(), "missing mmproj");
+    expect_truncated_fails(true, 10 << 20, "model first 10 MB");
+    expect_truncated_fails(false, 10 << 20, "mmproj first 10 MB");
+    expect_truncated_fails(true, -1024, "model minus last 1 KB");
+    expect_truncated_fails(false, -1024, "mmproj minus last 1 KB");
+    expect_truncated_fails(true, -1, "model minus last byte");
+    expect_truncated_fails(false, -1, "mmproj minus last byte");
+
+    RajParams no_threads;
+    no_threads.n_threads = 0;
+    expect_load_fails(g_model, g_mmproj, no_threads, "n_threads 0");
+    RajParams no_ctx;
+    no_ctx.n_ctx = 0;
+    expect_load_fails(g_model, g_mmproj, no_ctx, "n_ctx 0");
+
     std::unique_ptr<RajEngine> e = RajEngine::load(g_model, g_mmproj, RajParams(), nullptr);
     CHECK(e != nullptr);  // null err pointer is allowed
 }
@@ -144,22 +161,50 @@ static void transcribe_repeat_and_abort() {
     CHECK(empty.status == RAJ_STATUS_ERROR);
     CHECK(empty.text.empty());
     CHECK(!empty.raw.empty());
+
+    const RajResult no_tokens = e->transcribe(pcm.data(), pcm.size(), 0);
+    CHECK(no_tokens.status == RAJ_STATUS_ERROR);
+    CHECK(no_tokens.text.empty());
+    CHECK(!no_tokens.raw.empty());
 }
 
-// Long audio against a 256-token context: generation stops at a full context, longer audio is refused.
+// The language prefix is part of the prompt, so the output is the bare transcript.
+static void forced_language() {
+    RajParams p;
+    p.forced_language = "Burmese";
+    std::unique_ptr<RajEngine> e = RajEngine::load(g_model, g_mmproj, p, nullptr);
+    CHECK(e != nullptr);
+    const std::vector<float> pcm = load_pcm(*e, g_wav);
+    const RajResult r = e->transcribe(pcm.data(), pcm.size(), 512);
+    std::printf("forced Burmese: status %d, raw [%s]\n", r.status, r.raw.c_str());
+    CHECK(r.status == RAJ_STATUS_OK);
+    CHECK(!r.text.empty());
+    CHECK(r.raw.rfind("language", 0) != 0);
+}
+
+// 256-token context: the prompt plus max_new_tokens must fit, otherwise ERROR (never a cut transcript).
 static void context_limits() {
     RajParams p;
     p.n_ctx = 256;
     std::unique_ptr<RajEngine> e = RajEngine::load(g_model, g_mmproj, p, nullptr);
     CHECK(e != nullptr);
     const std::vector<float> pcm = load_pcm(*e, g_wav);
+
+    // About 106 prompt tokens + 128 fits; the transcript is longer, so it stops at max_new_tokens, still OK.
+    const RajResult fits = e->transcribe(pcm.data(), pcm.size(), 128);
+    std::printf("n_ctx 256, %d audio tokens, max 128: status %d, gen %d\n", fits.n_audio_tokens, fits.status,
+                fits.n_gen_tokens);
+    CHECK(fits.status == RAJ_STATUS_OK);
+    CHECK(fits.n_gen_tokens == 128);
+
     std::vector<float> twice(pcm);
     twice.insert(twice.end(), pcm.begin(), pcm.end());
-    const RajResult full = e->transcribe(twice.data(), twice.size(), 512);
-    std::printf("n_ctx 256, %d audio tokens: status %d, gen %d\n", full.n_audio_tokens, full.status, full.n_gen_tokens);
-    CHECK(full.status == RAJ_STATUS_OK);
-    CHECK(full.n_gen_tokens > 0);
-    CHECK(full.n_audio_tokens + full.n_gen_tokens < 256);
+    const RajResult over = e->transcribe(twice.data(), twice.size(), 512);
+    std::printf("n_ctx 256, 2x audio, max 512: status %d, gen %d, raw [%s]\n", over.status, over.n_gen_tokens,
+                over.raw.c_str());
+    CHECK(over.status == RAJ_STATUS_ERROR);
+    CHECK(over.text.empty());
+    CHECK(over.raw.find("n_ctx") != std::string::npos);
 
     std::vector<float> thrice(twice);
     thrice.insert(thrice.end(), pcm.begin(), pcm.end());
@@ -167,6 +212,11 @@ static void context_limits() {
     std::printf("n_ctx 256, 3x audio: status %d, raw [%s]\n", too_long.status, too_long.raw.c_str());
     CHECK(too_long.status == RAJ_STATUS_ERROR);
     CHECK(too_long.text.empty());
+}
+
+static void remove_tmp() {
+    std::error_code ec;
+    fs::remove_all(g_tmp, ec);
 }
 
 static void quiet_log(ggml_log_level level, const char * text, void *) {
@@ -186,16 +236,19 @@ int main() {
             return 77;
         }
     }
-    g_tmp = fs::temp_directory_path() / "raj_engine_test";
-    fs::create_directories(g_tmp);
+    // Per-process directory for the truncated copies, removed on every exit path (CHECK exits too).
+    std::string tmpl = (fs::temp_directory_path() / "raj_engine_test.XXXXXX").string();
+    CHECK(mkdtemp(tmpl.data()) != nullptr);
+    g_tmp = tmpl;
+    std::atexit(remove_tmp);
     llama_log_set(quiet_log, nullptr);
     mtmd_helper_log_set(quiet_log, nullptr);
 
     load_fails_cleanly();
     transcribe_repeat_and_abort();
+    forced_language();
     context_limits();
 
-    fs::remove_all(g_tmp);
     std::puts("raj_engine: all tests passed");
     return 0;
 }

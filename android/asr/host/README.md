@@ -16,8 +16,11 @@ $BIN/ctest --test-dir android/asr/host/build --output-on-failure
 `raj_engine` needs the Raj files under `~/.cache/budgetwise-eval` (or `RAJ_MODEL`, `RAJ_MMPROJ`, `RAJ_WAV`) and
 is skipped without them.
 
-Transcribe a clips file (rows in the `spike/run_spike.py` schema plus `n_audio_tokens`, `model_id`, `llama_cpp_sha`;
-no summary line; `predicted_n` excludes the end-of-generation token, llama-server counts it):
+Transcribe a clips file. Rows follow the `spike/run_spike.py` schema plus `n_audio_tokens`, `model_id` and
+`llama_cpp_sha`, with no summary line. Two fields differ from the Task 1 server rows:
+- `predicted_n` excludes the end-of-generation token (llama-server counts it, so it is 1 higher).
+- `language` is `""` in auto mode where the Task 1 golden has `"None"`: the label comes from `raj_strip_asr_prefix`,
+  which follows upstream Qwen3-ASR parsing and treats `none` as no language.
 
 ```
 C=~/.cache/budgetwise-eval

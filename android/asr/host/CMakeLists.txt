@@ -40,6 +40,15 @@ execute_process(
 if (NOT RAJ_LLAMA_CPP_SHA_RC EQUAL 0)
     set(RAJ_LLAMA_CPP_SHA unknown)
 endif()
+# Reconfigure (and re-bake the SHA) whenever the submodule checkout moves.
+execute_process(
+    COMMAND git -C ${LLAMA_SRC} rev-parse --path-format=absolute --git-path HEAD
+    OUTPUT_VARIABLE RAJ_LLAMA_CPP_HEAD_FILE
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE RAJ_LLAMA_CPP_HEAD_RC)
+if (RAJ_LLAMA_CPP_HEAD_RC EQUAL 0 AND EXISTS ${RAJ_LLAMA_CPP_HEAD_FILE})
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${RAJ_LLAMA_CPP_HEAD_FILE})
+endif()
 
 add_library(raj_engine STATIC ../src/main/cpp/raj_engine.cpp)
 target_include_directories(raj_engine PUBLIC ../src/main/cpp)

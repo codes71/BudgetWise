@@ -154,11 +154,12 @@ RajResult RajEngine::transcribe(const float * pcm16k, size_t n_samples, int max_
         }
     }
 
-    // KV cells in use; generation stops when the context is full.
+    // KV cells in use. The prompt plus max_new_tokens must fit, so a transcript is never cut by the context.
     const size_t n_ctx = llama_n_ctx(lctx_);
     size_t n_kv = mtmd_helper_get_n_tokens(chunks.ptr.get());
-    if (n_kv >= n_ctx) {
-        return fail("audio too long: " + std::to_string(n_kv) + " prompt tokens, n_ctx " + std::to_string(n_ctx));
+    if (n_kv + (size_t) max_new_tokens > n_ctx) {
+        return fail("prompt " + std::to_string(n_kv) + " tokens + max_new_tokens " + std::to_string(max_new_tokens) +
+                    " exceed n_ctx " + std::to_string(n_ctx));
     }
     if (abort_.load()) {
         return aborted("");
@@ -189,8 +190,11 @@ RajResult RajEngine::transcribe(const float * pcm16k, size_t n_samples, int max_
         }
         r.n_gen_tokens++;
         raw += token_piece(vocab_, tok);
-        if (r.n_gen_tokens >= max_new_tokens || n_kv >= n_ctx) {
+        if (r.n_gen_tokens >= max_new_tokens) {
             break;
+        }
+        if (n_kv >= n_ctx) {  // unreachable after the check above
+            return fail("context full after " + std::to_string(r.n_gen_tokens) + " tokens");
         }
         batch.n_tokens = 1;
         batch.token[0] = tok;

@@ -25,7 +25,10 @@ struct RajParams {
 
 struct RajResult {
     int status = RAJ_STATUS_ERROR;
-    std::string text, raw;  // text = raj_postprocess(raw)
+    // text = raj_postprocess(raw), valid UTF-8, the only field safe for display. raw is model bytes, not
+    // sanitized, and can end mid code point (on ABORTED or at max_new_tokens): never pass it to
+    // JNI NewStringUTF.
+    std::string text, raw;
     int n_audio_tokens = 0;  // tokens in the audio chunk(s)
     int n_gen_tokens = 0;    // generated tokens, end-of-generation token excluded
     int64_t encode_ms = 0;   // mtmd tokenize + eval of all prompt chunks
@@ -34,20 +37,23 @@ struct RajResult {
 
 // Raj (Qwen3-ASR) through llama.cpp + libmtmd on the CPU. Backends must already be
 // registered (built in, or ggml_backend_load_all_from_path on Android).
-// transcribe is not reentrant; request_abort may be called from any thread.
+// Threading: one transcribe at a time per instance (callers serialize). request_abort is the only
+// member safe to call concurrently, and the engine must outlive every request_abort call.
 class RajEngine {
  public:
     // nullptr on failure, with *err (may be null) set to the reason.
     static std::unique_ptr<RajEngine> load(const std::string & model, const std::string & mmproj,
                                            const RajParams & p, std::string * err);
 
-    // pcm16k: mono float samples at 16 kHz. Clears the KV cache, then decodes greedily until
-    // end of generation, max_new_tokens or a full context.
+    // pcm16k: mono float samples at 16 kHz. Clears the KV cache, then decodes greedily until end of
+    // generation or max_new_tokens, both OK (n_gen_tokens == max_new_tokens means the limit was hit).
+    // ERROR, before any decoding, when prompt + audio tokens + max_new_tokens exceed the context.
     RajResult transcribe(const float * pcm16k, size_t n_samples, int max_new_tokens);
 
     // Stops the transcribe in flight: checked per generated token and inside llama_decode.
     // The mtmd audio encoder does not check it, so an abort during encoding lands when the
-    // encoded chunk is decoded.
+    // encoded chunk is decoded. transcribe clears the flag when it starts, so an abort issued
+    // before that is discarded: check for cancellation after taking the caller's lock.
     void request_abort();
 
     // For host tools that decode audio files with the libmtmd helpers.
