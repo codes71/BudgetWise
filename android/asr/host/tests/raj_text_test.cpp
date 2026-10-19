@@ -75,6 +75,25 @@ static void postprocess_loop_without_trailing_space() {
     CHECK_EQ(raj_postprocess(repeat("ကော်ဖီ ", 24) + "ကော်ဖီ"), "ကော်ဖီ ကော်ဖီ");
 }
 
+static void invalid_utf8_becomes_replacement() {
+    const std::string r = "\xEF\xBF\xBD";
+    const std::string overlong = raj_fix_repetitions("a\xC0\x80z");
+    CHECK_EQ(overlong, "a" + r + r + "z");
+    CHECK_EQ(overlong.find('\0') == std::string::npos ? "ok" : "nul", "ok");
+    CHECK_EQ(raj_fix_repetitions("a\xED\xA0\x80z"), "a" + r + r + r + "z");
+    CHECK_EQ(raj_fix_repetitions("a\xF4\x90\x80\x80z"), "a" + r + r + r + r + "z");
+}
+
+static void truncated_tail_is_dropped() {
+    CHECK_EQ(raj_fix_repetitions("ab\xE1\x80"), "ab");
+    CHECK_EQ(raj_fix_repetitions("ab\xE1"), "ab");
+    CHECK_EQ(raj_fix_repetitions("a\xE1z"), "a\xEF\xBF\xBDz");
+}
+
+static void fix_repetitions_empty_input() {
+    CHECK_EQ(raj_fix_repetitions(""), "");
+}
+
 static void keeps_short_repeats() {
     CHECK_EQ(raj_fix_repetitions("၅၅၅"), "၅၅၅");
     CHECK_EQ(raj_postprocess("၅၅၅"), "၅၅၅");
@@ -105,6 +124,9 @@ int main() {
     collapses_repeated_phrase();
     postprocess_collapses_repeated_phrase();
     postprocess_loop_without_trailing_space();
+    invalid_utf8_becomes_replacement();
+    truncated_tail_is_dropped();
+    fix_repetitions_empty_input();
     keeps_short_repeats();
     postprocess_cleans_whitespace_and_zwsp();
     prompt_matches_spike();

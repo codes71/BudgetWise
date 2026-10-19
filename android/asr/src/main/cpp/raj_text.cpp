@@ -10,44 +10,57 @@ const char * const kAsrTag = "<asr_text>";
 
 using u32 = std::u32string;
 
-// Lenient UTF-8 decode: invalid bytes map to U+FFFD, one byte at a time.
+// Lenient UTF-8 decode: each invalid byte becomes one U+FFFD (overlong forms, surrogates and
+// values above U+10FFFF included). A sequence truncated by the end of input is dropped.
 u32 decode(const std::string & s) {
     u32 out;
     size_t i = 0;
     const size_t n = s.size();
     while (i < n) {
         const unsigned char c = (unsigned char) s[i];
-        int len = 1;
-        char32_t cp = 0xFFFD;
         if (c < 0x80) {
-            cp = c;
-        } else if ((c & 0xE0) == 0xC0) {
-            len = 2;
-            cp = c & 0x1F;
+            out.push_back(c);
+            i++;
+            continue;
+        }
+        int len = 0;
+        char32_t cp = 0;
+        char32_t min_cp = 0;
+        if ((c & 0xE0) == 0xC0) {
+            len = 2; cp = c & 0x1F; min_cp = 0x80;
         } else if ((c & 0xF0) == 0xE0) {
-            len = 3;
-            cp = c & 0x0F;
+            len = 3; cp = c & 0x0F; min_cp = 0x800;
         } else if ((c & 0xF8) == 0xF0) {
-            len = 4;
-            cp = c & 0x07;
+            len = 4; cp = c & 0x07; min_cp = 0x10000;
         }
-        if (len > 1) {
-            bool ok = i + len <= n;
-            for (int k = 1; ok && k < len; k++) {
-                const unsigned char cc = (unsigned char) s[i + k];
-                if ((cc & 0xC0) != 0x80) {
-                    ok = false;
-                } else {
-                    cp = (cp << 6) | (cc & 0x3F);
-                }
-            }
-            if (!ok) {
-                len = 1;
-                cp = 0xFFFD;
-            }
+        if (len == 0) {
+            out.push_back(0xFFFD);
+            i++;
+            continue;
         }
-        out.push_back(cp);
-        i += len;
+        bool ok = true;
+        bool truncated = false;
+        for (int k = 1; k < len; k++) {
+            if (i + k >= n) {
+                truncated = true;
+                break;
+            }
+            const unsigned char cc = (unsigned char) s[i + k];
+            if ((cc & 0xC0) != 0x80) {
+                ok = false;
+                break;
+            }
+            cp = (cp << 6) | (cc & 0x3F);
+        }
+        if (truncated && ok) break;  // cut-off tail: drop
+        if (ok && (cp < min_cp || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF))) ok = false;
+        if (ok) {
+            out.push_back(cp);
+            i += len;
+        } else {
+            out.push_back(0xFFFD);
+            i++;
+        }
     }
     return out;
 }
@@ -80,8 +93,8 @@ bool is_space(char32_t c) {
 
 std::string trim(const std::string & s) {
     size_t b = 0, e = s.size();
-    while (b < e && std::isspace((unsigned char) s[b])) b++;
-    while (e > b && std::isspace((unsigned char) s[e - 1])) e--;
+    while (b < e && is_space((unsigned char) s[b])) b++;
+    while (e > b && is_space((unsigned char) s[e - 1])) e--;
     return s.substr(b, e - b);
 }
 

@@ -5,6 +5,8 @@
 // ChatML prompt with one <__media__> marker. Empty forced_language means auto mode.
 std::string raj_build_prompt(const std::string & context, const std::string & forced_language);
 
+// Output is NOT sanitized (no UTF-8 validation, repeats or ZWSP left in); callers must use
+// raj_postprocess for display text.
 // Splits "language X<asr_text>transcript". Returns the trimmed transcript and sets *language_out
 // (may be null) to the label, or "" when absent or "None". No tag returns the whole trimmed text.
 std::string raj_strip_asr_prefix(const std::string & raw, std::string * language_out);
