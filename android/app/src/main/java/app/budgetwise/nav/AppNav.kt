@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.dropUnlessResumed
+import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
@@ -70,6 +71,15 @@ private val TopLevels = listOf(
     TopLevel(Routes.SETTINGS, R.string.nav_settings, R.drawable.ic_settings, R.drawable.ic_settings_fill1),
 )
 
+/**
+ * Closes the manual add form. Not `dropUnlessResumed`: the Saved event is one-shot and already consumed, so dropping it
+ * while the entry is not resumed (app in the background, a transition running) would leave the form spinning with
+ * saving = true. Checking the current destination still makes a second call (double tap on close) a no-op.
+ */
+internal fun NavController.closeManual() {
+    if (currentDestination?.route == Routes.MANUAL) popBackStack()
+}
+
 private fun NavDestination?.isOn(route: String) = this?.hierarchy?.any { it.route == route } == true
 
 /**
@@ -94,7 +104,12 @@ fun AppNav(
     var tabsOwner by rememberSaveable { mutableStateOf<String?>(null) }
     fun forgetSavedTabs() = TopLevels.forEach { navController.clearBackStack(it.route) }
 
-    LaunchedEffect(session) {
+    // The NavHost sets the graph while it composes, which can come after this effect first runs (first composition).
+    // Until the first back stack entry exists there is no graph to read and nothing saved to clear, so the effect waits
+    // and runs again once it does.
+    val graphReady = backStack != null
+    LaunchedEffect(session, graphReady) {
+        if (!graphReady) return@LaunchedEffect
         when (session) {
             // Signing out (Settings) ends at sign-in with nothing behind it, whichever screen the user was on.
             SessionState.SignedOut -> {
@@ -174,7 +189,7 @@ fun AppNav(
                 )
             }
             composable(Routes.MANUAL) {
-                AddManualRoute(onDone = dropUnlessResumed { navController.popBackStack() })
+                AddManualRoute(onDone = navController::closeManual)
             }
             composable(Routes.BUDGETS) { BudgetsRoute() }
             composable(Routes.SETTINGS) { SettingsRoute(onSignIn = ::openSignIn) }

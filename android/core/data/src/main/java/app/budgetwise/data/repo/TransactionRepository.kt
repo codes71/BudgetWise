@@ -56,8 +56,13 @@ class TransactionRepository @Inject constructor(
     suspend fun addAll(inputs: List<NewTransaction>): List<String> {
         if (inputs.isEmpty()) return emptyList()
         val now = clock.instant()
+        // Converting Zawgyi to Unicode can lengthen the text, so the server's limit is checked on what is stored.
+        val descriptions = inputs.map { BurmeseTextNormalizer.prepare(it.description) }
+        require(descriptions.all { it.length <= MAX_DESCRIPTION }) {
+            "description is longer than $MAX_DESCRIPTION characters once prepared"
+        }
         val ids = db.withTransaction {
-            inputs.map { input ->
+            inputs.mapIndexed { index, input ->
                 val clientId = UUID.randomUUID().toString()
                 tx.upsert(
                     TransactionEntity(
@@ -66,7 +71,7 @@ class TransactionRepository @Inject constructor(
                         type = input.type,
                         amountKyat = input.amountKyat,
                         category = input.category,
-                        description = BurmeseTextNormalizer.prepare(input.description),
+                        description = descriptions[index],
                         date = input.date,
                         source = input.source,
                         transcript = input.transcript?.let(BurmeseTextNormalizer::prepare),
@@ -86,5 +91,10 @@ class TransactionRepository @Inject constructor(
     suspend fun delete(clientId: String) {
         syncEngine.enqueueDelete(clientId)
         syncScheduler.enqueue(fullPull = false)
+    }
+
+    companion object {
+        /** The server's limit for a description, in characters, measured on the stored (prepared) text. */
+        const val MAX_DESCRIPTION = 200
     }
 }

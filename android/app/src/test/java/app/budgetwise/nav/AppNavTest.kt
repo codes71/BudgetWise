@@ -2,6 +2,7 @@ package app.budgetwise.nav
 
 import android.content.Context
 import androidx.annotation.StringRes
+import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,7 +14,10 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
@@ -103,6 +107,45 @@ class AppNavTest {
         compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.nav_transactions)).assertDoesNotExist()
         compose.onNodeWithText(text(R.string.session_expired_message)).assertDoesNotExist()
+    }
+
+    @Test
+    fun signedOutInTheFirstCompositionDoesNotTouchTheGraphTooEarly() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme { AppNav(session = SessionState.SignedOut, navController = nav) }
+        }
+
+        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
+        assertEquals(Routes.LOGIN, compose.runOnIdle { nav.currentDestination?.route })
+    }
+
+    @Test
+    fun theFormClosesEvenWhenItsEntryIsNotResumed() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            NavHost(nav, startDestination = Routes.TRANSACTIONS) {
+                composable(Routes.TRANSACTIONS) { Text("list") }
+                composable(Routes.MANUAL) { Text("form") }
+            }
+        }
+
+        // Frozen clock: the enter transition never finishes, so the entry stays STARTED (what a Saved event that
+        // arrives mid-transition or in the background meets). dropUnlessResumed drops the call in that state.
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { nav.navigate(Routes.MANUAL) }
+        compose.mainClock.advanceTimeByFrame()
+        val state = compose.runOnIdle { nav.currentBackStackEntry!!.lifecycle.currentState }
+        assertFalse("premise: the entry is not resumed", state == Lifecycle.State.RESUMED)
+
+        compose.runOnIdle {
+            nav.closeManual()
+            nav.closeManual()
+        }
+        compose.mainClock.autoAdvance = true
+        assertEquals(Routes.TRANSACTIONS, compose.runOnIdle { nav.currentDestination?.route })
     }
 
     @Test

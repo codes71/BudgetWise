@@ -82,6 +82,7 @@ import app.budgetwise.ui.common.categoryColors
 import app.budgetwise.ui.common.categoryIcon
 import app.budgetwise.ui.common.categoryLabel
 import app.budgetwise.ui.common.dayLabel
+import app.budgetwise.ui.common.groupDigits
 import app.budgetwise.ui.common.localizedDate
 import app.budgetwise.ui.common.pickerMillisToDate
 import app.budgetwise.ui.common.toMyanmarDigits
@@ -321,7 +322,14 @@ private fun DescriptionField(
                     null -> ""
                 }
                 Text(error, modifier = Modifier.weight(1f))
-                Text(stringResource(R.string.manual_description_count, state.description.trim().length, max))
+                // Formatted like amounts: the Myanmar-digits setting decides, not the phone's locale.
+                Text(
+                    stringResource(
+                        R.string.manual_description_count,
+                        groupDigits(state.descriptionLength.toLong(), state.myanmarDigits),
+                        groupDigits(max.toLong(), state.myanmarDigits),
+                    ),
+                )
             }
         },
         // Burmese descriptions wrap onto more lines instead of scrolling sideways.

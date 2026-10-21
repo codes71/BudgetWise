@@ -46,4 +46,16 @@ class SettingsStoreTest {
         assertNull(s.lastPulledAt.first())
         assertTrue("clearing the cursor leaves the flags", s.cloudParseEnabled.first())
     }
+
+    @Test
+    fun aCorruptFileYieldsDefaultsAndIsWritableAgain() = runTest(UnconfinedTestDispatcher()) {
+        tmp.root.resolve("corrupt.preferences_pb").writeBytes(byteArrayOf(0x7f, 0x01, 0x02, 0x03, 0x55, 0x66))
+        val s = DataStoreSettingsStore(
+            createAppPreferences(backgroundScope) { tmp.root.resolve("corrupt.preferences_pb") },
+        )
+        assertFalse(s.myanmarDigits.first())
+        assertNull(s.lastPulledAt.first())
+        s.setMyanmarDigits(true)
+        assertTrue(s.myanmarDigits.first())
+    }
 }

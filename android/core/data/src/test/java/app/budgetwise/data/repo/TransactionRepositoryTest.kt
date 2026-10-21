@@ -3,6 +3,7 @@ package app.budgetwise.data.repo
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.db.OutboxOp
+import app.budgetwise.data.text.BurmeseTextNormalizer
 import app.budgetwise.nlu.TxType
 import java.time.LocalDate
 import java.util.UUID
@@ -62,6 +63,22 @@ class TransactionRepositoryTest {
         assertEquals(unicode, rows[0].transcript)
         assertEquals(unicode, rows[1].description)
         assertEquals(null, rows[1].transcript)
+    }
+
+    @Test
+    fun addAllRefusesADescriptionThatConvertsPastTheServerLimit() = runBlocking {
+        // Short as typed (Zawgyi), longer once converted to Unicode: the stored text is what the server counts.
+        val zawgyi = "ဒီေန႔ ေဈးမွာ ဆန္ဝယ္ခဲ့တယ္" + "ၻ".repeat(100)
+        assertTrue(zawgyi.length <= TransactionRepository.MAX_DESCRIPTION)
+        assertTrue(BurmeseTextNormalizer.prepare(zawgyi).length > TransactionRepository.MAX_DESCRIPTION)
+        try {
+            repo.addAll(listOf(input(100), input(200).copy(description = zawgyi)))
+            fail("expected the converted description to be refused")
+        } catch (_: IllegalArgumentException) {
+        }
+        assertEquals("nothing is stored, not even the valid row", 0, repo.observe().first().size)
+        assertEquals(0, h.sync.pendingOps().size)
+        assertTrue(h.work("sync").isEmpty())
     }
 
     @Test

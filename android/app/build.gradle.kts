@@ -5,8 +5,9 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
-// Debug talks to the Mac dev server through `adb reverse tcp:9002 tcp:9002`. Override with
-// -Pbudgetwise.apiBaseUrl=... . Release has its own property and must be HTTPS.
+// Debug talks to the Mac dev server through `adb reverse tcp:9002 tcp:9002`, or over the LAN with
+// -Pbudgetwise.apiBaseUrl=http://<mac-lan-ip>:9002/api/v1/ (the debug network config allows cleartext to any host).
+// Release has its own property and must be HTTPS.
 fun baseUrl(raw: String) = if (raw.endsWith("/")) raw else "$raw/"
 val debugApiBaseUrl = baseUrl(
     providers.gradleProperty("budgetwise.apiBaseUrl").getOrElse("http://127.0.0.1:9002/api/v1/"),

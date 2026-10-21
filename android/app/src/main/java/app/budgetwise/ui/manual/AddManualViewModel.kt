@@ -11,6 +11,8 @@ import app.budgetwise.data.model.Source
 import app.budgetwise.data.prefs.SettingsStore
 import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.NewTransaction
+import app.budgetwise.data.repo.TransactionRepository
+import app.budgetwise.data.text.BurmeseTextNormalizer
 import app.budgetwise.di.DeviceClock
 import app.budgetwise.nlu.TxType
 import app.budgetwise.ui.common.MAX_KYAT
@@ -57,6 +59,9 @@ data class AddManualUiState(
 ) {
     val amount: Long? get() = amountDigits.toLongOrNull()
 
+    /** Length of the description as the repository will store it (Zawgyi converted, normalized), which can exceed what was typed. */
+    val descriptionLength: Int by lazy(LazyThreadSafetyMode.NONE) { BurmeseTextNormalizer.prepare(description).length }
+
     private val amountProblem: AmountError?
         get() = when (amount) {
             null -> AmountError.MISSING
@@ -66,7 +71,7 @@ data class AddManualUiState(
 
     private val descriptionProblem: DescriptionError?
         get() {
-            val length = description.trim().length
+            val length = descriptionLength
             return when {
                 length == 0 -> DescriptionError.BLANK
                 length > AddManualViewModel.MAX_DESCRIPTION -> DescriptionError.TOO_LONG
@@ -209,8 +214,8 @@ class AddManualViewModel @Inject constructor(
     }
 
     companion object {
-        /** The server's limit for a description, in characters after trimming. */
-        const val MAX_DESCRIPTION = 200
+        /** The server's limit for a description, in characters of the prepared text. */
+        const val MAX_DESCRIPTION = TransactionRepository.MAX_DESCRIPTION
         private val MAX_DIGITS = MAX_KYAT.toString().length
 
         // SavedStateHandle keys; values are Bundle types (String, Long, Boolean).

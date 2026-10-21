@@ -101,7 +101,7 @@
         <item quantity="one">Keep it to %d character or fewer</item>
         <item quantity="other">Keep it to %d characters or fewer</item>
     </plurals>
-    <string name="manual_description_count">%1$d/%2$d</string>
+    <string name="manual_description_count">%1$s/%2$s</string>
     <string name="manual_date">Date</string>
     <string name="manual_date_change">Change date</string>
     <string name="manual_date_error_future">The date can\'t be in the future</string>

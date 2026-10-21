@@ -208,6 +208,21 @@ class AddManualViewModelTest {
     }
 
     @Test
+    fun theDescriptionLimitCountsTheConvertedText() = runTest {
+        // Short as typed (Zawgyi), longer once converted to Unicode, which is what is stored and what the server counts.
+        val zawgyi = "ဒီေန႔ ေဈးမွာ ဆန္ဝယ္ခဲ့တယ္" + "ၻ".repeat(100)
+        assertTrue(zawgyi.trim().length <= AddManualViewModel.MAX_DESCRIPTION)
+        val vm = vm()
+        vm.fill(description = zawgyi)
+
+        assertTrue(vm.state.value.descriptionLength > AddManualViewModel.MAX_DESCRIPTION)
+        assertEquals(DescriptionError.TOO_LONG, vm.state.value.descriptionError)
+        assertFalse(vm.state.value.canSave)
+        vm.save()
+        assertTrue(store.added.isEmpty())
+    }
+
+    @Test
     fun categoryIsRequired() = runTest {
         val vm = vm()
         vm.onAmountChange("5000")

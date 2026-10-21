@@ -2,9 +2,11 @@ package app.budgetwise.data.prefs
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
@@ -15,9 +17,13 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -88,9 +94,23 @@ abstract class SettingsBindingsModule {
 @Module
 @InstallIn(SingletonComponent::class)
 object PrefsModule {
-    /** One Preferences DataStore per process, shared by [DataStoreSettingsStore] and the category cache. */
+    /**
+     * One Preferences DataStore per process, shared by [DataStoreSettingsStore] and the category cache (the same
+     * file). A corrupt file is replaced by an empty one (defaults, full pull on the next sync) instead of failing
+     * every read, which would crash the home screen on each launch.
+     */
     @Provides
     @Singleton
     fun preferences(@ApplicationContext context: Context): DataStore<Preferences> =
-        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("budgetwise_prefs") }
+        createAppPreferences { context.preferencesDataStoreFile("budgetwise_prefs") }
 }
+
+/** The app's Preferences DataStore over [produceFile]; a corrupt file is replaced by an empty one. Split out for tests. */
+internal fun createAppPreferences(
+    scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
+    produceFile: () -> File,
+): DataStore<Preferences> = PreferenceDataStoreFactory.create(
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+    scope = scope,
+    produceFile = produceFile,
+)

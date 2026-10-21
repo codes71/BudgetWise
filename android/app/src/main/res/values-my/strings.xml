@@ -95,7 +95,7 @@
     <plurals name="manual_description_error_too_long">
         <item quantity="other">စာလုံး %d လုံးထက် မပိုရပါ</item>
     </plurals>
-    <string name="manual_description_count">%1$d/%2$d</string>
+    <string name="manual_description_count">%1$s/%2$s</string>
     <string name="manual_date">ရက်စွဲ</string>
     <string name="manual_date_change">ရက်စွဲ ပြောင်းမည်</string>
     <string name="manual_date_error_future">နောင်ရက်စွဲ မရွေးနိုင်ပါ</string>

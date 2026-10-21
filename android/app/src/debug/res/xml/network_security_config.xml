@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Debug only: cleartext to the adb-reversed dev server on loopback, nothing else. -->
+<!-- Debug only, for LAN testing against the Mac dev server (-Pbudgetwise.apiBaseUrl=http://<mac-lan-ip>:9002/api/v1/)
+     as well as the adb-reversed loopback. Release has its own config and stays HTTPS-only. -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">127.0.0.1</domain>
-        <domain includeSubdomains="false">localhost</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>
