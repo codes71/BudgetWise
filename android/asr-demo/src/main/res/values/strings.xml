@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Raj ASR demo</string>
+    <string name="app_name">BudgetWise Voice Lab</string>
     <string name="model_title">Model</string>
     <string name="model_missing">Missing</string>
     <string name="model_downloading">Downloading %1$d%%</string>
