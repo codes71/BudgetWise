@@ -10,7 +10,8 @@
     "genkit:build": "cross-env GENKIT_TELEMETRY_DISABLED=1 genkit start -- tsx src/ai/genkit.ts",
     "start": "next start",
     "lint": "next lint",
-    "seed:categories": "tsx scripts/seedCategories.ts"
+    "seed:categories": "tsx scripts/seedCategories.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
@@ -78,6 +79,9 @@
     "@types/node": "^20.19.10",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18",
-    "postcss": "^8"
+    "mongodb-memory-server": "^11.3.0",
+    "postcss": "^8",
+    "vite": "^7.3.7",
+    "vitest": "^5.0.5"
   }
 }
