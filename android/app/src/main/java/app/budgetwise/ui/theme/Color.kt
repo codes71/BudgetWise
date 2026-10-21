@@ -15,23 +15,34 @@ val BrandForegroundDark = Color(0xFFF9FAFB) // .dark --foreground, hsl(210 20% 9
 // light for white text (2.5:1).
 val BrandForest = Color(0xFF143429)
 
-// Tonal steps derived from the brand hues for Material 3 container and surface roles.
+// Light scheme text roles (primary, secondary, tertiary): the brand hues darkened until they pass WCAG AA
+// 4.5:1 on every light surface. The exact brand hues fill the containers instead.
+internal val SageDeep = Color(0xFF26644E) // hsl(159 45% 27%)
+internal val BlueDeep = Color(0xFF305B7E) // hsl(207 45% 34%)
+internal val CoralDeep = Color(0xFF9C351C) // hsl(12 70% 36%)
+internal val BlueInk = Color(0xFF081A2A) // text on the brand blue container
+internal val CoralInk = Color(0xFF3A1006) // text on the brand coral container
+
+// Dark scheme text roles: sage passes on every dark surface as is; blue and coral are lightened to pass.
+internal val BlueLight = Color(0xFF89B1D2) // hsl(207 45% 68%)
+internal val CoralLight = Color(0xFFF08E75) // hsl(12 80% 70%)
+
+// Tonal steps derived from the brand hues for the remaining Material 3 container and fixed roles.
 internal val SageContainer = Color(0xFFCDEBDD)
 internal val SageContainerDark = Color(0xFF1F4F40)
 internal val SageFixedDim = Color(0xFFA3D6C1)
 internal val SageOnFixedVariant = Color(0xFF2A5E4C)
-internal val SageInverse = Color(0xFF2F7A62)
-internal val SageInverseDark = Color(0xFF8FD3BA)
+internal val SageLight = Color(0xFF8FD3BA)
 
 internal val BlueContainer = Color(0xFFD6E6F3)
 internal val BlueContainerDark = Color(0xFF1D3B53)
-internal val BlueOnContainer = Color(0xFF11314B)
+internal val BlueOnFixed = Color(0xFF11314B)
 internal val BlueFixedDim = Color(0xFFB0CCE4)
 internal val BlueOnFixedVariant = Color(0xFF2F5574)
 
 internal val CoralContainer = Color(0xFFFBDCD3)
 internal val CoralContainerDark = Color(0xFF6E2A1A)
-internal val CoralOnContainer = Color(0xFF5C1D0D)
+internal val CoralOnFixed = Color(0xFF5C1D0D)
 internal val CoralFixedDim = Color(0xFFF5B6A5)
 internal val CoralOnFixedVariant = Color(0xFF7F3220)
 
@@ -60,9 +71,9 @@ internal val OutlineDark = Color(0xFF8B929B)
 internal val OutlineVariantDark = Color(0xFF1F2937) // web .dark --border
 internal val InverseSurfaceDark = Color(0xFFE2E5E8)
 internal val InverseOnSurfaceDark = Color(0xFF2B2E32)
-internal val SurfaceBrightDark = Color(0xFF3A3D42)
+internal val SurfaceBrightDark = Color(0xFF34373B)
 internal val SurfaceContainerLowestDark = Color(0xFF111316)
 internal val SurfaceContainerLowDark = Color(0xFF1D2023)
 internal val SurfaceContainerDark = Color(0xFF212427)
 internal val SurfaceContainerHighDark = Color(0xFF2B2E32)
-internal val SurfaceContainerHighestDark = Color(0xFF33363A)
+internal val SurfaceContainerHighestDark = Color(0xFF303337)

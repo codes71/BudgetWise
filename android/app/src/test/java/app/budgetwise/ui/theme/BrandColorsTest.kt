@@ -23,55 +23,101 @@ class BrandColorsTest {
     }
 
     @Test
-    fun lightSchemeUsesBrandPrimary() {
-        assertEquals(BrandPrimary, LightColorScheme.primary)
+    fun lightSchemeKeepsBrandHuesInContainers() {
+        assertEquals(BrandPrimary, LightColorScheme.primaryContainer)
+        assertEquals(BrandAccent, LightColorScheme.secondaryContainer)
+        assertEquals(BrandCoral, LightColorScheme.tertiaryContainer)
         assertEquals(BrandBackgroundLight, LightColorScheme.background)
         assertEquals(BrandForeground, LightColorScheme.onBackground)
+        assertAa(
+            "light",
+            listOf(
+                "primary/surface" to contrast(LightColorScheme.primary, LightColorScheme.surface),
+                "secondary/surface" to contrast(LightColorScheme.secondary, LightColorScheme.surface),
+                "tertiary/surface" to contrast(LightColorScheme.tertiary, LightColorScheme.surface),
+            ),
+        )
     }
 
     @Test
     fun darkSchemeUsesBrandPrimary() {
         assertEquals(BrandPrimary, DarkColorScheme.primary)
         assertEquals(BrandBackgroundDark, DarkColorScheme.background)
+        assertAa(
+            "dark",
+            listOf(
+                "primary/surface" to contrast(DarkColorScheme.primary, DarkColorScheme.surface),
+                "secondary/surface" to contrast(DarkColorScheme.secondary, DarkColorScheme.surface),
+                "tertiary/surface" to contrast(DarkColorScheme.tertiary, DarkColorScheme.surface),
+            ),
+        )
     }
 
     @Test
-    fun textOnEverySurfaceMeetsWcagAa() {
-        val schemes = listOf("light" to LightColorScheme, "dark" to DarkColorScheme)
-        for ((name, scheme) in schemes) {
-            // Sage primary as text only passes on the dark surface; the light theme keeps it for fills.
-            val extra = if (name == "dark") listOf("primary/surface" to contrast(scheme.primary, scheme.surface)) else emptyList()
-            for ((pair, ratio) in textPairs(scheme) + extra) {
-                println("$name $pair ${"%.2f".format(ratio)}:1")
-                assertTrue("$name $pair is ${"%.2f".format(ratio)}:1, needs 4.5:1", ratio >= 4.5)
-            }
-        }
+    fun everyTextPairMeetsWcagAa() {
+        val light = textPairs(LightColorScheme).map { (pair, ratio) -> "light $pair" to ratio }
+        val dark = textPairs(DarkColorScheme).map { (pair, ratio) -> "dark $pair" to ratio }
+        assertAa("all", light + dark)
     }
 
-    private fun textPairs(s: ColorScheme): List<Pair<String, Double>> = listOf(
-        "onPrimary/primary" to contrast(s.onPrimary, s.primary),
-        "onPrimaryContainer/primaryContainer" to contrast(s.onPrimaryContainer, s.primaryContainer),
-        "onSecondary/secondary" to contrast(s.onSecondary, s.secondary),
-        "onSecondaryContainer/secondaryContainer" to contrast(s.onSecondaryContainer, s.secondaryContainer),
-        "onTertiary/tertiary" to contrast(s.onTertiary, s.tertiary),
-        "onTertiaryContainer/tertiaryContainer" to contrast(s.onTertiaryContainer, s.tertiaryContainer),
-        "onError/error" to contrast(s.onError, s.error),
-        "onErrorContainer/errorContainer" to contrast(s.onErrorContainer, s.errorContainer),
-        "onBackground/background" to contrast(s.onBackground, s.background),
-        "onSurface/surface" to contrast(s.onSurface, s.surface),
-        "onSurfaceVariant/surface" to contrast(s.onSurfaceVariant, s.surface),
-        "onSurfaceVariant/surfaceVariant" to contrast(s.onSurfaceVariant, s.surfaceVariant),
-        "onSurface/surfaceContainerLowest" to contrast(s.onSurface, s.surfaceContainerLowest),
-        "onSurface/surfaceContainerHighest" to contrast(s.onSurface, s.surfaceContainerHighest),
-        "onSurfaceVariant/surfaceContainerHighest" to contrast(s.onSurfaceVariant, s.surfaceContainerHighest),
-        "inverseOnSurface/inverseSurface" to contrast(s.inverseOnSurface, s.inverseSurface),
-        "onPrimaryFixed/primaryFixed" to contrast(s.onPrimaryFixed, s.primaryFixed),
-        "onPrimaryFixedVariant/primaryFixed" to contrast(s.onPrimaryFixedVariant, s.primaryFixed),
-        "onSecondaryFixed/secondaryFixed" to contrast(s.onSecondaryFixed, s.secondaryFixed),
-        "onSecondaryFixedVariant/secondaryFixed" to contrast(s.onSecondaryFixedVariant, s.secondaryFixed),
-        "onTertiaryFixed/tertiaryFixed" to contrast(s.onTertiaryFixed, s.tertiaryFixed),
-        "onTertiaryFixedVariant/tertiaryFixed" to contrast(s.onTertiaryFixedVariant, s.tertiaryFixed),
-    )
+    /** Every text role Material 3 draws, against every background it is drawn on. */
+    private fun textPairs(s: ColorScheme): List<Pair<String, Double>> {
+        val surfaces = listOf(
+            "background" to s.background,
+            "surface" to s.surface,
+            "surfaceVariant" to s.surfaceVariant,
+            "surfaceBright" to s.surfaceBright,
+            "surfaceDim" to s.surfaceDim,
+            "surfaceContainerLowest" to s.surfaceContainerLowest,
+            "surfaceContainerLow" to s.surfaceContainerLow,
+            "surfaceContainer" to s.surfaceContainer,
+            "surfaceContainerHigh" to s.surfaceContainerHigh,
+            "surfaceContainerHighest" to s.surfaceContainerHighest,
+        )
+        val textOnSurfaces = listOf(
+            "onBackground" to s.onBackground,
+            "onSurface" to s.onSurface,
+            "onSurfaceVariant" to s.onSurfaceVariant,
+            "primary" to s.primary,
+            "secondary" to s.secondary,
+            "tertiary" to s.tertiary,
+            "error" to s.error,
+        )
+        val onSurfaces = surfaces.flatMap { (bgName, bg) ->
+            textOnSurfaces.map { (fgName, fg) -> "$fgName/$bgName" to contrast(fg, bg) }
+        }
+        val roles = listOf(
+            "onPrimary/primary" to contrast(s.onPrimary, s.primary),
+            "onPrimaryContainer/primaryContainer" to contrast(s.onPrimaryContainer, s.primaryContainer),
+            "onSecondary/secondary" to contrast(s.onSecondary, s.secondary),
+            "onSecondaryContainer/secondaryContainer" to contrast(s.onSecondaryContainer, s.secondaryContainer),
+            "onTertiary/tertiary" to contrast(s.onTertiary, s.tertiary),
+            "onTertiaryContainer/tertiaryContainer" to contrast(s.onTertiaryContainer, s.tertiaryContainer),
+            "onError/error" to contrast(s.onError, s.error),
+            "onErrorContainer/errorContainer" to contrast(s.onErrorContainer, s.errorContainer),
+            "inverseOnSurface/inverseSurface" to contrast(s.inverseOnSurface, s.inverseSurface),
+            "inversePrimary/inverseSurface" to contrast(s.inversePrimary, s.inverseSurface),
+            "onPrimaryFixed/primaryFixed" to contrast(s.onPrimaryFixed, s.primaryFixed),
+            "onPrimaryFixed/primaryFixedDim" to contrast(s.onPrimaryFixed, s.primaryFixedDim),
+            "onPrimaryFixedVariant/primaryFixed" to contrast(s.onPrimaryFixedVariant, s.primaryFixed),
+            "onPrimaryFixedVariant/primaryFixedDim" to contrast(s.onPrimaryFixedVariant, s.primaryFixedDim),
+            "onSecondaryFixed/secondaryFixed" to contrast(s.onSecondaryFixed, s.secondaryFixed),
+            "onSecondaryFixed/secondaryFixedDim" to contrast(s.onSecondaryFixed, s.secondaryFixedDim),
+            "onSecondaryFixedVariant/secondaryFixed" to contrast(s.onSecondaryFixedVariant, s.secondaryFixed),
+            "onSecondaryFixedVariant/secondaryFixedDim" to contrast(s.onSecondaryFixedVariant, s.secondaryFixedDim),
+            "onTertiaryFixed/tertiaryFixed" to contrast(s.onTertiaryFixed, s.tertiaryFixed),
+            "onTertiaryFixed/tertiaryFixedDim" to contrast(s.onTertiaryFixed, s.tertiaryFixedDim),
+            "onTertiaryFixedVariant/tertiaryFixed" to contrast(s.onTertiaryFixedVariant, s.tertiaryFixed),
+            "onTertiaryFixedVariant/tertiaryFixedDim" to contrast(s.onTertiaryFixedVariant, s.tertiaryFixedDim),
+        )
+        return onSurfaces + roles
+    }
+
+    private fun assertAa(scheme: String, pairs: List<Pair<String, Double>>) {
+        val failures = pairs.filter { (_, ratio) -> ratio < 4.5 }
+            .map { (pair, ratio) -> "$pair ${"%.2f".format(ratio)}:1" }
+        assertTrue("$scheme: below WCAG AA 4.5:1: $failures", failures.isEmpty())
+    }
 
     // WCAG 2.x relative luminance and contrast ratio.
     private fun luminance(c: Color): Double {
