@@ -48,7 +48,14 @@ export async function addTransaction(
   const userId = await getUserId();
   await dbConnect();
   try {
-    const newTransaction = new TransactionModel({ ...transaction, userId });
+    // Strip mobile-only fields; source is forced after the spread so the client cannot override it.
+    const { clientId: _clientId, transcript: _transcript, ...webFields } =
+      transaction as Record<string, unknown>;
+    const newTransaction = new TransactionModel({
+      ...webFields,
+      userId,
+      source: 'web',
+    });
     await newTransaction.save();
     revalidatePath('/');
     return JSON.parse(JSON.stringify(newTransaction));

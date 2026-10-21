@@ -79,6 +79,7 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 FIREBASE_CLIENT_EMAIL=your-client-email@project.iam.gserviceaccount.com
 GOOGLE_API_KEY=your-google-api-key-for-genkit
 NEXTAUTH_SECRET=your-nextauth-secret (if using additional auth)
+JWT_SECRET=at-least-32-characters-long (required for the mobile API under /api/v1)
 ```
 - Set up Firebase: Create a project at [console.firebase.google.com](https://console.firebase.google.com), enable Authentication and Firestore.
 - Download service account key JSON and extract values above.
