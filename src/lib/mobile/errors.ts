@@ -42,3 +42,11 @@ export function handle<C = any>(fn: (req: Request, ctx: C) => Promise<Response>)
     }
   };
 }
+
+export async function readJson(req: Request): Promise<unknown> {
+  try {
+    return await req.json();
+  } catch {
+    throw new ApiError(400, "invalid_json", "Request body must be valid JSON");
+  }
+}
