@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Typeface
 import android.graphics.fonts.Font as PlatformFont
 import android.graphics.fonts.FontFamily as PlatformFontFamily
+import android.graphics.fonts.FontStyle as PlatformFontStyle
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.material3.Typography
@@ -18,6 +19,7 @@ import androidx.compose.ui.text.font.FontLoadingStrategy
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import app.budgetwise.R
@@ -49,6 +51,7 @@ private fun openSansWithMyanmarFallback(context: Context, i: Int): Typeface {
     fun family(res: Int) = PlatformFontFamily.Builder(PlatformFont.Builder(context.resources, res).build()).build()
     return Typeface.CustomFallbackBuilder(family(OpenSansRes[i]))
         .addCustomFallback(family(MyanmarRes[i]))
+        .setStyle(PlatformFontStyle(Weights[i].weight, PlatformFontStyle.FONT_SLANT_UPRIGHT))
         .setSystemFallback("sans-serif")
         .build()
 }
@@ -64,36 +67,41 @@ private class FallbackFont(override val weight: FontWeight, private val typeface
     }
 }
 
-// Myanmar stacked marks clip at default heights, so line height is a multiple of the size and letter spacing is
+private const val LineHeightRatio = 1.6f
+
+// Myanmar stacked marks scale with font size and clip at default heights, so every role uses 1.6x
+// (a multiple of the size) and letter spacing is
 // always zero (spacing breaks Myanmar shaping).
-private fun style(family: FontFamily, weight: FontWeight, size: Float, lineHeightRatio: Float) = TextStyle(
+private fun style(family: FontFamily, weight: FontWeight, size: Float) = TextStyle(
     fontFamily = family,
     fontWeight = weight,
     fontSize = size.sp,
-    lineHeight = (size * lineHeightRatio).sp,
+    lineHeight = (size * LineHeightRatio).sp,
     letterSpacing = 0.sp,
+    // Explicit styles bypass Material 3's default; split leading evenly and never trim the first or last line.
+    lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
 )
 
-/** Material 3 type scale on [family]: body and label 1.6x, title 1.5x, headline 1.4x, display 1.3x. */
+/** Material 3 type scale on [family]: every role at 1.6x line height. */
 fun budgetWiseTypography(family: FontFamily): Typography {
     val regular = FontWeight.Normal
     val semi = FontWeight.SemiBold
     return Typography(
-        displayLarge = style(family, FontWeight.Bold, 57f, 1.3f),
-        displayMedium = style(family, FontWeight.Bold, 45f, 1.3f),
-        displaySmall = style(family, FontWeight.Bold, 36f, 1.3f),
-        headlineLarge = style(family, semi, 32f, 1.4f),
-        headlineMedium = style(family, semi, 28f, 1.4f),
-        headlineSmall = style(family, semi, 24f, 1.4f),
-        titleLarge = style(family, semi, 22f, 1.5f),
-        titleMedium = style(family, semi, 16f, 1.5f),
-        titleSmall = style(family, semi, 14f, 1.5f),
-        bodyLarge = style(family, regular, 16f, 1.6f),
-        bodyMedium = style(family, regular, 14f, 1.6f),
-        bodySmall = style(family, regular, 12f, 1.6f),
-        labelLarge = style(family, semi, 14f, 1.6f),
-        labelMedium = style(family, semi, 12f, 1.6f),
-        labelSmall = style(family, semi, 11f, 1.6f),
+        displayLarge = style(family, FontWeight.Bold, 57f),
+        displayMedium = style(family, FontWeight.Bold, 45f),
+        displaySmall = style(family, FontWeight.Bold, 36f),
+        headlineLarge = style(family, semi, 32f),
+        headlineMedium = style(family, semi, 28f),
+        headlineSmall = style(family, semi, 24f),
+        titleLarge = style(family, semi, 22f),
+        titleMedium = style(family, semi, 16f),
+        titleSmall = style(family, semi, 14f),
+        bodyLarge = style(family, regular, 16f),
+        bodyMedium = style(family, regular, 14f),
+        bodySmall = style(family, regular, 12f),
+        labelLarge = style(family, semi, 14f),
+        labelMedium = style(family, semi, 12f),
+        labelSmall = style(family, semi, 11f),
     )
 }
 

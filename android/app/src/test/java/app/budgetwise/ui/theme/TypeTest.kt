@@ -3,10 +3,10 @@ package app.budgetwise.ui.theme
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.TextUnitType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TypeTest {
@@ -21,17 +21,15 @@ class TypeTest {
     )
 
     @Test
-    fun bodyAndLabelLineHeightIsOnePointSixTimesFontSize() {
-        listOf(t.bodyLarge, t.bodyMedium, t.bodySmall, t.labelLarge, t.labelMedium, t.labelSmall).forEach {
-            assertEquals(it.fontSize.value * 1.6f, it.lineHeight.value, 0.51f)
-        }
+    fun everyRoleLineHeightIsOnePointSixTimesFontSize() {
+        all().forEach { (name, s) -> assertEquals(name, s.fontSize.value * 1.6f, s.lineHeight.value, 0.51f) }
     }
 
     @Test
     fun everyStyleHasRoomForStackedMarksAndNoLetterSpacing() {
         all().forEach { (name, s) ->
             assertEquals("$name unit", TextUnitType.Sp, s.lineHeight.type)
-            assertTrue("$name lineHeight ${s.lineHeight} vs ${s.fontSize}", s.lineHeight.value >= s.fontSize.value * 1.3f)
+            assertEquals("$name lineHeightStyle", LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None), s.lineHeightStyle)
             assertEquals("$name letterSpacing", 0f, s.letterSpacing.value, 0f)
         }
     }
