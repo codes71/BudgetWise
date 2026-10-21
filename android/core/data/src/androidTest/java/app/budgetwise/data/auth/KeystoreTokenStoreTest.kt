@@ -48,4 +48,13 @@ class KeystoreTokenStoreTest {
 
     @Test
     fun emptyStoreLoadsNull() = runTest { assertNull(store.load()) }
+
+    @Test
+    fun recoversAfterKeyIsDeleted() = runTest {
+        store.save("fake-token-123", expiresAt, user)
+        java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.deleteEntry(SESSION_KEY_ALIAS)
+        assertNull(store.load())
+        store.save("fake-token-456", expiresAt, user)
+        assertEquals("fake-token-456", store.load()?.token)
+    }
 }

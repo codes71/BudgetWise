@@ -67,8 +67,35 @@ class SessionManagerTest {
         sm.onUnauthorized()
         assertEquals(SessionState.Expired, sm.state.value)
         assertNull(sm.bearer())
-        assertNull(store.session)
-        assertEquals(1, store.clearCalls)
+        assertEquals(user, store.session?.user)
+        assertEquals("", store.session?.token)
+    }
+
+    @Test
+    fun expiredSurvivesRestartAfterOnUnauthorized() = runTest {
+        val (sm, store) = manager(Duration.ofDays(10))
+        sm.load()
+        sm.onUnauthorized()
+        val restarted = SessionManager(store, clock)
+        restarted.load()
+        assertEquals(SessionState.Expired, restarted.state.value)
+        assertNull(restarted.bearer())
+    }
+
+    @Test
+    fun unauthorizedWithoutSentTokenLeavesStoreIntact() = runTest {
+        val (sm, store) = manager(Duration.ofDays(10))
+        // load() not finished yet: session is null, a request went out without a header and got 401.
+        sm.onUnauthorized()
+        assertEquals("tok", store.session?.token)
+        sm.load()
+        assertEquals("tok", sm.bearer())
+    }
+
+    @Test
+    fun storedSessionToStringRedactsToken() {
+        val text = StoredSession("secret-token-xyz", now, user).toString()
+        assertFalse(text.contains("secret-token-xyz"))
     }
 
     @Test

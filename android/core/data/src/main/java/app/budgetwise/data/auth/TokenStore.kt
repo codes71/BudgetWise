@@ -5,7 +5,9 @@ import java.time.Instant
 /** The signed-in user as returned by the login endpoint. */
 data class UserInfo(val id: String, val email: String, val fullName: String)
 
-data class StoredSession(val token: String, val expiresAt: Instant, val user: UserInfo)
+data class StoredSession(val token: String, val expiresAt: Instant, val user: UserInfo) {
+    override fun toString() = "StoredSession(token=<redacted>, expiresAt=$expiresAt, user=$user)"
+}
 
 /** Persistent home of the session. Implementations must never log the token. */
 interface TokenStore {

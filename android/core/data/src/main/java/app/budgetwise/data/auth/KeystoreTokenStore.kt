@@ -5,8 +5,10 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -23,7 +25,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-private val Context.sessionDataStore: DataStore<Preferences> by preferencesDataStore(name = "budgetwise_session")
+private val Context.sessionDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "budgetwise_session",
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+)
+
+internal const val SESSION_KEY_ALIAS = "app.budgetwise.session.v1"
 
 /**
  * Session blob (token, expiry, user) encrypted with an AES-256/GCM key that lives in AndroidKeyStore.
@@ -48,7 +55,14 @@ class KeystoreTokenStore @Inject constructor(
 
     override suspend fun save(token: String, expiresAt: Instant, user: UserInfo) {
         val blob = Blob(token, expiresAt.toEpochMilli(), user.id, user.email, user.fullName)
-        val encoded = encrypt(Json.encodeToString(Blob.serializer(), blob).toByteArray(Charsets.UTF_8))
+        val plain = Json.encodeToString(Blob.serializer(), blob).toByteArray(Charsets.UTF_8)
+        val encoded = try {
+            encrypt(plain)
+        } catch (e: Exception) {
+            // Broken or invalidated key: replace it with a fresh one and retry once.
+            deleteKey()
+            encrypt(plain)
+        }
         dataStore.edit { it[KEY_SESSION] = encoded }
     }
 
@@ -62,6 +76,7 @@ class KeystoreTokenStore @Inject constructor(
             throw e
         } catch (e: Exception) {
             // Key invalidated or missing, corrupt blob, or schema drift: drop it and sign in again.
+            deleteKey()
             clear()
             null
         }
@@ -86,6 +101,14 @@ class KeystoreTokenStore @Inject constructor(
         return cipher.doFinal(raw, IV_BYTES, raw.size - IV_BYTES)
     }
 
+    private fun deleteKey() {
+        try {
+            KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.deleteEntry(KEY_ALIAS)
+        } catch (_: Exception) {
+            // Nothing more to do; the next encrypt attempt surfaces any real failure.
+        }
+    }
+
     private fun getOrCreateKey(): SecretKey {
         val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         (ks.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
@@ -102,7 +125,7 @@ class KeystoreTokenStore @Inject constructor(
 
     private companion object {
         const val ANDROID_KEYSTORE = "AndroidKeyStore"
-        const val KEY_ALIAS = "app.budgetwise.session.v1"
+        const val KEY_ALIAS = SESSION_KEY_ALIAS
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val IV_BYTES = 12
         const val TAG_BITS = 128

@@ -58,11 +58,17 @@ class SessionManager @Inject constructor(
         return s.token
     }
 
-    /** For a 401 on an authenticated call only. A 401 from login (wrong password) is not a session expiry. */
+    /**
+     * For a 401 on an authenticated call only. A 401 from login (wrong password) is not a session expiry.
+     * If no token was sent (session null: already expired, or [load] not finished) the stored session is
+     * left untouched. Otherwise the token is dropped but the user identity is kept with an already-expired
+     * marker (empty token), so a restart still loads as [SessionState.Expired].
+     */
     suspend fun onUnauthorized() {
+        val sent = session ?: return
         session = null
         _state.value = SessionState.Expired
-        store.clear()
+        store.save("", clock.instant(), sent.user)
     }
 
     suspend fun signOut() {
