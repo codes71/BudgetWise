@@ -49,6 +49,13 @@ class SyncScheduler @Inject constructor(@ApplicationContext private val context:
             .enqueueUniquePeriodicWork(PERIODIC_WORK, ExistingPeriodicWorkPolicy.UPDATE, periodicRequest())
     }
 
+    /** Cancels queued and running syncs and the periodic sync. Used on sign-out so no work outlives the session. */
+    fun cancelAll() {
+        val wm = WorkManager.getInstance(context)
+        wm.cancelUniqueWork(UNIQUE_WORK)
+        wm.cancelUniqueWork(PERIODIC_WORK)
+    }
+
     companion object {
         const val UNIQUE_WORK = "sync"
         const val PERIODIC_WORK = "sync-periodic"

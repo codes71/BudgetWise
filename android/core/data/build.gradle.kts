@@ -29,6 +29,13 @@ android {
     }
 }
 
+// Exported Room schemas feed MigrationTestHelper in unit tests.
+androidComponents {
+    onVariants { variant ->
+        (variant as? com.android.build.api.variant.HasUnitTest)?.unitTest?.sources?.assets?.addStaticSourceDirectory("$projectDir/schemas")
+    }
+}
+
 room {
     schemaDirectory("$projectDir/schemas")
 }
@@ -58,6 +65,7 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.androidx.room.testing)
 }
 
 dependencies {

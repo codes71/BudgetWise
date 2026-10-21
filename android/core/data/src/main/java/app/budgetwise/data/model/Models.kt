@@ -25,3 +25,6 @@ data class Transaction(
     val updatedAt: Instant,
     val syncState: SyncState,
 )
+
+/** A monthly spending limit in whole kyat. */
+data class Budget(val category: String, val limitKyat: Long)

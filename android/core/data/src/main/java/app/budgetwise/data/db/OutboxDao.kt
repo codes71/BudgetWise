@@ -29,4 +29,7 @@ interface OutboxDao {
     /** Drops every queued op for the row (delete of a row the server never stored). */
     @Query("DELETE FROM outbox WHERE clientId = :clientId")
     suspend fun dropFor(clientId: String)
+
+    @Query("DELETE FROM outbox")
+    suspend fun deleteAll()
 }

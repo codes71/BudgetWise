@@ -16,11 +16,16 @@ object DbModule {
     @Provides
     @Singleton
     fun db(@ApplicationContext context: Context): BudgetWiseDb =
-        Room.databaseBuilder(context, BudgetWiseDb::class.java, "budgetwise.db").build()
+        Room.databaseBuilder(context, BudgetWiseDb::class.java, "budgetwise.db")
+            .addMigrations(MIGRATION_1_2)
+            .build()
 
     @Provides
     fun transactionDao(db: BudgetWiseDb): TransactionDao = db.transactionDao()
 
     @Provides
     fun outboxDao(db: BudgetWiseDb): OutboxDao = db.outboxDao()
+
+    @Provides
+    fun budgetDao(db: BudgetWiseDb): BudgetDao = db.budgetDao()
 }

@@ -22,4 +22,14 @@ interface TransactionDao {
 
     @Query("DELETE FROM tx WHERE clientId = :id")
     suspend fun deleteByClientId(id: String)
+
+    /** Rows the server does not have in their current form: queued, rejected, or awaiting a delete. */
+    @Query("SELECT COUNT(*) FROM tx WHERE syncState <> 'SYNCED'")
+    fun observeUnsyncedCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM tx WHERE syncState <> 'SYNCED'")
+    suspend fun unsyncedCount(): Int
+
+    @Query("DELETE FROM tx")
+    suspend fun deleteAll()
 }

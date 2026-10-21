@@ -103,6 +103,9 @@ class SyncEngine @Inject constructor(
     private val tx = db.transactionDao()
     private val outbox = db.outboxDao()
     private val mutex = Mutex()
+
+    /** The token this run sends; guarded by [mutex]. A 401 only expires the session that sent it. */
+    private var sentToken: String? = null
     private val _status = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
 
@@ -148,7 +151,8 @@ class SyncEngine @Inject constructor(
     }
 
     private suspend fun run(fullPull: Boolean): SyncOutcome {
-        if (session.bearer() == null) return SyncOutcome.NeedsLogin
+        sentToken = session.bearer()
+        if (sentToken == null) return SyncOutcome.NeedsLogin
         val tally = Tally()
         push(tally)?.let { return it }
         pull(fullPull, tally)?.let { return it }
@@ -294,7 +298,7 @@ class SyncEngine @Inject constructor(
     }
 
     private suspend fun needsLogin(): SyncOutcome {
-        session.onUnauthorized()
+        session.onUnauthorized(sentToken)
         return SyncOutcome.NeedsLogin
     }
 

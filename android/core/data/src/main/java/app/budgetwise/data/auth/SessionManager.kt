@@ -8,6 +8,8 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 sealed interface SessionState {
     data object SignedOut : SessionState
@@ -32,6 +34,9 @@ class SessionManager @Inject constructor(
     private val _state = MutableStateFlow<SessionState>(SessionState.SignedOut)
     val state: StateFlow<SessionState> = _state.asStateFlow()
 
+    /** Serializes sign-in, sign-out and 401 handling so a late 401 cannot overwrite a fresh sign-in. */
+    private val mutex = Mutex()
+
     suspend fun load() {
         val stored = store.load()
         if (stored == null) {
@@ -42,7 +47,7 @@ class SessionManager @Inject constructor(
         }
     }
 
-    suspend fun signIn(token: String, expiresAt: Instant, user: UserInfo) {
+    suspend fun signIn(token: String, expiresAt: Instant, user: UserInfo) = mutex.withLock {
         store.save(token, expiresAt, user)
         apply(StoredSession(token, expiresAt, user))
     }
@@ -63,15 +68,19 @@ class SessionManager @Inject constructor(
      * If no token was sent (session null: already expired, or [load] not finished) the stored session is
      * left untouched. Otherwise the token is dropped but the user identity is kept with an already-expired
      * marker (empty token), so a restart still loads as [SessionState.Expired].
+     *
+     * [sentToken] is the token the failed request carried. When given and it is no longer the current token
+     * (the user signed in again while the request was in flight) the 401 is stale and ignored.
      */
-    suspend fun onUnauthorized() {
-        val sent = session ?: return
+    suspend fun onUnauthorized(sentToken: String? = null) = mutex.withLock {
+        val sent = session ?: return@withLock
+        if (sentToken != null && sentToken != sent.token) return@withLock
         session = null
         _state.value = SessionState.Expired
         store.save("", clock.instant(), sent.user)
     }
 
-    suspend fun signOut() {
+    suspend fun signOut() = mutex.withLock {
         session = null
         _state.value = SessionState.SignedOut
         store.clear()
