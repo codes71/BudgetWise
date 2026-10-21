@@ -4,13 +4,16 @@ import TransactionModel from "@/lib/models/transaction";
 import { toTransactionDto, type LeanTransaction, type TransactionDto, type TransactionInput } from "./dto";
 
 async function upsertAll(userId: string, items: TransactionInput[]): Promise<void> {
+  const now = new Date();
   await TransactionModel.bulkWrite(
     items.map((item) => ({
       updateOne: {
         filter: { userId, clientId: item.clientId },
-        // $setOnInsert never overwrites an existing row (rows are immutable).
-        update: { $setOnInsert: { userId, ...item } },
+        // $setOnInsert never overwrites an existing row (rows are immutable). Mongoose
+        // timestamps would add $set updatedAt on matches too, so set them here instead.
+        update: { $setOnInsert: { userId, ...item, createdAt: now, updatedAt: now } },
         upsert: true,
+        timestamps: false,
       },
     })),
     { ordered: false },

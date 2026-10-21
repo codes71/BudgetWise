@@ -66,10 +66,13 @@ describe("POST /api/v1/transactions", () => {
 
   it("resubmitting same clientId returns existing row, count stays 1", async () => {
     const first = await (await post(tokenA, [item(1)])).json();
+    await new Promise((r) => setTimeout(r, 25));
     const second = await (await post(tokenA, [item(1, { amount: 999, description: "changed" })])).json();
     expect(second.saved[0].id).toBe(first.saved[0].id);
     expect(second.saved[0].amount).toBe(101);
     expect(second.saved[0].description).toBe("item 1");
+    expect(second.saved[0].updatedAt).toBe(first.saved[0].updatedAt);
+    expect(second.saved[0].createdAt).toBe(first.saved[0].createdAt);
     expect(await Tx.countDocuments({ userId: userA })).toBe(1);
   });
 
