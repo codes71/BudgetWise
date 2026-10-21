@@ -60,6 +60,8 @@ data class LoginCall(val email: String, val password: String, val discard: Boole
 class FakeAccountActions : AccountActions {
     val logins = mutableListOf<LoginCall>()
     val logouts = mutableListOf<Boolean>()
+
+    /** May throw, like AuthRepository on a Keystore or Room failure. */
     var onLogin: (LoginCall) -> LoginResult = { error("no login result set") }
     var onLogout: (force: Boolean) -> LogoutResult = { LogoutResult.SignedOut }
 

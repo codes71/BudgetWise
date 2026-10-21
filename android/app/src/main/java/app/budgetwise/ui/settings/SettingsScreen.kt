@@ -45,7 +45,10 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -121,7 +124,7 @@ fun SettingsScreen(
             item(key = "display-header") { SectionHeader(stringResource(R.string.settings_section_display)) }
             item(key = "display") { DisplayCard(state.myanmarDigits, onMyanmarDigitsChange) }
             if (state.account != null) {
-                item(key = "sign-out") { SignOutCard(state.signingOut, onSignOut) }
+                item(key = "sign-out") { SignOutCard(state.signingOut, state.signOutFailed, onSignOut) }
             }
             if (serverUrl != null) {
                 item(key = "dev-header") { SectionHeader(stringResource(R.string.settings_section_developer)) }
@@ -337,13 +340,24 @@ private fun DisplayCard(myanmarDigits: Boolean, onChange: (Boolean) -> Unit) {
 }
 
 @Composable
-private fun SignOutCard(signingOut: Boolean, onSignOut: () -> Unit) {
+private fun SignOutCard(signingOut: Boolean, failed: Boolean, onSignOut: () -> Unit) {
     val error = MaterialTheme.colorScheme.error
     SettingsCard {
         ListItem(
             modifier = Modifier.clickable(enabled = !signingOut, onClick = onSignOut),
             leadingContent = { ListIcon(R.drawable.ic_logout, error) },
             headlineContent = { Text(stringResource(R.string.settings_sign_out), color = error) },
+            supportingContent = if (failed) {
+                {
+                    Text(
+                        stringResource(R.string.settings_sign_out_failed),
+                        color = error,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
+            } else {
+                null
+            },
             trailingContent = if (signingOut) {
                 { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
             } else {

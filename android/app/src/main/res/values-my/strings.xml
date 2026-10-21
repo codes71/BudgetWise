@@ -146,6 +146,7 @@
         <item quantity="other">စာရင်း %d ခု မစင့်ခ်ရသေးပါ။ ထွက်လျှင် ဤဖုန်းမှ ပျက်သွားပါမည်။</item>
     </plurals>
     <string name="settings_sign_out_anyway">ဖျက်ပြီး ထွက်မည်</string>
+    <string name="settings_sign_out_failed">အကောင့်မှ ထွက်၍ မရပါ။ ထပ်ကြိုးစားပါ။</string>
     <string name="settings_server">ဆာဗာ</string>
     <string name="settings_version">ဗားရှင်း %1$s (%2$d)</string>
 </resources>

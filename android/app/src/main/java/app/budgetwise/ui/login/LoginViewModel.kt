@@ -7,6 +7,7 @@ import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.repo.LoginResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,25 +86,46 @@ class LoginViewModel @Inject constructor(
         attempt(email.trim(), password, discard = false)
     }
 
-    /** The user agreed to delete the other account's unsynced rows. */
+    /** The user agreed to delete the other account's unsynced rows: sign in again with the credentials they sent. */
     fun confirmDiscard() {
-        val s = _state.value
-        if (s.discardPrompt == null || s.loading) return
-        attempt(s.email.trim(), s.password, discard = true)
+        val credentials = discardCredentials ?: return
+        if (_state.value.discardPrompt == null || _state.value.loading) return
+        attempt(credentials.email, credentials.password, discard = true)
     }
 
-    fun dismissDiscard() = _state.update { it.copy(discardPrompt = null) }
+    fun dismissDiscard() {
+        discardCredentials = null
+        _state.update { it.copy(discardPrompt = null) }
+    }
+
+    /** What the sign-in that asked for the discard sent, kept until the prompt is answered. In memory only. */
+    private class Credentials(val email: String, val password: String) {
+        override fun toString() = "Credentials(email=$email, password=<redacted>)"
+    }
+
+    private var discardCredentials: Credentials? = null
 
     private fun attempt(email: String, password: String, discard: Boolean) {
+        discardCredentials = null
         _state.update { it.copy(loading = true, error = null, discardPrompt = null) }
         viewModelScope.launch {
-            when (val r = accounts.login(email, password, discard)) {
+            val r = try {
+                accounts.login(email, password, discard)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // A Keystore or Room failure, not an answer from the server.
+                _state.update { it.copy(loading = false, error = LoginError.Generic) }
+                return@launch
+            }
+            when (r) {
                 is LoginResult.Success -> {
                     _state.update { it.copy(password = "", loading = false, signedIn = true) }
                     _events.send(LoginEvent.SignedIn)
                 }
-                is LoginResult.ConfirmDiscard -> _state.update {
-                    it.copy(loading = false, discardPrompt = DiscardPrompt(r.previousEmail, r.unsyncedCount))
+                is LoginResult.ConfirmDiscard -> {
+                    discardCredentials = Credentials(email, password)
+                    _state.update { it.copy(loading = false, discardPrompt = DiscardPrompt(r.previousEmail, r.unsyncedCount)) }
                 }
                 LoginResult.WrongCredentials -> _state.update { it.copy(loading = false, error = LoginError.WrongCredentials) }
                 is LoginResult.Failure -> _state.update { it.copy(loading = false, error = loginErrorFor(r)) }

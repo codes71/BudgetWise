@@ -14,6 +14,7 @@ import app.budgetwise.data.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +38,8 @@ data class SettingsUiState(
     /** Set while asking whether to sign out and lose this many unsynced rows. */
     val signOutPrompt: Int? = null,
     val signingOut: Boolean = false,
+    /** The last sign-out threw (a Room or Keystore failure); nothing was signed out. */
+    val signOutFailed: Boolean = false,
     /** Amounts in Myanmar digits (SettingsStore, default off). */
     val myanmarDigits: Boolean = false,
 ) {
@@ -68,7 +71,7 @@ class SettingsViewModel @Inject constructor(
     private val sync: SyncControls,
     private val settings: SettingsStore,
 ) : ViewModel() {
-    private data class SignOut(val prompt: Int? = null, val running: Boolean = false)
+    private data class SignOut(val prompt: Int? = null, val running: Boolean = false, val failed: Boolean = false)
 
     private val signOut = MutableStateFlow(SignOut())
 
@@ -100,6 +103,7 @@ class SettingsViewModel @Inject constructor(
             unsyncedCount = unsynced,
             signOutPrompt = l.out.prompt,
             signingOut = l.out.running,
+            signOutFailed = l.out.failed,
             myanmarDigits = l.myanmarDigits,
         )
     }
@@ -116,7 +120,16 @@ class SettingsViewModel @Inject constructor(
         if (signOut.value.running) return
         signOut.value = SignOut(running = true)
         viewModelScope.launch {
-            when (val r = accounts.logout(force)) {
+            val r = try {
+                accounts.logout(force)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // A Room or Keystore failure: say so, and let the user try again.
+                signOut.value = SignOut(failed = true)
+                return@launch
+            }
+            when (r) {
                 is LogoutResult.NeedsConfirmation -> signOut.value = SignOut(prompt = r.unsyncedCount)
                 LogoutResult.SignedOut -> signOut.value = SignOut()
             }

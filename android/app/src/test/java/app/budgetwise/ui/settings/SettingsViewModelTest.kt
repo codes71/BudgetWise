@@ -85,6 +85,26 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun anUnexpectedSignOutExceptionShowsAnErrorAndEndsSigningOut() = runTest {
+        // AuthRepository can throw on a Room or Keystore failure instead of returning a result.
+        accounts.onLogout = { throw IllegalStateException("database closed") }
+        val vm = vm()
+
+        vm.signOut(force = false)
+
+        assertFalse(vm.state.value.signingOut)
+        assertTrue(vm.state.value.signOutFailed)
+        assertNull(vm.state.value.signOutPrompt)
+
+        // Trying again clears the error and is not blocked by a stuck "signing out".
+        accounts.onLogout = { LogoutResult.SignedOut }
+        vm.signOut(force = false)
+
+        assertEquals(listOf(false, false), accounts.logouts)
+        assertFalse(vm.state.value.signOutFailed)
+    }
+
+    @Test
     fun myanmarDigitsSwitchIsSaved() = runTest {
         val vm = vm()
         assertFalse(vm.state.value.myanmarDigits)

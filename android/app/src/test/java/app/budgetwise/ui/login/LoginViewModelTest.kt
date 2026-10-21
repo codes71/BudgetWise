@@ -189,6 +189,41 @@ class LoginViewModelTest {
     }
 
     @Test
+    fun confirmDiscardRetriesWithTheSubmittedCredentials() = runTest {
+        accounts.onLogin = { call ->
+            if (call.discard) LoginResult.Success(TestUser) else LoginResult.ConfirmDiscard("old@example.com", 1)
+        }
+        val vm = LoginViewModel(accounts, session())
+        vm.fill(email = "typed@example.com", password = "typed")
+
+        // The overload sends credentials that differ from the fields; the retry must send the same ones again.
+        vm.submit("  other@example.com ", "pw2")
+        vm.confirmDiscard()
+
+        assertEquals(
+            listOf(LoginCall("other@example.com", "pw2", discard = false), LoginCall("other@example.com", "pw2", discard = true)),
+            accounts.logins,
+        )
+    }
+
+    @Test
+    fun anUnexpectedExceptionShowsTheGenericErrorAndEndsLoading() = runTest {
+        // AuthRepository can throw on a Keystore or Room failure instead of returning a result.
+        accounts.onLogin = { throw IllegalStateException("keystore unavailable") }
+        val vm = LoginViewModel(accounts, session())
+        val events = collectEvents(vm)
+        vm.fill()
+
+        vm.submit()
+
+        assertEquals(LoginError.Generic, vm.state.value.error)
+        assertFalse(vm.state.value.loading)
+        assertFalse(vm.state.value.signedIn)
+        assertTrue(vm.state.value.canSubmit)
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
     fun cancellingTheDiscardPromptChangesNothing() = runTest {
         accounts.onLogin = { LoginResult.ConfirmDiscard(null, 2) }
         val vm = LoginViewModel(accounts, session())

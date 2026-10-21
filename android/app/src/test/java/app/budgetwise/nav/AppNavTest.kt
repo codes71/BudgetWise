@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
@@ -11,6 +13,8 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.testing.SynchronousExecutor
@@ -34,6 +38,7 @@ import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -110,5 +115,38 @@ class AppNavTest {
 
         compose.onNodeWithText(text(R.string.nav_transactions)).performClick()
         compose.onNodeWithText(text(R.string.session_expired_message)).assertIsDisplayed()
+    }
+
+    @Test
+    fun signOutForgetsTheSavedTabState() {
+        var state by mutableStateOf<SessionState>(SessionState.Expired)
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme { AppNav(session = state, navController = nav) }
+        }
+
+        compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
+        val firstBudgets = compose.runOnIdle { nav.currentBackStackEntry!!.id }
+        // Leaving Budgets through the bottom bar saves its back stack (ViewModel included) to restore later.
+        compose.onNodeWithText(text(R.string.nav_settings)).performClick()
+
+        compose.runOnIdle { state = SessionState.SignedOut }
+        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
+
+        // Another account signs in; sign-in navigates the way LoginRoute does on success.
+        compose.runOnIdle {
+            state = SessionState.SignedIn(TestUser.copy(id = "u2", email = "ko@example.com"), Instant.now().plusSeconds(86_400 * 20L), false)
+            nav.navigate(Routes.TRANSACTIONS) {
+                popUpTo(nav.graph.id) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+        compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
+
+        compose.runOnIdle {
+            assertEquals(Routes.BUDGETS, nav.currentDestination?.route)
+            assertNotEquals("the previous user's Budgets entry came back", firstBudgets, nav.currentBackStackEntry!!.id)
+        }
     }
 }

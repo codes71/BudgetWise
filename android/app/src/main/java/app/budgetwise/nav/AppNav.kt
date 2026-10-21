@@ -87,12 +87,16 @@ fun AppNav(
 
     // Signing out (Settings) ends at sign-in with nothing behind it, whichever screen the user was on.
     LaunchedEffect(session) {
-        if (session == SessionState.SignedOut && navController.currentDestination?.route != Routes.LOGIN) {
+        if (session != SessionState.SignedOut) return@LaunchedEffect
+        if (navController.currentDestination?.route != Routes.LOGIN) {
             navController.navigate(Routes.LOGIN) {
                 popUpTo(navController.graph.id) { inclusive = true }
                 launchSingleTop = true
             }
         }
+        // The bottom bar saves each tab's back stack (its ViewModels and scroll position) to restore it later. That
+        // state belongs to the user who signed out; the next user starts every tab fresh.
+        TopLevels.forEach { navController.clearBackStack(it.route) }
     }
 
     fun openSignIn() = navController.navigate(Routes.LOGIN) { launchSingleTop = true }

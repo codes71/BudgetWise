@@ -194,11 +194,18 @@ fun LoginScreen(
                     state.error?.let { LoginErrorText(it, Modifier.fillMaxWidth().padding(top = 16.dp)) }
 
                     Spacer(Modifier.height(24.dp))
-                    // Stays in its brand color while signing in (the spinner says it is busy); submit ignores the tap.
+                    // Disabled while signing in, so TalkBack says it cannot be pressed again, but kept in its brand
+                    // color (the spinner says it is busy) instead of the grey of an incomplete form.
+                    val colors = MaterialTheme.colorScheme
                     Button(
                         onClick = submit,
-                        enabled = state.canSubmit || state.loading,
+                        enabled = state.canSubmit,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                        colors = if (state.loading) {
+                            ButtonDefaults.buttonColors(disabledContainerColor = colors.primary, disabledContentColor = colors.onPrimary)
+                        } else {
+                            ButtonDefaults.buttonColors()
+                        },
                     ) {
                         if (state.loading) {
                             CircularProgressIndicator(
