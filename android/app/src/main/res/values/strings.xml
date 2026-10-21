@@ -1,4 +1,95 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">BudgetWise</string>
+    <string name="app_name" translatable="false">BudgetWise</string>
+
+    <!-- Common -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_back">Back</string>
+    <string name="server_url">Server: %1$s</string>
+    <string name="time_just_now">just now</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_transactions">Transactions</string>
+    <string name="nav_budgets">Budgets</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Sign in -->
+    <string name="login_subtitle">Sign in with your BudgetWise account to see and sync your entries.</string>
+    <string name="login_subtitle_returning">Welcome back. Sign in again to keep your entries in sync.</string>
+    <string name="login_email">Email</string>
+    <string name="login_password">Password</string>
+    <string name="login_show_password">Show password</string>
+    <string name="login_hide_password">Hide password</string>
+    <string name="login_submit">Sign in</string>
+    <string name="login_signing_in">Signing in…</string>
+    <string name="login_error_wrong_credentials">Email or password is incorrect</string>
+    <string name="login_error_rate_limited">Too many attempts. Try again in a few minutes.</string>
+    <plurals name="login_error_rate_limited_minutes">
+        <item quantity="one">Too many attempts. Try again in %d minute.</item>
+        <item quantity="other">Too many attempts. Try again in %d minutes.</item>
+    </plurals>
+    <string name="login_error_network">Can\'t reach BudgetWise. Check your connection.</string>
+    <string name="login_error_server">BudgetWise isn\'t responding right now. Try again in a moment.</string>
+    <string name="login_error_generic">Something went wrong. Try again.</string>
+    <string name="login_discard_title">Delete unsynced entries?</string>
+    <plurals name="login_discard_message">
+        <item quantity="one">This phone has %1$d entry from %2$s that never synced. Signing in as a different account deletes it.</item>
+        <item quantity="other">This phone has %1$d entries from %2$s that never synced. Signing in as a different account deletes them.</item>
+    </plurals>
+    <plurals name="login_discard_message_unknown">
+        <item quantity="one">This phone has %d entry that never synced. Signing in deletes it.</item>
+        <item quantity="other">This phone has %d entries that never synced. Signing in deletes them.</item>
+    </plurals>
+    <string name="login_discard_confirm">Delete and sign in</string>
+
+    <!-- Session banner (transactions screen) -->
+    <string name="session_expired_message">Your session ended. Sign in again to sync.</string>
+    <plurals name="session_expiring_message">
+        <item quantity="one">Your session ends in %d day. Sign in again to keep syncing.</item>
+        <item quantity="other">Your session ends in %d days. Sign in again to keep syncing.</item>
+    </plurals>
+    <string name="session_sign_in">Sign in</string>
+
+    <!-- Placeholders until the next step -->
+    <string name="transactions_title">Transactions</string>
+    <string name="transactions_placeholder">Your income and expenses will show here. Coming in the next step.</string>
+    <string name="budgets_title">Budgets</string>
+    <string name="budgets_placeholder">Your monthly budgets will show here. Coming in the next step.</string>
+    <string name="manual_title">Add entry</string>
+    <string name="manual_placeholder">Adding an entry by typing is coming in the next step.</string>
+    <string name="action_add">Add</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_sync">Sync</string>
+    <string name="settings_section_developer">Developer</string>
+    <string name="settings_sync_syncing">Syncing…</string>
+    <string name="settings_sync_waiting">Waiting to sync</string>
+    <string name="settings_sync_synced">Synced</string>
+    <string name="settings_sync_offline">Couldn\'t reach BudgetWise</string>
+    <string name="settings_sync_needs_sign_in">Sign in again to sync</string>
+    <plurals name="settings_sync_rejected">
+        <item quantity="one">%d entry couldn\'t sync</item>
+        <item quantity="other">%d entries couldn\'t sync</item>
+    </plurals>
+    <string name="settings_sync_never">Not synced yet</string>
+    <string name="settings_sync_last_synced">Last synced %1$s</string>
+    <string name="settings_sync_last_tried">Last tried %1$s. It tries again on its own.</string>
+    <string name="settings_sync_rejected_detail">The server refused them. They stay on this phone.</string>
+    <string name="settings_sync_waiting_detail">Runs as soon as you\'re online.</string>
+    <plurals name="settings_unsynced">
+        <item quantity="one">%d entry waiting to sync</item>
+        <item quantity="other">%d entries waiting to sync</item>
+    </plurals>
+    <string name="settings_all_synced">Every entry is synced</string>
+    <string name="settings_sync_now">Sync now</string>
+    <string name="settings_sign_out">Sign out</string>
+    <string name="settings_sign_out_title">Sign out?</string>
+    <plurals name="settings_sign_out_message">
+        <item quantity="one">%d entry hasn\'t synced yet. Signing out deletes it from this phone.</item>
+        <item quantity="other">%d entries haven\'t synced yet. Signing out deletes them from this phone.</item>
+    </plurals>
+    <string name="settings_sign_out_anyway">Sign out anyway</string>
+    <string name="settings_server">Server</string>
+    <string name="settings_version">Version %1$s (%2$d)</string>
 </resources>

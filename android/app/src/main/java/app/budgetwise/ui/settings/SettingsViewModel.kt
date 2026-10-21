@@ -1,0 +1,117 @@
+package app.budgetwise.ui.settings
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import app.budgetwise.AccountActions
+import app.budgetwise.SyncControls
+import app.budgetwise.data.auth.SessionManager
+import app.budgetwise.data.auth.SessionState
+import app.budgetwise.data.auth.UserInfo
+import app.budgetwise.data.repo.LogoutResult
+import app.budgetwise.data.sync.SyncOutcome
+import app.budgetwise.data.sync.SyncStatus
+import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
+import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+data class AccountInfo(val name: String, val email: String)
+
+enum class SyncPhase { SYNCING, WAITING, SYNCED, OFFLINE, NEEDS_SIGN_IN, REJECTED, NEVER }
+
+/** What Settings says about sync. [at] is when the last run finished (null before the first run in this process). */
+data class SyncSummary(val phase: SyncPhase, val at: Instant? = null, val rejectedCount: Int = 0)
+
+data class SettingsUiState(
+    val account: AccountInfo? = null,
+    val sessionExpired: Boolean = false,
+    val sync: SyncSummary = SyncSummary(SyncPhase.NEVER),
+    val unsyncedCount: Int = 0,
+    /** Set while asking whether to sign out and lose this many unsynced rows. */
+    val signOutPrompt: Int? = null,
+    val signingOut: Boolean = false,
+) {
+    val canSyncNow: Boolean get() = account != null && !sessionExpired && sync.phase != SyncPhase.SYNCING
+}
+
+/**
+ * A failed last run outranks queued work: after a failure WorkManager retries with backoff (queued), but "couldn't
+ * reach BudgetWise" is what the user needs to read. [SyncStatus] lives in memory, so after a restart the first
+ * line is "waiting" or "not synced yet" until the launch sync runs.
+ */
+internal fun syncSummary(status: SyncStatus, queued: Boolean, expired: Boolean): SyncSummary {
+    val last = status as? SyncStatus.LastResult
+    if (expired) return SyncSummary(SyncPhase.NEEDS_SIGN_IN, last?.at)
+    if (status == SyncStatus.Running) return SyncSummary(SyncPhase.SYNCING)
+    if (last == null) return SyncSummary(if (queued) SyncPhase.WAITING else SyncPhase.NEVER)
+    return when (val outcome = last.outcome) {
+        SyncOutcome.RetryLater -> SyncSummary(SyncPhase.OFFLINE, last.at)
+        SyncOutcome.NeedsLogin -> SyncSummary(SyncPhase.NEEDS_SIGN_IN, last.at)
+        is SyncOutcome.PermanentFailure -> SyncSummary(SyncPhase.REJECTED, last.at, rejectedCount = outcome.clientIds.size)
+        is SyncOutcome.Success -> SyncSummary(if (queued) SyncPhase.WAITING else SyncPhase.SYNCED, last.at)
+    }
+}
+
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
+    private val accounts: AccountActions,
+    private val session: SessionManager,
+    private val sync: SyncControls,
+) : ViewModel() {
+    private data class SignOut(val prompt: Int? = null, val running: Boolean = false)
+
+    private val signOut = MutableStateFlow(SignOut())
+
+    val state: StateFlow<SettingsUiState> =
+        combine(session.state, sync.status, sync.queued, sync.unsyncedCount, signOut) { s, status, queued, unsynced, out ->
+            uiState(s, status, queued, unsynced, out)
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            uiState(session.state.value, sync.status.value, queued = false, unsynced = 0, out = SignOut()),
+        )
+
+    private fun uiState(s: SessionState, status: SyncStatus, queued: Boolean, unsynced: Int, out: SignOut): SettingsUiState {
+        val expired = s == SessionState.Expired
+        val user: UserInfo? = when (s) {
+            is SessionState.SignedIn -> s.user
+            SessionState.Expired -> session.knownUser
+            SessionState.SignedOut -> null
+        }
+        return SettingsUiState(
+            account = user?.let { AccountInfo(it.fullName, it.email) },
+            sessionExpired = expired,
+            sync = syncSummary(status, queued, expired),
+            unsyncedCount = unsynced,
+            signOutPrompt = out.prompt,
+            signingOut = out.running,
+        )
+    }
+
+    fun syncNow() {
+        if (state.value.canSyncNow) sync.syncNow()
+    }
+
+    /**
+     * With unsynced rows and `force = false` nothing happens except the prompt. Signing out wipes local data; the
+     * shell sees the session go to SignedOut and returns to sign-in.
+     */
+    fun signOut(force: Boolean) {
+        if (signOut.value.running) return
+        signOut.value = SignOut(running = true)
+        viewModelScope.launch {
+            when (val r = accounts.logout(force)) {
+                is LogoutResult.NeedsConfirmation -> signOut.value = SignOut(prompt = r.unsyncedCount)
+                LogoutResult.SignedOut -> signOut.value = SignOut()
+            }
+        }
+    }
+
+    fun dismissSignOut() = signOut.update { it.copy(prompt = null) }
+}

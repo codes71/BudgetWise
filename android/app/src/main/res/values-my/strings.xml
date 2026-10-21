@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Burmese (Unicode). Short and plain; to be reviewed by a Burmese reader. Burmese has no plural forms. -->
+<resources>
+    <!-- Common -->
+    <string name="action_cancel">မလုပ်တော့ပါ</string>
+    <string name="action_back">နောက်သို့</string>
+    <string name="server_url">ဆာဗာ: %1$s</string>
+    <string name="time_just_now">ယခုလေးတင်</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_transactions">ငွေစာရင်း</string>
+    <string name="nav_budgets">ဘတ်ဂျက်</string>
+    <string name="nav_settings">ဆက်တင်</string>
+
+    <!-- Sign in -->
+    <string name="login_subtitle">သင့်စာရင်းများကို ကြည့်ရန်နှင့် စင့်ခ်လုပ်ရန် BudgetWise အကောင့်ဖြင့် ဝင်ပါ။</string>
+    <string name="login_subtitle_returning">ပြန်လာတာ ကြိုဆိုပါတယ်။ စာရင်းများ ဆက်စင့်ခ်ဖြစ်ရန် ပြန်ဝင်ပါ။</string>
+    <string name="login_email">အီးမေးလ်</string>
+    <string name="login_password">စကားဝှက်</string>
+    <string name="login_show_password">စကားဝှက် ပြရန်</string>
+    <string name="login_hide_password">စကားဝှက် ဖျောက်ရန်</string>
+    <string name="login_submit">ဝင်မည်</string>
+    <string name="login_signing_in">ဝင်နေသည်…</string>
+    <string name="login_error_wrong_credentials">အီးမေးလ် သို့မဟုတ် စကားဝှက် မှားနေပါသည်</string>
+    <string name="login_error_rate_limited">အကြိမ်များလွန်းနေပါသည်။ မိနစ်အနည်းငယ်ကြာမှ ထပ်ကြိုးစားပါ။</string>
+    <plurals name="login_error_rate_limited_minutes">
+        <item quantity="other">အကြိမ်များလွန်းနေပါသည်။ %d မိနစ်ကြာမှ ထပ်ကြိုးစားပါ။</item>
+    </plurals>
+    <string name="login_error_network">BudgetWise နှင့် ချိတ်ဆက်၍ မရပါ။ အင်တာနက်ကို စစ်ကြည့်ပါ။</string>
+    <string name="login_error_server">BudgetWise က ယခု မတုံ့ပြန်နိုင်ပါ။ ခဏနေမှ ထပ်ကြိုးစားပါ။</string>
+    <string name="login_error_generic">တစ်ခုခု မှားသွားပါသည်။ ထပ်ကြိုးစားပါ။</string>
+    <string name="login_discard_title">မစင့်ခ်ရသေးသော စာရင်းများကို ဖျက်မလား။</string>
+    <plurals name="login_discard_message">
+        <item quantity="other">ဤဖုန်းတွင် %2$s ၏ မစင့်ခ်ရသေးသော စာရင်း %1$d ခု ရှိပါသည်။ အခြားအကောင့်ဖြင့် ဝင်လျှင် ၎င်းတို့ ပျက်သွားပါမည်။</item>
+    </plurals>
+    <plurals name="login_discard_message_unknown">
+        <item quantity="other">ဤဖုန်းတွင် မစင့်ခ်ရသေးသော စာရင်း %d ခု ရှိပါသည်။ ဝင်လျှင် ၎င်းတို့ ပျက်သွားပါမည်။</item>
+    </plurals>
+    <string name="login_discard_confirm">ဖျက်ပြီး ဝင်မည်</string>
+
+    <!-- Session banner (transactions screen) -->
+    <string name="session_expired_message">ဝင်ထားချိန် ကုန်သွားပါပြီ။ စင့်ခ်လုပ်ရန် ပြန်ဝင်ပါ။</string>
+    <plurals name="session_expiring_message">
+        <item quantity="other">ဝင်ထားချိန် %d ရက်အတွင်း ကုန်ပါမည်။ ဆက်စင့်ခ်ရန် ပြန်ဝင်ပါ။</item>
+    </plurals>
+    <string name="session_sign_in">ဝင်မည်</string>
+
+    <!-- Placeholders until the next step -->
+    <string name="transactions_title">ငွေစာရင်း</string>
+    <string name="transactions_placeholder">သင့်ဝင်ငွေနှင့် အသုံးစရိတ်များ ဤနေရာတွင် ပြပါမည်။ နောက်အဆင့်တွင် ရပါမည်။</string>
+    <string name="budgets_title">ဘတ်ဂျက်</string>
+    <string name="budgets_placeholder">သင့်လစဉ် ဘတ်ဂျက်များ ဤနေရာတွင် ပြပါမည်။ နောက်အဆင့်တွင် ရပါမည်။</string>
+    <string name="manual_title">စာရင်းသွင်းရန်</string>
+    <string name="manual_placeholder">စာရိုက်၍ စာရင်းသွင်းခြင်းကို နောက်အဆင့်တွင် ရပါမည်။</string>
+    <string name="action_add">ထည့်မည်</string>
+
+    <!-- Settings -->
+    <string name="settings_title">ဆက်တင်</string>
+    <string name="settings_section_sync">စင့်ခ်</string>
+    <string name="settings_section_developer">ဆော့ဖ်ဝဲ ရေးသူအတွက်</string>
+    <string name="settings_sync_syncing">စင့်ခ်လုပ်နေသည်…</string>
+    <string name="settings_sync_waiting">စင့်ခ်လုပ်ရန် စောင့်နေသည်</string>
+    <string name="settings_sync_synced">စင့်ခ်ပြီးပါပြီ</string>
+    <string name="settings_sync_offline">BudgetWise နှင့် ချိတ်ဆက်၍ မရပါ</string>
+    <string name="settings_sync_needs_sign_in">စင့်ခ်လုပ်ရန် ပြန်ဝင်ပါ</string>
+    <plurals name="settings_sync_rejected">
+        <item quantity="other">စာရင်း %d ခု စင့်ခ်လုပ်၍ မရပါ</item>
+    </plurals>
+    <string name="settings_sync_never">မစင့်ခ်ရသေးပါ</string>
+    <string name="settings_sync_last_synced">နောက်ဆုံး စင့်ခ်: %1$s</string>
+    <string name="settings_sync_last_tried">နောက်ဆုံး ကြိုးစားချိန်: %1$s။ အလိုအလျောက် ထပ်ကြိုးစားပါမည်။</string>
+    <string name="settings_sync_rejected_detail">ဆာဗာက လက်မခံပါ။ ဤဖုန်းထဲတွင် ဆက်ရှိနေပါမည်။</string>
+    <string name="settings_sync_waiting_detail">အင်တာနက်ရလျှင် ချက်ချင်း လုပ်ပါမည်။</string>
+    <plurals name="settings_unsynced">
+        <item quantity="other">စင့်ခ်ရန် စာရင်း %d ခု ကျန်သည်</item>
+    </plurals>
+    <string name="settings_all_synced">စာရင်းအားလုံး စင့်ခ်ပြီးပါပြီ</string>
+    <string name="settings_sync_now">ယခု စင့်ခ်လုပ်မည်</string>
+    <string name="settings_sign_out">အကောင့်မှ ထွက်မည်</string>
+    <string name="settings_sign_out_title">အကောင့်မှ ထွက်မလား။</string>
+    <plurals name="settings_sign_out_message">
+        <item quantity="other">စာရင်း %d ခု မစင့်ခ်ရသေးပါ။ ထွက်လျှင် ဤဖုန်းမှ ပျက်သွားပါမည်။</item>
+    </plurals>
+    <string name="settings_sign_out_anyway">ဖျက်ပြီး ထွက်မည်</string>
+    <string name="settings_server">ဆာဗာ</string>
+    <string name="settings_version">ဗားရှင်း %1$s (%2$d)</string>
+</resources>

@@ -10,3 +10,7 @@ Noto Sans Myanmar 400/600/700, release NotoSansMyanmar-v2.107
 
 Libraries
   myanmar-tools 1.2.0 (Google, Apache-2.0): https://github.com/google/myanmar-tools
+
+Icons
+  Material Symbols Rounded (Google, Apache-2.0), vector drawables res/drawable/ic_*.xml except ic_launcher_*:
+  https://github.com/google/material-design-icons (symbols/android)
