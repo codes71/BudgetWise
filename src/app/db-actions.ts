@@ -3,14 +3,13 @@
 import dbConnect from '@/lib/db';
 import TransactionModel from '@/lib/models/transaction';
 import BudgetModel from '@/lib/models/budget';
-import CategoryModel from '@/lib/models/category'; // New import
+import { getCategoriesForUser } from '@/lib/mobile/reference-data';
 import type { Transaction, Budget } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { verifySession } from '@/lib/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { logger } from '@/lib/logger';
-import mongoose from 'mongoose';
 
 async function getUserId(): Promise<string> {
   const user = await verifySession();
@@ -37,26 +36,10 @@ export async function getBudgets(): Promise<Budget[]> {
   return JSON.parse(JSON.stringify(budgets));
 }
 
-// New function to get categories
 export async function getCategories(): Promise<string[]> {
   const userId = await getUserId(); // Categories can be user-specific or global
-  await dbConnect();
-
-  let query: any = { userId: { $exists: false } }; // Start with global categories
-
-  if (userId) {
-    if (mongoose.Types.ObjectId.isValid(userId)) {
-      // If it's a valid ObjectId, query by userId
-      query = { $or: [{ userId: new mongoose.Types.ObjectId(userId) }, { userId: { $exists: false } }] };
-    } else {
-      // If it's not a valid ObjectId (e.g., guest ID), only fetch global categories
-      query = { userId: { $exists: false } };
-    }
-  }
-
-  const categories = await CategoryModel.find(query);
   console.log('Fetched categories');
-  return categories.map((cat) => cat.name);
+  return getCategoriesForUser(userId);
 }
 
 export async function addTransaction(
