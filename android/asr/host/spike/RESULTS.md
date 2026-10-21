@@ -102,11 +102,11 @@ android/asr/host/spike/run_matrix.sh ~/.cache/budgetwise-eval/llama.cpp/build/bi
 python3 -m pytest android/asr/host/spike/test_run_spike.py
 ```
 
-## Gate G2 (PENDING, no phone paired)
+## Gate G2 (PASS on the warm path for one flagship phone; CLI bench and 1.7B PENDING)
 
-Status: **PENDING.** `adb devices` listed no phone when Task 2 was implemented. The tooling is built and self-tested; the numbers below are not measured.
+Status: measured 2026-10-21 on the user's Xiaomi Mi 14 (23127PN0CG, SM8650 Snapdragon 8 Gen 3, 11.7 GB, Android 16) with `OnDeviceBenchmarkTest` over all 30 FLEURS clips at 4 threads, CPU variant `libggml-cpu-android_armv8.6_1.so`. The first runs failed VmHWM (1,896,380 kB: the mapped GGUF pages stayed resident next to the CPU repack copy); loading without mmap fixed it. This is a flagship, not a P1 phone, so G2 on a 4 GB phone is still unmeasured. The CLI 2 vs 4 thread runs and 1.7B are not run yet.
 
-Phone class: not recorded yet (fill in `getprop ro.soc.model` and `MemTotal` from the first run). There is one phone, so G2 is evaluated against the P1 thresholds. The 1.7B criterion (P2) is "not evaluated, one phone" unless the phone has at least 7.5 GB RAM, in which case also run 1.7B Q8_0 at 4 threads.
+Phone class: SM8650, MemTotal 11.7 GB, cores by cpu_capacity 379 x2, 867 x2, 923 x3, 1024 x1. There is one phone, so G2 is evaluated against the P1 thresholds. The 1.7B criterion (P2) is "not evaluated, one phone" unless the phone has at least 7.5 GB RAM, in which case also run 1.7B Q8_0 at 4 threads.
 
 Build evidence (arm64-v8a, NDK 29.0.13113456, pinned llama.cpp fb34fc2): `build_android_cli.sh` produced `bin/llama-mtmd-cli` (ARM aarch64 ELF) and the ggml CPU variants `android_armv8.0_1`, `armv8.2_1`, `armv8.2_2`, `armv8.6_1`, `armv9.0_1`, `armv9.2_1`, `armv9.2_2`. Install tree is 22 MB, kept outside the repo in `~/.cache/budgetwise-eval/android-cli/install`. ggml loads dlopen'd backends only from the executable's directory, so the CPU variants sit in `bin/` and the other libs in `lib/` (run with `LD_LIBRARY_PATH=lib`).
 
@@ -131,10 +131,12 @@ G2 thresholds on P1 (4 GB, Helio G85/G99 or Snapdragon 680 class), chosen 0.6B q
 
 | Check | Threshold | Measured |
 |---|---|---|
-| p50 RTF | <= 1.0 (WS5 M0) | PENDING |
-| p95 wall, clips <= 8 s | <= 8 s | PENDING |
-| VmHWM | <= 1,600,000 kB | PENDING |
-| SIGILL | none | PENDING |
+| p50 RTF | <= 1.0 (WS5 M0) | 0.537 (warm, 30 clips; 0.589 with mmap) |
+| p95 wall, clips <= 8 s | <= 8 s | 7.4 s (fleurs_02 7,385 ms, fleurs_10 5,838 ms; fleurs_02 took 4,003 ms in the mmap run, so latency varies run to run) |
+| VmHWM | <= 1,600,000 kB | 1,439,612 kB without mmap (1,896,380 kB with mmap) |
+| SIGILL | none | none (NativeLoadTest and all engine tests pass) |
 | 1.7B on P2 (p50 RTF <= 1.5, VmHWM <= 3.2 GB) | only if offered | not evaluated, one phone |
+
+Accuracy on the phone: pooled SER 21.4% on the 30 clips against 19.8% for the Mac golden (VAD trim plus CPU kernels; 3 of 30 transcripts identical). Model load without mmap: 8.4 s (5.5 s with mmap).
 
 If P1 fails: retry Q4_K_M at 2 threads, then NO-GO (Decision 5). Self-test (no phone, NDK or models): `bash android/asr/host/spike/bench_phone.sh --self-test`.

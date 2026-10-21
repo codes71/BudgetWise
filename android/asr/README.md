@@ -15,6 +15,8 @@ llama.cpp), so CI and fresh checkouts need network access. The llama.cpp submodu
 - `warmUp()` after `close()` is a silent no-op.
 - `AsrResult.decodeMs` includes model load time when the engine was not warmed up first. Call `warmUp()` when the
   model is Ready (and again on foreground) before measuring latency.
+- Loading reads both model files into memory (no mmap, so the repacked weights are not doubled by mapped file
+  pages). It takes about 8 s on a Snapdragon 8 Gen 3 and peaks at about 1.44 GB RSS, so show a loading state.
 - `AsrResult.truncatedSegments` counts segments that stopped at the token limit; their text may be cut short.
 - Register `MemoryGuard` as a component callback so the engine is released under memory pressure.
 - `ModelFiles` (what a fake `ModelManager.filesFor` returns) is in `app.budgetwise.asr.engine`.
