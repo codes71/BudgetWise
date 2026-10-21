@@ -3,12 +3,18 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 
 let server: MongoMemoryServer | null = null;
 
-export async function startMongo(): Promise<void> {
+// Starts the in-memory server and sets MONGODB_URI but does NOT open a mongoose
+// connection, to reproduce a cold-started process.
+export async function startMongoServerOnly(): Promise<void> {
   if (server) return;
   server = await MongoMemoryServer.create();
   // Must be set before src/lib/db.ts is imported (it reads the env at load).
   process.env.MONGODB_URI = server.getUri("budgetwise_test");
-  await mongoose.connect(process.env.MONGODB_URI);
+}
+
+export async function startMongo(): Promise<void> {
+  await startMongoServerOnly();
+  await mongoose.connect(process.env.MONGODB_URI!);
 }
 
 export async function stopMongo(): Promise<void> {

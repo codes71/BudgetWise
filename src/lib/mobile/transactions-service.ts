@@ -11,7 +11,7 @@ async function upsertAll(userId: string, items: TransactionInput[]): Promise<voi
         filter: { userId, clientId: item.clientId },
         // $setOnInsert never overwrites an existing row (rows are immutable). Mongoose
         // timestamps would add $set updatedAt on matches too, so set them here instead.
-        update: { $setOnInsert: { userId, ...item, createdAt: now, updatedAt: now } },
+        update: { $setOnInsert: { ...item, userId, createdAt: now, updatedAt: now } },
         upsert: true,
         timestamps: false,
       },
@@ -37,7 +37,11 @@ export async function saveBatch(userId: string, items: TransactionInput[]): Prom
     clientId: { $in: items.map((i) => i.clientId) },
   }).lean<LeanTransaction[]>();
   const byClientId = new Map(rows.map((r) => [r.clientId, r]));
-  return items.map((i) => toTransactionDto(byClientId.get(i.clientId)!));
+  // A row deleted between the upsert and this read is skipped rather than failing the batch.
+  return items.flatMap((i) => {
+    const row = byClientId.get(i.clientId);
+    return row ? [toTransactionDto(row)] : [];
+  });
 }
 
 export async function listSince(userId: string, since?: Date): Promise<TransactionDto[]> {

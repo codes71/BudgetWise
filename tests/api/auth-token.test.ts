@@ -33,6 +33,17 @@ const login = (body: unknown, ip = freshIp()) =>
   POST(req("POST", "/api/v1/auth/token", { body, ip }));
 
 describe("POST /api/v1/auth/token", () => {
+  it("accepts non-RFC emails that web signup allows (test@localhost)", async () => {
+    const u = await User.create({
+      email: "test@localhost",
+      password: await bcrypt.hash("correct-horse", 10),
+      fullName: "Local",
+    });
+    const res = await login({ email: "test@localhost", password: "correct-horse" });
+    expect(res.status).toBe(200);
+    expect((await res.json()).user.id).toBe(String(u._id));
+  });
+
   it("valid credentials 200 with verifiable token", async () => {
     const res = await login({ email: "Alice@Example.com", password: "correct-horse" });
     expect(res.status).toBe(200);
@@ -132,7 +143,7 @@ describe("POST /api/v1/auth/token", () => {
 
   it("invalid json 400, bad shape 422", async () => {
     expect((await login("{not json")).status).toBe(400);
-    expect((await login({ email: "nope", password: "x" })).status).toBe(422);
+    expect((await login({ email: "", password: "x" })).status).toBe(422);
     expect((await login({ email: "a@b.co" })).status).toBe(422);
   });
 });

@@ -1,3 +1,4 @@
+import dbConnect from "@/lib/db";
 import RateLimit from "@/lib/models/rate-limit";
 import { ApiError } from "./errors";
 
@@ -30,6 +31,8 @@ async function hit(key: string, windowSec: number) {
 }
 
 export async function rateLimit(key: string, opts: RateLimitOptions): Promise<void> {
+  // init() waits for a connection that nothing else opens on a cold process.
+  await dbConnect();
   await RateLimit.init();
   let doc;
   try {

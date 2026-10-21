@@ -50,7 +50,7 @@ test("batch bounds 1..50", () => {
 
 test("login, voiceParse, updatedSince", () => {
   expect(loginSchema.safeParse({ email: "a@b.co", password: "x" }).success).toBe(true);
-  expect(loginSchema.safeParse({ email: "nope", password: "x" }).success).toBe(false);
+  expect(loginSchema.safeParse({ email: "  ", password: "x" }).success).toBe(false);
   expect(voiceParseSchema.safeParse({ transcript: "hi", categories: ["Food"] }).success).toBe(true);
   expect(voiceParseSchema.safeParse({ transcript: "" }).success).toBe(false);
   expect(voiceParseSchema.safeParse({ transcript: "hi", categories: Array(51).fill("a") }).success).toBe(false);
