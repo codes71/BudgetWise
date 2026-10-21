@@ -3,7 +3,6 @@
 <resources>
     <!-- Common -->
     <string name="action_cancel">မလုပ်တော့ပါ</string>
-    <string name="action_back">နောက်သို့</string>
     <string name="server_url">ဆာဗာ: %1$s</string>
     <string name="time_just_now">ယခုလေးတင်</string>
 
@@ -45,19 +44,84 @@
     </plurals>
     <string name="session_sign_in">ဝင်မည်</string>
 
-    <!-- Placeholders until the next step -->
+    <!-- Amounts, as TalkBack reads them -->
+    <string name="kyat_spent">%1$s ကျပ် သုံးထားသည်</string>
+    <string name="kyat_received">%1$s ကျပ် ရရှိသည်</string>
+    <string name="kyat_amount">%1$s ကျပ်</string>
+
+    <!-- Built-in categories (display names only) -->
+    <string name="category_groceries">ကုန်စုံ</string>
+    <string name="category_utilities">ရေမီးဖိုး</string>
+    <string name="category_entertainment">ဖျော်ဖြေရေး</string>
+    <string name="category_transport">သွားလာရေး</string>
+    <string name="category_housing">အိမ်ရာ</string>
+    <string name="category_health">ကျန်းမာရေး</string>
+    <string name="category_food_and_drink">အစားအသောက်</string>
+    <string name="category_other">အခြား</string>
+
+    <!-- Transactions -->
     <string name="transactions_title">ငွေစာရင်း</string>
-    <string name="transactions_placeholder">သင့်ဝင်ငွေနှင့် အသုံးစရိတ်များ ဤနေရာတွင် ပြပါမည်။ နောက်အဆင့်တွင် ရပါမည်။</string>
-    <string name="budgets_title">ဘတ်ဂျက်</string>
-    <string name="budgets_placeholder">သင့်လစဉ် ဘတ်ဂျက်များ ဤနေရာတွင် ပြပါမည်။ နောက်အဆင့်တွင် ရပါမည်။</string>
-    <string name="manual_title">စာရင်းသွင်းရန်</string>
-    <string name="manual_placeholder">စာရိုက်၍ စာရင်းသွင်းခြင်းကို နောက်အဆင့်တွင် ရပါမည်။</string>
     <string name="action_add">ထည့်မည်</string>
+    <string name="transactions_balance">လက်ကျန်</string>
+    <string name="transactions_spent">သုံးငွေ</string>
+    <string name="transactions_income">ဝင်ငွေ</string>
+    <string name="transactions_today">ယနေ့</string>
+    <string name="transactions_yesterday">မနေ့က</string>
+    <string name="transactions_not_synced">မစင့်ခ်ရသေးပါ</string>
+    <string name="transactions_sync_failed">စင့်ခ်လုပ်၍ မရပါ</string>
+    <string name="transactions_delete">ဖျက်မည်</string>
+    <string name="transactions_deleted">ဖျက်ပြီးပါပြီ</string>
+    <string name="transactions_undo">ပြန်ယူမည်</string>
+    <string name="transactions_empty_title">စာရင်း မရှိသေးပါ</string>
+    <string name="transactions_empty_message">သုံးငွေနှင့် ဝင်ငွေများကို ထည့်ပါ။ ဝဘ်ပေါ်ရှိ BudgetWise နှင့် စင့်ခ်ဖြစ်ပါမည်။</string>
+    <string name="transactions_add_first">ပထမဆုံး သုံးငွေ ထည့်မည်</string>
+    <string name="transactions_unreachable">BudgetWise နှင့် ချိတ်ဆက်၍ မရပါ။ စာရင်းများ ဤဖုန်းထဲတွင် ရှိနေပါသည်။</string>
+    <string name="transactions_waiting_for_network">အင်တာနက် မရသေးပါ။ အင်တာနက်ရလျှင် စင့်ခ်လုပ်ပါမည်။</string>
+
+    <!-- Add entry -->
+    <string name="manual_title">စာရင်းသွင်းရန်</string>
+    <string name="action_close">ပိတ်မည်</string>
+    <string name="action_ok">အိုကေ</string>
+    <string name="manual_expense">သုံးငွေ</string>
+    <string name="manual_income">ဝင်ငွေ</string>
+    <string name="manual_amount">ပမာဏ</string>
+    <string name="manual_amount_error_missing">ပမာဏ ထည့်ပါ</string>
+    <string name="manual_amount_error_zero">ပမာဏသည် ၀ ထက် များရပါမည်</string>
+    <string name="manual_category">အမျိုးအစား</string>
+    <string name="manual_category_error">အမျိုးအစား ရွေးပါ</string>
+    <string name="manual_description">အကြောင်းအရာ</string>
+    <string name="manual_description_hint">ဘာအတွက်လဲ။</string>
+    <string name="manual_description_error_blank">အကြောင်းအရာ အနည်းငယ် ရေးပါ</string>
+    <plurals name="manual_description_error_too_long">
+        <item quantity="other">စာလုံး %d လုံးထက် မပိုရပါ</item>
+    </plurals>
+    <string name="manual_description_count">%1$d/%2$d</string>
+    <string name="manual_date">ရက်စွဲ</string>
+    <string name="manual_date_change">ရက်စွဲ ပြောင်းမည်</string>
+    <string name="manual_date_error_future">နောင်ရက်စွဲ မရွေးနိုင်ပါ</string>
+    <string name="manual_save">သိမ်းမည်</string>
+    <string name="manual_saving">သိမ်းနေသည်…</string>
+    <string name="manual_save_failed">သိမ်း၍ မရပါ။ ထပ်ကြိုးစားပါ။</string>
+
+    <!-- Budgets -->
+    <string name="budgets_title">ဘတ်ဂျက်</string>
+    <string name="budgets_empty">ဘတ်ဂျက် မရှိသေးပါ။ ဝဘ်ပေါ်ရှိ BudgetWise တွင် ဘတ်ဂျက် သတ်မှတ်ပါ။</string>
+    <string name="budgets_month_spent">ဘတ်ဂျက်ထဲမှ သုံးငွေ</string>
+    <string name="budgets_spent_of_limit">%2$s ထဲမှ %1$s</string>
+    <string name="budgets_of_limit">%1$s ထဲမှ</string>
+    <string name="budgets_left">%1$s ကျန်သည်</string>
+    <string name="budgets_over">%1$s ကျော်သွားပြီ</string>
+    <string name="budgets_spent_of_limit_spoken">%2$s ကျပ်ထဲမှ %1$s ကျပ် သုံးထားသည်</string>
+    <string name="budgets_left_spoken">%1$s ကျပ် ကျန်သည်</string>
+    <string name="budgets_over_spoken">ဘတ်ဂျက်ထက် %1$s ကျပ် ကျော်သွားပြီ</string>
 
     <!-- Settings -->
     <string name="settings_title">ဆက်တင်</string>
     <string name="settings_section_sync">စင့်ခ်</string>
     <string name="settings_section_developer">ဆော့ဖ်ဝဲ ရေးသူအတွက်</string>
+    <string name="settings_section_display">ပြသမှု</string>
+    <string name="settings_myanmar_digits">မြန်မာ ဂဏန်း</string>
+    <string name="settings_myanmar_digits_detail">ပမာဏများကို ၅,၀၀၀ Ks ဟု ပြမည်</string>
     <string name="settings_sync_syncing">စင့်ခ်လုပ်နေသည်…</string>
     <string name="settings_sync_waiting">စင့်ခ်လုပ်ရန် စောင့်နေသည်</string>
     <string name="settings_sync_synced">စင့်ခ်ပြီးပါပြီ</string>

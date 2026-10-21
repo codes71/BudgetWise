@@ -32,12 +32,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.budgetwise.R
 import app.budgetwise.data.auth.SessionState
-import app.budgetwise.ui.budgets.BudgetsScreen
-import app.budgetwise.ui.common.PlaceholderScreen
+import app.budgetwise.ui.budgets.BudgetsRoute
 import app.budgetwise.ui.common.sessionNoticeFor
 import app.budgetwise.ui.login.LoginRoute
+import app.budgetwise.ui.manual.AddManualRoute
 import app.budgetwise.ui.settings.SettingsRoute
-import app.budgetwise.ui.transactions.TransactionsScreen
+import app.budgetwise.ui.transactions.TransactionsRoute
 import java.time.Instant
 
 object Routes {
@@ -146,22 +146,16 @@ fun AppNav(
                 )
             }
             composable(Routes.TRANSACTIONS) {
-                TransactionsScreen(
+                TransactionsRoute(
                     sessionNotice = notice,
                     onSignIn = ::openSignIn,
                     onAddManual = { navController.navigate(Routes.MANUAL) { launchSingleTop = true } },
                 )
             }
             composable(Routes.MANUAL) {
-                // Task 11b replaces this with the manual add screen.
-                PlaceholderScreen(
-                    title = stringResource(R.string.manual_title),
-                    message = stringResource(R.string.manual_placeholder),
-                    icon = R.drawable.ic_add,
-                    onBack = dropUnlessResumed { navController.popBackStack() },
-                )
+                AddManualRoute(onDone = dropUnlessResumed { navController.popBackStack() })
             }
-            composable(Routes.BUDGETS) { BudgetsScreen() }
+            composable(Routes.BUDGETS) { BudgetsRoute() }
             composable(Routes.SETTINGS) { SettingsRoute(onSignIn = ::openSignIn) }
         }
     }

@@ -6,6 +6,7 @@ import app.budgetwise.data.repo.LogoutResult
 import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
 import app.budgetwise.testing.FakeAccountActions
+import app.budgetwise.testing.FakeSettingsStore
 import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTokenStore
 import app.budgetwise.testing.MainDispatcherRule
@@ -34,12 +35,13 @@ class SettingsViewModelTest {
     private val now = Instant.parse("2026-10-21T00:00:00Z")
     private val accounts = FakeAccountActions()
     private val sync = FakeSyncControls()
+    private val settings = FakeSettingsStore()
 
     private fun session(expiresIn: Duration = Duration.ofDays(20)) =
         SessionManager(FakeTokenStore(StoredSession("tok", now.plus(expiresIn), TestUser)), Clock.fixed(now, ZoneOffset.UTC))
             .also { runBlocking { it.load() } }
 
-    private fun TestScope.vm(session: SessionManager = session()) = SettingsViewModel(accounts, session, sync).also { vm ->
+    private fun TestScope.vm(session: SessionManager = session()) = SettingsViewModel(accounts, session, sync, settings).also { vm ->
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
     }
 
@@ -80,6 +82,17 @@ class SettingsViewModelTest {
 
         assertEquals(listOf(false), accounts.logouts)
         assertNull(vm.state.value.signOutPrompt)
+    }
+
+    @Test
+    fun myanmarDigitsSwitchIsSaved() = runTest {
+        val vm = vm()
+        assertFalse(vm.state.value.myanmarDigits)
+
+        vm.setMyanmarDigits(true)
+
+        assertTrue(settings.myanmarDigits.value)
+        assertTrue(vm.state.value.myanmarDigits)
     }
 
     @Test

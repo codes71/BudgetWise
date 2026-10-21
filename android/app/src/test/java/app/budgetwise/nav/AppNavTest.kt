@@ -1,5 +1,6 @@
 package app.budgetwise.nav
 
+import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -7,8 +8,13 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
+import androidx.work.testing.SynchronousExecutor
+import androidx.work.testing.WorkManagerTestInitHelper
 import app.budgetwise.HiltTestActivity
 import app.budgetwise.R
 import app.budgetwise.data.auth.AuthBindingsModule
@@ -39,7 +45,7 @@ import org.robolectric.annotation.Config
 @HiltAndroidTest
 @UninstallModules(AuthBindingsModule::class)
 @RunWith(RobolectricTestRunner::class)
-@Config(application = HiltTestApplication::class)
+@Config(application = HiltTestApplication::class, qualifiers = "w411dp-h914dp")
 class AppNavTest {
     @get:Rule(order = 0) val hilt = HiltAndroidRule(this)
     @get:Rule(order = 1) val compose = createAndroidComposeRule<HiltTestActivity>()
@@ -51,6 +57,11 @@ class AppNavTest {
 
     @Before
     fun setUp() {
+        // Settings reads queued work from WorkManager; HiltTestApplication does not configure it.
+        WorkManagerTestInitHelper.initializeTestWorkManager(
+            ApplicationProvider.getApplicationContext<Context>(),
+            Configuration.Builder().setExecutor(SynchronousExecutor()).build(),
+        )
         hilt.inject()
         runBlocking { session.load() }
     }
@@ -92,7 +103,9 @@ class AppNavTest {
         showApp()
 
         compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
-        compose.onNodeWithText(text(R.string.budgets_placeholder)).assertIsDisplayed()
+        // The empty state waits for Room's first answer, which arrives from Room's own thread.
+        compose.waitUntil(5_000) { compose.onAllNodesWithText(text(R.string.budgets_empty)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(text(R.string.budgets_empty)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.session_expired_message)).assertDoesNotExist()
 
         compose.onNodeWithText(text(R.string.nav_transactions)).performClick()

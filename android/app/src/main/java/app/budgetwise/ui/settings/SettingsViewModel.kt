@@ -7,6 +7,7 @@ import app.budgetwise.SyncControls
 import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.auth.SessionState
 import app.budgetwise.data.auth.UserInfo
+import app.budgetwise.data.prefs.SettingsStore
 import app.budgetwise.data.repo.LogoutResult
 import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
@@ -36,6 +37,8 @@ data class SettingsUiState(
     /** Set while asking whether to sign out and lose this many unsynced rows. */
     val signOutPrompt: Int? = null,
     val signingOut: Boolean = false,
+    /** Amounts in Myanmar digits (SettingsStore, default off). */
+    val myanmarDigits: Boolean = false,
 ) {
     val canSyncNow: Boolean get() = account != null && !sessionExpired && sync.phase != SyncPhase.SYNCING
 }
@@ -63,21 +66,27 @@ class SettingsViewModel @Inject constructor(
     private val accounts: AccountActions,
     private val session: SessionManager,
     private val sync: SyncControls,
+    private val settings: SettingsStore,
 ) : ViewModel() {
     private data class SignOut(val prompt: Int? = null, val running: Boolean = false)
 
     private val signOut = MutableStateFlow(SignOut())
 
+    /** The sign-out flow and the display settings, combined so the main combine stays at five sources. */
+    private data class Local(val out: SignOut, val myanmarDigits: Boolean)
+
+    private val local = combine(signOut, settings.myanmarDigits) { out, digits -> Local(out, digits) }
+
     val state: StateFlow<SettingsUiState> =
-        combine(session.state, sync.status, sync.queued, sync.unsyncedCount, signOut) { s, status, queued, unsynced, out ->
-            uiState(s, status, queued, unsynced, out)
+        combine(session.state, sync.status, sync.queued, sync.unsyncedCount, local) { s, status, queued, unsynced, l ->
+            uiState(s, status, queued, unsynced, l)
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
-            uiState(session.state.value, sync.status.value, queued = false, unsynced = 0, out = SignOut()),
+            uiState(session.state.value, sync.status.value, queued = false, unsynced = 0, l = Local(SignOut(), false)),
         )
 
-    private fun uiState(s: SessionState, status: SyncStatus, queued: Boolean, unsynced: Int, out: SignOut): SettingsUiState {
+    private fun uiState(s: SessionState, status: SyncStatus, queued: Boolean, unsynced: Int, l: Local): SettingsUiState {
         val expired = s == SessionState.Expired
         val user: UserInfo? = when (s) {
             is SessionState.SignedIn -> s.user
@@ -89,8 +98,9 @@ class SettingsViewModel @Inject constructor(
             sessionExpired = expired,
             sync = syncSummary(status, queued, expired),
             unsyncedCount = unsynced,
-            signOutPrompt = out.prompt,
-            signingOut = out.running,
+            signOutPrompt = l.out.prompt,
+            signingOut = l.out.running,
+            myanmarDigits = l.myanmarDigits,
         )
     }
 
@@ -114,4 +124,8 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun dismissSignOut() = signOut.update { it.copy(prompt = null) }
+
+    fun setMyanmarDigits(on: Boolean) {
+        viewModelScope.launch { settings.setMyanmarDigits(on) }
+    }
 }

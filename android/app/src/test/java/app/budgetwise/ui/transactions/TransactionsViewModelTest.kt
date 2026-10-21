@@ -1,0 +1,213 @@
+package app.budgetwise.ui.transactions
+
+import app.budgetwise.data.sync.SyncOutcome
+import app.budgetwise.data.sync.SyncStatus
+import app.budgetwise.nlu.TxType
+import app.budgetwise.testing.FakeSettingsStore
+import app.budgetwise.testing.FakeSyncControls
+import app.budgetwise.testing.FakeTransactionStore
+import app.budgetwise.testing.MainDispatcherRule
+import app.budgetwise.testing.testTransaction
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class TransactionsViewModelTest {
+    @get:Rule val main = MainDispatcherRule()
+
+    private val zone = ZoneId.of("Asia/Yangon")
+    private val today = LocalDate.parse("2026-10-21")
+    private val clock = Clock.fixed(today.atTime(9, 30).atZone(zone).toInstant(), zone)
+    private val store = FakeTransactionStore()
+    private val sync = FakeSyncControls()
+    private val settings = FakeSettingsStore()
+
+    private fun d(s: String) = LocalDate.parse(s)
+
+    private fun TestScope.vm() = TransactionsViewModel(store, sync, settings, clock, backgroundScope).also { vm ->
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
+    }
+
+    private fun TestScope.events(vm: TransactionsViewModel): List<TransactionsEvent> {
+        val events = mutableListOf<TransactionsEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.toList(events) }
+        return events
+    }
+
+    private fun TransactionsUiState.visibleIds() = days.flatMap { day -> day.rows.map { it.clientId } }
+
+    @Test
+    fun groupsRowsByDayNewestFirst() = runTest {
+        val tea = testTransaction("tea", 1500, today)
+        val rice = testTransaction("rice", 20000, today)
+        val taxi = testTransaction("taxi", 4000, d("2026-10-20"))
+        val rent = testTransaction("rent", 300000, d("2026-10-03"))
+        store.rows.value = listOf(taxi, tea, rent, rice)
+
+        val state = vm().state.value
+
+        assertFalse(state.loading)
+        assertEquals(listOf(today, d("2026-10-20"), d("2026-10-03")), state.days.map { it.date })
+        assertEquals(setOf(tea, rice), state.days[0].rows.toSet())
+        assertEquals(today, state.today)
+    }
+
+    @Test
+    fun monthSummaryCountsOnlyThisMonth() = runTest {
+        store.rows.value = listOf(
+            testTransaction("tea", 5000, today),
+            testTransaction("bus", 2000, d("2026-10-01")),
+            testTransaction("salary", 100000, d("2026-10-10"), type = TxType.INCOME),
+            testTransaction("last month", 9000, d("2026-09-30")),
+            testTransaction("next month", 7, d("2026-11-01"), type = TxType.INCOME),
+            testTransaction("last year", 1000, d("2025-10-21")),
+        )
+
+        val summary = vm().state.value.summary
+
+        assertEquals(MonthSummary(YearMonth.of(2026, 10), spent = 7000, income = 100000), summary)
+        assertEquals(93000, summary.balance)
+    }
+
+    @Test
+    fun deleteHidesTheRowAndWaitsForTheSnackbar() = runTest {
+        val tea = testTransaction("tea", 1500, today)
+        val rice = testTransaction("rice", 20000, today)
+        store.rows.value = listOf(tea, rice)
+        val vm = vm()
+
+        vm.delete(tea.clientId)
+        runCurrent()
+
+        assertEquals(listOf(rice.clientId), vm.state.value.visibleIds())
+        assertEquals(tea.clientId, vm.state.value.pendingDelete)
+        assertTrue("nothing is deleted while Undo is offered", store.deleted.isEmpty())
+
+        vm.commitDelete(tea.clientId)
+        runCurrent()
+
+        assertEquals(listOf(tea.clientId), store.deleted)
+        assertNull(vm.state.value.pendingDelete)
+        assertEquals(listOf(rice.clientId), vm.state.value.visibleIds())
+    }
+
+    @Test
+    fun undoKeepsTheRow() = runTest {
+        val tea = testTransaction("tea", 1500, today)
+        store.rows.value = listOf(tea)
+        val vm = vm()
+
+        vm.delete(tea.clientId)
+        vm.undoDelete(tea.clientId)
+        // A late "dismissed" for the same row (the snackbar closing) must not delete it after Undo.
+        vm.commitDelete(tea.clientId)
+        vm.commitPendingDelete()
+        runCurrent()
+
+        assertEquals(listOf(tea.clientId), vm.state.value.visibleIds())
+        assertNull(vm.state.value.pendingDelete)
+        assertTrue(store.deleted.isEmpty())
+        // The restored row gets a new list key, so its swipe starts from rest instead of where it was dismissed.
+        assertEquals(mapOf(tea.clientId to 1), vm.state.value.restored)
+    }
+
+    @Test
+    fun aSecondDeleteCommitsTheFirst() = runTest {
+        val tea = testTransaction("tea", 1500, today)
+        val rice = testTransaction("rice", 20000, today)
+        store.rows.value = listOf(tea, rice)
+        val vm = vm()
+
+        vm.delete(tea.clientId)
+        vm.delete(rice.clientId)
+        runCurrent()
+
+        assertEquals(listOf(tea.clientId), store.deleted)
+        assertEquals(rice.clientId, vm.state.value.pendingDelete)
+        assertTrue(vm.state.value.visibleIds().isEmpty())
+    }
+
+    @Test
+    fun leavingTheScreenCommitsThePendingDelete() = runTest {
+        val tea = testTransaction("tea", 1500, today)
+        store.rows.value = listOf(tea)
+        val vm = vm()
+
+        vm.delete(tea.clientId)
+        vm.commitPendingDelete()
+        runCurrent()
+
+        assertEquals(listOf(tea.clientId), store.deleted)
+    }
+
+    @Test
+    fun refreshRunsAFullSyncAndSpinsUntilItEnds() = runTest {
+        val vm = vm()
+        val events = events(vm)
+
+        vm.refresh()
+
+        assertEquals(1, sync.syncNowCalls)
+        assertTrue(vm.state.value.refreshing)
+
+        sync.status.value = SyncStatus.Running
+        assertTrue(vm.state.value.refreshing)
+
+        sync.status.value = SyncStatus.LastResult(Instant.EPOCH, SyncOutcome.Success(pushed = 0, pulled = 3))
+        assertFalse(vm.state.value.refreshing)
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun refreshThatCannotReachTheServerSaysSo() = runTest {
+        val vm = vm()
+        val events = events(vm)
+
+        vm.refresh()
+        sync.status.value = SyncStatus.Running
+        sync.status.value = SyncStatus.LastResult(Instant.EPOCH, SyncOutcome.RetryLater)
+
+        assertFalse(vm.state.value.refreshing)
+        assertEquals(listOf(TransactionsEvent.Unreachable), events)
+    }
+
+    @Test
+    fun refreshThatNeverStartsStopsSpinning() = runTest {
+        // No connection: WorkManager holds the sync until there is one, so it never reports Running.
+        val vm = vm()
+        val events = events(vm)
+
+        vm.refresh()
+        advanceTimeBy(TransactionsViewModel.START_TIMEOUT_MS + 1)
+
+        assertFalse(vm.state.value.refreshing)
+        assertEquals(listOf(TransactionsEvent.WaitingForNetwork), events)
+    }
+
+    @Test
+    fun amountsFollowTheMyanmarDigitsSetting() = runTest {
+        val vm = vm()
+        assertFalse(vm.state.value.myanmarDigits)
+
+        settings.myanmarDigits.value = true
+
+        assertTrue(vm.state.value.myanmarDigits)
+    }
+}

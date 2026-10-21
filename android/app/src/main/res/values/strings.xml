@@ -4,7 +4,6 @@
 
     <!-- Common -->
     <string name="action_cancel">Cancel</string>
-    <string name="action_back">Back</string>
     <string name="server_url">Server: %1$s</string>
     <string name="time_just_now">just now</string>
 
@@ -50,19 +49,85 @@
     </plurals>
     <string name="session_sign_in">Sign in</string>
 
-    <!-- Placeholders until the next step -->
+    <!-- Amounts, as TalkBack reads them (%1$s is the grouped number) -->
+    <string name="kyat_spent">%1$s kyat spent</string>
+    <string name="kyat_received">%1$s kyat received</string>
+    <string name="kyat_amount">%1$s kyat</string>
+
+    <!-- Built-in categories. Display names only: the stored and synced names stay in English. -->
+    <string name="category_groceries">Groceries</string>
+    <string name="category_utilities">Utilities</string>
+    <string name="category_entertainment">Entertainment</string>
+    <string name="category_transport">Transport</string>
+    <string name="category_housing">Housing</string>
+    <string name="category_health">Health</string>
+    <string name="category_food_and_drink">Food and Drink</string>
+    <string name="category_other">Other</string>
+
+    <!-- Transactions -->
     <string name="transactions_title">Transactions</string>
-    <string name="transactions_placeholder">Your income and expenses will show here. Coming in the next step.</string>
-    <string name="budgets_title">Budgets</string>
-    <string name="budgets_placeholder">Your monthly budgets will show here. Coming in the next step.</string>
-    <string name="manual_title">Add entry</string>
-    <string name="manual_placeholder">Adding an entry by typing is coming in the next step.</string>
     <string name="action_add">Add</string>
+    <string name="transactions_balance">Balance</string>
+    <string name="transactions_spent">Spent</string>
+    <string name="transactions_income">Income</string>
+    <string name="transactions_today">Today</string>
+    <string name="transactions_yesterday">Yesterday</string>
+    <string name="transactions_not_synced">Not synced yet</string>
+    <string name="transactions_sync_failed">Couldn\'t sync</string>
+    <string name="transactions_delete">Delete</string>
+    <string name="transactions_deleted">Deleted</string>
+    <string name="transactions_undo">Undo</string>
+    <string name="transactions_empty_title">No entries yet</string>
+    <string name="transactions_empty_message">Add what you spend and earn. Your entries sync with BudgetWise on the web.</string>
+    <string name="transactions_add_first">Add your first expense</string>
+    <string name="transactions_unreachable">Couldn\'t reach BudgetWise. Your entries are safe on this phone.</string>
+    <string name="transactions_waiting_for_network">No connection yet. Your entries sync as soon as you\'re online.</string>
+
+    <!-- Add entry -->
+    <string name="manual_title">Add entry</string>
+    <string name="action_close">Close</string>
+    <string name="action_ok">OK</string>
+    <string name="manual_expense">Expense</string>
+    <string name="manual_income">Income</string>
+    <string name="manual_amount">Amount</string>
+    <string name="manual_amount_error_missing">Enter an amount</string>
+    <string name="manual_amount_error_zero">The amount must be more than 0</string>
+    <string name="manual_category">Category</string>
+    <string name="manual_category_error">Pick a category</string>
+    <string name="manual_description">Description</string>
+    <string name="manual_description_hint">What was it for?</string>
+    <string name="manual_description_error_blank">Write a few words about it</string>
+    <plurals name="manual_description_error_too_long">
+        <item quantity="one">Keep it to %d character or fewer</item>
+        <item quantity="other">Keep it to %d characters or fewer</item>
+    </plurals>
+    <string name="manual_description_count">%1$d/%2$d</string>
+    <string name="manual_date">Date</string>
+    <string name="manual_date_change">Change date</string>
+    <string name="manual_date_error_future">The date can\'t be in the future</string>
+    <string name="manual_save">Save</string>
+    <string name="manual_saving">Saving…</string>
+    <string name="manual_save_failed">Couldn\'t save. Try again.</string>
+
+    <!-- Budgets -->
+    <string name="budgets_title">Budgets</string>
+    <string name="budgets_empty">No budgets yet. Set budgets in BudgetWise on the web.</string>
+    <string name="budgets_month_spent">Spent on budgets</string>
+    <string name="budgets_spent_of_limit">%1$s of %2$s</string>
+    <string name="budgets_of_limit">of %1$s</string>
+    <string name="budgets_left">%1$s left</string>
+    <string name="budgets_over">%1$s over</string>
+    <string name="budgets_spent_of_limit_spoken">%1$s kyat spent of %2$s kyat</string>
+    <string name="budgets_left_spoken">%1$s kyat left</string>
+    <string name="budgets_over_spoken">%1$s kyat over budget</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_section_sync">Sync</string>
     <string name="settings_section_developer">Developer</string>
+    <string name="settings_section_display">Display</string>
+    <string name="settings_myanmar_digits">Myanmar digits</string>
+    <string name="settings_myanmar_digits_detail">Show amounts as ၅,၀၀၀ Ks</string>
     <string name="settings_sync_syncing">Syncing…</string>
     <string name="settings_sync_waiting">Waiting to sync</string>
     <string name="settings_sync_synced">Synced</string>

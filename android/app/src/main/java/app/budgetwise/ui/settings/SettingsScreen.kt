@@ -3,6 +3,7 @@ package app.budgetwise.ui.settings
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -43,6 +45,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -68,6 +71,7 @@ fun SettingsRoute(onSignIn: () -> Unit, viewModel: SettingsViewModel = hiltViewM
         onSignOut = { viewModel.signOut(force = false) },
         onConfirmSignOut = { viewModel.signOut(force = true) },
         onDismissSignOut = viewModel::dismissSignOut,
+        onMyanmarDigitsChange = viewModel::setMyanmarDigits,
         onSignIn = onSignIn,
         serverUrl = if (BuildConfig.DEBUG) BuildConfig.API_BASE_URL else null,
         version = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
@@ -83,6 +87,7 @@ fun SettingsScreen(
     onSignOut: () -> Unit,
     onConfirmSignOut: () -> Unit,
     onDismissSignOut: () -> Unit,
+    onMyanmarDigitsChange: (Boolean) -> Unit,
     onSignIn: () -> Unit,
     serverUrl: String?,
     version: String,
@@ -113,6 +118,8 @@ fun SettingsScreen(
             }
             item(key = "sync-header") { SectionHeader(stringResource(R.string.settings_section_sync)) }
             item(key = "sync") { SyncCard(state, now, onSyncNow) }
+            item(key = "display-header") { SectionHeader(stringResource(R.string.settings_section_display)) }
+            item(key = "display") { DisplayCard(state.myanmarDigits, onMyanmarDigitsChange) }
             if (state.account != null) {
                 item(key = "sign-out") { SignOutCard(state.signingOut, onSignOut) }
             }
@@ -172,8 +179,10 @@ fun SettingsScreen(
 
 @Composable
 private fun SettingsCard(content: @Composable () -> Unit) {
+    // Large corners, like the cards and grouped rows on the Transactions and Budgets tabs.
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) { content() }
 }
@@ -313,6 +322,21 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
 }
 
 @Composable
+private fun DisplayCard(myanmarDigits: Boolean, onChange: (Boolean) -> Unit) {
+    SettingsCard {
+        ListItem(
+            // The whole row is the switch (one 48 dp target), read as "Myanmar digits, switch, on".
+            modifier = Modifier.toggleable(value = myanmarDigits, role = Role.Switch, onValueChange = onChange),
+            leadingContent = { ListIcon(R.drawable.ic_digits) },
+            headlineContent = { Text(stringResource(R.string.settings_myanmar_digits)) },
+            supportingContent = { Text(stringResource(R.string.settings_myanmar_digits_detail)) },
+            trailingContent = { Switch(checked = myanmarDigits, onCheckedChange = null) },
+            colors = transparentListItemColors(),
+        )
+    }
+}
+
+@Composable
 private fun SignOutCard(signingOut: Boolean, onSignOut: () -> Unit) {
     val error = MaterialTheme.colorScheme.error
     SettingsCard {
@@ -346,6 +370,7 @@ private fun SettingsScreenPreview() {
             onSignOut = {},
             onConfirmSignOut = {},
             onDismissSignOut = {},
+            onMyanmarDigitsChange = {},
             onSignIn = {},
             serverUrl = "http://127.0.0.1:9002/api/v1/",
             version = "Version 0.1.0 (1)",
