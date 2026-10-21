@@ -21,3 +21,7 @@ rootProject.name = "budgetwise-android"
 
 include(":asr")
 include(":asr-demo")
+include(":nlu")
+include(":app")
+include(":core:data")
+include(":feature:voice")
