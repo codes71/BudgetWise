@@ -30,6 +30,17 @@ data class BudgetLine(val category: String, val limitKyat: Long, val spentKyat: 
 
     val over: Boolean get() = spentKyat > limitKyat
 
+    /**
+     * Whole percent spent, rounded down, for the label: 53,000 of 100,000 is 53 (Float math gave 52), and it never
+     * says 100 before the limit is reached. [progress] stays Float, for the bar only.
+     */
+    val percentUsed: Long
+        get() = when {
+            limitKyat > 0 -> if (spentKyat <= Long.MAX_VALUE / 100) spentKyat * 100 / limitKyat else spentKyat / limitKyat * 100
+            spentKyat > 0 -> 100
+            else -> 0
+        }
+
     /** Share of the limit spent; above 1 when over. A zero limit counts as fully used by any spending. */
     val progress: Float
         get() = when {
@@ -94,6 +105,8 @@ class BudgetsViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BudgetsUiState(month = YearMonth.from(LocalDate.now(clock))))
 
     init {
+        // Starts before Room's first answer, so "No budgets yet" never flashes on the first open. BudgetsRoute asks
+        // again each time the tab opens; a request while one runs is ignored.
         refresh()
     }
 

@@ -26,6 +26,7 @@ import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.auth.SessionState
 import app.budgetwise.data.auth.StoredSession
 import app.budgetwise.data.auth.TokenStore
+import app.budgetwise.data.auth.UserInfo
 import app.budgetwise.testing.FakeTokenStore
 import app.budgetwise.testing.TestUser
 import app.budgetwise.ui.theme.BudgetWiseTheme
@@ -38,7 +39,8 @@ import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -117,9 +119,17 @@ class AppNavTest {
         compose.onNodeWithText(text(R.string.session_expired_message)).assertIsDisplayed()
     }
 
-    @Test
-    fun signOutForgetsTheSavedTabState() {
-        var state by mutableStateOf<SessionState>(SessionState.Expired)
+    private fun signedIn(user: UserInfo) = SessionState.SignedIn(user, Instant.now().plusSeconds(86_400 * 20L), false)
+
+    private val otherUser = TestUser.copy(id = "u2", email = "ko@example.com")
+
+    /**
+     * Opens Budgets and leaves it through the bottom bar, which saves its back stack (ViewModel included) to restore
+     * later. Then the session goes through [between], [next] signs in the way LoginRoute does on success, and Budgets
+     * is opened again. True when the saved Budgets entry came back.
+     */
+    private fun savedBudgetsComeBack(start: SessionState, between: List<SessionState>, next: UserInfo): Boolean {
+        var state by mutableStateOf(start)
         lateinit var nav: NavHostController
         compose.setContent {
             nav = rememberNavController()
@@ -128,15 +138,14 @@ class AppNavTest {
 
         compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
         val firstBudgets = compose.runOnIdle { nav.currentBackStackEntry!!.id }
-        // Leaving Budgets through the bottom bar saves its back stack (ViewModel included) to restore later.
         compose.onNodeWithText(text(R.string.nav_settings)).performClick()
 
-        compose.runOnIdle { state = SessionState.SignedOut }
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
-
-        // Another account signs in; sign-in navigates the way LoginRoute does on success.
+        for (s in between) {
+            compose.runOnIdle { state = s }
+            compose.waitForIdle()
+        }
         compose.runOnIdle {
-            state = SessionState.SignedIn(TestUser.copy(id = "u2", email = "ko@example.com"), Instant.now().plusSeconds(86_400 * 20L), false)
+            state = signedIn(next)
             nav.navigate(Routes.TRANSACTIONS) {
                 popUpTo(nav.graph.id) { inclusive = true }
                 launchSingleTop = true
@@ -144,9 +153,31 @@ class AppNavTest {
         }
         compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
 
-        compose.runOnIdle {
+        return compose.runOnIdle {
             assertEquals(Routes.BUDGETS, nav.currentDestination?.route)
-            assertNotEquals("the previous user's Budgets entry came back", firstBudgets, nav.currentBackStackEntry!!.id)
+            nav.currentBackStackEntry!!.id == firstBudgets
         }
+    }
+
+    @Test
+    fun signOutForgetsTheSavedTabState() {
+        assertFalse(savedBudgetsComeBack(start = SessionState.Expired, between = listOf(SessionState.SignedOut), next = otherUser))
+    }
+
+    @Test
+    fun anotherAccountAfterAnExpiredSessionGetsFreshTabs() {
+        // AuthRepository switches accounts without a sign-out: Expired goes straight to SignedIn as someone else.
+        assertFalse(savedBudgetsComeBack(start = signedIn(TestUser), between = listOf(SessionState.Expired), next = otherUser))
+    }
+
+    @Test
+    fun anAccountSigningInOnAnExpiredStartGetsFreshTabs() {
+        // The app started expired, so whose tabs these are is not known: they are not handed to whoever signs in.
+        assertFalse(savedBudgetsComeBack(start = SessionState.Expired, between = emptyList(), next = otherUser))
+    }
+
+    @Test
+    fun theSameAccountSigningInAgainKeepsItsTabs() {
+        assertTrue(savedBudgetsComeBack(start = signedIn(TestUser), between = listOf(SessionState.Expired), next = TestUser))
     }
 }

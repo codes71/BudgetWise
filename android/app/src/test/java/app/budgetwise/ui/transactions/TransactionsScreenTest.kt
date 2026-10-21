@@ -1,12 +1,13 @@
 package app.budgetwise.ui.transactions
 
 import android.content.Context
+import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -39,7 +40,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h914dp")
 class TransactionsScreenTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val zone = ZoneId.of("Asia/Yangon")
@@ -48,10 +49,12 @@ class TransactionsScreenTest {
 
     private fun text(@StringRes id: Int) = context.getString(id)
 
+    private lateinit var vm: TransactionsViewModel
+
     private fun show(rows: List<Transaction>, onAddManual: () -> Unit = {}): FakeTransactionStore {
         val store = FakeTransactionStore(rows)
         // The delete outlives the screen in the app; here it runs straight away.
-        val vm = TransactionsViewModel(store, FakeSyncControls(), FakeSettingsStore(), clock, CoroutineScope(Dispatchers.Unconfined))
+        vm = TransactionsViewModel(store, FakeSyncControls(), FakeSettingsStore(), clock, CoroutineScope(Dispatchers.Unconfined))
         compose.setContent {
             BudgetWiseTheme {
                 TransactionsRoute(sessionNotice = null, onSignIn = {}, onAddManual = onAddManual, viewModel = vm)
@@ -116,6 +119,21 @@ class TransactionsScreenTest {
         assertEquals(listOf(rice.clientId), store.deleted)
         compose.onNodeWithText("Rice").assertDoesNotExist()
         compose.onNodeWithText(text(R.string.transactions_deleted)).assertDoesNotExist()
+    }
+
+    @Test
+    fun rotatingKeepsTheUndoWindowOpen() {
+        val rice = testTransaction("Rice", 20000, today)
+        val store = show(listOf(rice))
+        compose.onNodeWithText("Rice").performTouchInput { swipeLeft() }
+        compose.onNodeWithText(text(R.string.transactions_deleted)).assertIsDisplayed()
+
+        // A configuration change destroys the activity and the composition; the ViewModel stays, and the new screen
+        // shows the snackbar again for the same row.
+        compose.activityRule.scenario.recreate()
+
+        assertTrue("a rotation must not end the Undo window", store.deleted.isEmpty())
+        assertEquals(rice.clientId, vm.state.value.pendingDelete)
     }
 
     @Test

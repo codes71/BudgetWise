@@ -116,6 +116,17 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun aFailedMyanmarDigitsWriteIsIgnored() = runTest {
+        // DataStore can throw an IOException on write; the switch stays where it was instead of crashing the app.
+        settings.writeFailure = java.io.IOException("disk full")
+        val vm = vm()
+
+        vm.setMyanmarDigits(true)
+
+        assertFalse(vm.state.value.myanmarDigits)
+    }
+
+    @Test
     fun showsAccountAndUnsyncedCount() = runTest {
         sync.unsyncedCount.value = 4
         val vm = vm()

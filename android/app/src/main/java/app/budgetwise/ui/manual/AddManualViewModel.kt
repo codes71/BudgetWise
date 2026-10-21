@@ -1,5 +1,6 @@
 package app.budgetwise.ui.manual
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.budgetwise.CategorySource
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 
 enum class AmountError { MISSING, ZERO }
@@ -98,6 +100,9 @@ sealed interface AddManualEvent {
 /**
  * The add form. [save] writes one [NewTransaction] with [Source.MANUAL] through [TransactionStore.addAll], which
  * stores it as a PENDING row and works offline; the sync runs when there is a connection.
+ *
+ * The fields live in [SavedStateHandle] too, so a form left half filled (the user checks an amount in a banking app
+ * and the phone kills BudgetWise meanwhile) comes back as it was.
  */
 @HiltViewModel
 class AddManualViewModel @Inject constructor(
@@ -106,8 +111,9 @@ class AddManualViewModel @Inject constructor(
     settings: SettingsStore,
     session: SessionManager,
     @DeviceClock clock: Clock,
+    private val saved: SavedStateHandle,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(AddManualUiState(today = LocalDate.now(clock)))
+    private val _state = MutableStateFlow(restore(LocalDate.now(clock)))
     val state: StateFlow<AddManualUiState> = _state.asStateFlow()
 
     private val _events = Channel<AddManualEvent>(Channel.BUFFERED)
@@ -117,10 +123,45 @@ class AddManualViewModel @Inject constructor(
         viewModelScope.launch { categories.categories.collect { names -> _state.update { it.copy(categories = names) } } }
         viewModelScope.launch { settings.myanmarDigits.collect { on -> _state.update { it.copy(myanmarDigits = on) } } }
         // Freshen the cached list for the next time; offline or signed out the cache (or the built-ins) is used.
-        if (session.state.value is SessionState.SignedIn) viewModelScope.launch { categories.refresh() }
+        if (session.state.value is SessionState.SignedIn) {
+            viewModelScope.launch {
+                try {
+                    categories.refresh()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // Writing the list to DataStore failed (an IOException); the cached list stays.
+                }
+            }
+        }
     }
 
-    fun onTypeChange(type: TxType) = _state.update { it.copy(type = type) }
+    private fun restore(today: LocalDate) = AddManualUiState(
+        today = today,
+        type = saved.get<String>(KEY_TYPE)?.let { name -> TxType.entries.firstOrNull { it.name == name } } ?: TxType.EXPENSE,
+        amountDigits = saved[KEY_AMOUNT] ?: "",
+        category = saved[KEY_CATEGORY],
+        description = saved[KEY_DESCRIPTION] ?: "",
+        date = saved.get<Long>(KEY_DATE)?.let(LocalDate::ofEpochDay) ?: today,
+        amountTouched = saved[KEY_AMOUNT_TOUCHED] ?: false,
+        descriptionTouched = saved[KEY_DESCRIPTION_TOUCHED] ?: false,
+        categoryTouched = saved[KEY_CATEGORY_TOUCHED] ?: false,
+    )
+
+    /** Every change the user makes goes through here, so the saved copy always matches the form. */
+    private fun edit(change: (AddManualUiState) -> AddManualUiState) {
+        val s = _state.updateAndGet { change(it).copy(saveFailed = false) }
+        saved[KEY_TYPE] = s.type.name
+        saved[KEY_AMOUNT] = s.amountDigits
+        saved[KEY_CATEGORY] = s.category
+        saved[KEY_DESCRIPTION] = s.description
+        saved[KEY_DATE] = s.date.toEpochDay()
+        saved[KEY_AMOUNT_TOUCHED] = s.amountTouched
+        saved[KEY_DESCRIPTION_TOUCHED] = s.descriptionTouched
+        saved[KEY_CATEGORY_TOUCHED] = s.categoryTouched
+    }
+
+    fun onTypeChange(type: TxType) = edit { it.copy(type = type) }
 
     /**
      * Keeps digits only (a Burmese keyboard's Myanmar digits become ASCII ones, grouping commas are dropped) and
@@ -131,16 +172,14 @@ class AddManualViewModel @Inject constructor(
         val raw = asciiDigits(text)
         val digits = if (raw.isEmpty()) "" else raw.trimStart('0').ifEmpty { "0" }
         if (digits.length > MAX_DIGITS || (digits.isNotEmpty() && digits.toLong() > MAX_KYAT)) return
-        _state.update { it.copy(amountDigits = digits, amountTouched = true, saveFailed = false) }
+        edit { it.copy(amountDigits = digits, amountTouched = true) }
     }
 
-    fun onCategoryChange(category: String) =
-        _state.update { it.copy(category = category, categoryTouched = true, saveFailed = false) }
+    fun onCategoryChange(category: String) = edit { it.copy(category = category, categoryTouched = true) }
 
-    fun onDescriptionChange(description: String) =
-        _state.update { it.copy(description = description, descriptionTouched = true, saveFailed = false) }
+    fun onDescriptionChange(description: String) = edit { it.copy(description = description, descriptionTouched = true) }
 
-    fun onDateChange(date: LocalDate) = _state.update { it.copy(date = date, saveFailed = false) }
+    fun onDateChange(date: LocalDate) = edit { it.copy(date = date) }
 
     fun save() {
         val s = _state.value
@@ -173,5 +212,15 @@ class AddManualViewModel @Inject constructor(
         /** The server's limit for a description, in characters after trimming. */
         const val MAX_DESCRIPTION = 200
         private val MAX_DIGITS = MAX_KYAT.toString().length
+
+        // SavedStateHandle keys; values are Bundle types (String, Long, Boolean).
+        private const val KEY_TYPE = "type"
+        private const val KEY_AMOUNT = "amount"
+        private const val KEY_CATEGORY = "category"
+        private const val KEY_DESCRIPTION = "description"
+        private const val KEY_DATE = "dateEpochDay"
+        private const val KEY_AMOUNT_TOUCHED = "amountTouched"
+        private const val KEY_DESCRIPTION_TOUCHED = "descriptionTouched"
+        private const val KEY_CATEGORY_TOUCHED = "categoryTouched"
     }
 }

@@ -139,6 +139,14 @@ class SettingsViewModel @Inject constructor(
     fun dismissSignOut() = signOut.update { it.copy(prompt = null) }
 
     fun setMyanmarDigits(on: Boolean) {
-        viewModelScope.launch { settings.setMyanmarDigits(on) }
+        viewModelScope.launch {
+            try {
+                settings.setMyanmarDigits(on)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // DataStore could not write (an IOException); the switch stays where it was.
+            }
+        }
     }
 }

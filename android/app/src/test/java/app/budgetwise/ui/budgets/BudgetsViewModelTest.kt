@@ -103,6 +103,20 @@ class BudgetsViewModelTest {
     }
 
     @Test
+    fun percentLabelIsWholeNumbersRoundedDown() {
+        // Float math showed 52% for 53,000 of 100,000.
+        assertEquals(53L, BudgetLine("Groceries", limitKyat = 100_000, spentKyat = 53_000).percentUsed)
+        assertEquals(59L, BudgetLine("Groceries", limitKyat = 100_000, spentKyat = 59_000).percentUsed)
+        assertEquals(106L, BudgetLine("Groceries", limitKyat = 100_000, spentKyat = 106_000).percentUsed)
+        // Never "100%" before the limit is actually reached.
+        assertEquals(99L, BudgetLine("Groceries", limitKyat = 1_000, spentKyat = 999).percentUsed)
+        assertEquals(0L, BudgetLine("Groceries", limitKyat = 100_000, spentKyat = 0).percentUsed)
+        assertEquals(100L, BudgetLine("Other", limitKyat = 0, spentKyat = 1).percentUsed)
+        // No overflow for absurd sums.
+        assertEquals(Long.MAX_VALUE / 1_000 * 100, BudgetLine("Other", limitKyat = 1_000, spentKyat = Long.MAX_VALUE).percentUsed)
+    }
+
+    @Test
     fun refreshesOnOpenWithASession() = runTest {
         val gate = CompletableDeferred<Unit>()
         budgets.gate = gate

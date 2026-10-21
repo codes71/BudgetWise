@@ -1,5 +1,6 @@
 package app.budgetwise.ui.transactions
 
+import androidx.activity.compose.LocalActivity
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -124,8 +125,12 @@ fun TransactionsRoute(
         val result = snackbar.showSnackbar(deleted, actionLabel = undo, duration = SnackbarDuration.Short)
         if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete(pending) else viewModel.commitDelete(pending)
     }
-    // Leaving the screen ends the Undo window.
-    DisposableEffect(viewModel) { onDispose { viewModel.commitPendingDelete() } }
+    // Leaving the screen ends the Undo window. A rotation (or another configuration change) does not: the screen
+    // comes back with the same ViewModel and the effect above shows the snackbar again.
+    val activity = LocalActivity.current
+    DisposableEffect(viewModel) {
+        onDispose { if (activity?.isChangingConfigurations != true) viewModel.commitPendingDelete() }
+    }
 
     TransactionsScreen(
         state = state,

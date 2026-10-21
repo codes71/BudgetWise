@@ -1,6 +1,7 @@
 package app.budgetwise.ui.manual
 
 import android.content.Context
+import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.WorkInfo
@@ -94,8 +95,11 @@ class AddManualViewModelTest {
         runBlocking { session.load() }
     }
 
-    private fun vm(transactions: TransactionStore = store, sessionManager: SessionManager = session) =
-        AddManualViewModel(transactions, categories, settings, sessionManager, clock)
+    private fun vm(
+        transactions: TransactionStore = store,
+        sessionManager: SessionManager = session,
+        saved: SavedStateHandle = SavedStateHandle(),
+    ) = AddManualViewModel(transactions, categories, settings, sessionManager, clock, saved)
 
     private fun TestScope.events(vm: AddManualViewModel): List<AddManualEvent> {
         val events = mutableListOf<AddManualEvent>()
@@ -260,6 +264,43 @@ class AddManualViewModelTest {
         vm(sessionManager = expired)
 
         assertEquals(0, categories.refreshes)
+    }
+
+    @Test
+    fun aHalfFilledFormSurvivesProcessDeath() = runTest {
+        val saved = SavedStateHandle()
+        val before = vm(saved = saved)
+        before.onTypeChange(TxType.INCOME)
+        before.onAmountChange("12500")
+        before.onDescriptionChange("salary")
+        before.onDateChange(today.minusDays(2))
+
+        // The system keeps only what the handle holds (Bundle values) and builds a new ViewModel from it.
+        val restoredHandle = SavedStateHandle(saved.keys().associateWith { saved.get<Any>(it) })
+        val after = vm(saved = restoredHandle).state.value
+
+        assertEquals(TxType.INCOME, after.type)
+        assertEquals("12500", after.amountDigits)
+        assertEquals("salary", after.description)
+        assertEquals(today.minusDays(2), after.date)
+        assertNull(after.category)
+        assertTrue(after.amountTouched)
+        assertTrue(after.descriptionTouched)
+        assertFalse(after.categoryTouched)
+        // The one thing missing is the category, so that is the error shown, as before.
+        assertEquals(CategoryError.MISSING, after.categoryError)
+        assertFalse(after.canSave)
+    }
+
+    @Test
+    fun aFailedCategoryRefreshIsIgnored() = runTest {
+        // Writing the fetched list to DataStore can throw an IOException; the form keeps the cached list.
+        categories.refreshFailure = java.io.IOException("disk full")
+
+        val vm = vm()
+
+        assertEquals(1, categories.refreshes)
+        assertEquals(CategoryRepository.BUILT_IN, vm.state.value.categories)
     }
 
     @Test

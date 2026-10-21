@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
 import app.budgetwise.ui.common.CategoryBadge
@@ -56,6 +57,12 @@ import kotlin.math.abs
 @Composable
 fun BudgetsRoute(viewModel: BudgetsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Every time the tab opens (and when the app comes back to it), not only when the ViewModel is new: the bottom
+    // bar keeps this tab's ViewModel while another tab is open.
+    LifecycleStartEffect(viewModel) {
+        viewModel.refresh()
+        onStopOrDispose { }
+    }
     BudgetsScreen(state = state, onRefresh = viewModel::refresh)
 }
 
@@ -158,7 +165,7 @@ private fun BudgetCard(line: BudgetLine, myanmarDigits: Boolean) {
                 }
                 Spacer(Modifier.width(12.dp))
                 Text(
-                    text = percent(line.progress, myanmarDigits),
+                    text = "${groupDigits(line.percentUsed, myanmarDigits)}%",
                     style = MaterialTheme.typography.labelLarge,
                     color = if (line.over) colors.error else colors.onSurfaceVariant,
                 )
@@ -208,11 +215,6 @@ private fun Bar(progress: Float, color: Color, track: Color) {
         gapSize = 0.dp,
         drawStopIndicator = {},
     )
-}
-
-private fun percent(progress: Float, myanmarDigits: Boolean): String {
-    val value = groupDigits((progress * 100).toLong(), myanmarDigits)
-    return "$value%"
 }
 
 @Composable

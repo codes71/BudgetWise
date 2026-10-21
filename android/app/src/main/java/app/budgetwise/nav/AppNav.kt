@@ -18,7 +18,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -85,18 +88,32 @@ fun AppNav(
     val showBottomBar = TopLevels.any { destination.isOn(it.route) }
     val notice = remember(session) { sessionNoticeFor(session, Instant.now()) }
 
-    // Signing out (Settings) ends at sign-in with nothing behind it, whichever screen the user was on.
+    // The bottom bar saves each tab's back stack (its ViewModels and scroll position) to restore it later. That state
+    // shows one user's data, so it is dropped whenever the user changes. [tabsOwner] is the last signed-in user: it is
+    // kept through an expired session, and null after sign-out or when the app started expired (owner unknown).
+    var tabsOwner by rememberSaveable { mutableStateOf<String?>(null) }
+    fun forgetSavedTabs() = TopLevels.forEach { navController.clearBackStack(it.route) }
+
     LaunchedEffect(session) {
-        if (session != SessionState.SignedOut) return@LaunchedEffect
-        if (navController.currentDestination?.route != Routes.LOGIN) {
-            navController.navigate(Routes.LOGIN) {
-                popUpTo(navController.graph.id) { inclusive = true }
-                launchSingleTop = true
+        when (session) {
+            // Signing out (Settings) ends at sign-in with nothing behind it, whichever screen the user was on.
+            SessionState.SignedOut -> {
+                if (navController.currentDestination?.route != Routes.LOGIN) {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+                forgetSavedTabs()
+                tabsOwner = null
             }
+            // Also an account switch straight from an expired session, which never passes through SignedOut.
+            is SessionState.SignedIn -> if (session.user.id != tabsOwner) {
+                forgetSavedTabs()
+                tabsOwner = session.user.id
+            }
+            SessionState.Expired -> Unit
         }
-        // The bottom bar saves each tab's back stack (its ViewModels and scroll position) to restore it later. That
-        // state belongs to the user who signed out; the next user starts every tab fresh.
-        TopLevels.forEach { navController.clearBackStack(it.route) }
     }
 
     fun openSignIn() = navController.navigate(Routes.LOGIN) { launchSingleTop = true }

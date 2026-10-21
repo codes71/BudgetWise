@@ -93,6 +93,9 @@ class FakeSyncControls : SyncControls {
 }
 
 class FakeSettingsStore : SettingsStore {
+    /** When set, setMyanmarDigits throws it (a DataStore IOException). */
+    var writeFailure: Exception? = null
+
     override val autoSaveHighConfidence = MutableStateFlow(false)
     override val cloudParseEnabled = MutableStateFlow(false)
     override val myanmarDigits = MutableStateFlow(false)
@@ -107,6 +110,7 @@ class FakeSettingsStore : SettingsStore {
     }
 
     override suspend fun setMyanmarDigits(on: Boolean) {
+        writeFailure?.let { throw it }
         myanmarDigits.value = on
     }
 
@@ -171,8 +175,12 @@ class FakeCategorySource(names: List<String> = CategoryRepository.BUILT_IN) : Ca
     override val categories = MutableStateFlow(names)
     var refreshes = 0
 
+    /** When set, refresh throws it (writing the cache to DataStore failed). */
+    var refreshFailure: Exception? = null
+
     override suspend fun refresh() {
         refreshes++
+        refreshFailure?.let { throw it }
     }
 }
 
