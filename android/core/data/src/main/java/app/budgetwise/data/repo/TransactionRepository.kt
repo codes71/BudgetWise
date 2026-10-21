@@ -11,6 +11,7 @@ import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.data.sync.SyncEngine
 import app.budgetwise.data.sync.SyncScheduler
+import app.budgetwise.data.text.BurmeseTextNormalizer
 import app.budgetwise.nlu.TxType
 import java.time.Clock
 import java.time.LocalDate
@@ -49,7 +50,8 @@ class TransactionRepository @Inject constructor(
     /**
      * Saves every input as a PENDING row with a fresh UUIDv4 clientId plus its CREATE op, all in one Room
      * transaction (a failure leaves no rows). A sync is requested only after the commit. Returns the clientIds
-     * in input order.
+     * in input order. Description and transcript go through [BurmeseTextNormalizer.prepare] (Zawgyi to Unicode, NFC,
+     * whitespace) before they are stored.
      */
     suspend fun addAll(inputs: List<NewTransaction>): List<String> {
         if (inputs.isEmpty()) return emptyList()
@@ -64,10 +66,10 @@ class TransactionRepository @Inject constructor(
                         type = input.type,
                         amountKyat = input.amountKyat,
                         category = input.category,
-                        description = input.description,
+                        description = BurmeseTextNormalizer.prepare(input.description),
                         date = input.date,
                         source = input.source,
-                        transcript = input.transcript,
+                        transcript = input.transcript?.let(BurmeseTextNormalizer::prepare),
                         updatedAt = now,
                         syncState = SyncState.PENDING,
                     ),

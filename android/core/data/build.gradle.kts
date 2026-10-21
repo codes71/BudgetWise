@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.hilt.android)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.myanmar.tools)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)
@@ -60,6 +61,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.junit)
+    testImplementation(libs.icu4j)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)

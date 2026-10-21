@@ -25,6 +25,9 @@ turbine = "1.2.1"
 junitJupiter = "5.14.4"
 # androidx.hilt (hilt-work + its KSP compiler); 1.4.0 is built against Dagger 2.59, runs on 2.60.1.
 androidxHilt = "1.4.0"
+# Google Myanmar Tools (Apache-2.0): Zawgyi detector. icu4j is test-only, stands in for android.icu on the JVM.
+myanmarTools = "1.2.0"
+icu4j = "78.3"
 
 [libraries]
 junit = { module = "junit:junit", version.ref = "junit" }
@@ -65,6 +68,8 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 retrofit-converter-kotlinx-serialization = { module = "com.squareup.retrofit2:converter-kotlinx-serialization", version.ref = "retrofit" }
 okhttp-logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "okhttp" }
+myanmar-tools = { module = "com.google.myanmartools:myanmar-tools", version.ref = "myanmarTools" }
+icu4j = { module = "com.ibm.icu:icu4j", version.ref = "icu4j" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }

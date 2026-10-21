@@ -48,6 +48,23 @@ class TransactionRepositoryTest {
     }
 
     @Test
+    fun addAllNormalizesDescriptionAndTranscriptAndConvertsZawgyi() = runBlocking {
+        val zawgyi = "ျမန္မာဘာသာ"
+        val unicode = "မြန်မာဘာသာ"
+        repo.addAll(
+            listOf(
+                input(100, Source.VOICE).copy(description = "  Grab \t ခ   ၅၀၀၀ ", transcript = "  $zawgyi  "),
+                input(200).copy(description = zawgyi),
+            ),
+        )
+        val rows = repo.observe().first().sortedBy { it.amountKyat }
+        assertEquals("Grab ခ ၅၀၀၀", rows[0].description)
+        assertEquals(unicode, rows[0].transcript)
+        assertEquals(unicode, rows[1].description)
+        assertEquals(null, rows[1].transcript)
+    }
+
+    @Test
     fun addAllGeneratesUniqueUuidV4ClientIds() = runBlocking {
         val ids = repo.addAll(List(20) { input(100L + it) })
         assertEquals(20, ids.toSet().size)

@@ -130,6 +130,7 @@ fun BudgetWiseTheme(
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
+        typography = rememberBudgetWiseTypography(),
         shapes = BudgetWiseShapes,
         content = content,
     )
