@@ -5,6 +5,19 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+// Debug talks to the Mac dev server through `adb reverse tcp:9002 tcp:9002`. Override with
+// -Pbudgetwise.apiBaseUrl=... . Release has its own property and must be HTTPS.
+fun baseUrl(raw: String) = if (raw.endsWith("/")) raw else "$raw/"
+val debugApiBaseUrl = baseUrl(
+    providers.gradleProperty("budgetwise.apiBaseUrl").getOrElse("http://127.0.0.1:9002/api/v1/"),
+)
+val releaseApiBaseUrl = baseUrl(
+    providers.gradleProperty("budgetwise.releaseApiBaseUrl").getOrElse("https://api.budgetwise.invalid/api/v1/"),
+)
+check(releaseApiBaseUrl.startsWith("https://")) {
+    "budgetwise.releaseApiBaseUrl must be HTTPS, was $releaseApiBaseUrl"
+}
+
 android {
     namespace = "app.budgetwise"
     compileSdk = 37
@@ -25,7 +38,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
+        }
         release {
+            buildConfigField("String", "API_BASE_URL", "\"$releaseApiBaseUrl\"")
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -40,6 +57,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 
