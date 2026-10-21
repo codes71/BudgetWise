@@ -99,6 +99,7 @@ The five drafts were checked against each other. These resolutions win over anyt
 - No streaming: the user holds the button, speaks, and gets the text when they let go.
 - Estimated wait for a 4 second phrase on a mid-range phone CPU: 5 to 9 s with Raj-0.6B, 12 to 22 s with Raj-1.7B. These are estimates; the spike measures them. The Qwen tokenizer spends about 1.6 tokens per Burmese character, so text generation, not listening, is the slow part.
 - Fallback if Raj is too slow or inaccurate: the earlier Raj-0 (streaming, Burmese only) through NeMo-Speech.cpp.
+- 2026-10-21: Raj-0.6B works on the phone but the user judged it inaccurate; the model is being replaced. Every measurement and the candidate bake-off are in [ws3-voice-model-findings.md](ws3-voice-model-findings.md).
 
 ## Milestones
 
