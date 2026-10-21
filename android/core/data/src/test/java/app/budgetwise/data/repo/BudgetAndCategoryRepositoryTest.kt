@@ -22,8 +22,8 @@ class BudgetAndCategoryRepositoryTest {
     @Before
     fun setUp() {
         h = RepoHarness()
-        budgets = BudgetRepository(h.sync.db.budgetDao(), h.api)
-        categories = CategoryRepository(h.dataStore, h.api)
+        budgets = BudgetRepository(h.sync.db.budgetDao(), h.api, h.sync.session)
+        categories = CategoryRepository(h.dataStore, h.api, h.sync.session)
     }
 
     @After fun tearDown() { h.close() }
@@ -48,6 +48,28 @@ class BudgetAndCategoryRepositoryTest {
         h.json(500, """{"error":{"code":"internal_error","message":"x"}}""")
         assertTrue(budgets.refresh() is ApiResult.Failure)
         assertEquals(listOf(Budget("Housing", 9000)), budgets.observe().first())
+    }
+
+    @Test
+    fun a401OnRefreshExpiresTheSessionThatSentIt() = runBlocking {
+        h.json(401, """{"error":{"code":"unauthorized","message":"Token expired"}}""")
+        assertTrue(budgets.refresh() is ApiResult.Unauthorized)
+        assertEquals(app.budgetwise.data.auth.SessionState.Expired, h.sync.session.state.value)
+    }
+
+    @Test
+    fun a401OnCategoryRefreshExpiresTheSession() = runBlocking {
+        h.json(401, """{"error":{"code":"unauthorized","message":"Token expired"}}""")
+        assertTrue(categories.refresh() is ApiResult.Unauthorized)
+        assertEquals(app.budgetwise.data.auth.SessionState.Expired, h.sync.session.state.value)
+    }
+
+    @Test
+    fun clearDropsCachedCategories() = runBlocking {
+        h.json(200, """{"categories":["Rent"]}""")
+        categories.refresh()
+        categories.clear()
+        assertEquals(CategoryRepository.BUILT_IN, categories.categories.first())
     }
 
     @Test

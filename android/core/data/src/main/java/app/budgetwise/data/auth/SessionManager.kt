@@ -31,8 +31,19 @@ class SessionManager @Inject constructor(
     private val clock: Clock,
 ) {
     @Volatile private var session: StoredSession? = null
+
+    /** Guards every change of [session] together with [_state], so they never disagree. */
+    private val lock = Any()
     private val _state = MutableStateFlow<SessionState>(SessionState.SignedOut)
     val state: StateFlow<SessionState> = _state.asStateFlow()
+
+    @Volatile private var lastUser: UserInfo? = null
+
+    /**
+     * Identity of the last user known on this device, kept after the token expires (null after sign-out or on a
+     * fresh install). Login compares it with the new user to decide whether local data belongs to someone else.
+     */
+    val knownUser: UserInfo? get() = lastUser
 
     /** Serializes sign-in, sign-out and 401 handling so a late 401 cannot overwrite a fresh sign-in. */
     private val mutex = Mutex()
@@ -40,8 +51,11 @@ class SessionManager @Inject constructor(
     suspend fun load() {
         val stored = store.load()
         if (stored == null) {
-            session = null
-            _state.value = SessionState.SignedOut
+            synchronized(lock) {
+                session = null
+                lastUser = null
+                _state.value = SessionState.SignedOut
+            }
         } else {
             apply(stored)
         }
@@ -55,12 +69,18 @@ class SessionManager @Inject constructor(
     /** Null when signed out or expired. Never blocks. */
     fun bearer(): String? {
         val s = session ?: return null
-        if (!clock.instant().isBefore(s.expiresAt)) {
-            session = null
-            _state.value = SessionState.Expired
-            return null
+        if (clock.instant().isBefore(s.expiresAt)) return s.token
+        val replaced = synchronized(lock) {
+            // Compare-and-set: a sign-in that landed meanwhile is not cleared.
+            if (session === s) {
+                session = null
+                _state.value = SessionState.Expired
+                false
+            } else {
+                true
+            }
         }
-        return s.token
+        return if (replaced) bearer() else null
     }
 
     /**
@@ -75,18 +95,24 @@ class SessionManager @Inject constructor(
     suspend fun onUnauthorized(sentToken: String? = null) = mutex.withLock {
         val sent = session ?: return@withLock
         if (sentToken != null && sentToken != sent.token) return@withLock
-        session = null
-        _state.value = SessionState.Expired
+        synchronized(lock) {
+            session = null
+            _state.value = SessionState.Expired
+        }
         store.save("", clock.instant(), sent.user)
     }
 
     suspend fun signOut() = mutex.withLock {
-        session = null
-        _state.value = SessionState.SignedOut
+        synchronized(lock) {
+            session = null
+            lastUser = null
+            _state.value = SessionState.SignedOut
+        }
         store.clear()
     }
 
-    private fun apply(s: StoredSession) {
+    private fun apply(s: StoredSession) = synchronized(lock) {
+        lastUser = s.user
         val left = Duration.between(clock.instant(), s.expiresAt)
         if (left.isNegative || left.isZero) {
             session = null

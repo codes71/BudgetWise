@@ -81,7 +81,7 @@ class TransactionRepositoryTest {
         repo.delete(id)
         assertEquals(0, repo.observe().first().size)
         assertEquals(0, h.sync.pendingOps().size)
-        assertTrue(h.work("sync").isNotEmpty())
+        assertEquals("delete requests its own sync", 2, h.work("sync").size)
     }
 
     @Test
@@ -92,5 +92,6 @@ class TransactionRepositoryTest {
         val op = h.sync.pendingOps().single()
         assertEquals(OutboxOp.DELETE, op.op)
         assertEquals(synced.serverId, op.serverId)
+        assertEquals(1, h.work("sync").size)
     }
 }

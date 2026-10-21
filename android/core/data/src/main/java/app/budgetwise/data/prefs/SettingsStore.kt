@@ -35,9 +35,6 @@ interface SettingsStore : PullCursorStore {
     suspend fun setAutoSaveHighConfidence(on: Boolean)
     suspend fun setCloudParseEnabled(on: Boolean)
     suspend fun setMyanmarDigits(on: Boolean)
-
-    /** Forgets the incremental pull cursor so the next user starts from a full pull. */
-    suspend fun clearLastPulledAt()
 }
 
 @Singleton

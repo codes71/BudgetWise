@@ -144,6 +144,20 @@ class SyncEngine @Inject constructor(
         }
     }
 
+    /**
+     * Empties transactions, outbox and budgets and forgets the pull cursor, under the sync mutex: a run in flight
+     * finishes first, and none starts until the wipe is done, so no late ack, delete op or pull can survive it.
+     * Used when the data must not outlive its owner (sign-out, signing in as someone else).
+     */
+    suspend fun wipeLocal() = mutex.withLock {
+        db.withTransaction {
+            tx.deleteAll()
+            outbox.deleteAll()
+            db.budgetDao().deleteAll()
+        }
+        cursor.clearLastPulledAt()
+    }
+
     private class Tally {
         var pushed = 0
         var pulled = 0

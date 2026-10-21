@@ -1,5 +1,6 @@
 package app.budgetwise.data.repo
 
+import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.db.BudgetDao
 import app.budgetwise.data.db.BudgetEntity
 import app.budgetwise.data.db.toDomain
@@ -19,17 +20,24 @@ import kotlinx.coroutines.flow.map
 class BudgetRepository @Inject constructor(
     private val dao: BudgetDao,
     private val api: ApiService,
+    private val session: SessionManager,
 ) {
     fun observe(): Flow<List<Budget>> = dao.observeAll().map { rows -> rows.map { it.toDomain() } }
 
     /** Replaces the cache with the server list. On any failure the cache is left as it was. */
-    suspend fun refresh(): ApiResult<Unit> = when (val r = safeApi { api.budgets() }) {
-        is ApiResult.Ok -> {
-            dao.replaceAll(r.v.budgets.mapNotNull { dto -> toKyat(dto.limit)?.let { BudgetEntity(dto.category, it) } })
-            ApiResult.Ok(Unit)
+    suspend fun refresh(): ApiResult<Unit> {
+        val sent = session.bearer()
+        return when (val r = safeApi { api.budgets() }) {
+            is ApiResult.Ok -> {
+                dao.replaceAll(r.v.budgets.mapNotNull { dto -> toKyat(dto.limit)?.let { BudgetEntity(dto.category, it) } })
+                ApiResult.Ok(Unit)
+            }
+            is ApiResult.Unauthorized -> {
+                session.onUnauthorized(sent)
+                r
+            }
+            is ApiResult.Failure -> r
         }
-        is ApiResult.Unauthorized -> r
-        is ApiResult.Failure -> r
     }
 
     internal companion object {

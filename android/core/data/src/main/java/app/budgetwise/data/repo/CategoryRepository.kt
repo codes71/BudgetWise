@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.net.ApiResult
 import app.budgetwise.data.net.ApiService
 import app.budgetwise.data.net.safeApi
@@ -24,18 +25,30 @@ import kotlinx.serialization.json.Json
 class CategoryRepository @Inject constructor(
     private val store: DataStore<Preferences>,
     private val api: ApiService,
+    private val session: SessionManager,
 ) {
     val categories: Flow<List<String>> = store.data.map { p -> p[KEY]?.let(::decode)?.takeIf { it.isNotEmpty() } ?: BUILT_IN }
 
     /** Fetches `GET /categories` and caches a non-empty answer. Offline or failing, the cache is kept. */
-    suspend fun refresh(): ApiResult<Unit> = when (val r = safeApi { api.categories() }) {
-        is ApiResult.Ok -> {
-            val names = r.v.categories.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
-            if (names.isNotEmpty()) store.edit { it[KEY] = Json.encodeToString(LIST, names) }
-            ApiResult.Ok(Unit)
+    suspend fun refresh(): ApiResult<Unit> {
+        val sent = session.bearer()
+        return when (val r = safeApi { api.categories() }) {
+            is ApiResult.Ok -> {
+                val names = r.v.categories.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+                if (names.isNotEmpty()) store.edit { it[KEY] = Json.encodeToString(LIST, names) }
+                ApiResult.Ok(Unit)
+            }
+            is ApiResult.Unauthorized -> {
+                session.onUnauthorized(sent)
+                r
+            }
+            is ApiResult.Failure -> r
         }
-        is ApiResult.Unauthorized -> r
-        is ApiResult.Failure -> r
+    }
+
+    /** Drops the cache (it can hold user-specific names); [categories] falls back to the built-ins. */
+    suspend fun clear() {
+        store.edit { it.remove(KEY) }
     }
 
     private fun decode(raw: String): List<String>? = try {

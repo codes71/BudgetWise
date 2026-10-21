@@ -101,6 +101,9 @@ class MemoryCursor : PullCursorStore {
     override suspend fun setLastPulledAt(at: Instant) {
         value.value = at
     }
+    override suspend fun clearLastPulledAt() {
+        value.value = null
+    }
 }
 
 private class MemoryTokenStore : TokenStore {

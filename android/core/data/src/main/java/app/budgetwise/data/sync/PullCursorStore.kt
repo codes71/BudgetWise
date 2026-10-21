@@ -12,4 +12,7 @@ interface PullCursorStore {
     val lastPulledAt: Flow<Instant?>
 
     suspend fun setLastPulledAt(at: Instant)
+
+    /** Forgets the cursor so the next pull starts from scratch. */
+    suspend fun clearLastPulledAt()
 }
