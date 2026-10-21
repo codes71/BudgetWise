@@ -59,7 +59,8 @@ internal class NativeRajEngine(handle: Long) : RajEngine {
             return
         }
         try {
-            if (closing) return
+            // A close waiting for the write lock re-issues the abort itself; after close, liveHandle throws.
+            if (closing && handle.get() != 0L) return
             RajNative.abort(liveHandle())
         } finally {
             read.unlock()
