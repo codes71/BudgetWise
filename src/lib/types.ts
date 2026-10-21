@@ -7,6 +7,11 @@ export interface Transaction {
   amount: number;
   category: string;
   type: 'income' | 'expense';
+  clientId?: string;
+  source?: 'voice' | 'manual' | 'web';
+  transcript?: string;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
 }
 export interface Category {
   id: string;
