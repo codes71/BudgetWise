@@ -38,12 +38,15 @@ dependencies {
     api(libs.kotlinx.serialization.json)
     api(libs.retrofit)
     api(libs.okhttp)
+    api(libs.androidx.work.runtime)
 
     implementation(libs.retrofit.converter.kotlinx.serialization)
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.hilt.android)
     implementation(libs.androidx.datastore.preferences)
     ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
@@ -54,6 +57,7 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.androidx.work.testing)
 }
 
 dependencies {

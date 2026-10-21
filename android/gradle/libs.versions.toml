@@ -23,6 +23,8 @@ retrofit = "3.0.0"
 datastore = "1.2.1"
 turbine = "1.2.1"
 junitJupiter = "5.14.4"
+# androidx.hilt (hilt-work + its KSP compiler); 1.4.0 is built against Dagger 2.59, runs on 2.60.1.
+androidxHilt = "1.4.0"
 
 [libraries]
 junit = { module = "junit:junit", version.ref = "junit" }
@@ -52,6 +54,8 @@ androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
 hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", version.ref = "hilt" }
+androidx-hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "androidxHilt" }
+androidx-hilt-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "androidxHilt" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
