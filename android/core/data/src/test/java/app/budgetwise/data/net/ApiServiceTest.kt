@@ -178,4 +178,56 @@ class ApiServiceTest {
         val client = createOkHttpClient({ token }, NetLogging.None)
         assertTrue(client.interceptors.none { it is HttpLoggingInterceptor })
     }
+
+    @Test
+    fun http408IsRetryable() = runBlocking {
+        server.enqueue(json(408, """{"error":{"code":"timeout","message":"slow"}}"""))
+        val result = safeApi { api().categories() } as ApiResult.Failure
+        assertTrue(result.retryable)
+    }
+
+    @Test
+    fun truncatedErrorBodyStillMapsToRetryableFailure() = runBlocking {
+        fun truncated() = MockResponse()
+            .setResponseCode(500)
+            .setHeader("Content-Type", "application/json")
+            .setBody("""{"error":{"code":"internal","message":"${"x".repeat(100_000)}"}}""")
+            .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY)
+
+        server.enqueue(truncated())
+        val viaSafeApi = safeApi { api().categories() }
+        assertTrue(viaSafeApi is ApiResult.Failure && viaSafeApi.retryable)
+
+        server.enqueue(truncated())
+        val viaResponse = safeApiResponse { api().delete("srv-1") }
+        assertTrue(viaResponse is ApiResult.Failure && viaResponse.retryable)
+    }
+
+    @Test
+    fun errorBodyReadFailureStillClassifiesByStatus() = runBlocking {
+        val broken = object : okhttp3.ResponseBody() {
+            override fun contentType() = null
+            override fun contentLength() = -1L
+            override fun source(): okio.BufferedSource = throw IOException("connection reset")
+        }
+        val response = retrofit2.Response.error<Unit>(401, broken)
+        assertEquals(ApiResult.Unauthorized("HTTP 401"), safeApiResponse { response })
+        val server500 = retrofit2.Response.error<Unit>(503, broken)
+        val r = safeApiResponse { server500 } as ApiResult.Failure
+        assertEquals("http_503", r.code)
+        assertTrue(r.retryable)
+        val timeout = safeApiResponse { retrofit2.Response.error<Unit>(408, broken) } as ApiResult.Failure
+        assertTrue(timeout.retryable)
+    }
+
+    @Test
+    fun loggingRedactsCookies() = runBlocking {
+        val lines = mutableListOf<String>()
+        val client = createOkHttpClient({ token }, NetLogging.Debug(lines::add))
+        server.enqueue(json(200, """{"categories":[]}""").setHeader("Set-Cookie", "sid=secret-sess"))
+        val request = okhttp3.Request.Builder().url(server.url("/api/v1/categories"))
+            .header("Cookie", "sid=secret-cookie").build()
+        client.newCall(request).execute().close()
+        assertTrue(lines.none { it.contains("secret-sess") || it.contains("secret-cookie") })
+    }
 }

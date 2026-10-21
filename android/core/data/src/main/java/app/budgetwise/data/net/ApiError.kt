@@ -4,6 +4,7 @@ import java.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
+import okhttp3.ResponseBody
 import retrofit2.HttpException
 import retrofit2.Response
 
@@ -25,7 +26,7 @@ suspend fun <T> safeApi(block: suspend () -> T): ApiResult<T> = try {
 } catch (e: CancellationException) {
     throw e
 } catch (e: HttpException) {
-    mapHttp(e.code(), e.response()?.errorBody()?.string())
+    mapHttp(e.code(), e.response()?.errorBody().readOrNull())
 } catch (e: IOException) {
     ApiResult.Failure("network", e.message ?: "Network error", retryable = true)
 } catch (e: SerializationException) {
@@ -39,10 +40,17 @@ suspend fun <T> safeApi(block: suspend () -> T): ApiResult<T> = try {
 suspend fun safeApiResponse(block: suspend () -> Response<Unit>): ApiResult<Unit> =
     when (val r = safeApi(block)) {
         is ApiResult.Ok ->
-            if (r.v.isSuccessful) ApiResult.Ok(Unit) else mapHttp(r.v.code(), r.v.errorBody()?.string())
+            if (r.v.isSuccessful) ApiResult.Ok(Unit) else mapHttp(r.v.code(), r.v.errorBody().readOrNull())
         is ApiResult.Unauthorized -> r
         is ApiResult.Failure -> r
     }
+
+/** Reading an error body can fail mid-stream; classify by status instead of letting it escape. */
+private fun ResponseBody?.readOrNull(): String? = try {
+    this?.string()
+} catch (_: IOException) {
+    null
+}
 
 private fun mapHttp(status: Int, rawBody: String?): ApiResult<Nothing> {
     val parsed = rawBody?.let {
@@ -59,6 +67,6 @@ private fun mapHttp(status: Int, rawBody: String?): ApiResult<Nothing> {
     return ApiResult.Failure(
         code = parsed?.code ?: "http_$status",
         msg = message,
-        retryable = status >= 500 || status == 429,
+        retryable = status >= 500 || status == 429 || status == 408,
     )
 }

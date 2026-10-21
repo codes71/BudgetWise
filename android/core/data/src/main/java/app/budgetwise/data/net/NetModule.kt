@@ -38,6 +38,8 @@ fun createOkHttpClient(bearer: BearerProvider, logging: NetLogging): OkHttpClien
                     HttpLoggingInterceptor { logging.sink(it) }.apply {
                         level = HttpLoggingInterceptor.Level.HEADERS
                         redactHeader("Authorization")
+                        redactHeader("Cookie")
+                        redactHeader("Set-Cookie")
                     },
                 )
             }
