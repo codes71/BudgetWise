@@ -5,29 +5,52 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.work.BackoffPolicy
 import androidx.work.Configuration
 import androidx.work.NetworkType
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.WorkerFactory
+import androidx.work.WorkerParameters
 import androidx.work.testing.SynchronousExecutor
+import androidx.work.testing.TestDriver
 import androidx.work.testing.WorkManagerTestInitHelper
+import java.util.UUID
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.shadows.ShadowLooper
 
 @RunWith(RobolectricTestRunner::class)
 class SyncSchedulerTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val wm get() = WorkManager.getInstance(context)
+    private lateinit var h: SyncHarness
+    private lateinit var driver: TestDriver
 
     @Before
     fun setUp() {
+        h = SyncHarness()
         WorkManagerTestInitHelper.initializeTestWorkManager(
             context,
-            Configuration.Builder().setExecutor(SynchronousExecutor()).build(),
+            Configuration.Builder()
+                .setExecutor(SynchronousExecutor())
+                .setWorkerFactory(
+                    object : WorkerFactory() {
+                        override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
+                            SyncWorker(appContext, workerParameters, h.engine)
+                    },
+                )
+                .build(),
         )
+        driver = WorkManagerTestInitHelper.getTestDriver(context)!!
     }
+
+    @After
+    fun tearDown() = h.close()
 
     @Test
     fun oneTimeSyncNeedsNetworkAndBacksOffExponentiallyFrom30s() {
@@ -40,15 +63,39 @@ class SyncSchedulerTest {
     }
 
     @Test
-    fun enqueueUsesUniqueSyncWorkAndQueuesASecondRequestBehindTheFirst() {
+    fun incrementalRequestsShareUniqueSyncWorkAndQueueBehindEachOther() {
         val scheduler = SyncScheduler(context)
-        scheduler.enqueue(fullPull = true)
+        scheduler.enqueue(fullPull = false)
         scheduler.enqueue(fullPull = false)
 
         val infos = wm.getWorkInfosForUniqueWork(SyncScheduler.UNIQUE_WORK).get()
         assertEquals("sync", SyncScheduler.UNIQUE_WORK)
-        assertEquals(2, infos.size) // appended, not dropped (a full pull survives) and not replaced
+        assertEquals(2, infos.size) // appended, not dropped and not replaced
+        assertEquals(setOf(WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED), infos.map { it.state }.toSet())
         assertTrue(infos.all { it.constraints.requiredNetworkType == NetworkType.CONNECTED })
+    }
+
+    @Test
+    fun fullPullReplacesAHeadThatIsWaitingOutBackoff() {
+        val scheduler = SyncScheduler(context)
+        h.server.getStatus = 503 // server unreachable through adb reverse: RetryLater
+
+        scheduler.enqueue(fullPull = false)
+        val head = wm.getWorkInfosForUniqueWork(SyncScheduler.UNIQUE_WORK).get().single()
+        driver.setAllConstraintsMet(head.id)
+        await(head.id) { it.state == WorkInfo.State.ENQUEUED && it.runAttemptCount == 1 } // now in backoff
+        scheduler.enqueue(fullPull = false) // an after-write sync would wait behind it
+        assertTrue(wm.getWorkInfosForUniqueWork(SyncScheduler.UNIQUE_WORK).get().any { it.state == WorkInfo.State.BLOCKED })
+
+        h.server.getStatus = null // server back
+        scheduler.enqueue(fullPull = true) // pull-to-refresh
+
+        val queued = wm.getWorkInfosForUniqueWork(SyncScheduler.UNIQUE_WORK).get().filter { !it.state.isFinished }
+        val full = queued.single() // the head and the blocked request are gone
+        assertEquals(WorkInfo.State.ENQUEUED, full.state)
+        driver.setAllConstraintsMet(full.id)
+        await(full.id) { it.state == WorkInfo.State.SUCCEEDED }
+        assertNull(h.server.gets.last()) // it ran now, as a full pull
     }
 
     @Test
@@ -63,5 +110,17 @@ class SyncSchedulerTest {
         val spec = SyncScheduler.periodicRequest().workSpec
         assertEquals(BackoffPolicy.EXPONENTIAL, spec.backoffPolicy)
         assertEquals(30_000L, spec.backoffDelayDuration)
+    }
+
+    /** CoroutineWorker runs off the test thread, so wait for the state change. */
+    private fun await(id: UUID, done: (WorkInfo) -> Boolean) {
+        val deadline = System.currentTimeMillis() + 10_000
+        while (true) {
+            ShadowLooper.idleMainLooper()
+            val info = wm.getWorkInfoById(id).get()!!
+            if (done(info)) return
+            check(System.currentTimeMillis() < deadline) { "work $id stuck in ${info.state}" }
+            Thread.sleep(10)
+        }
     }
 }

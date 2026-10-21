@@ -25,7 +25,10 @@ class FakeServer : Dispatcher() {
     val gets = mutableListOf<String?>()
     val deletes = mutableListOf<String>()
 
-    /** A POST containing any of these clientIds is refused whole with [invalidStatus]. */
+    /**
+     * A POST containing any of these clientIds is refused whole with [invalidStatus] and the code WS1 sends for
+     * it: `validation_failed` for 422 (zod), `invalid_json` for 400.
+     */
     var invalidClientIds: Set<String> = emptySet()
     var invalidStatus = 422
 
@@ -35,8 +38,11 @@ class FakeServer : Dispatcher() {
     /** 1-based index of the POST that is stored but whose response never arrives. */
     var dropResponseOnPost: Int? = null
 
-    /** POSTs answer 200 with an HTML page, like a captive portal. */
-    var htmlOnPost = false
+    /** POSTs answer this status with an HTML page and no error envelope (captive portal, proxy, firewall). */
+    var htmlStatusOnPost: Int? = null
+
+    /** Runs while a POST is in flight, after the server stored the rows (a user write racing the push). */
+    var duringPost: (() -> Unit)? = null
 
     var getStatus: Int? = null
 
@@ -87,12 +93,15 @@ class FakeServer : Dispatcher() {
         posts += ids
         val n = posts.size
         if (n == unauthorizedOnPost) return error(401, "unauthorized", "Token expired")
-        if (htmlOnPost) {
-            return MockResponse().setResponseCode(200).setHeader("Content-Type", "text/html").setBody("<html>Sign in to Wi-Fi</html>")
+        htmlStatusOnPost?.let {
+            return MockResponse().setResponseCode(it).setHeader("Content-Type", "text/html").setBody("<html>Blocked</html>")
         }
-        if (ids.any { it in invalidClientIds }) return error(invalidStatus, "validation_failed", "Invalid request")
+        if (ids.any { it in invalidClientIds }) {
+            return error(invalidStatus, if (invalidStatus == 400) "invalid_json" else "validation_failed", "Invalid request")
+        }
         val saved = body.transactions.map { input -> rows.getOrPut(input.clientId) { input.toServerRow() } }
-        if (n == dropResponseOnPost) return MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
+        duringPost?.invoke()
+        if (n == dropResponseOnPost) return lostResponse()
         return json(200, WireJson.encodeToString(SavedResponse.serializer(), SavedResponse(saved)))
     }
 
@@ -127,6 +136,15 @@ class FakeServer : Dispatcher() {
         stamp = stamp.plusSeconds(60)
         return stamp.toString()
     }
+
+    /**
+     * The rows are stored but the client never gets a usable reply: the body is cut short, then the server shuts
+     * its output so the client reads EOF. SHUTDOWN_OUTPUT_AT_END lets MockWebServer count the request first, so it
+     * logs nothing (DISCONNECT_AFTER_REQUEST and DISCONNECT_AT_END warn the connection "didn't make a request").
+     */
+    private fun lostResponse() = json(200, "{\"saved\":[")
+        .setHeader("Content-Length", 4096)
+        .setSocketPolicy(SocketPolicy.SHUTDOWN_OUTPUT_AT_END)
 
     private fun json(code: Int, body: String) =
         MockResponse().setResponseCode(code).setHeader("Content-Type", "application/json").setBody(body)

@@ -79,12 +79,14 @@ sealed interface SyncStatus {
  *   the newest server updatedAt seen minus [CURSOR_OVERLAP] to tolerate clock skew and out-of-order commits.
  *   It cannot see web deletes; the next full pull does.
  * - Delete of a never-synced row ([enqueueDelete]): remove it locally and drop its outbox CREATE, send nothing.
- *   If that CREATE was already sent once (its response may have been lost), the row is tombstoned and the
- *   CREATE kept instead, so the push learns the server id and deletes the row there as well.
+ *   If a push already claimed that CREATE (it may reach the server while its reply is lost), the row is
+ *   tombstoned and the CREATE kept instead, so the push learns the server id and deletes the row there as well.
  * - Delete of a synced row: tombstone it and queue a DELETE by serverId; 404 counts as success.
- * - A 4xx other than 401/404/408/429 on a create batch means an item is invalid, and the server refuses the
- *   whole batch for one bad item. The batch is resent one item at a time so that only the rejected rows become
- *   FAILED (their ops removed, never retried silently) and the rest are pushed.
+ * - Only the WS1 server's own rejection marks rows FAILED: error code `validation_failed` (422) or
+ *   `invalid_json` (400). The server refuses the whole batch for one bad item, so the batch is resent one item
+ *   at a time; only the rejected rows become FAILED (their ops removed, never retried silently) and the rest
+ *   are pushed. Every other failure, including a 4xx page from a proxy, firewall or captive network, is
+ *   [SyncOutcome.RetryLater] with the outbox kept.
  * - 401 stops the run, keeps the outbox and tells [SessionManager]; the result is [SyncOutcome.NeedsLogin].
  * - A server row the device cannot represent is skipped and logged by server id only (never amounts or text).
  *
@@ -162,7 +164,7 @@ class SyncEngine @Inject constructor(
 
     private suspend fun push(tally: Tally): SyncOutcome? {
         while (true) {
-            val head = outbox.head(BATCH_SIZE)
+            val head = claimHead()
             if (head.isEmpty()) return null
             val stop = if (head[0].op == OutboxOp.DELETE) {
                 pushDelete(head[0], tally)
@@ -170,6 +172,19 @@ class SyncEngine @Inject constructor(
                 pushCreates(head.takeWhile { it.op == OutboxOp.CREATE }, tally)
             }
             if (stop != null) return stop
+        }
+    }
+
+    /**
+     * Reads the head of the outbox and bumps `attempts` on its leading CREATE run in the same transaction, before
+     * any row is read or sent. A concurrent [enqueueDelete] (also one transaction) therefore either removes an op
+     * before it is claimed or sees it as sent (`attempts > 0`: the server may get the row even if the reply is
+     * lost) and keeps it. There is no window where a delete drops an op that is about to go out.
+     */
+    private suspend fun claimHead(): List<OutboxEntity> = db.withTransaction {
+        outbox.head(BATCH_SIZE).also { ops ->
+            val creates = ops.takeWhile { it.op == OutboxOp.CREATE }
+            if (creates.isNotEmpty()) outbox.bump(creates.map { it.seq })
         }
     }
 
@@ -191,8 +206,6 @@ class SyncEngine @Inject constructor(
     }
 
     private suspend fun pushCreateBatch(batch: List<Pair<OutboxEntity, TransactionInput>>, tally: Tally): SyncOutcome? {
-        // Bumped before sending: attempts > 0 means the server may hold the row (see enqueueDelete).
-        outbox.bump(batch.map { it.first.seq })
         when (val r = safeApi { api.saveTransactions(TransactionsRequest(batch.map { it.second })) }) {
             is ApiResult.Ok -> applySaved(batch.map { it.first }, r.v, tally)
             is ApiResult.Unauthorized -> return needsLogin()
@@ -345,12 +358,13 @@ class SyncEngine @Inject constructor(
         private const val HTTP_NOT_FOUND = 404
 
         /**
-         * Non-retryable failures that are not a verdict on the items sent: an unreadable 200 (captive portal)
-         * or a missing route. Treated as transient instead of failing every row in the batch.
+         * Error envelope codes with which the WS1 server itself rejects the request body (zod 422, unparseable JSON
+         * 400). Anything else (an HTML 403/405/413 from a proxy, an unreadable 200, a missing route) says nothing
+         * about the rows, so it must never mark them FAILED.
          */
-        private val NOT_ABOUT_THE_ITEMS = setOf("bad_response", "http_404", "not_found")
+        private val SERVER_REJECTION_CODES = setOf("validation_failed", "invalid_json")
 
-        private fun ApiResult.Failure.rejectsPayload() = !retryable && code !in NOT_ABOUT_THE_ITEMS
+        private fun ApiResult.Failure.rejectsPayload() = !retryable && code in SERVER_REJECTION_CODES
 
         /** UTC with `Z` and millisecond precision; the server rejects offsets. */
         private fun wireInstant(i: Instant): String = i.truncatedTo(ChronoUnit.MILLIS).toString()

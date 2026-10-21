@@ -278,13 +278,48 @@ class SyncEngineTest {
     @Test
     fun captivePortalPageDoesNotFailRows() = runTest {
         val ids = h.addLocal(3)
-        h.server.htmlOnPost = true
+        h.server.htmlStatusOnPost = 200
 
         assertEquals(SyncOutcome.RetryLater, h.engine.syncOnce())
 
         assertEquals(1, h.server.posts.size) // no one-by-one quarantine for a response that is not about the rows
         assertEquals(ids, h.pendingOps().map { it.clientId })
         assertTrue(ids.all { h.tx.byClientId(it)!!.syncState == SyncState.PENDING })
+    }
+
+    @Test
+    fun infrastructure4xxPageKeepsRowsPendingAndRetries() = runTest {
+        val ids = h.addLocal(3)
+
+        // A proxy, firewall or captive network answers with its own HTML page and no WS1 error envelope.
+        for (status in listOf(403, 405, 413)) {
+            h.server.htmlStatusOnPost = status
+            assertEquals("HTTP $status", SyncOutcome.RetryLater, h.engine.syncOnce())
+        }
+
+        assertEquals(3, h.server.posts.size) // one batch per run, never quarantined item by item
+        assertEquals(ids, h.pendingOps().map { it.clientId })
+        assertTrue(ids.all { h.tx.byClientId(it)!!.syncState == SyncState.PENDING })
+
+        h.server.htmlStatusOnPost = null
+        assertEquals(SyncOutcome.Success(pushed = 3, pulled = 0), h.engine.syncOnce())
+    }
+
+    @Test
+    fun deleteWhileCreateIsInFlightAndItsResponseIsLostStillDeletesOnServer() = runTest {
+        val id = h.addLocal(1).single()
+        h.server.dropResponseOnPost = 1
+        h.server.duringPost = { runBlocking { h.engine.enqueueDelete(id) } } // the op is visibly in flight
+
+        assertEquals(SyncOutcome.RetryLater, h.engine.syncOnce())
+        assertTrue(h.tx.observeAll().first().isEmpty()) // hidden at once
+        assertEquals(listOf(OutboxOp.CREATE), h.pendingOps().map { it.op }) // kept to learn the server id
+
+        h.server.duringPost = null
+        assertEquals(SyncOutcome.Success(pushed = 2, pulled = 0), h.engine.syncOnce())
+        assertTrue(h.server.rows.isEmpty()) // not resurrected by a later full pull
+        assertNull(h.tx.byClientId(id))
+        assertTrue(h.pendingOps().isEmpty())
     }
 
     @Test

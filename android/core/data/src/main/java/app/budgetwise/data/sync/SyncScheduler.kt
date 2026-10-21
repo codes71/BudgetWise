@@ -21,16 +21,26 @@ import javax.inject.Singleton
 /**
  * Schedules [SyncWorker]. Every request needs a network connection and backs off exponentially from 30 s.
  *
- * One-time syncs share the unique work [UNIQUE_WORK] with APPEND_OR_REPLACE: a request made while a sync runs
- * or waits for the network queues behind it instead of being dropped (a write that lands during a run's pull
- * still gets pushed, and a full pull is never lost) or cancelling it. The periodic sync is separate unique work.
+ * One-time syncs share the unique work [UNIQUE_WORK]:
+ * - An incremental request (`fullPull = false`) uses APPEND_OR_REPLACE: it queues behind a sync that runs or
+ *   waits, instead of being dropped (a write that lands during a run's pull still gets pushed) or cancelling it.
+ * - A full pull (`fullPull = true`) uses REPLACE: it cancels whatever is queued or running under [UNIQUE_WORK]
+ *   and starts now. It pushes the whole outbox before pulling, so it subsumes any queued incremental work, and
+ *   it must not sit BLOCKED behind a head that is waiting out exponential backoff (up to about an hour after the
+ *   server was unreachable for a while). Cancelling a run mid-way is safe: every row and op change is its own
+ *   transaction and a resent POST is idempotent.
+ *
+ * The periodic sync is separate unique work.
  */
 @Singleton
 class SyncScheduler @Inject constructor(@ApplicationContext private val context: Context) {
-    /** After every local write (`fullPull = false`); on app launch and pull-to-refresh (`fullPull = true`). */
+    /**
+     * Call with `fullPull = false` after every local write, and with `fullPull = true` on app launch and on
+     * pull-to-refresh (that one replaces queued or backed-off work and runs as soon as there is a network).
+     */
     fun enqueue(fullPull: Boolean = false) {
-        WorkManager.getInstance(context)
-            .enqueueUniqueWork(UNIQUE_WORK, ExistingWorkPolicy.APPEND_OR_REPLACE, oneTimeRequest(fullPull))
+        val policy = if (fullPull) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE
+        WorkManager.getInstance(context).enqueueUniqueWork(UNIQUE_WORK, policy, oneTimeRequest(fullPull))
     }
 
     /** Incremental background sync every [PERIODIC_INTERVAL]. Idempotent; call at every app start. */
