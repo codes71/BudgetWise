@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "seed:categories": "tsx scripts/seedCategories.ts",
+    "backfill:transactions": "tsx scripts/backfillTransactions.ts",
     "test": "vitest run"
   },
   "dependencies": {
