@@ -49,6 +49,32 @@ describe("POST /api/v1/auth/token", () => {
     expect((await res.json()).user.id).toBe(userId);
   });
 
+  it("case-variant duplicate accounts: exact case wins, no cross-account login", async () => {
+    const lower = await User.create({
+      email: "bob@example.com",
+      password: await bcrypt.hash("lower-pass", 10),
+      fullName: "Lower",
+    });
+    const upper = await User.create({
+      email: "BOB@example.com",
+      password: await bcrypt.hash("upper-pass", 10),
+      fullName: "Upper",
+    });
+    const a = await login({ email: "BOB@example.com", password: "upper-pass" });
+    expect(a.status).toBe(200);
+    expect((await a.json()).user.id).toBe(String(upper._id));
+    const b = await login({ email: "bob@example.com", password: "lower-pass" });
+    expect(b.status).toBe(200);
+    expect((await b.json()).user.id).toBe(String(lower._id));
+    // exact case with the other account's password is rejected
+    expect((await login({ email: "BOB@example.com", password: "lower-pass" })).status).toBe(401);
+    // case matching neither: deterministic (oldest variant), other's password rejected
+    const c = await login({ email: "Bob@example.com", password: "lower-pass" });
+    expect(c.status).toBe(200);
+    expect((await c.json()).user.id).toBe(String(lower._id));
+    expect((await login({ email: "Bob@example.com", password: "upper-pass" })).status).toBe(401);
+  });
+
   it("wrong password and unknown email both 401 with identical body", async () => {
     const wrong = await login({ email: "alice@example.com", password: "nope" });
     const unknown = await login({ email: "ghost@example.com", password: "nope" });

@@ -36,9 +36,14 @@ export const POST = handle(async (req) => {
   await dbConnect();
   // Web signup stores the email exactly as typed, so match case-insensitively
   // to also find legacy mixed-case accounts.
-  const user = await UserModel.findOne({ email })
+  // Case-variant duplicates can coexist (case-sensitive unique index), so prefer
+  // the exact-case match, else the oldest variant. One query keeps timing flat.
+  const rows = await UserModel.find({ email })
     .collation({ locale: "en", strength: 2 })
+    .sort({ _id: 1 })
+    .limit(5)
     .lean();
+  const user = rows.find((u) => u.email === email) ?? rows[0];
 
   const hash = user?.password || DUMMY_HASH;
   const ok = await bcrypt.compare(password, hash);
