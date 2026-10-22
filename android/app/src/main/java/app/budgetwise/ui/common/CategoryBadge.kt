@@ -68,9 +68,17 @@ private val Styles: Map<String, CategoryStyle> = mapOf(
         R.drawable.ic_category, R.string.category_other,
         tone(0xFFD2EBEC, 0xFF1C5C5E), tone(0xFF1B4143, 0xFF9ED5D6),
     ),
+    // Not an expense chip: the web files every income entry under "Income".
+    "Income" to CategoryStyle(
+        R.drawable.ic_south_west, R.string.category_income,
+        tone(0xFFE2F0D0, 0xFF3D5A12), tone(0xFF2F4019, 0xFFC5E0A0),
+    ),
 )
 
-/** The style of one of the eight built-in categories (exact server names), or null for a user's own category. */
+/**
+ * The style of one of the eight built-in categories or the web's "Income" (exact server names), or null for a user's
+ * own category.
+ */
 fun builtInCategoryStyle(category: String): CategoryStyle? = Styles[category]
 
 /**

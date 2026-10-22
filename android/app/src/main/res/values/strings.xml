@@ -63,6 +63,7 @@
     <string name="category_health">Health</string>
     <string name="category_food_and_drink">Food and Drink</string>
     <string name="category_other">Other</string>
+    <string name="category_income">Income</string>
 
     <!-- Transactions -->
     <string name="transactions_title">Transactions</string>

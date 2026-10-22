@@ -58,6 +58,7 @@
     <string name="category_health">ကျန်းမာရေး</string>
     <string name="category_food_and_drink">အစားအသောက်</string>
     <string name="category_other">အခြား</string>
+    <string name="category_income">ဝင်ငွေ</string>
 
     <!-- Transactions -->
     <string name="transactions_title">ငွေစာရင်း</string>

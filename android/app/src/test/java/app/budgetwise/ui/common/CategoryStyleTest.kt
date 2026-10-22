@@ -28,6 +28,20 @@ class CategoryStyleTest {
     }
 
     @Test
+    fun theWebsitesIncomeCategoryHasItsOwnBadge() {
+        // The web files every income entry under "Income", which is not one of the expense chips.
+        val income = builtInCategoryStyle("Income")
+        assertNotNull(income)
+        val expenses = CategoryRepository.BUILT_IN.map { builtInCategoryStyle(it)!! }
+        assertTrue("its own icon", expenses.none { it.icon == income!!.icon })
+        assertTrue("its own color", expenses.none { it.light.container == income!!.light.container })
+        for ((theme, colors) in listOf("light" to income!!.light, "dark" to income.dark)) {
+            val ratio = contrast(colors.content, colors.container)
+            assertTrue("Income $theme icon on badge is %.2f:1".format(ratio), ratio >= 4.5)
+        }
+    }
+
+    @Test
     fun badgeIconsAreReadableOnTheirContainers() {
         // WCAG asks 3:1 for graphics; the badges keep text-level 4.5:1 so they also work at small sizes.
         CategoryRepository.BUILT_IN.forEach { name ->
