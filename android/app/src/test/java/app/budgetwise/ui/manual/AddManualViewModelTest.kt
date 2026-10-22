@@ -248,11 +248,37 @@ class AddManualViewModelTest {
         vm.save()
         vm.save() // a double tap saves once
 
+        // Income always goes under "Income", as on the web, whatever chip was picked before.
         assertEquals(
-            listOf(NewTransaction(TxType.INCOME, 250_000, "Other", "salary", today.minusDays(1), Source.MANUAL, transcript = null)),
+            listOf(NewTransaction(TxType.INCOME, 250_000, CategoryRepository.INCOME, "salary", today.minusDays(1), Source.MANUAL, transcript = null)),
             store.added,
         )
         assertEquals(listOf(AddManualEvent.Saved), events)
+    }
+
+    @Test
+    fun incomeGoesUnderIncomeWithoutAskingForACategory() = runTest {
+        val vm = vm()
+        vm.onTypeChange(TxType.INCOME)
+        vm.onAmountChange("850000")
+        vm.onDescriptionChange("salary")
+
+        assertNull(vm.state.value.categoryError)
+        assertTrue(vm.state.value.canSave)
+        vm.save()
+
+        assertEquals(CategoryRepository.INCOME, store.added.single().category)
+    }
+
+    @Test
+    fun switchingToIncomeAndBackKeepsThePickedCategory() = runTest {
+        val vm = vm()
+        vm.fill(category = "Transport")
+        vm.onTypeChange(TxType.INCOME)
+        vm.onTypeChange(TxType.EXPENSE)
+        vm.save()
+
+        assertEquals("Transport", store.added.single().category)
     }
 
     @Test
@@ -302,9 +328,9 @@ class AddManualViewModelTest {
         assertTrue(after.amountTouched)
         assertTrue(after.descriptionTouched)
         assertFalse(after.categoryTouched)
-        // The one thing missing is the category, so that is the error shown, as before.
-        assertEquals(CategoryError.MISSING, after.categoryError)
-        assertFalse(after.canSave)
+        // Income needs no category, so the restored form can be saved as it is.
+        assertNull(after.categoryError)
+        assertTrue(after.canSave)
     }
 
     @Test

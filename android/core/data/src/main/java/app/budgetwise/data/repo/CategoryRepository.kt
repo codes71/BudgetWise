@@ -61,6 +61,9 @@ class CategoryRepository @Inject constructor(
         val BUILT_IN: List<String> = listOf(
             "Groceries", "Utilities", "Entertainment", "Transport", "Housing", "Health", "Food and Drink Item", "Other",
         )
+
+        /** Every income entry is filed under this name, as the web does; it is not one of the expense categories. */
+        const val INCOME = "Income"
         private val KEY = stringPreferencesKey("categories_json")
         private val LIST = ListSerializer(String.serializer())
     }

@@ -163,7 +163,8 @@ fun AddManualScreen(
         ) {
             TypeSelector(state.type, onTypeChange)
             AmountField(state, onAmountChange, amountFocus, onNext = { descriptionFocus.requestFocus() })
-            CategoryPicker(state, onCategoryChange)
+            // Income always goes under "Income" (AddManualUiState.savedCategory), so only an expense asks.
+            if (state.type != TxType.INCOME) CategoryPicker(state, onCategoryChange)
             DescriptionField(state, onDescriptionChange, descriptionFocus, onDone = { keyboard?.hide() })
             DateField(state, onClick = {
                 keyboard?.hide()

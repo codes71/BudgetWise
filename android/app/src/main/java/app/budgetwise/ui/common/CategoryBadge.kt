@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.budgetwise.R
+import app.budgetwise.data.repo.CategoryRepository
 
 /** A badge's fill and the icon drawn on it. */
 data class BadgeColors(val container: Color, val content: Color)
@@ -68,8 +69,8 @@ private val Styles: Map<String, CategoryStyle> = mapOf(
         R.drawable.ic_category, R.string.category_other,
         tone(0xFFD2EBEC, 0xFF1C5C5E), tone(0xFF1B4143, 0xFF9ED5D6),
     ),
-    // Not an expense chip: the web files every income entry under "Income".
-    "Income" to CategoryStyle(
+    // Not an expense chip: every income entry is filed under it, on the web and the phone.
+    CategoryRepository.INCOME to CategoryStyle(
         R.drawable.ic_south_west, R.string.category_income,
         tone(0xFFE2F0D0, 0xFF3D5A12), tone(0xFF2F4019, 0xFFC5E0A0),
     ),

@@ -79,7 +79,13 @@ data class AddManualUiState(
             }
         }
 
-    private val categoryProblem: CategoryError? get() = if (category == null) CategoryError.MISSING else null
+    /**
+     * What the entry is saved under. Income always goes under [CategoryRepository.INCOME], as on the web, so the
+     * form only asks for a category for an expense; the expense pick is kept in case the user switches back.
+     */
+    val savedCategory: String? get() = if (type == TxType.INCOME) CategoryRepository.INCOME else category
+
+    private val categoryProblem: CategoryError? get() = if (savedCategory == null) CategoryError.MISSING else null
 
     val dateError: DateError? get() = if (date.isAfter(today)) DateError.FUTURE else null
 
@@ -192,7 +198,7 @@ class AddManualViewModel @Inject constructor(
         val input = NewTransaction(
             type = s.type,
             amountKyat = s.amount ?: return,
-            category = s.category ?: return,
+            category = s.savedCategory ?: return,
             description = s.description.trim(),
             date = s.date,
             source = Source.MANUAL,

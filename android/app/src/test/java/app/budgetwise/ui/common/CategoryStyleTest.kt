@@ -30,7 +30,7 @@ class CategoryStyleTest {
     @Test
     fun theWebsitesIncomeCategoryHasItsOwnBadge() {
         // The web files every income entry under "Income", which is not one of the expense chips.
-        val income = builtInCategoryStyle("Income")
+        val income = builtInCategoryStyle(CategoryRepository.INCOME)
         assertNotNull(income)
         val expenses = CategoryRepository.BUILT_IN.map { builtInCategoryStyle(it)!! }
         assertTrue("its own icon", expenses.none { it.icon == income!!.icon })
