@@ -10,6 +10,7 @@ import { verifySession } from '@/lib/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { logger } from '@/lib/logger';
+import { isWholeKyat } from '@/lib/kyat';
 
 async function getUserId(): Promise<string> {
   const user = await verifySession();
@@ -46,6 +47,8 @@ export async function addTransaction(
   transaction: Omit<Transaction, 'id' | '_id' | 'userId'>
 ): Promise<Transaction | null> {
   const userId = await getUserId();
+  // The form already refuses decimals; this covers callers that skip it.
+  if (!isWholeKyat(transaction.amount)) return null;
   await dbConnect();
   try {
     // Strip mobile-only fields; source is forced after the spread so the client cannot override it.
@@ -70,8 +73,9 @@ export async function setBudget(
 ): Promise<Budget | null> {
   try {
     const userId = await getUserId();
+    if (!isWholeKyat(budget.limit)) return null;
     await dbConnect();
-    
+
     const updatedBudget = await BudgetModel.findOneAndUpdate(
       { category: budget.category, userId },
       { limit: budget.limit },

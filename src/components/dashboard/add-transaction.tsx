@@ -41,14 +41,15 @@ import {
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
+import { wholeKyatField } from '@/lib/kyat';
 import type { Transaction } from '@/lib/types';
 import { getCategorySuggestion, processScreenshot } from '@/app/actions';
 import { useAuth } from '@/context/auth-context'; // New import
 
 const transactionSchema = z.object({
   description: z.string().min(1, 'Description is required'),
-  amount: z.coerce.number().positive('Amount must be positive'),
+  amount: wholeKyatField,
   category: z.string().min(1, 'Category is required'),
   type: z.enum(['income', 'expense']),
   date: z.date(),
@@ -66,7 +67,7 @@ interface AddTransactionProps {
 export function AddTransaction({ onTransactionAdded, children }: AddTransactionProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
-  const { categories } = useAuth(); // Get categories from context
+  const { categories, currency } = useAuth(); // Get categories from context
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -96,7 +97,8 @@ export function AddTransaction({ onTransactionAdded, children }: AddTransactionP
         const result = await processScreenshot(base64Image);
         if (result.success && result.data) {
           const { amount, date, description: extractedDescription, merchant, transactionId, categoryHint } = result.data; // Added merchant, transactionId, categoryHint
-          if (amount) form.setValue('amount', amount, { shouldValidate: true });
+          // Whole kyat only; the rounded amount is shown so it can be corrected before saving.
+          if (amount) form.setValue('amount', Math.round(amount), { shouldValidate: true });
           if (date) form.setValue('date', new Date(date), { shouldValidate: true });
           
           let newDescription = '';
@@ -169,7 +171,7 @@ export function AddTransaction({ onTransactionAdded, children }: AddTransactionP
     onTransactionAdded(newTransaction);
     toast({
       title: 'Transaction Added',
-      description: `${data.description} for $${data.amount} has been added.`,
+      description: `${data.description} for ${formatCurrency(data.amount, currency)} has been added.`,
     });
     form.reset({
       description: '',
@@ -231,7 +233,7 @@ export function AddTransaction({ onTransactionAdded, children }: AddTransactionP
                         <FormItem>
                         <FormLabel>Amount</FormLabel>
                         <FormControl>
-                            <Input type="number" placeholder="0.00" {...field} />
+                            <Input type="number" inputMode="numeric" step={1} placeholder="0" {...field} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>

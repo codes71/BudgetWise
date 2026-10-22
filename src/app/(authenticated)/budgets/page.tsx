@@ -17,6 +17,9 @@ import { setBudget } from '@/app/db-actions';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-context';
 import { AppHeader } from '@/components/layout/app-header';
+import { isWholeKyat } from '@/lib/kyat';
+
+const INVALID_LIMIT = 'Please enter a whole number for the budget limit, no decimals.';
 
 
 
@@ -31,12 +34,12 @@ export default function BudgetsPage() {
   // Removed the local useEffect that fetches budgets, as AuthContext now manages this.
 
   const handleUpdateBudget = async (category: string, limit: string | number) => {
-    const numericLimit = typeof limit === 'string' ? parseFloat(limit) : limit;
-    if (isNaN(numericLimit) || numericLimit <= 0) {
+    const numericLimit = typeof limit === 'string' ? Number(limit) : limit;
+    if (!isWholeKyat(numericLimit)) {
       toast({
         variant: 'destructive',
         title: 'Invalid Input',
-        description: 'Please enter a valid positive number for the budget limit.',
+        description: INVALID_LIMIT,
       });
       return;
     }
@@ -54,12 +57,12 @@ export default function BudgetsPage() {
 
   const handleAddBudget = async (e: React.FormEvent) => {
     e.preventDefault();
-    const numericLimit = parseFloat(newLimit);
-    if (isNaN(numericLimit) || numericLimit <= 0) {
+    const numericLimit = Number(newLimit);
+    if (!isWholeKyat(numericLimit)) {
       toast({
         variant: 'destructive',
         title: 'Invalid Input',
-        description: 'Please enter a valid positive number for the budget limit.',
+        description: INVALID_LIMIT,
       });
       return;
     }
@@ -125,7 +128,7 @@ export default function BudgetsPage() {
                         </div>
                         <div className="grid gap-2 flex-1">
                             <Label htmlFor="limit">Limit</Label>
-                            <Input id="limit" type="number" placeholder="e.g., 500" value={newLimit} onChange={(e) => setNewLimit(e.target.value)} />
+                            <Input id="limit" type="number" inputMode="numeric" step={1} placeholder="e.g., 500" value={newLimit} onChange={(e) => setNewLimit(e.target.value)} />
                         </div>
                         <Button type="submit">Set Budget</Button>
                     </form>
@@ -144,6 +147,8 @@ export default function BudgetsPage() {
                         <div className="flex items-center gap-2 w-full sm:w-auto">
                             <Input
                                 type="number"
+                                inputMode="numeric"
+                                step={1}
                                 value={budget.limit}
                                 onChange={(e) => handleLimitChange(budget.category, e.target.value)}
                                 className="w-full sm:w-32"

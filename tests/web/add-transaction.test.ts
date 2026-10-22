@@ -46,4 +46,15 @@ describe("addTransaction", () => {
     expect(row?.clientId).toBeUndefined();
     expect(row?.transcript).toBeUndefined();
   });
+
+  it("stores whole kyat amounts", async () => {
+    await addTransaction({ ...base, amount: 12500 });
+    const row = await Tx.findOne({ userId }).lean();
+    expect(row?.amount).toBe(12500);
+  });
+
+  it.each([12.5, 0.3, 0, -5, 2 ** 53, Number.NaN])("refuses amount %s", async (amount) => {
+    expect(await addTransaction({ ...base, amount })).toBeNull();
+    expect(await Tx.countDocuments({ userId })).toBe(0);
+  });
 });
