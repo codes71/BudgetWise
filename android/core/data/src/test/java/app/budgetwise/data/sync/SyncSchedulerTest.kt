@@ -13,6 +13,7 @@ import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.TestDriver
 import androidx.work.testing.WorkManagerTestInitHelper
 import java.util.UUID
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -73,6 +74,26 @@ class SyncSchedulerTest {
         assertEquals(2, infos.size) // appended, not dropped and not replaced
         assertEquals(setOf(WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED), infos.map { it.state }.toSet())
         assertTrue(infos.all { it.constraints.requiredNetworkType == NetworkType.CONNECTED })
+    }
+
+    @Test
+    fun writesWhileASyncIsQueuedAddNoMoreWork() = runBlocking {
+        val scheduler = SyncScheduler(context)
+        repeat(10) { scheduler.requestAfterWrite() } // ten entries saved offline
+
+        val infos = wm.getWorkInfosForUniqueWork(SyncScheduler.UNIQUE_WORK).get()
+        assertEquals(1, infos.size) // one queued sync pushes them all
+        assertEquals(WorkInfo.State.ENQUEUED, infos.single().state)
+    }
+
+    @Test
+    fun aWriteDuringARunningSyncQueuesOneMore() {
+        // A running sync may be past its push, so a write then needs a run of its own; a queued one does not.
+        assertTrue(SyncScheduler.needsNewRun(emptyList()))
+        assertTrue(SyncScheduler.needsNewRun(listOf(WorkInfo.State.SUCCEEDED, WorkInfo.State.CANCELLED)))
+        assertTrue(SyncScheduler.needsNewRun(listOf(WorkInfo.State.RUNNING)))
+        assertFalse(SyncScheduler.needsNewRun(listOf(WorkInfo.State.ENQUEUED)))
+        assertFalse(SyncScheduler.needsNewRun(listOf(WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED)))
     }
 
     @Test

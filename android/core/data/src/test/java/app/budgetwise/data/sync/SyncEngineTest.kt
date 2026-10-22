@@ -144,20 +144,21 @@ class SyncEngineTest {
     @Test
     fun badServerRowIsSkippedAndTheRestArePulled() = runTest {
         h.seedSynced("bad")
-        h.server.edit("bad") { it.copy(amount = 12.5, description = "secret lunch") } // a legacy decimal amount
+        h.server.edit("bad") { it.copy(type = "transfer", amount = 7777.0, description = "secret lunch") }
         h.server.put("a")
-        h.server.put("c")
+        h.server.put("dec", amount = 12.5) // a decimal web entry is not bad: it rounds to whole kyat
         ShadowLog.clear()
 
         val outcome = h.engine.syncOnce(fullPull = true)
 
         assertEquals(SyncOutcome.Success(pushed = 0, pulled = 2), outcome)
-        assertEquals(setOf("a", "bad", "c"), h.tx.observeAll().first().map { it.clientId }.toSet())
+        assertEquals(setOf("a", "bad", "dec"), h.tx.observeAll().first().map { it.clientId }.toSet())
         assertEquals(1000L, h.tx.byClientId("bad")!!.amountKyat) // kept as it was, not removed by reconcile
+        assertEquals(13L, h.tx.byClientId("dec")!!.amountKyat)
         val ours = ShadowLog.getLogsForTag(SYNC_LOG_TAG)
         assertTrue(ours.any { h.server.rows.getValue("bad").id in it.msg })
         assertTrue(ours.all { it.throwable == null })
-        assertFalse(ShadowLog.getLogs().any { "12.5" in it.msg || "secret" in it.msg })
+        assertFalse(ShadowLog.getLogs().any { "7777" in it.msg || "secret" in it.msg })
     }
 
     @Test
@@ -320,6 +321,31 @@ class SyncEngineTest {
         assertTrue(h.server.rows.isEmpty()) // not resurrected by a later full pull
         assertNull(h.tx.byClientId(id))
         assertTrue(h.pendingOps().isEmpty())
+    }
+
+    @Test
+    fun serverErrorOnPushStillPullsWebChanges() = runTest {
+        val ids = h.addLocal(2)
+        h.server.put("web")
+        h.server.htmlStatusOnPost = 503
+
+        assertEquals(SyncOutcome.RetryLater, h.engine.syncOnce(fullPull = true))
+
+        assertEquals(listOf<String?>(null), h.server.gets) // the pull ran
+        assertNotNull(h.tx.byClientId("web"))
+        assertEquals(ids, h.pendingOps().map { it.clientId }) // the outbox waits for the retry
+        assertTrue(ids.all { h.tx.byClientId(it)!!.syncState == SyncState.PENDING })
+    }
+
+    @Test
+    fun unreachableServerOnPushSkipsThePull() = runTest {
+        h.addLocal(1)
+        h.server.dropResponseOnPost = 1 // the connection breaks: an IOException, as with no route to the server
+
+        assertEquals(SyncOutcome.RetryLater, h.engine.syncOnce())
+
+        assertTrue(h.server.gets.isEmpty())
+        assertEquals(1, h.pendingOps().size)
     }
 
     @Test

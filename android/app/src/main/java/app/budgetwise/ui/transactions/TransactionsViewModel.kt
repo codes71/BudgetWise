@@ -187,8 +187,13 @@ class TransactionsViewModel @Inject constructor(
                     _events.send(TransactionsEvent.WaitingForNetwork)
                     return@launch
                 }
-                val done = sync.status.first { it is SyncStatus.LastResult && it != before } as SyncStatus.LastResult
-                if (done.outcome == SyncOutcome.RetryLater) _events.send(TransactionsEvent.Unreachable)
+                // A run WorkManager stops (replaced, connection lost, signed out) puts the previous status back
+                // instead of recording a result: stop waiting then too, with nothing to report. A replacing run
+                // still shows the indicator through its own Running status.
+                val done = started as? SyncStatus.LastResult ?: sync.status.first { it != SyncStatus.Running }
+                if (done is SyncStatus.LastResult && done != before && done.outcome == SyncOutcome.RetryLater) {
+                    _events.send(TransactionsEvent.Unreachable)
+                }
             } finally {
                 local.update { it.copy(refreshRequested = false) }
             }

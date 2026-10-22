@@ -115,7 +115,7 @@ class TransactionRepositoryTest {
         repo.delete(id)
         assertEquals(0, repo.observe().first().size)
         assertEquals(0, h.sync.pendingOps().size)
-        assertEquals("delete requests its own sync", 2, h.work("sync").size)
+        assertEquals("the sync queued by addAll covers the delete", 1, h.work("sync").size)
     }
 
     @Test

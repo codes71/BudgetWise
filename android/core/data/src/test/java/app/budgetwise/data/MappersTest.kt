@@ -83,8 +83,17 @@ class MappersTest {
     }
 
     @Test
-    fun toDomain_nonIntegerAmountIsRejectedWithClearError() {
-        val dto = WireJson.decodeFromString<TransactionDto>(dtoJson(amount = "12.5"))
+    fun toDomain_decimalWebAmountRoundsHalfUpToWholeKyat() {
+        fun kyat(amount: String) = WireJson.decodeFromString<TransactionDto>(dtoJson(amount = amount)).toDomain().amountKyat
+        assertEquals(13L, kyat("12.5"))
+        assertEquals(1500L, kyat("1500.49"))
+        assertEquals(2L, kyat("1.99"))
+        assertEquals(1L, kyat("0.3")) // a positive amount never becomes 0
+    }
+
+    @Test
+    fun toDomain_outOfRangeAmountIsRejectedWithClearError() {
+        val dto = WireJson.decodeFromString<TransactionDto>(dtoJson(amount = "1e16"))
         val e = assertThrows(InvalidWireDataException::class.java) { dto.toDomain() }
         assertEquals(true, e.message!!.contains("c1"))
     }

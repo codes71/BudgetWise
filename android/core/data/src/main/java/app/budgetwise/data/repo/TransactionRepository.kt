@@ -83,14 +83,14 @@ class TransactionRepository @Inject constructor(
                 clientId
             }
         }
-        syncScheduler.enqueue(fullPull = false)
+        syncScheduler.requestAfterWrite()
         return ids
     }
 
     /** Deletes locally at once ([SyncEngine.enqueueDelete] handles never-synced and synced rows), then syncs. */
     suspend fun delete(clientId: String) {
         syncEngine.enqueueDelete(clientId)
-        syncScheduler.enqueue(fullPull = false)
+        syncScheduler.requestAfterWrite()
     }
 
     companion object {

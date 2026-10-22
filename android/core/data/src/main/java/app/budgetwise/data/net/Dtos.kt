@@ -4,6 +4,8 @@ import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.nlu.TxType
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
@@ -17,17 +19,16 @@ val WireJson: Json = Json {
 }
 
 /**
- * Thrown by [TransactionDto.toDomain] for a server row the device cannot represent (non-integer or
- * non-positive amount, unknown enum value, bad date). The sync engine catches it per row, skips the
+ * Thrown by [TransactionDto.toDomain] for a server row the device cannot represent (non-positive or
+ * absurdly large amount, unknown enum value, bad date). The sync engine catches it per row, skips the
  * row and keeps syncing the rest.
  */
 class InvalidWireDataException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
- * `amount` is a [Double] on the read side only: rows created on the web can hold a legacy
- * non-integer, and a `Long` field would make kotlinx fail the whole list response. Decoding as
- * Double lets one bad row be rejected individually in [toDomain]. Doubles are exact for integers
- * up to 2^53, far beyond any kyat amount.
+ * `amount` is a [Double] on the read side only: the web form accepts decimals (12.50), and a `Long`
+ * field would make kotlinx fail the whole list response. [toDomain] rounds to whole kyat, the unit the
+ * device stores. Doubles are exact for integers up to 2^53, far beyond any kyat amount.
  */
 @Serializable
 data class TransactionDto(
@@ -83,7 +84,6 @@ fun TransactionDto.toDomain(): Transaction {
     fun bad(what: String, cause: Throwable? = null): Nothing =
         throw InvalidWireDataException("Transaction clientId=$clientId id=$id: $what", cause)
 
-    if (amount % 1.0 != 0.0) bad("non-integer amount $amount")
     if (amount <= 0.0 || amount > MAX_AMOUNT) bad("amount out of range $amount")
     val txType = TxType.entries.firstOrNull { it.name.lowercase() == type } ?: bad("unknown type '$type'")
     val txSource = Source.entries.firstOrNull { it.wire == source } ?: bad("unknown source '$source'")
@@ -92,7 +92,7 @@ fun TransactionDto.toDomain(): Transaction {
             clientId = clientId,
             serverId = id,
             type = txType,
-            amountKyat = amount.toLong(),
+            amountKyat = wholeKyat(amount),
             category = category,
             description = description,
             date = LocalDate.parse(date),
@@ -105,5 +105,12 @@ fun TransactionDto.toDomain(): Transaction {
         bad("bad date/timestamp", e)
     }
 }
+
+/**
+ * Whole kyat, rounded half up like budget limits (12.5 becomes 13), so a decimal web entry still shows and
+ * counts on the phone, off by under 1 Ks. A positive amount stays positive (0.3 becomes 1, not 0).
+ */
+private fun wholeKyat(amount: Double): Long =
+    BigDecimal(amount).setScale(0, RoundingMode.HALF_UP).toLong().coerceAtLeast(1)
 
 private const val MAX_AMOUNT = 9_007_199_254_740_991.0 // 2^53 - 1

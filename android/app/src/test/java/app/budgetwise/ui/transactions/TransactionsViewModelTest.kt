@@ -189,6 +189,21 @@ class TransactionsViewModelTest {
     }
 
     @Test
+    fun refreshWhoseRunIsStoppedStopsSpinning() = runTest {
+        val before = SyncStatus.LastResult(Instant.EPOCH, SyncOutcome.RetryLater)
+        sync.status.value = before
+        val vm = vm()
+        val events = events(vm)
+
+        vm.refresh()
+        sync.status.value = SyncStatus.Running
+        sync.status.value = before // the worker was stopped: no new result, the old one is put back
+
+        assertFalse(vm.state.value.refreshing)
+        assertTrue(events.isEmpty()) // the old failure is not reported as this refresh's
+    }
+
+    @Test
     fun refreshThatNeverStartsStopsSpinning() = runTest {
         // No connection: WorkManager holds the sync until there is one, so it never reports Running.
         val vm = vm()

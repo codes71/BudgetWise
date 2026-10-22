@@ -88,7 +88,11 @@ sealed interface SyncStatus {
  *   are pushed. Every other failure, including a 4xx page from a proxy, firewall or captive network, is
  *   [SyncOutcome.RetryLater] with the outbox kept.
  * - 401 stops the run, keeps the outbox and tells [SessionManager]; the result is [SyncOutcome.NeedsLogin].
+ * - A push the server cannot take yet (5xx, 429, a proxy page) keeps the outbox and still pulls, so web changes
+ *   reach the phone while one batch waits; the result is [SyncOutcome.RetryLater]. When the server could not be
+ *   reached at all, the pull is skipped (it would only wait out the same timeout).
  * - A server row the device cannot represent is skipped and logged by server id only (never amounts or text).
+ *   A decimal web amount is not one of those: it is rounded to whole kyat ([toDomain]).
  *
  * Every change to a row together with its outbox op happens in one Room transaction. Runs are serialized.
  */
@@ -162,19 +166,29 @@ class SyncEngine @Inject constructor(
         var pushed = 0
         var pulled = 0
         val failed = mutableListOf<String>()
+
+        /** A push request failed without reaching the server (no route, refused, timed out). */
+        var unreachable = false
     }
 
     private suspend fun run(fullPull: Boolean): SyncOutcome {
         sentToken = session.bearer()
         if (sentToken == null) return SyncOutcome.NeedsLogin
         val tally = Tally()
-        push(tally)?.let { return it }
+        val pushStop = push(tally)
+        if (pushStop != null && (pushStop != SyncOutcome.RetryLater || tally.unreachable)) return pushStop
         pull(fullPull, tally)?.let { return it }
-        return if (tally.failed.isEmpty()) {
-            SyncOutcome.Success(tally.pushed, tally.pulled)
-        } else {
-            SyncOutcome.PermanentFailure(tally.failed.toList(), tally.pushed, tally.pulled)
+        return when {
+            pushStop != null -> pushStop // the pull applied; the outbox waits for the retry
+            tally.failed.isEmpty() -> SyncOutcome.Success(tally.pushed, tally.pulled)
+            else -> SyncOutcome.PermanentFailure(tally.failed.toList(), tally.pushed, tally.pulled)
         }
+    }
+
+    /** A push failure that is not about the rows: keep the outbox and retry later. */
+    private fun retryLater(failure: ApiResult.Failure, tally: Tally): SyncOutcome {
+        if (failure.code == NETWORK_ERROR) tally.unreachable = true
+        return SyncOutcome.RetryLater
     }
 
     // Push. Each step below removes every op it was handed (ack, or FAILED) or returns the outcome that stops
@@ -228,7 +242,7 @@ class SyncEngine @Inject constructor(
             is ApiResult.Ok -> applySaved(batch.map { it.first }, r.v, tally)
             is ApiResult.Unauthorized -> return needsLogin()
             is ApiResult.Failure -> when {
-                !r.rejectsPayload() -> return SyncOutcome.RetryLater
+                !r.rejectsPayload() -> return retryLater(r, tally)
                 batch.size == 1 -> markRejected(batch.single().first, tally)
                 else -> for (item in batch) pushCreateBatch(listOf(item), tally)?.let { return it }
             }
@@ -273,7 +287,7 @@ class SyncEngine @Inject constructor(
                 is ApiResult.Ok -> Unit
                 is ApiResult.Unauthorized -> return needsLogin()
                 is ApiResult.Failure -> {
-                    if (!r.rejectsPayload()) return SyncOutcome.RetryLater
+                    if (!r.rejectsPayload()) return retryLater(r, tally)
                     markRejected(op, tally)
                     return null
                 }
@@ -374,6 +388,9 @@ class SyncEngine @Inject constructor(
         const val BATCH_SIZE = 50
         val CURSOR_OVERLAP: Duration = Duration.ofMinutes(2)
         private const val HTTP_NOT_FOUND = 404
+
+        /** [ApiResult.Failure.code] for an IOException ([safeApi]). */
+        private const val NETWORK_ERROR = "network"
 
         /**
          * Error envelope codes with which the WS1 server itself rejects the request body (zod 422, unparseable JSON
