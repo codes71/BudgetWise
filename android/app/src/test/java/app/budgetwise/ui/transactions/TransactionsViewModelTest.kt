@@ -167,10 +167,10 @@ class TransactionsViewModelTest {
         assertEquals(1, sync.syncNowCalls)
         assertTrue(vm.state.value.refreshing)
 
-        sync.status.value = SyncStatus.Running
+        sync.start()
         assertTrue(vm.state.value.refreshing)
 
-        sync.status.value = SyncStatus.LastResult(Instant.EPOCH, SyncOutcome.Success(pushed = 0, pulled = 3))
+        sync.finish(SyncOutcome.Success(pushed = 0, pulled = 3))
         assertFalse(vm.state.value.refreshing)
         assertTrue(events.isEmpty())
     }
@@ -181,26 +181,60 @@ class TransactionsViewModelTest {
         val events = events(vm)
 
         vm.refresh()
-        sync.status.value = SyncStatus.Running
-        sync.status.value = SyncStatus.LastResult(Instant.EPOCH, SyncOutcome.RetryLater)
+        sync.start()
+        sync.finish(SyncOutcome.RetryLater)
 
         assertFalse(vm.state.value.refreshing)
         assertEquals(listOf(TransactionsEvent.Unreachable), events)
     }
 
     @Test
-    fun refreshWhoseRunIsStoppedStopsSpinning() = runTest {
-        val before = SyncStatus.LastResult(Instant.EPOCH, SyncOutcome.RetryLater)
-        sync.status.value = before
+    fun refreshDuringARunningSyncReportsTheReplacingRunsResult() = runTest {
+        sync.start() // the launch sync is still running
         val vm = vm()
         val events = events(vm)
 
         vm.refresh()
-        sync.status.value = SyncStatus.Running
-        sync.status.value = before // the worker was stopped: no new result, the old one is put back
+        sync.stop(SyncStatus.Idle) // the refresh replaced it: no result, the old status comes back
+        assertTrue("spinner between runs", vm.state.value.refreshing)
+        sync.start()
+        sync.finish(SyncOutcome.RetryLater)
 
         assertFalse(vm.state.value.refreshing)
-        assertTrue(events.isEmpty()) // the old failure is not reported as this refresh's
+        assertEquals(listOf(TransactionsEvent.Unreachable), events)
+    }
+
+    @Test
+    fun refreshDoesNotReportAnOldFailureThatAStoppedRunPutsBack() = runTest {
+        sync.start()
+        val old = sync.finish(SyncOutcome.RetryLater)
+        sync.start()
+        val vm = vm()
+        val events = events(vm)
+
+        vm.refresh()
+        sync.stop(old) // replaced: the old failure is the status again, but it is not this refresh's result
+        assertTrue(events.isEmpty())
+        sync.start()
+        sync.finish(SyncOutcome.Success(pushed = 0, pulled = 1))
+
+        assertFalse(vm.state.value.refreshing)
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun refreshWhoseRunIsStoppedAndNotRestartedWaitsForNetwork() = runTest {
+        val vm = vm()
+        val events = events(vm)
+
+        vm.refresh()
+        sync.start()
+        sync.stop(SyncStatus.Idle) // the connection dropped: WorkManager re-queues the run for later
+        assertTrue(vm.state.value.refreshing)
+        advanceTimeBy(TransactionsViewModel.START_TIMEOUT_MS + 1)
+
+        assertFalse(vm.state.value.refreshing)
+        assertEquals(listOf(TransactionsEvent.WaitingForNetwork), events)
     }
 
     @Test

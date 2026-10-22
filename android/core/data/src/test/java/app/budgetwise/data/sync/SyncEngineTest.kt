@@ -5,7 +5,11 @@ import app.budgetwise.data.db.OutboxOp
 import app.budgetwise.data.model.SyncState
 import java.time.Duration
 import java.time.Instant
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -13,6 +17,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -369,5 +374,39 @@ class SyncEngineTest {
 
         assertEquals(SyncStatus.Running, during)
         assertEquals(SyncStatus.LastResult(h.now, outcome), h.engine.status.value)
+        assertSame(h.engine.status.value, h.engine.lastResult.value)
+    }
+
+    @Test
+    fun aStoppedRunPutsTheOldStatusBackButRecordsNoResult() = runBlocking {
+        val first = h.engine.syncOnce()
+        val recorded = h.engine.lastResult.value
+        val entered = CompletableDeferred<Unit>()
+        h.server.duringGet = {
+            entered.complete(Unit)
+            Thread.sleep(500) // hold the pull while the run is cancelled
+        }
+
+        val run = launch(Dispatchers.IO) { h.engine.syncOnce() }
+        entered.await()
+        run.cancelAndJoin()
+
+        assertEquals(SyncStatus.LastResult(h.now, first), h.engine.status.value)
+        assertSame(recorded, h.engine.lastResult.value) // no new instance: nothing finished
+    }
+
+    @Test
+    fun aPendingDeleteSurvivesThePullAfterAFailedPush() = runTest {
+        h.seedSynced("x")
+        val created = h.addLocal(1) // a CREATE heads the outbox
+        h.engine.enqueueDelete("x") // then the tombstone's DELETE
+        h.server.htmlStatusOnPost = 503
+
+        assertEquals(SyncOutcome.RetryLater, h.engine.syncOnce(fullPull = true))
+
+        assertEquals(listOf<String?>(null), h.server.gets) // the full pull ran and still listed x
+        assertTrue(h.tx.byClientId("x")!!.deleted)
+        assertEquals(OutboxOp.DELETE, h.pendingOps().single { it.clientId == "x" }.op)
+        assertEquals(created, h.tx.observeAll().first().map { it.clientId }) // x stays hidden
     }
 }

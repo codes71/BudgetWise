@@ -57,7 +57,10 @@ data class TransactionsUiState(
 }
 
 sealed interface TransactionsEvent {
-    /** A pull-to-refresh sync ran but could not reach the server (offline, or adb reverse is down). */
+    /**
+     * A pull-to-refresh sync ended in RetryLater: the server could not be reached (offline, adb reverse down) or
+     * could not take the upload yet (the pull may still have applied).
+     */
     data object Unreachable : TransactionsEvent
 
     /** A pull-to-refresh sync is waiting for a connection and has not started. */
@@ -170,33 +173,42 @@ class TransactionsViewModel @Inject constructor(
     }
 
     /**
-     * Pull to refresh: push, then a full pull. The indicator stays up from the pull until the run ends, also while
-     * WorkManager starts the worker; a run that never starts (no connection) or cannot reach the server is reported.
+     * Pull to refresh: push, then a full pull. The indicator stays up from the pull until a run records a result,
+     * also while WorkManager starts the worker; a run that never starts (no connection) or ends in RetryLater is
+     * reported.
      */
     fun refresh() {
         if (refreshJob?.isActive == true) return
-        val before = sync.status.value
+        val baseline = sync.lastResult.value
         sync.syncNow()
         refreshJob = viewModelScope.launch {
             local.update { it.copy(refreshRequested = true) }
             try {
-                val started = withTimeoutOrNull(START_TIMEOUT_MS) {
-                    sync.status.first { it == SyncStatus.Running || (it is SyncStatus.LastResult && it != before) }
-                }
-                if (started == null) {
-                    _events.send(TransactionsEvent.WaitingForNetwork)
-                    return@launch
-                }
-                // A run WorkManager stops (replaced, connection lost, signed out) puts the previous status back
-                // instead of recording a result: stop waiting then too, with nothing to report. A replacing run
-                // still shows the indicator through its own Running status.
-                val done = started as? SyncStatus.LastResult ?: sync.status.first { it != SyncStatus.Running }
-                if (done is SyncStatus.LastResult && done != before && done.outcome == SyncOutcome.RetryLater) {
-                    _events.send(TransactionsEvent.Unreachable)
+                val result = awaitNewResult(baseline)
+                when {
+                    result == null -> _events.send(TransactionsEvent.WaitingForNetwork)
+                    result.outcome == SyncOutcome.RetryLater -> _events.send(TransactionsEvent.Unreachable)
                 }
             } finally {
                 local.update { it.copy(refreshRequested = false) }
             }
+        }
+    }
+
+    /**
+     * The first result recorded after [baseline], or null when no run starts within [START_TIMEOUT_MS]. A run that
+     * WorkManager stops without a result (this refresh replaced it, or the connection dropped) puts the previous
+     * status back; the wait then goes on for the run that takes its place, with a fresh start timeout.
+     */
+    private suspend fun awaitNewResult(baseline: SyncStatus.LastResult?): SyncStatus.LastResult? {
+        val progress = combine(sync.status, sync.lastResult) { status, result -> status to result }
+        while (true) {
+            val (_, started) = withTimeoutOrNull(START_TIMEOUT_MS) {
+                progress.first { (status, result) -> status == SyncStatus.Running || result !== baseline }
+            } ?: return null
+            if (started !== baseline) return started
+            val (_, ended) = progress.first { (status, result) -> status != SyncStatus.Running || result !== baseline }
+            if (ended !== baseline) return ended
         }
     }
 

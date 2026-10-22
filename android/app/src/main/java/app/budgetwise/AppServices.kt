@@ -39,6 +39,9 @@ interface AccountActions {
 interface SyncControls {
     val status: StateFlow<SyncStatus>
 
+    /** The latest finished run; a stopped run never puts an older value back ([SyncEngine.lastResult]). */
+    val lastResult: StateFlow<SyncStatus.LastResult?>
+
     /** True while a one-time sync waits to run: no connection yet, or backing off after a failure. */
     val queued: Flow<Boolean>
 
@@ -92,6 +95,8 @@ class DefaultSyncControls @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : SyncControls {
     override val status: StateFlow<SyncStatus> get() = engine.status
+
+    override val lastResult: StateFlow<SyncStatus.LastResult?> get() = engine.lastResult
 
     override val queued: Flow<Boolean>
         get() = WorkManager.getInstance(context)

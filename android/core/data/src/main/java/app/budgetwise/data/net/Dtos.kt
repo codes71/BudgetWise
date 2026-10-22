@@ -84,7 +84,7 @@ fun TransactionDto.toDomain(): Transaction {
     fun bad(what: String, cause: Throwable? = null): Nothing =
         throw InvalidWireDataException("Transaction clientId=$clientId id=$id: $what", cause)
 
-    if (amount <= 0.0 || amount > MAX_AMOUNT) bad("amount out of range $amount")
+    if (!amount.isFinite() || amount <= 0.0 || amount > MAX_AMOUNT) bad("amount out of range $amount")
     val txType = TxType.entries.firstOrNull { it.name.lowercase() == type } ?: bad("unknown type '$type'")
     val txSource = Source.entries.firstOrNull { it.wire == source } ?: bad("unknown source '$source'")
     return try {

@@ -14,6 +14,7 @@ import app.budgetwise.data.model.Transaction
 import app.budgetwise.data.net.ApiResult
 import app.budgetwise.data.net.ApiService
 import app.budgetwise.data.net.InvalidWireDataException
+import app.budgetwise.data.net.NETWORK_ERROR_CODE
 import app.budgetwise.data.net.SavedResponse
 import app.budgetwise.data.net.TransactionDto
 import app.budgetwise.data.net.TransactionInput
@@ -45,7 +46,10 @@ sealed interface SyncOutcome {
     /** No usable token, or the server answered 401. The outbox is kept; sync pauses until the user signs in again. */
     data object NeedsLogin : SyncOutcome
 
-    /** Network error, 5xx, 408, 429 or an unreadable response. The outbox is kept; retry with backoff. */
+    /**
+     * Network error, 5xx, 408, 429 or an unreadable response. The outbox is kept; retry with backoff. When only the
+     * push failed (not with a network error), the pull still ran and its changes are in Room.
+     */
     data object RetryLater : SyncOutcome
 
     /**
@@ -89,8 +93,8 @@ sealed interface SyncStatus {
  *   [SyncOutcome.RetryLater] with the outbox kept.
  * - 401 stops the run, keeps the outbox and tells [SessionManager]; the result is [SyncOutcome.NeedsLogin].
  * - A push the server cannot take yet (5xx, 429, a proxy page) keeps the outbox and still pulls, so web changes
- *   reach the phone while one batch waits; the result is [SyncOutcome.RetryLater]. When the server could not be
- *   reached at all, the pull is skipped (it would only wait out the same timeout).
+ *   reach the phone while one batch waits; the result is [SyncOutcome.RetryLater]. When the push failed with an
+ *   IOException (no connection, a timeout, a reply cut off), the pull is skipped: it would likely fail the same way.
  * - A server row the device cannot represent is skipped and logged by server id only (never amounts or text).
  *   A decimal web amount is not one of those: it is rounded to whole kyat ([toDomain]).
  *
@@ -113,6 +117,14 @@ class SyncEngine @Inject constructor(
     private val _status = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
 
+    private val _lastResult = MutableStateFlow<SyncStatus.LastResult?>(null)
+
+    /**
+     * The latest run that finished, set only when one does. Unlike [status], a stopped run never puts an older
+     * value back here, so a new instance always means a new result. Updated before [status].
+     */
+    val lastResult: StateFlow<SyncStatus.LastResult?> = _lastResult.asStateFlow()
+
     suspend fun syncOnce(fullPull: Boolean = false): SyncOutcome = mutex.withLock {
         val before = _status.value
         _status.value = SyncStatus.Running
@@ -120,8 +132,10 @@ class SyncEngine @Inject constructor(
         try {
             run(fullPull).also { outcome = it }
         } finally {
-            // A cancelled run (worker stopped) leaves the previous result in place.
-            _status.value = outcome?.let { SyncStatus.LastResult(clock.instant(), it) } ?: before
+            // A cancelled run (worker stopped) leaves the previous status in place and records no result.
+            val result = outcome?.let { SyncStatus.LastResult(clock.instant(), it) }
+            if (result != null) _lastResult.value = result
+            _status.value = result ?: before
         }
     }
 
@@ -167,7 +181,7 @@ class SyncEngine @Inject constructor(
         var pulled = 0
         val failed = mutableListOf<String>()
 
-        /** A push request failed without reaching the server (no route, refused, timed out). */
+        /** A push request failed with an IOException: no connection, a timeout, or a reply cut off. */
         var unreachable = false
     }
 
@@ -187,7 +201,7 @@ class SyncEngine @Inject constructor(
 
     /** A push failure that is not about the rows: keep the outbox and retry later. */
     private fun retryLater(failure: ApiResult.Failure, tally: Tally): SyncOutcome {
-        if (failure.code == NETWORK_ERROR) tally.unreachable = true
+        if (failure.code == NETWORK_ERROR_CODE) tally.unreachable = true
         return SyncOutcome.RetryLater
     }
 
@@ -388,9 +402,6 @@ class SyncEngine @Inject constructor(
         const val BATCH_SIZE = 50
         val CURSOR_OVERLAP: Duration = Duration.ofMinutes(2)
         private const val HTTP_NOT_FOUND = 404
-
-        /** [ApiResult.Failure.code] for an IOException ([safeApi]). */
-        private const val NETWORK_ERROR = "network"
 
         /**
          * Error envelope codes with which the WS1 server itself rejects the request body (zod 422, unparseable JSON

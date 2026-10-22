@@ -18,6 +18,7 @@ import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.LoginResult
 import app.budgetwise.data.repo.LogoutResult
 import app.budgetwise.data.repo.NewTransaction
+import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
 import app.budgetwise.nlu.TxType
 import java.time.Instant
@@ -83,12 +84,29 @@ class FakeAccountActions : AccountActions {
 
 class FakeSyncControls : SyncControls {
     override val status = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
+    override val lastResult = MutableStateFlow<SyncStatus.LastResult?>(null)
     override val queued = MutableStateFlow(false)
     override val unsyncedCount = MutableStateFlow(0)
     var syncNowCalls = 0
 
     override fun syncNow() {
         syncNowCalls++
+    }
+
+    fun start() {
+        status.value = SyncStatus.Running
+    }
+
+    /** A run records [outcome], result first, as SyncEngine does. */
+    fun finish(outcome: SyncOutcome, at: Instant = Instant.EPOCH): SyncStatus.LastResult =
+        SyncStatus.LastResult(at, outcome).also {
+            lastResult.value = it
+            status.value = it
+        }
+
+    /** WorkManager stopped the run: the status before it comes back and no result is recorded. */
+    fun stop(restored: SyncStatus) {
+        status.value = restored
     }
 }
 

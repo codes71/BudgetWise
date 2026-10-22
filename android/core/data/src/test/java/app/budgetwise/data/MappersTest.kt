@@ -99,6 +99,13 @@ class MappersTest {
     }
 
     @Test
+    fun toDomain_nonFiniteAmountIsRejectedNotThrownPastThePerRowCatch() {
+        val dto = WireJson.decodeFromString<TransactionDto>(dtoJson()).copy(amount = Double.NaN)
+        assertThrows(InvalidWireDataException::class.java) { dto.toDomain() }
+        assertThrows(InvalidWireDataException::class.java) { dto.copy(amount = Double.POSITIVE_INFINITY).toDomain() }
+    }
+
+    @Test
     fun toDomain_nonPositiveAmountIsRejected() {
         val dto = WireJson.decodeFromString<TransactionDto>(dtoJson(amount = "0"))
         assertThrows(InvalidWireDataException::class.java) { dto.toDomain() }

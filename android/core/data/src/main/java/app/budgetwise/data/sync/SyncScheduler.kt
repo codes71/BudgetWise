@@ -60,6 +60,7 @@ class SyncScheduler @Inject constructor(@ApplicationContext private val context:
                 WorkManager.getInstance(context).getWorkInfosForUniqueWork(UNIQUE_WORK).get().map { it.state }
             }
         } catch (e: CancellationException) {
+            enqueue(fullPull = false) // the write is committed: it must not wait for the next trigger
             throw e
         } catch (_: Exception) {
             null // cannot tell what is queued: queue one more, as before

@@ -13,6 +13,8 @@ import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.TestDriver
 import androidx.work.testing.WorkManagerTestInitHelper
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -84,6 +86,35 @@ class SyncSchedulerTest {
         val infos = wm.getWorkInfosForUniqueWork(SyncScheduler.UNIQUE_WORK).get()
         assertEquals(1, infos.size) // one queued sync pushes them all
         assertEquals(WorkInfo.State.ENQUEUED, infos.single().state)
+    }
+
+    @Test
+    fun aWaitingPeriodicSyncDoesNotHoldBackAnAfterWriteSync() = runBlocking {
+        val scheduler = SyncScheduler(context)
+        scheduler.periodic() // ENQUEUED for hours: it must not count as a queued after-write sync
+
+        scheduler.requestAfterWrite()
+
+        assertEquals(1, wm.getWorkInfosForUniqueWork(SyncScheduler.UNIQUE_WORK).get().size)
+    }
+
+    @Test
+    fun aWriteDuringARunningSyncQueuesOneMoreBehindIt() = runBlocking {
+        val scheduler = SyncScheduler(context)
+        val release = CountDownLatch(1)
+        h.server.duringGet = { release.await(10, TimeUnit.SECONDS) } // the run holds in its pull, past its push
+        scheduler.requestAfterWrite()
+        val running = wm.getWorkInfosForUniqueWork(SyncScheduler.UNIQUE_WORK).get().single()
+        driver.setAllConstraintsMet(running.id)
+        await(running.id) { it.state == WorkInfo.State.RUNNING }
+
+        scheduler.requestAfterWrite()
+
+        val infos = wm.getWorkInfosForUniqueWork(SyncScheduler.UNIQUE_WORK).get()
+        release.countDown()
+        assertEquals(2, infos.size)
+        assertEquals(setOf(WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED), infos.map { it.state }.toSet())
+        await(running.id) { it.state == WorkInfo.State.SUCCEEDED }
     }
 
     @Test

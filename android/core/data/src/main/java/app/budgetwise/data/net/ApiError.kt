@@ -20,6 +20,9 @@ private data class ErrorEnvelope(val error: ErrorBody? = null)
 @Serializable
 private data class ErrorBody(val code: String? = null, val message: String? = null)
 
+/** [ApiResult.Failure.code] when the call failed with an IOException (no connection, timeout, reply cut off). */
+const val NETWORK_ERROR_CODE = "network"
+
 /** Runs a Retrofit call and maps every failure mode to an [ApiResult]; never throws except on cancellation. */
 suspend fun <T> safeApi(block: suspend () -> T): ApiResult<T> = try {
     ApiResult.Ok(block())
@@ -28,7 +31,7 @@ suspend fun <T> safeApi(block: suspend () -> T): ApiResult<T> = try {
 } catch (e: HttpException) {
     mapHttp(e.code(), e.response()?.errorBody().readOrNull())
 } catch (e: IOException) {
-    ApiResult.Failure("network", e.message ?: "Network error", retryable = true)
+    ApiResult.Failure(NETWORK_ERROR_CODE, e.message ?: "Network error", retryable = true)
 } catch (e: SerializationException) {
     ApiResult.Failure("bad_response", "Unexpected server response", retryable = false)
 } catch (e: IllegalArgumentException) {
