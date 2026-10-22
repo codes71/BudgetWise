@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.budgetwise.AccountActions
 import app.budgetwise.data.auth.SessionManager
+import app.budgetwise.data.net.NETWORK_ERROR_CODE
 import app.budgetwise.data.repo.LoginResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -138,7 +139,7 @@ private val minutesInMessage = Regex("""(\d+)\s*min""", RegexOption.IGNORE_CASE)
 
 /** `rate_limited` is the WS1 code for 429 (its message has no wait time today; Retry-After does not reach the app). */
 internal fun loginErrorFor(failure: LoginResult.Failure): LoginError = when {
-    failure.code == "network" -> LoginError.Network
+    failure.code == NETWORK_ERROR_CODE -> LoginError.Network
     failure.code == "rate_limited" || failure.code == "http_429" ->
         LoginError.RateLimited(minutesInMessage.find(failure.message)?.groupValues?.get(1)?.toIntOrNull())
     failure.retryable -> LoginError.Server
