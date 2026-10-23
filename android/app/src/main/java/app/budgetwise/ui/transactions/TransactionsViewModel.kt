@@ -47,6 +47,10 @@ data class TransactionsUiState(
     val days: List<DaySection> = emptyList(),
     val summary: MonthSummary = MonthSummary(YearMonth.from(today)),
     val myanmarDigits: Boolean = false,
+    /**
+     * The pull-to-refresh spinner: only for a refresh the user pulled. The syncs that run on their own (at launch,
+     * after a save, on reconnect) stay out of sight, or the spinner drops into the screen for no visible reason.
+     */
     val refreshing: Boolean = false,
     /** The row swiped away whose snackbar (with Undo) is showing; it is deleted when the snackbar ends. */
     val pendingDelete: String? = null,
@@ -110,7 +114,7 @@ class TransactionsViewModel @Inject constructor(
     private var refreshJob: Job? = null
 
     val state: StateFlow<TransactionsUiState> =
-        combine(transactions.observe(), local, settings.myanmarDigits, sync.status) { rows, l, digits, status ->
+        combine(transactions.observe(), local, settings.myanmarDigits) { rows, l, digits ->
             val today = LocalDate.now(clock)
             val visible = rows.filterNot { it.clientId in l.hidden }
             TransactionsUiState(
@@ -119,7 +123,7 @@ class TransactionsViewModel @Inject constructor(
                 days = groupByDay(visible),
                 summary = monthSummary(visible, YearMonth.from(today)),
                 myanmarDigits = digits,
-                refreshing = l.refreshRequested || status == SyncStatus.Running,
+                refreshing = l.refreshRequested,
                 pendingDelete = l.pendingDelete,
                 restored = l.restored,
             )

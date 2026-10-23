@@ -123,14 +123,48 @@ class BudgetsViewModelTest {
         val vm = vm()
 
         assertEquals(1, budgets.refreshes)
-        assertTrue(vm.state.value.refreshing)
+        assertTrue(vm.state.value.fetching)
+        // Opening the tab fetches quietly: the pull-to-refresh spinner is only for a pull.
+        assertFalse(vm.state.value.refreshing)
         // No cached budgets yet: the empty state waits for the first answer instead of flashing.
         assertFalse(vm.state.value.showEmpty)
 
         gate.complete(Unit)
 
-        assertFalse(vm.state.value.refreshing)
+        assertFalse(vm.state.value.fetching)
         assertTrue(vm.state.value.showEmpty)
+    }
+
+    @Test
+    fun aPullDuringTheQuietFetchShowsTheSpinnerWithoutFetchingTwice() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        budgets.gate = gate
+        val vm = vm()
+
+        vm.refresh()
+
+        assertEquals(1, budgets.refreshes)
+        assertTrue(vm.state.value.refreshing)
+
+        gate.complete(Unit)
+
+        assertFalse(vm.state.value.refreshing)
+    }
+
+    @Test
+    fun pullToRefreshSpinsUntilTheFetchEnds() = runTest {
+        val vm = vm()
+        val gate = CompletableDeferred<Unit>()
+        budgets.gate = gate
+
+        vm.refresh()
+
+        assertEquals(2, budgets.refreshes)
+        assertTrue(vm.state.value.refreshing)
+
+        gate.complete(Unit)
+
+        assertFalse(vm.state.value.refreshing)
     }
 
     @Test

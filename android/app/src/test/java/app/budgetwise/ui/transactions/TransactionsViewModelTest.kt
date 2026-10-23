@@ -158,6 +158,17 @@ class TransactionsViewModelTest {
     }
 
     @Test
+    fun aSyncThatRunsOnItsOwnShowsNoSpinner() = runTest {
+        val vm = vm()
+
+        sync.start() // the launch sync, or the one after a save
+        assertFalse(vm.state.value.refreshing)
+
+        sync.finish(SyncOutcome.Success(pushed = 1, pulled = 0))
+        assertFalse(vm.state.value.refreshing)
+    }
+
+    @Test
     fun refreshRunsAFullSyncAndSpinsUntilItEnds() = runTest {
         val vm = vm()
         val events = events(vm)

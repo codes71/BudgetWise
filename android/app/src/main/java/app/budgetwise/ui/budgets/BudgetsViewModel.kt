@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** One budget this month. [remainingKyat] is negative once spending passes the limit. */
@@ -56,13 +57,16 @@ data class BudgetsUiState(
     val loading: Boolean = true,
     val lines: List<BudgetLine> = emptyList(),
     val myanmarDigits: Boolean = false,
+    /** The pull-to-refresh spinner: only for a pull, not for the quiet fetch each time the tab opens. */
     val refreshing: Boolean = false,
+    /** A fetch is on its way, quiet or pulled. */
+    val fetching: Boolean = false,
 ) {
     val totalLimitKyat: Long get() = lines.sumOf { it.limitKyat }
     val totalSpentKyat: Long get() = lines.sumOf { it.spentKyat }
 
-    /** "No budgets yet", only once the cache has answered and no refresh is still on its way. */
-    val showEmpty: Boolean get() = !loading && !refreshing && lines.isEmpty()
+    /** "No budgets yet", only once the cache has answered and no fetch is still on its way. */
+    val showEmpty: Boolean get() = !loading && !fetching && lines.isEmpty()
 }
 
 /** EXPENSE rows dated in [month], summed per category. Income never counts against a budget. */
@@ -90,30 +94,44 @@ class BudgetsViewModel @Inject constructor(
     private val session: SessionManager,
     @DeviceClock private val clock: Clock,
 ) : ViewModel() {
-    private val refreshing = MutableStateFlow(false)
+    private data class Fetch(val running: Boolean = false, val pulled: Boolean = false)
+
+    private val fetch = MutableStateFlow(Fetch())
 
     val state: StateFlow<BudgetsUiState> =
-        combine(budgets.observe(), transactions.observe(), settings.myanmarDigits, refreshing) { limits, rows, digits, busy ->
+        combine(budgets.observe(), transactions.observe(), settings.myanmarDigits, fetch) { limits, rows, digits, f ->
             val month = YearMonth.from(LocalDate.now(clock))
             BudgetsUiState(
                 month = month,
                 loading = false,
                 lines = budgetLines(limits, rows, month),
                 myanmarDigits = digits,
-                refreshing = busy,
+                refreshing = f.running && f.pulled,
+                fetching = f.running,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BudgetsUiState(month = YearMonth.from(LocalDate.now(clock))))
 
     init {
         // Starts before Room's first answer, so "No budgets yet" never flashes on the first open. BudgetsRoute asks
         // again each time the tab opens; a request while one runs is ignored.
-        refresh()
+        load()
     }
 
+    /** The quiet fetch each time the tab opens: no spinner, the cached budgets stay on screen meanwhile. */
+    fun load() = fetch(pulled = false)
+
+    /** Pull to refresh: the spinner shows until the fetch ends. */
+    fun refresh() = fetch(pulled = true)
+
     /** Fetches the server's budgets. Without a session the call could only fail, so the cache is shown as it is. */
-    fun refresh() {
-        if (refreshing.value || session.state.value !is SessionState.SignedIn) return
-        refreshing.value = true
+    private fun fetch(pulled: Boolean) {
+        if (session.state.value !is SessionState.SignedIn) return
+        if (fetch.value.running) {
+            // A pull during the quiet fetch shows the spinner for the rest of it, instead of a second fetch.
+            if (pulled) fetch.update { it.copy(pulled = true) }
+            return
+        }
+        fetch.value = Fetch(running = true, pulled = pulled)
         viewModelScope.launch {
             try {
                 // A failed answer keeps the cache; the screen keeps showing it.
@@ -123,7 +141,7 @@ class BudgetsViewModel @Inject constructor(
             } catch (_: Exception) {
                 // Writing the cache failed (Room); the old cache stays.
             } finally {
-                refreshing.value = false
+                fetch.value = Fetch()
             }
         }
     }

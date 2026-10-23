@@ -60,7 +60,7 @@ fun BudgetsRoute(viewModel: BudgetsViewModel = hiltViewModel()) {
     // Every time the tab opens (and when the app comes back to it), not only when the ViewModel is new: the bottom
     // bar keeps this tab's ViewModel while another tab is open.
     LifecycleStartEffect(viewModel) {
-        viewModel.refresh()
+        viewModel.load()
         onStopOrDispose { }
     }
     BudgetsScreen(state = state, onRefresh = viewModel::refresh)
