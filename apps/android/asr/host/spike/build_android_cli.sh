@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: build_android_cli.sh [build-root]
-# Cross-compiles the pinned llama.cpp (android/asr/third_party/llama.cpp) for arm64-v8a with the NDK and
+# Cross-compiles the pinned llama.cpp (apps/android/asr/third_party/llama.cpp) for arm64-v8a with the NDK and
 # installs llama-mtmd-cli plus the ggml CPU variant .so files. Output stays outside the repo.
 set -euo pipefail
 

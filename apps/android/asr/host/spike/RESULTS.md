@@ -96,10 +96,10 @@ Provisional GO to continue with Task 2 using 0.6B Q8_0, auto mode. Amount scorin
 ## Reproduce
 
 ```
-android/asr/host/spike/build_llamacpp.sh ~/.cache/budgetwise-eval/llama.cpp
-python3 -I android/asr/host/spike/make_clips.py          # needs fleurs/test.tsv + test.tar.gz
-android/asr/host/spike/run_matrix.sh ~/.cache/budgetwise-eval/llama.cpp/build/bin ~/.cache/budgetwise-eval ~/.cache/budgetwise-eval/clips/clips.jsonl
-python3 -m pytest android/asr/host/spike/test_run_spike.py
+apps/android/asr/host/spike/build_llamacpp.sh ~/.cache/budgetwise-eval/llama.cpp
+python3 -I apps/android/asr/host/spike/make_clips.py          # needs fleurs/test.tsv + test.tar.gz
+apps/android/asr/host/spike/run_matrix.sh ~/.cache/budgetwise-eval/llama.cpp/build/bin ~/.cache/budgetwise-eval ~/.cache/budgetwise-eval/clips/clips.jsonl
+python3 -m pytest apps/android/asr/host/spike/test_run_spike.py
 ```
 
 ## Gate G2 (PASS on the warm path for one flagship phone; CLI bench and 1.7B PENDING)
@@ -115,14 +115,14 @@ Clips (10 FLEURS my_mm, no budget-phrase audio exists): fleurs_02 (6.7 s), fleur
 Run (phone connected, USB debugging on; `SERIAL` from `adb devices`):
 
 ```
-android/asr/host/spike/build_android_cli.sh
+apps/android/asr/host/spike/build_android_cli.sh
 M=~/.cache/budgetwise-eval/raj-0.6b/gguf
 C=~/.cache/budgetwise-eval/clips/wav
 for T in 2 4; do
-  android/asr/host/spike/bench_phone.sh "$SERIAL" q8_0-t$T "$M/Raj-0.6B-Q8_0.gguf" "$M/mmproj-Raj-0.6B-Q8_0.gguf" "$C" $T > g2-q8_0-t$T.csv
+  apps/android/asr/host/spike/bench_phone.sh "$SERIAL" q8_0-t$T "$M/Raj-0.6B-Q8_0.gguf" "$M/mmproj-Raj-0.6B-Q8_0.gguf" "$C" $T > g2-q8_0-t$T.csv
 done
 # fallback if Q8_0 fails: Q4_K_M at 2 threads
-android/asr/host/spike/bench_phone.sh "$SERIAL" q4km-t2 "$M/Raj-0.6B-Q4_K_M.gguf" "$M/mmproj-Raj-0.6B-Q8_0.gguf" "$C" 2 > g2-q4km-t2.csv
+apps/android/asr/host/spike/bench_phone.sh "$SERIAL" q4km-t2 "$M/Raj-0.6B-Q4_K_M.gguf" "$M/mmproj-Raj-0.6B-Q8_0.gguf" "$C" 2 > g2-q4km-t2.csv
 ```
 
 Output is CSV `id,audio_ms,wall_ms,rtf,vmhwm_kb`. Each clip runs in a fresh process, so wall_ms and rtf include process start and model load, and the first row is also cold (`# cold: <id>` on stderr). This is a load-inclusive upper bound. By controller ruling, the G2 p50 RTF threshold is judged on the warm production path from `OnDeviceBenchmarkTest` (instrumented, Task 11b, excludes warmUp); this CLI benchmark supplies the 2 vs 4 thread comparison, SIGILL detection, the CPU variant and VmHWM. Other output: SoC, MemTotal, `asimddp`/`i8mm` features and the loaded CPU variant are printed to stderr as `#` lines. A SIGILL (exit 132 or "Illegal instruction") aborts the run with exit status 3.
@@ -139,4 +139,4 @@ G2 thresholds on P1 (4 GB, Helio G85/G99 or Snapdragon 680 class), chosen 0.6B q
 
 Accuracy on the phone: pooled SER 21.4% on the 30 clips against 19.8% for the Mac golden (VAD trim plus CPU kernels; 3 of 30 transcripts identical). Model load without mmap: 8.4 s (5.5 s with mmap).
 
-If P1 fails: retry Q4_K_M at 2 threads, then NO-GO (Decision 5). Self-test (no phone, NDK or models): `bash android/asr/host/spike/bench_phone.sh --self-test`.
+If P1 fails: retry Q4_K_M at 2 threads, then NO-GO (Decision 5). Self-test (no phone, NDK or models): `bash apps/android/asr/host/spike/bench_phone.sh --self-test`.

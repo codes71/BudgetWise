@@ -6,11 +6,11 @@ Task 1 harness (C=~/.cache/budgetwise-eval, clips file = the PARITY_IDS rows of 
   $C/llama.cpp/build/bin/llama-server -m $C/raj-0.6b/gguf/Raj-0.6B-Q8_0.gguf \
     --mmproj $C/raj-0.6b/gguf/mmproj-Raj-0.6B-Q8_0.gguf -c 4096 --temp 0 --port 8089 \
     -ngl 0 --no-mmproj-offload -t 4
-  python3 -I android/asr/host/spike/run_spike.py --server http://127.0.0.1:8089 \
+  python3 -I apps/android/asr/host/spike/run_spike.py --server http://127.0.0.1:8089 \
     --clips parity_clips.jsonl --mode auto --label raj-0.6b-q8_0-cpu \
-    --out android/asr/host/tests/golden_cpu_server_auto.jsonl
+    --out apps/android/asr/host/tests/golden_cpu_server_auto.jsonl
 
-Build raj-host first (see android/asr/host/README.md). Skips when models or clips are missing.
+Build raj-host first (see apps/android/asr/host/README.md). Skips when models or clips are missing.
 """
 import json
 import os

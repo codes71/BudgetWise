@@ -5,7 +5,7 @@ plugins {
 // Short SHA of the pinned llama.cpp checkout, reported in AsrResult.modelId.
 if (!file("third_party/llama.cpp/.git").exists()) {
     throw GradleException(
-        "third_party/llama.cpp is not initialized. Run: git submodule update --init android/asr/third_party/llama.cpp",
+        "third_party/llama.cpp is not initialized. Run: git submodule update --init apps/android/asr/third_party/llama.cpp",
     )
 }
 val llamaCppSha = providers.exec {

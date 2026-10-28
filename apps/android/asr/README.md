@@ -6,7 +6,7 @@ On-device Burmese speech recognition with Raj (Qwen3-ASR based) through llama.cp
 
 A clean build downloads KleidiAI v1.24.0 from GitHub during CMake configure (the archive is MD5-pinned by
 llama.cpp), so CI and fresh checkouts need network access. The llama.cpp submodule must be initialized:
-`git submodule update --init android/asr/third_party/llama.cpp`.
+`git submodule update --init apps/android/asr/third_party/llama.cpp`.
 
 ## Using :asr from the app
 
