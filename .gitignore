@@ -1,0 +1,7 @@
+# Repo-wide ignores. The web app (apps/web/.gitignore) and the Android project
+# (apps/android/.gitignore) keep their own.
+.DS_Store
+.env*
+
+# Vercel CLI link and prebuilt output; web-deploy.yml runs the CLI from the repo root.
+.vercel
