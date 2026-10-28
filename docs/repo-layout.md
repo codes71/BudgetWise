@@ -31,8 +31,8 @@ Compared with `feat/m1-android` (head `fa88747`), the most complete line.
 | feat/ws3-raj-asr | 1fd9835 | nothing | yes |
 | ws3-spike | ee0e814 | 2 commits, but both are already in as 8f51436 and 54f14a0 | yes |
 | feat/claude-ai-android-voice-plan | aeb5952 | nothing | yes |
-| feat/firestore | 761dd38 | 3 commits so far, still being written | no upstream |
-| feat/android-accounts | f7b0ea0 | 4 commits so far, still being written | no upstream |
+| feat/firestore | 165b047 | 4 commits, final | no upstream |
+| feat/android-accounts | 2c2b0a7 | 6 commits, final | no upstream |
 
 `chore/monorepo` starts at `fa88747` and merges the two branches that were not fully in:
 
@@ -44,7 +44,22 @@ Compared with `feat/m1-android` (head `fa88747`), the most complete line.
   The Genkit build step and `src/ai/genkit-build.ts` were dropped: the AI flows now call Claude. The tree did not
   change.
 
-`feat/firestore` and `feat/android-accounts` are not merged (their agents are still working).
+After the move and path fixes, both feature branches were merged at their final heads:
+
+- `feat/firestore` at 761dd38 (merge 02031a3), then its Java 21 fix 165b047 (merge 5600d1b, no conflicts): git
+  carried every changed and new file into `apps/web`. The eleven Mongo-era files it deletes came up as
+  rename/delete conflicts and were deleted. `firebase.json`, which it adds at the repo root, was moved to
+  `apps/web/firebase.json` next to `.firebaserc`.
+- `feat/android-accounts` at 6326b23 (merge 01ec203), then its top bar fix 2c2b0a7 (merge 57f06e0, no conflicts): every file landed in `apps/android`, including the Room v3
+  schema `core/data/schemas/.../3.json` and the new tests. Its two deleted files (`ic_dns.xml`,
+  `AuthInterceptor.kt`) were deleted.
+
+In both merges every file from the branch is byte-identical under `apps/`, except files this branch had already
+edited for the move, which the feature branches did not touch.
+
+Verified on the merged tree (2026-10-29): in `apps/web`, `npm test` (Firestore emulator) passes 109 of 109 and
+`npm run build` passes with no database settings; in `apps/android`, unit tests pass for :core:data (166), :app
+(115) and :nlu (2), and `:app:assembleDebug` and lint (0 errors) pass.
 
 ## Worktrees and other folders (survey, 2026-10-29)
 
@@ -53,8 +68,8 @@ Compared with `feat/m1-android` (head `fa88747`), the most complete line.
 | BudgetWise | feat/claude-ai-android-voice-plan | 96 file-mode-only changes from a folder copy (no content changes); untracked `firebaserc`, `gitignore` (dotless copies), `pnpm-lock.yaml` | `.env.local`, `.genkit/` |
 | BudgetWise-api | feat/m1-api | none | `.env.m1-test` (local test account), `.superpowers/sdd/` ledger |
 | BudgetWise-app | feat/m1-android | none; a dev server runs from it on port 9002 | `.superpowers/sdd/` ledgers and `m1-rulings-and-device-checklist.md` |
-| BudgetWise-firestore | feat/firestore | active work | `firestore-debug.log` |
-| BudgetWise-android-accounts | feat/android-accounts | active work | `android/local.properties` |
+| BudgetWise-firestore | feat/firestore | none | `firestore-debug.log` |
+| BudgetWise-android-accounts | feat/android-accounts | none | `android/local.properties` |
 | BudgetWise-ws3 | feat/ws3-raj-asr | none | `.superpowers/sdd/` ledger, initialized llama.cpp submodule, native build caches |
 | BudgetWise-ws3-spike | ws3-spike | only `__pycache__/` | none |
 | BudgetWise-mono | chore/monorepo | none | `apps/android/local.properties`, `apps/web/node_modules` |
@@ -90,9 +105,9 @@ following commits fix what the move broke:
 Notes:
 
 - Pushes to other branches do not run CI; open a PR for that.
-- web-ci sets up Java 21, not 17: the Firestore emulator in firebase-tools 15 refuses anything older.
-- The web build needs a `MONGODB_URI` value only because `src/lib/db.ts` checks it on import; CI passes a
-  placeholder and never connects. Drop it once feat/firestore (which deletes `db.ts`) is merged.
+- web-ci sets up Java 21, not 17: `npm test` starts the Firestore emulator from the firebase-tools 15
+  devDependency, and that version refuses anything older (`MIN_SUPPORTED_JAVA_MAJOR_VERSION = 21`).
+- The web build needs no secrets or database URL; `next build` never opens Firestore.
 - `next lint` has no ESLint config or dependency yet, so the lint step stays off until one is added.
 - android-ci builds no native code and runs no instrumented tests. The ASR modules need the NDK, CMake and the
   llama.cpp submodule; checkout leaves the submodule out, so Gradle skips them.
@@ -140,39 +155,23 @@ One-time settings:
 
 ### a. Merge feat/firestore and feat/android-accounts
 
-Run these once each agent has committed everything. Git follows the renames into `apps/`. Files a branch
-deleted show up as rename/delete conflicts, and new files at the repo root stay at the root. Both trial merges
-were run in a throwaway clone on 2026-10-29 (feat/firestore at 761dd38, feat/android-accounts at f7b0ea0): every
-file from each branch landed under `apps/` unchanged, and the merged Android tree built with its tests passing
-(core:data 166, app 114; Gradle reused the branch's own results because the inputs were identical).
+Done on 2026-10-29 (see "What each branch held"). For any later work on those branches, or any other branch
+cut from the old layout, merge the same way:
 
 ```sh
 cd /Users/code/Projects/BudgetWise-mono
-git -c merge.directoryRenames=true merge --no-ff feat/firestore
-# files the branch deleted: accept the deletion
-git status --short | awk '$1=="UD"{print $2}' | xargs git rm
-# feat/firestore adds firebase.json at the root; it belongs next to .firebaserc
-git mv firebase.json apps/web/firebase.json
+git -c merge.directoryRenames=true merge --no-ff <branch>
+git status --short | awk '$1=="UD"{print $2}' | xargs git rm   # only if git reports rename/delete
 git ls-files | grep -E '^(src|tests|scripts|public|android)/'   # must print nothing
-git status --short | grep '^U'                                  # must print nothing
-git commit --no-edit
-
-git -c merge.directoryRenames=true merge --no-ff feat/android-accounts
-git status --short | awk '$1=="UD"{print $2}' | xargs git rm
-git ls-files | grep '^android/'                                 # must print nothing
 git commit --no-edit
 ```
 
-After each merge, list new files outside `apps/`, `docs/`, `brand/` and `.github/` and move any that belong to an
-app:
+Also list new files outside `apps/`, `docs/`, `brand/` and
+`.github/` and move the ones that belong to an app:
 
 ```sh
 git diff --name-only --diff-filter=A HEAD^1 HEAD | grep -vE '^(apps|docs|brand|\.github)/'
 ```
-
-Then verify: `cd apps/web && npm ci && npx vitest run && npm run build` (the Firestore tests need Java 21), and
-`cd apps/android && ./gradlew :core:data:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`. Update the
-README lines from feat/firestore that say "project root" for `.env.local` to `apps/web`.
 
 ### b. Make /Users/code/Projects/BudgetWise the one folder
 
@@ -183,7 +182,8 @@ After chore/monorepo is merged to master (needs the owner's go-ahead to push):
 2. Compare the untracked `firebaserc` and `gitignore` with the tracked dotfiles and delete them; delete
    `pnpm-lock.yaml` (the app uses npm).
 3. `git switch master && git pull`.
-4. Move `.env.local` to `apps/web/.env.local` and copy `android/local.properties` from another worktree to
+4. Move `.env.local` to `apps/web/.env.local` (it now needs the Firestore variables from the README, not
+   `MONGODB_URI`) and copy `android/local.properties` from another worktree to
    `apps/android/local.properties`.
 5. Delete the old root build folders (`node_modules`, `.next`, `.genkit`, `tsconfig.tsbuildinfo`) and run
    `npm ci` in `apps/web`.
@@ -198,6 +198,6 @@ ignored files, so copy any `.superpowers/` ledger you want first.
 - BudgetWise-app: merged and pushed; stop the port 9002 dev server, copy the ledgers and the device checklist, then remove.
 - BudgetWise-ws3: merged and pushed; copy its ledger if wanted, then remove.
 - BudgetWise-ws3-spike: merged and pushed, nothing local; remove.
-- BudgetWise-firestore: not pushed and still active; remove only after it is merged into chore/monorepo.
-- BudgetWise-android-accounts: not pushed and still active; remove only after it is merged into chore/monorepo.
+- BudgetWise-firestore: merged at 165b047, never pushed on its own; remove once chore/monorepo is pushed.
+- BudgetWise-android-accounts: merged at 2c2b0a7, never pushed on its own; remove once chore/monorepo is pushed.
 - BudgetWise-mono: remove after chore/monorepo is on master and `BudgetWise` has switched to it.
