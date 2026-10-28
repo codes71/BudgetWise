@@ -10,7 +10,6 @@ import app.budgetwise.data.repo.AuthRepository
 import app.budgetwise.data.repo.BudgetRepository
 import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.LoginResult
-import app.budgetwise.data.repo.LogoutResult
 import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.repo.TransactionRepository
 import app.budgetwise.data.sync.SyncEngine
@@ -28,11 +27,21 @@ import kotlinx.coroutines.withContext
 // What the shell screens need from :core:data. They are interfaces so ViewModel tests can use fakes; di/AppModule
 // binds the implementations below, which only delegate.
 
-/** Sign-in and sign-out, as [AuthRepository] does them (it also schedules the syncs after a sign-in). */
+/**
+ * Sign-in and sign-out, as [AuthRepository] does them (it also schedules the syncs after a sign-in). Neither deletes an
+ * entry: every account keeps its own on the phone.
+ */
 interface AccountActions {
-    suspend fun login(email: String, password: String, discardOtherUsersData: Boolean = false): LoginResult
+    /** Online, or offline for an account used on this phone before. */
+    suspend fun login(email: String, password: String): LoginResult
 
-    suspend fun logout(force: Boolean): LogoutResult
+    /** Never asks: entries not uploaded yet keep uploading in the background. */
+    suspend fun logout()
+}
+
+/** Loads the saved accounts at process start ([AuthRepository.loadSession]); [AppStartup] calls it once. */
+fun interface SessionLoader {
+    suspend fun load()
 }
 
 /** Sync state for Settings. The UI never reads the network, only these flows. */
@@ -45,10 +54,10 @@ interface SyncControls {
     /** True while a one-time sync waits to run: no connection yet, or backing off after a failure. */
     val queued: Flow<Boolean>
 
-    /** Rows the server has not confirmed yet (queued, rejected, or awaiting delete). */
+    /** The active account's rows the server has not confirmed yet (queued, rejected, or awaiting delete). */
     val unsyncedCount: Flow<Int>
 
-    /** Pushes the outbox, then runs a full pull, as soon as there is a connection. */
+    /** Pushes the outboxes, then runs a full pull of the active account, as soon as there is a connection. */
     fun syncNow()
 }
 
@@ -79,13 +88,16 @@ interface CategorySource {
 
 /**
  * Both calls run to the end even when the screen that started them goes away (signing out pops Settings while the
- * second wipe is still running): each changes the session and local data in steps that must not stop half way.
+ * session is still being saved): each changes the session and local data in steps that must not stop half way.
  */
 class DefaultAccountActions @Inject constructor(private val auth: AuthRepository) : AccountActions {
-    override suspend fun login(email: String, password: String, discardOtherUsersData: Boolean) =
-        withContext(NonCancellable) { auth.login(email, password, discardOtherUsersData) }
+    override suspend fun login(email: String, password: String) = withContext(NonCancellable) { auth.login(email, password) }
 
-    override suspend fun logout(force: Boolean) = withContext(NonCancellable) { auth.logout(force) }
+    override suspend fun logout() = withContext(NonCancellable) { auth.logout() }
+}
+
+class DefaultSessionLoader @Inject constructor(private val auth: AuthRepository) : SessionLoader {
+    override suspend fun load() = auth.loadSession()
 }
 
 class DefaultSyncControls @Inject constructor(

@@ -26,12 +26,15 @@ sealed interface NetLogging {
     class Debug(val sink: (String) -> Unit = { android.util.Log.d("BudgetWiseNet", it) }) : NetLogging
 }
 
-fun createOkHttpClient(bearer: BearerProvider, logging: NetLogging): OkHttpClient =
+/**
+ * No interceptor adds a token: each authenticated [ApiService] call names the token of the account it is for, so a
+ * call made for one account can never go out with another account's token.
+ */
+fun createOkHttpClient(logging: NetLogging): OkHttpClient =
     OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
-        .addInterceptor(AuthInterceptor(bearer))
         .apply {
             if (logging is NetLogging.Debug) {
                 addInterceptor(
@@ -59,8 +62,8 @@ fun createApiService(baseUrl: String, client: OkHttpClient, json: Json = WireJso
 object NetModule {
     @Provides
     @Singleton
-    fun okHttpClient(bearer: BearerProvider, config: NetConfig): OkHttpClient =
-        createOkHttpClient(bearer, if (config.debugLogging) NetLogging.Debug() else NetLogging.None)
+    fun okHttpClient(config: NetConfig): OkHttpClient =
+        createOkHttpClient(if (config.debugLogging) NetLogging.Debug() else NetLogging.None)
 
     @Provides
     @Singleton

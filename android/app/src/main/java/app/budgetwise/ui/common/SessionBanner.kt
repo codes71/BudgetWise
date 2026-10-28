@@ -34,7 +34,8 @@ sealed interface SessionNotice {
 fun sessionNoticeFor(session: SessionState, now: Instant): SessionNotice? = when (session) {
     SessionState.Expired -> SessionNotice.Expired
     is SessionState.SignedIn -> if (session.expiringSoon) SessionNotice.ExpiringSoon(daysLeft(session.expiresAt, now)) else null
-    SessionState.SignedOut -> null
+    // Signed in on the phone: the snackbar after sign-in already said the entries sync once online.
+    is SessionState.SignedInOffline, SessionState.SignedOut -> null
 }
 
 private fun daysLeft(expiresAt: Instant, now: Instant): Int {

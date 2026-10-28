@@ -10,10 +10,12 @@ import dagger.assisted.AssistedInject
 /**
  * Runs one [SyncEngine.syncOnce]; scheduled by [SyncScheduler].
  *
- * Only [SyncOutcome.RetryLater] asks WorkManager to retry (exponential backoff). [SyncOutcome.NeedsLogin]
- * finishes with success so a signed-out phone does not retry in a loop ([SessionManager][app.budgetwise.data.auth.SessionManager]
- * already shows the expired state), and [SyncOutcome.PermanentFailure] finishes with success because the
- * rejected rows are FAILED in Room, where the UI shows them.
+ * [SyncOutcome.RetryLater] asks WorkManager to retry (exponential backoff), and so does any outcome while another
+ * account on the phone still has entries its valid session could push ([SyncEngine.othersWaiting]). Otherwise
+ * [SyncOutcome.NeedsLogin] finishes with success so a signed-out phone does not retry in a loop
+ * ([SessionManager][app.budgetwise.data.auth.SessionManager] already shows the expired state), and
+ * [SyncOutcome.PermanentFailure] finishes with success because the rejected rows are FAILED in Room, where the UI
+ * shows them.
  *
  * :app wiring (Task 11). WorkManager must build workers through Hilt:
  * ```
@@ -40,11 +42,13 @@ class SyncWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val engine: SyncEngine,
 ) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result =
-        when (engine.syncOnce(fullPull = inputData.getBoolean(KEY_FULL_PULL, false))) {
-            SyncOutcome.RetryLater -> Result.retry()
-            is SyncOutcome.Success, SyncOutcome.NeedsLogin, is SyncOutcome.PermanentFailure -> Result.success()
+    override suspend fun doWork(): Result {
+        val retry = when (engine.syncOnce(fullPull = inputData.getBoolean(KEY_FULL_PULL, false))) {
+            SyncOutcome.RetryLater -> true
+            is SyncOutcome.Success, SyncOutcome.NeedsLogin, is SyncOutcome.PermanentFailure -> engine.othersWaiting()
         }
+        return if (retry) Result.retry() else Result.success()
+    }
 
     companion object {
         const val KEY_FULL_PULL = "fullPull"

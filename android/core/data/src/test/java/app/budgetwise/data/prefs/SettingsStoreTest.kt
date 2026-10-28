@@ -27,24 +27,24 @@ class SettingsStoreTest {
         assertFalse(s.autoSaveHighConfidence.first())
         assertFalse(s.cloudParseEnabled.first())
         assertFalse(s.myanmarDigits.first())
-        assertNull(s.lastPulledAt.first())
+        assertNull(s.lastPulledAt("u1").first())
     }
 
     @Test
-    fun flagsAndCursorRoundTripAndCursorClears() = runTest(UnconfinedTestDispatcher()) {
+    fun flagsAndPerAccountCursorsRoundTrip() = runTest(UnconfinedTestDispatcher()) {
         val s = store()
         s.setAutoSaveHighConfidence(true)
         s.setCloudParseEnabled(true)
         s.setMyanmarDigits(true)
         val at = Instant.parse("2026-10-21T06:00:00.123Z")
-        s.setLastPulledAt(at)
+        s.setLastPulledAt("u1", at)
         assertTrue(s.autoSaveHighConfidence.first())
         assertTrue(s.cloudParseEnabled.first())
         assertTrue(s.myanmarDigits.first())
-        assertEquals(at, s.lastPulledAt.first())
-        s.clearLastPulledAt()
-        assertNull(s.lastPulledAt.first())
-        assertTrue("clearing the cursor leaves the flags", s.cloudParseEnabled.first())
+        assertEquals(at, s.lastPulledAt("u1").first())
+        assertNull("each account has its own cursor", s.lastPulledAt("u2").first())
+        s.setLastPulledAt("u2", at.plusSeconds(60))
+        assertEquals(at, s.lastPulledAt("u1").first())
     }
 
     @Test
@@ -54,7 +54,7 @@ class SettingsStoreTest {
             createAppPreferences(backgroundScope) { tmp.root.resolve("corrupt.preferences_pb") },
         )
         assertFalse(s.myanmarDigits.first())
-        assertNull(s.lastPulledAt.first())
+        assertNull(s.lastPulledAt("u1").first())
         s.setMyanmarDigits(true)
         assertTrue(s.myanmarDigits.first())
     }

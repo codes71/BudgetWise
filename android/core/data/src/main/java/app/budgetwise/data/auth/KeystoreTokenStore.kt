@@ -33,10 +33,12 @@ private val Context.sessionDataStore: DataStore<Preferences> by preferencesDataS
 internal const val SESSION_KEY_ALIAS = "app.budgetwise.session.v1"
 
 /**
- * Session blob (token, expiry, user) encrypted with an AES-256/GCM key that lives in AndroidKeyStore.
- * Stored as Base64(iv || ciphertext) in Preferences DataStore. The token is never logged.
- * A missing or invalidated key (restore to a new device, OS change) makes the blob undecryptable;
- * [load] then clears it and returns null so the user simply signs in again.
+ * Every account on this phone (session, offline password check, sign-out mark) plus the active-account pointer, in one
+ * blob encrypted with an AES-256/GCM key that lives in AndroidKeyStore. Stored as Base64(iv || ciphertext) in
+ * Preferences DataStore, so a save replaces all of it at once. Tokens and checks are never logged.
+ * A missing or invalidated key (restore to a new device, OS change) makes the blob undecryptable; [load] then clears it
+ * and returns [SavedAccounts.EMPTY] so the user simply signs in again (online, since the offline checks went with it).
+ * The single-session blob of earlier versions is read once and rewritten in the new format.
  */
 @Singleton
 class KeystoreTokenStore @Inject constructor(
@@ -45,7 +47,26 @@ class KeystoreTokenStore @Inject constructor(
     private val dataStore = context.applicationContext.sessionDataStore
 
     @Serializable
-    private class Blob(
+    private class AccountsBlob(val active: String? = null, val accounts: List<AccountBlob> = emptyList())
+
+    @Serializable
+    private class AccountBlob(
+        val id: String,
+        val email: String,
+        val fullName: String,
+        val token: String? = null,
+        val expiresAtEpochMillis: Long? = null,
+        val check: CheckBlob? = null,
+        val signedOut: Boolean = false,
+    )
+
+    /** Salt and hash in Base64. */
+    @Serializable
+    private class CheckBlob(val salt: String, val hash: String, val iterations: Int)
+
+    /** The format before several accounts: one session, an empty token once it was rejected. */
+    @Serializable
+    private class LegacyBlob(
         val token: String,
         val expiresAtEpochMillis: Long,
         val id: String,
@@ -53,9 +74,8 @@ class KeystoreTokenStore @Inject constructor(
         val fullName: String,
     )
 
-    override suspend fun save(token: String, expiresAt: Instant, user: UserInfo) {
-        val blob = Blob(token, expiresAt.toEpochMilli(), user.id, user.email, user.fullName)
-        val plain = Json.encodeToString(Blob.serializer(), blob).toByteArray(Charsets.UTF_8)
+    override suspend fun save(accounts: SavedAccounts) {
+        val plain = json.encodeToString(AccountsBlob.serializer(), accounts.toBlob()).toByteArray(Charsets.UTF_8)
         val encoded = try {
             encrypt(plain)
         } catch (e: Exception) {
@@ -63,28 +83,86 @@ class KeystoreTokenStore @Inject constructor(
             deleteKey()
             encrypt(plain)
         }
-        dataStore.edit { it[KEY_SESSION] = encoded }
+        dataStore.edit {
+            it[KEY_ACCOUNTS] = encoded
+            it.remove(KEY_LEGACY_SESSION)
+        }
     }
 
-    override suspend fun load(): StoredSession? {
-        val encoded = dataStore.data.first()[KEY_SESSION] ?: return null
-        return try {
-            val json = String(decrypt(encoded), Charsets.UTF_8)
-            val b = Json.decodeFromString(Blob.serializer(), json)
-            StoredSession(b.token, Instant.ofEpochMilli(b.expiresAtEpochMillis), UserInfo(b.id, b.email, b.fullName))
+    override suspend fun load(): SavedAccounts {
+        val prefs = dataStore.data.first()
+        val encoded = prefs[KEY_ACCOUNTS]
+        val legacy = prefs[KEY_LEGACY_SESSION]
+        if (encoded == null && legacy == null) return SavedAccounts.EMPTY
+        val accounts = try {
+            if (encoded != null) {
+                json.decodeFromString(AccountsBlob.serializer(), String(decrypt(encoded), Charsets.UTF_8)).toAccounts()
+            } else {
+                val b = json.decodeFromString(LegacyBlob.serializer(), String(decrypt(legacy!!), Charsets.UTF_8))
+                SavedAccounts.of(StoredSession(b.token, Instant.ofEpochMilli(b.expiresAtEpochMillis), UserInfo(b.id, b.email, b.fullName)))
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             // Key invalidated or missing, corrupt blob, or schema drift: drop it and sign in again.
             deleteKey()
             clear()
-            null
+            return SavedAccounts.EMPTY
+        }
+        if (encoded == null) {
+            try {
+                save(accounts)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // The old blob stays and is read again next time; the session is not lost over a failed write.
+            }
+        }
+        return accounts
+    }
+
+    /** Removes everything, the old single-session blob included. */
+    internal suspend fun clear() {
+        dataStore.edit {
+            it.remove(KEY_ACCOUNTS)
+            it.remove(KEY_LEGACY_SESSION)
         }
     }
 
-    override suspend fun clear() {
-        dataStore.edit { it.remove(KEY_SESSION) }
-    }
+    private fun SavedAccounts.toBlob() = AccountsBlob(
+        active = activeId,
+        accounts = accounts.map { a ->
+            AccountBlob(
+                id = a.user.id,
+                email = a.user.email,
+                fullName = a.user.fullName,
+                token = a.access?.token,
+                expiresAtEpochMillis = a.access?.expiresAt?.toEpochMilli(),
+                check = a.check?.let { CheckBlob(it.salt.base64(), it.hash.base64(), it.iterations) },
+                signedOut = a.signedOut,
+            )
+        },
+    )
+
+    private fun AccountsBlob.toAccounts() = SavedAccounts(
+        activeId = active,
+        accounts = accounts.map { b ->
+            SavedAccount(
+                user = UserInfo(b.id, b.email, b.fullName),
+                access = if (b.token != null && b.expiresAtEpochMillis != null) {
+                    AccessToken(b.token, Instant.ofEpochMilli(b.expiresAtEpochMillis))
+                } else {
+                    null
+                },
+                check = b.check?.let { PasswordCheck(it.salt.unbase64(), it.hash.unbase64(), it.iterations) },
+                signedOut = b.signedOut,
+            )
+        },
+    )
+
+    private fun ByteArray.base64(): String = Base64.encodeToString(this, Base64.NO_WRAP)
+
+    private fun String.unbase64(): ByteArray = Base64.decode(this, Base64.NO_WRAP)
 
     private fun encrypt(plain: ByteArray): String {
         val cipher = Cipher.getInstance(TRANSFORMATION)
@@ -129,6 +207,8 @@ class KeystoreTokenStore @Inject constructor(
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val IV_BYTES = 12
         const val TAG_BITS = 128
-        val KEY_SESSION = stringPreferencesKey("session_v1")
+        val KEY_ACCOUNTS = stringPreferencesKey("accounts_v1")
+        val KEY_LEGACY_SESSION = stringPreferencesKey("session_v1")
+        val json = Json { ignoreUnknownKeys = true }
     }
 }

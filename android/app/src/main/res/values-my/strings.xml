@@ -25,17 +25,9 @@
     <plurals name="login_error_rate_limited_minutes">
         <item quantity="other">အကြိမ်များလွန်းနေပါသည်။ %d မိနစ်ကြာမှ ထပ်ကြိုးစားပါ။</item>
     </plurals>
-    <string name="login_error_network">BudgetWise နှင့် ချိတ်ဆက်၍ မရပါ။ အင်တာနက်ကို စစ်ကြည့်ပါ။</string>
+    <string name="login_error_needs_internet">ဤအကောင့်ဖြင့် ပထမဆုံးအကြိမ် ဝင်ရန် အင်တာနက် ချိတ်ဆက်ပါ။</string>
     <string name="login_error_server">BudgetWise က ယခု မတုံ့ပြန်နိုင်ပါ။ ခဏနေမှ ထပ်ကြိုးစားပါ။</string>
     <string name="login_error_generic">တစ်ခုခု မှားသွားပါသည်။ ထပ်ကြိုးစားပါ။</string>
-    <string name="login_discard_title">မစင့်ခ်ရသေးသော စာရင်းများကို ဖျက်မလား။</string>
-    <plurals name="login_discard_message">
-        <item quantity="other">ဤဖုန်းတွင် %2$s ၏ မစင့်ခ်ရသေးသော စာရင်း %1$d ခု ရှိပါသည်။ အခြားအကောင့်ဖြင့် ဝင်လျှင် ၎င်းတို့ ပျက်သွားပါမည်။</item>
-    </plurals>
-    <plurals name="login_discard_message_unknown">
-        <item quantity="other">ဤဖုန်းတွင် မစင့်ခ်ရသေးသော စာရင်း %d ခု ရှိပါသည်။ ဝင်လျှင် ၎င်းတို့ ပျက်သွားပါမည်။</item>
-    </plurals>
-    <string name="login_discard_confirm">ဖျက်ပြီး ဝင်မည်</string>
 
     <!-- Session banner (transactions screen) -->
     <string name="session_expired_message">ဝင်ထားချိန် ကုန်သွားပါပြီ။ စင့်ခ်လုပ်ရန် ပြန်ဝင်ပါ။</string>
@@ -78,6 +70,7 @@
     <string name="transactions_add_first">ပထမဆုံး သုံးငွေ ထည့်မည်</string>
     <string name="transactions_unreachable">BudgetWise နှင့် ချိတ်ဆက်၍ မရပါ။ စာရင်းများ ဤဖုန်းထဲတွင် ရှိနေပါသည်။</string>
     <string name="transactions_waiting_for_network">အင်တာနက် မရသေးပါ။ အင်တာနက်ရလျှင် စင့်ခ်လုပ်ပါမည်။</string>
+    <string name="transactions_signed_in_offline">အင်တာနက် မရှိဘဲ ဝင်ထားပါသည်။ အင်တာနက် ပြန်ရလျှင် စာရင်းများ စင့်ခ်လုပ်ပါမည်။</string>
 
     <!-- Add entry -->
     <string name="manual_title">စာရင်းသွင်းရန်</string>
@@ -142,11 +135,6 @@
     <string name="settings_all_synced">စာရင်းအားလုံး စင့်ခ်ပြီးပါပြီ</string>
     <string name="settings_sync_now">ယခု စင့်ခ်လုပ်မည်</string>
     <string name="settings_sign_out">အကောင့်မှ ထွက်မည်</string>
-    <string name="settings_sign_out_title">အကောင့်မှ ထွက်မလား။</string>
-    <plurals name="settings_sign_out_message">
-        <item quantity="other">စာရင်း %d ခု မစင့်ခ်ရသေးပါ။ ထွက်လျှင် ဤဖုန်းမှ ပျက်သွားပါမည်။</item>
-    </plurals>
-    <string name="settings_sign_out_anyway">ဖျက်ပြီး ထွက်မည်</string>
     <string name="settings_sign_out_failed">အကောင့်မှ ထွက်၍ မရပါ။ ထပ်ကြိုးစားပါ။</string>
     <string name="settings_server">ဆာဗာ</string>
     <string name="settings_version">ဗားရှင်း %1$s (%2$d)</string>

@@ -64,7 +64,7 @@ class SyncEngineTest {
         assertEquals(SyncOutcome.Success(pushed = 2, pulled = 0), h.engine.syncOnce())
         assertEquals(listOf(ids, ids), h.server.posts)
         assertEquals(2, h.server.rows.size)
-        assertEquals(2, h.tx.observeAll().first().size)
+        assertEquals(2, h.tx.observeAll("u1").first().size)
         assertTrue(h.pendingOps().isEmpty())
         ids.forEach { assertEquals(h.server.rows.getValue(it).id, h.tx.byClientId(it)!!.serverId) }
     }
@@ -88,7 +88,7 @@ class SyncEngineTest {
     @Test
     fun needsLoginWithoutNetworkWhenNoBearer() = runTest {
         h.addLocal(1)
-        h.session.signOut()
+        h.session.signOut(keepSession = false)
 
         assertEquals(SyncOutcome.NeedsLogin, h.engine.syncOnce())
 
@@ -109,7 +109,7 @@ class SyncEngineTest {
         assertTrue(local.deleted)
         assertEquals("Other", local.category)
         assertEquals(listOf(OutboxOp.DELETE), h.pendingOps().map { it.op })
-        assertTrue(h.tx.observeAll().first().isEmpty())
+        assertTrue(h.tx.observeAll("u1").first().isEmpty())
     }
 
     @Test
@@ -157,7 +157,7 @@ class SyncEngineTest {
         val outcome = h.engine.syncOnce(fullPull = true)
 
         assertEquals(SyncOutcome.Success(pushed = 0, pulled = 2), outcome)
-        assertEquals(setOf("a", "bad", "dec"), h.tx.observeAll().first().map { it.clientId }.toSet())
+        assertEquals(setOf("a", "bad", "dec"), h.tx.observeAll("u1").first().map { it.clientId }.toSet())
         assertEquals(1000L, h.tx.byClientId("bad")!!.amountKyat) // kept as it was, not removed by reconcile
         assertEquals(13L, h.tx.byClientId("dec")!!.amountKyat)
         val ours = ShadowLog.getLogsForTag(SYNC_LOG_TAG)
@@ -168,14 +168,14 @@ class SyncEngineTest {
 
     @Test
     fun incrementalPullSendsCursorInUtcAndAdvancesWithTwoMinuteOverlap() = runTest {
-        h.cursor.setLastPulledAt(Instant.parse("2026-10-21T05:00:30.123456Z"))
+        h.cursor.setLastPulledAt("u1", Instant.parse("2026-10-21T05:00:30.123456Z"))
         repeat(4) { h.server.put("r$it") } // updatedAt 05:01 .. 05:04
 
         assertEquals(SyncOutcome.Success(pushed = 0, pulled = 4), h.engine.syncOnce())
 
         assertEquals(listOf<String?>("2026-10-21T05:00:30.123Z"), h.server.gets)
         val newest = Instant.parse("2026-10-21T05:04:00Z")
-        assertEquals(newest.minus(Duration.ofMinutes(2)), h.cursor.lastPulledAt.first())
+        assertEquals(newest.minus(Duration.ofMinutes(2)), h.cursor.lastPulledAt("u1").first())
     }
 
     @Test
@@ -197,7 +197,7 @@ class SyncEngineTest {
 
         h.engine.enqueueDelete("c1")
 
-        assertTrue(h.tx.observeAll().first().isEmpty()) // hidden at once
+        assertTrue(h.tx.observeAll("u1").first().isEmpty()) // hidden at once
         assertEquals(SyncOutcome.Success(pushed = 1, pulled = 0), h.engine.syncOnce())
         assertTrue(h.server.rows.isEmpty())
         assertNull(h.tx.byClientId("c1"))
@@ -224,7 +224,7 @@ class SyncEngineTest {
         assertEquals(SyncOutcome.RetryLater, h.engine.syncOnce()) // the server has it, the phone does not know
 
         h.engine.enqueueDelete(id)
-        assertTrue(h.tx.observeAll().first().isEmpty())
+        assertTrue(h.tx.observeAll("u1").first().isEmpty())
 
         // The CREATE is resent to learn the server id, then the DELETE follows.
         assertEquals(SyncOutcome.Success(pushed = 2, pulled = 0), h.engine.syncOnce())
@@ -318,7 +318,7 @@ class SyncEngineTest {
         h.server.duringPost = { runBlocking { h.engine.enqueueDelete(id) } } // the op is visibly in flight
 
         assertEquals(SyncOutcome.RetryLater, h.engine.syncOnce())
-        assertTrue(h.tx.observeAll().first().isEmpty()) // hidden at once
+        assertTrue(h.tx.observeAll("u1").first().isEmpty()) // hidden at once
         assertEquals(listOf(OutboxOp.CREATE), h.pendingOps().map { it.op }) // kept to learn the server id
 
         h.server.duringPost = null
@@ -361,7 +361,7 @@ class SyncEngineTest {
         assertEquals(SyncOutcome.RetryLater, h.engine.syncOnce(fullPull = true))
 
         assertNotNull(h.tx.byClientId("c1"))
-        assertNull(h.cursor.lastPulledAt.first())
+        assertNull(h.cursor.lastPulledAt("u1").first())
     }
 
     @Test
@@ -407,6 +407,6 @@ class SyncEngineTest {
         assertEquals(listOf<String?>(null), h.server.gets) // the full pull ran and still listed x
         assertTrue(h.tx.byClientId("x")!!.deleted)
         assertEquals(OutboxOp.DELETE, h.pendingOps().single { it.clientId == "x" }.op)
-        assertEquals(created, h.tx.observeAll().first().map { it.clientId }) // x stays hidden
+        assertEquals(created, h.tx.observeAll("u1").first().map { it.clientId }) // x stays hidden
     }
 }

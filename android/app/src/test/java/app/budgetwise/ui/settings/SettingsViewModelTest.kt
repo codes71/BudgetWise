@@ -1,8 +1,9 @@
 package app.budgetwise.ui.settings
 
+import app.budgetwise.data.auth.PasswordCheck
 import app.budgetwise.data.auth.SessionManager
+import app.budgetwise.data.auth.SessionState
 import app.budgetwise.data.auth.StoredSession
-import app.budgetwise.data.repo.LogoutResult
 import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
 import app.budgetwise.testing.FakeAccountActions
@@ -23,7 +24,6 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -46,62 +46,50 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun signOutWithUnsyncedRowsAsksFirst() = runTest {
-        accounts.onLogout = { force -> if (force) LogoutResult.SignedOut else LogoutResult.NeedsConfirmation(3) }
+    fun signOutNeverAsksEvenWithUnsyncedRows() = runTest {
+        sync.unsyncedCount.value = 3
         val vm = vm()
 
-        vm.signOut(force = false)
+        vm.signOut()
 
-        assertEquals(listOf(false), accounts.logouts)
-        assertEquals(3, vm.state.value.signOutPrompt)
+        assertEquals(1, accounts.logouts)
         assertFalse(vm.state.value.signingOut)
-
-        vm.signOut(force = true)
-
-        assertEquals(listOf(false, true), accounts.logouts)
-        assertNull(vm.state.value.signOutPrompt)
-    }
-
-    @Test
-    fun dismissingTheSignOutPromptKeepsTheSession() = runTest {
-        accounts.onLogout = { LogoutResult.NeedsConfirmation(1) }
-        val vm = vm()
-
-        vm.signOut(force = false)
-        vm.dismissSignOut()
-
-        assertNull(vm.state.value.signOutPrompt)
-        assertEquals(listOf(false), accounts.logouts)
-    }
-
-    @Test
-    fun signOutWithEverythingSyncedDoesNotAsk() = runTest {
-        val vm = vm()
-
-        vm.signOut(force = false)
-
-        assertEquals(listOf(false), accounts.logouts)
-        assertNull(vm.state.value.signOutPrompt)
+        assertFalse(vm.state.value.signOutFailed)
     }
 
     @Test
     fun anUnexpectedSignOutExceptionShowsAnErrorAndEndsSigningOut() = runTest {
-        // AuthRepository can throw on a Room or Keystore failure instead of returning a result.
+        // AuthRepository can throw on a Room or Keystore failure.
         accounts.onLogout = { throw IllegalStateException("database closed") }
         val vm = vm()
 
-        vm.signOut(force = false)
+        vm.signOut()
 
         assertFalse(vm.state.value.signingOut)
         assertTrue(vm.state.value.signOutFailed)
-        assertNull(vm.state.value.signOutPrompt)
 
         // Trying again clears the error and is not blocked by a stuck "signing out".
-        accounts.onLogout = { LogoutResult.SignedOut }
-        vm.signOut(force = false)
+        accounts.onLogout = {}
+        vm.signOut()
 
-        assertEquals(listOf(false, false), accounts.logouts)
+        assertEquals(2, accounts.logouts)
         assertFalse(vm.state.value.signOutFailed)
+    }
+
+    @Test
+    fun anOfflineSignInShowsTheAccountAndCanSync() = runTest {
+        val session = SessionManager(FakeTokenStore(), Clock.fixed(now, ZoneOffset.UTC))
+        runBlocking {
+            session.signIn("tok", now.plus(Duration.ofDays(20)), TestUser, PasswordCheck(ByteArray(16), ByteArray(32) { 1 }, 1))
+            session.onUnauthorized()
+            session.signInOffline(TestUser.id, "pw")
+        }
+        assertEquals(SessionState.SignedInOffline(TestUser), session.state.value)
+        val vm = vm(session)
+
+        assertEquals(TestUser.email, vm.state.value.account?.email)
+        assertFalse(vm.state.value.sessionExpired)
+        assertTrue("syncing is what trades the password for a session", vm.state.value.canSyncNow)
     }
 
     @Test

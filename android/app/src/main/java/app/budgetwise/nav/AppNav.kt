@@ -54,7 +54,7 @@ object Routes {
 
 /** Expired stays in the app (local data visible, a banner asks to sign in); only signed out starts at sign-in. */
 fun startDestinationFor(session: SessionState): String = when (session) {
-    is SessionState.SignedIn, SessionState.Expired -> Routes.TRANSACTIONS
+    is SessionState.SignedIn, is SessionState.SignedInOffline, SessionState.Expired -> Routes.TRANSACTIONS
     SessionState.SignedOut -> Routes.LOGIN
 }
 
@@ -104,6 +104,9 @@ fun AppNav(
     var tabsOwner by rememberSaveable { mutableStateOf<String?>(null) }
     fun forgetSavedTabs() = TopLevels.forEach { navController.clearBackStack(it.route) }
 
+    // Set by a sign-in made on the phone without the server, until Transactions has said so in its snackbar.
+    var offlineSignInNotice by rememberSaveable { mutableStateOf(false) }
+
     // The NavHost sets the graph while it composes, which can come after this effect first runs (first composition).
     // Until the first back stack entry exists there is no graph to read and nothing saved to clear, so the effect waits
     // and runs again once it does.
@@ -124,6 +127,10 @@ fun AppNav(
             }
             // Also an account switch straight from an expired session, which never passes through SignedOut.
             is SessionState.SignedIn -> if (session.user.id != tabsOwner) {
+                forgetSavedTabs()
+                tabsOwner = session.user.id
+            }
+            is SessionState.SignedInOffline -> if (session.user.id != tabsOwner) {
                 forgetSavedTabs()
                 tabsOwner = session.user.id
             }
@@ -172,11 +179,12 @@ fun AppNav(
                 val canGoBack = remember { navController.previousBackStackEntry != null }
                 val close = dropUnlessResumed { navController.popBackStack() }
                 LoginRoute(
-                    onSignedIn = {
+                    onSignedIn = { offline ->
                         navController.navigate(Routes.TRANSACTIONS) {
                             popUpTo(navController.graph.id) { inclusive = true }
                             launchSingleTop = true
                         }
+                        offlineSignInNotice = offline
                     },
                     onClose = if (canGoBack) close else null,
                 )
@@ -184,6 +192,8 @@ fun AppNav(
             composable(Routes.TRANSACTIONS) {
                 TransactionsRoute(
                     sessionNotice = notice,
+                    signedInOffline = offlineSignInNotice,
+                    onSignedInOfflineShown = { offlineSignInNotice = false },
                     onSignIn = ::openSignIn,
                     onAddManual = { navController.navigate(Routes.MANUAL) { launchSingleTop = true } },
                 )

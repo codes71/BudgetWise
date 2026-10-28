@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,7 +31,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -71,9 +68,7 @@ fun SettingsRoute(onSignIn: () -> Unit, viewModel: SettingsViewModel = hiltViewM
         state = state,
         now = rememberTickingNow(),
         onSyncNow = viewModel::syncNow,
-        onSignOut = { viewModel.signOut(force = false) },
-        onConfirmSignOut = { viewModel.signOut(force = true) },
-        onDismissSignOut = viewModel::dismissSignOut,
+        onSignOut = viewModel::signOut,
         onMyanmarDigitsChange = viewModel::setMyanmarDigits,
         onSignIn = onSignIn,
         serverUrl = if (BuildConfig.DEBUG) BuildConfig.API_BASE_URL else null,
@@ -88,8 +83,6 @@ fun SettingsScreen(
     now: Instant,
     onSyncNow: () -> Unit,
     onSignOut: () -> Unit,
-    onConfirmSignOut: () -> Unit,
-    onDismissSignOut: () -> Unit,
     onMyanmarDigitsChange: (Boolean) -> Unit,
     onSignIn: () -> Unit,
     serverUrl: String?,
@@ -149,34 +142,6 @@ fun SettingsScreen(
                 )
             }
         }
-    }
-
-    state.signOutPrompt?.let { count ->
-        AlertDialog(
-            onDismissRequest = onDismissSignOut,
-            iconContentColor = MaterialTheme.colorScheme.error,
-            icon = { Icon(painterResource(R.drawable.ic_logout), contentDescription = null) },
-            title = { Text(stringResource(R.string.settings_sign_out_title), style = MaterialTheme.typography.headlineSmall) },
-            text = {
-                Text(
-                    pluralStringResource(R.plurals.settings_sign_out_message, count, count),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = onConfirmSignOut,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) {
-                    Text(stringResource(R.string.settings_sign_out_anyway), style = MaterialTheme.typography.labelLarge)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismissSignOut) {
-                    Text(stringResource(R.string.action_cancel), style = MaterialTheme.typography.labelLarge)
-                }
-            },
-        )
     }
 }
 
@@ -382,8 +347,6 @@ private fun SettingsScreenPreview() {
             now = now,
             onSyncNow = {},
             onSignOut = {},
-            onConfirmSignOut = {},
-            onDismissSignOut = {},
             onMyanmarDigitsChange = {},
             onSignIn = {},
             serverUrl = "http://127.0.0.1:9002/api/v1/",

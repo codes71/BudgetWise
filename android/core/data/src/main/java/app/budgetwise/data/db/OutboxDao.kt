@@ -9,8 +9,9 @@ interface OutboxDao {
     @Insert
     suspend fun enqueue(o: OutboxEntity)
 
-    @Query("SELECT * FROM outbox ORDER BY seq LIMIT :n")
-    suspend fun head(n: Int): List<OutboxEntity>
+    /** The first [n] ops of [owner], in the order they were queued. */
+    @Query("SELECT * FROM outbox WHERE ownerId = :owner ORDER BY seq LIMIT :n")
+    suspend fun head(owner: String, n: Int): List<OutboxEntity>
 
     @Query("DELETE FROM outbox WHERE seq IN (:seqs)")
     suspend fun ack(seqs: List<Long>)
@@ -30,6 +31,13 @@ interface OutboxDao {
     @Query("DELETE FROM outbox WHERE clientId = :clientId")
     suspend fun dropFor(clientId: String)
 
-    @Query("DELETE FROM outbox")
-    suspend fun deleteAll()
+    /** Every account with at least one queued op. */
+    @Query("SELECT DISTINCT ownerId FROM outbox WHERE ownerId IS NOT NULL")
+    suspend fun owners(): List<String>
+
+    @Query("SELECT COUNT(*) FROM outbox WHERE ownerId = :owner")
+    suspend fun countFor(owner: String): Int
+
+    @Query("UPDATE outbox SET ownerId = :owner WHERE ownerId IS NULL")
+    suspend fun claimUnowned(owner: String)
 }

@@ -2,7 +2,9 @@ package app.budgetwise.data.sync
 
 import android.util.Log
 import androidx.room.withTransaction
+import app.budgetwise.data.auth.PasswordCheck
 import app.budgetwise.data.auth.SessionManager
+import app.budgetwise.data.auth.toGrant
 import app.budgetwise.data.db.BudgetWiseDb
 import app.budgetwise.data.db.OutboxEntity
 import app.budgetwise.data.db.OutboxOp
@@ -14,11 +16,13 @@ import app.budgetwise.data.model.Transaction
 import app.budgetwise.data.net.ApiResult
 import app.budgetwise.data.net.ApiService
 import app.budgetwise.data.net.InvalidWireDataException
+import app.budgetwise.data.net.LoginBody
 import app.budgetwise.data.net.NETWORK_ERROR_CODE
 import app.budgetwise.data.net.SavedResponse
 import app.budgetwise.data.net.TransactionDto
 import app.budgetwise.data.net.TransactionInput
 import app.budgetwise.data.net.TransactionsRequest
+import app.budgetwise.data.net.authorization
 import app.budgetwise.data.net.safeApi
 import app.budgetwise.data.net.safeApiResponse
 import app.budgetwise.data.net.toDomain
@@ -29,21 +33,29 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 internal const val SYNC_LOG_TAG = "BudgetWiseSync"
 
-/** Result of one [SyncEngine.syncOnce] run. Every `pushed` count is outbox ops the server confirmed. */
+/**
+ * Result of one [SyncEngine.syncOnce] run, for the active account (what Settings shows). Every `pushed` count is outbox
+ * ops the server confirmed.
+ */
 sealed interface SyncOutcome {
     /** The outbox drained and the pull applied. [pulled] counts local rows the pull inserted, changed or removed. */
     data class Success(val pushed: Int, val pulled: Int) : SyncOutcome
 
-    /** No usable token, or the server answered 401. The outbox is kept; sync pauses until the user signs in again. */
+    /**
+     * Signed out, no usable token, or the server answered 401. The outbox is kept; sync pauses until the user signs in
+     * again.
+     */
     data object NeedsLogin : SyncOutcome
 
     /**
@@ -69,7 +81,17 @@ sealed interface SyncStatus {
 }
 
 /**
- * Pushes the outbox (in [seq][OutboxEntity.seq] order), then pulls server rows into Room.
+ * Syncs every account on the phone ([SessionManager]). The active account pushes its outbox (in
+ * [seq][OutboxEntity.seq] order), then pulls server rows into Room. Every other account whose session is still valid
+ * pushes only, with its own token; one whose session expired keeps its outbox until it signs in again. A signed-out
+ * account's token is dropped once its outbox has drained ([SessionManager.dropDrainedSessions]).
+ *
+ * Before that, each password held since an offline sign-in is traded for a session, the first time a run reaches the
+ * server. A 401 there drops the password and the offline check it matched; the entries stay and wait.
+ *
+ * Ownership: an op is always sent with the token of the account that owns it, never the active one's, and a pull
+ * writes only rows of the account it was made for. A server row whose clientId is another account's row on this phone
+ * is skipped.
  *
  * Conflict rules:
  * - Create: the server wins on an identical clientId (POST is idempotent on it, so resending after a lost
@@ -111,9 +133,6 @@ class SyncEngine @Inject constructor(
     private val tx = db.transactionDao()
     private val outbox = db.outboxDao()
     private val mutex = Mutex()
-
-    /** The token this run sends; guarded by [mutex]. A 401 only expires the session that sent it. */
-    private var sentToken: String? = null
     private val _status = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
 
@@ -140,8 +159,17 @@ class SyncEngine @Inject constructor(
     }
 
     /**
+     * True when an account other than the active one still has queued ops and a valid session, so another run could
+     * push them. [SyncWorker] then asks for a retry even when the active account's run went well.
+     */
+    suspend fun othersWaiting(): Boolean {
+        val active = session.activeUserId.value
+        return outbox.owners().any { it != active && session.bearerFor(it) != null }
+    }
+
+    /**
      * Local half of a user delete; the caller schedules a sync afterwards. Safe to call while a sync runs.
-     * See the class KDoc for the never-synced and synced cases.
+     * See the class KDoc for the never-synced and synced cases. A queued DELETE belongs to the row's owner.
      */
     suspend fun enqueueDelete(clientId: String) {
         db.withTransaction {
@@ -151,7 +179,9 @@ class SyncEngine @Inject constructor(
                 row.deleted -> Unit // already on its way out
                 row.serverId != null -> {
                     tx.upsert(row.copy(deleted = true, syncState = SyncState.PENDING))
-                    outbox.enqueue(OutboxEntity(op = OutboxOp.DELETE, clientId = clientId, serverId = row.serverId))
+                    outbox.enqueue(
+                        OutboxEntity(op = OutboxOp.DELETE, clientId = clientId, serverId = row.serverId, ownerId = row.ownerId),
+                    )
                 }
                 outbox.wasSent(clientId) -> tx.upsert(row.copy(deleted = true))
                 else -> {
@@ -162,33 +192,74 @@ class SyncEngine @Inject constructor(
         }
     }
 
-    /**
-     * Empties transactions, outbox and budgets and forgets the pull cursor, under the sync mutex: a run in flight
-     * finishes first, and none starts until the wipe is done, so no late ack, delete op or pull can survive it.
-     * Used when the data must not outlive its owner (sign-out, signing in as someone else).
-     */
-    suspend fun wipeLocal() = mutex.withLock {
-        db.withTransaction {
-            tx.deleteAll()
-            outbox.deleteAll()
-            db.budgetDao().deleteAll()
-        }
-        cursor.clearLastPulledAt()
-    }
-
-    private class Tally {
+    /** One account's part of a run: whose ops, sent with whose token, and what happened. */
+    private class Tally(val owner: String, val token: String) {
+        val auth = authorization(token)
         var pushed = 0
         var pulled = 0
         val failed = mutableListOf<String>()
 
-        /** A push request failed with an IOException: no connection, a timeout, or a reply cut off. */
+        /** A request failed with an IOException: no connection, a timeout, or a reply cut off. */
         var unreachable = false
     }
 
     private suspend fun run(fullPull: Boolean): SyncOutcome {
-        sentToken = session.bearer()
-        if (sentToken == null) return SyncOutcome.NeedsLogin
-        val tally = Tally()
+        // Out of reach for the exchange means out of reach for everything else too.
+        if (!exchangePendingSignIns()) return SyncOutcome.RetryLater
+        val active = session.activeUserId.value
+        val token = active?.let(session::bearerFor)
+        val tally = if (active != null && token != null) Tally(active, token) else null
+        val outcome = when {
+            tally != null -> syncActive(tally, fullPull)
+            // An offline sign-in whose password the server could not take yet (it failed): no reason to sign in again.
+            active != null && session.pendingSignIns().any { it.user.id == active } -> SyncOutcome.RetryLater
+            else -> SyncOutcome.NeedsLogin
+        }
+        if (tally?.unreachable != true) pushOthers(active)
+        session.dropDrainedSessions(outbox.owners().toSet())
+        return outcome
+    }
+
+    /**
+     * Trades each password held since an offline sign-in for a session. Accepted: the session and a fresh offline check
+     * are saved and the password is dropped. Refused (401), or the email now signs in another user: the password and
+     * its check are dropped. Any other failure keeps the password for the next run. False when the server could not be
+     * reached at all.
+     */
+    private suspend fun exchangePendingSignIns(): Boolean {
+        for (pending in session.pendingSignIns()) {
+            when (val r = safeApi { api.login(LoginBody(pending.user.email, pending.password)) }) {
+                is ApiResult.Ok -> {
+                    val grant = r.v.toGrant() ?: continue
+                    if (grant.user.id != pending.user.id) {
+                        session.dropPendingSignIn(pending, forgetCheck = true)
+                        continue
+                    }
+                    val check = withContext(Dispatchers.Default) { PasswordCheck.create(pending.password) }
+                    session.completePendingSignIn(pending, grant.token, grant.expiresAt, grant.user, check)
+                }
+                is ApiResult.Unauthorized -> session.dropPendingSignIn(pending, forgetCheck = true)
+                is ApiResult.Failure -> if (r.code == NETWORK_ERROR_CODE) return false
+            }
+        }
+        return true
+    }
+
+    /**
+     * Push only, for every account but [active] that has queued ops and a valid session. Their outcome is not the
+     * run's: what failed stays queued, and [othersWaiting] makes the worker retry.
+     */
+    private suspend fun pushOthers(active: String?) {
+        for (owner in outbox.owners()) {
+            if (owner == active) continue
+            val token = session.bearerFor(owner) ?: continue // expired: its entries wait for its next sign-in
+            val tally = Tally(owner, token)
+            push(tally)
+            if (tally.unreachable) return
+        }
+    }
+
+    private suspend fun syncActive(tally: Tally, fullPull: Boolean): SyncOutcome {
         val pushStop = push(tally)
         if (pushStop != null && (pushStop != SyncOutcome.RetryLater || tally.unreachable)) return pushStop
         pull(fullPull, tally)?.let { return it }
@@ -210,7 +281,7 @@ class SyncEngine @Inject constructor(
 
     private suspend fun push(tally: Tally): SyncOutcome? {
         while (true) {
-            val head = claimHead()
+            val head = claimHead(tally.owner)
             if (head.isEmpty()) return null
             val stop = if (head[0].op == OutboxOp.DELETE) {
                 pushDelete(head[0], tally)
@@ -227,8 +298,8 @@ class SyncEngine @Inject constructor(
      * before it is claimed or sees it as sent (`attempts > 0`: the server may get the row even if the reply is
      * lost) and keeps it. There is no window where a delete drops an op that is about to go out.
      */
-    private suspend fun claimHead(): List<OutboxEntity> = db.withTransaction {
-        outbox.head(BATCH_SIZE).also { ops ->
+    private suspend fun claimHead(owner: String): List<OutboxEntity> = db.withTransaction {
+        outbox.head(owner, BATCH_SIZE).also { ops ->
             val creates = ops.takeWhile { it.op == OutboxOp.CREATE }
             if (creates.isNotEmpty()) outbox.bump(creates.map { it.seq })
         }
@@ -252,9 +323,9 @@ class SyncEngine @Inject constructor(
     }
 
     private suspend fun pushCreateBatch(batch: List<Pair<OutboxEntity, TransactionInput>>, tally: Tally): SyncOutcome? {
-        when (val r = safeApi { api.saveTransactions(TransactionsRequest(batch.map { it.second })) }) {
+        when (val r = safeApi { api.saveTransactions(tally.auth, TransactionsRequest(batch.map { it.second })) }) {
             is ApiResult.Ok -> applySaved(batch.map { it.first }, r.v, tally)
-            is ApiResult.Unauthorized -> return needsLogin()
+            is ApiResult.Unauthorized -> return needsLogin(tally)
             is ApiResult.Failure -> when {
                 !r.rejectsPayload() -> return retryLater(r, tally)
                 batch.size == 1 -> markRejected(batch.single().first, tally)
@@ -280,7 +351,9 @@ class SyncEngine @Inject constructor(
                     // Deleted on the device while unconfirmed: now that the server id is known, delete it there too.
                     local?.let { tx.upsert(it.copy(serverId = dto.id)) }
                     if (!outbox.hasPendingFor(op.clientId)) {
-                        outbox.enqueue(OutboxEntity(op = OutboxOp.DELETE, clientId = op.clientId, serverId = dto.id))
+                        outbox.enqueue(
+                            OutboxEntity(op = OutboxOp.DELETE, clientId = op.clientId, serverId = dto.id, ownerId = op.ownerId),
+                        )
                     }
                 } else {
                     tx.upsert(dto.toEntityOr(local))
@@ -297,9 +370,9 @@ class SyncEngine @Inject constructor(
         val serverId = op.serverId ?: tx.byClientId(op.clientId)?.serverId
         if (serverId != null) {
             outbox.bump(listOf(op.seq))
-            when (val r = deleteOnServer(serverId)) {
+            when (val r = deleteOnServer(tally.auth, serverId)) {
                 is ApiResult.Ok -> Unit
-                is ApiResult.Unauthorized -> return needsLogin()
+                is ApiResult.Unauthorized -> return needsLogin(tally)
                 is ApiResult.Failure -> {
                     if (!r.rejectsPayload()) return retryLater(r, tally)
                     markRejected(op, tally)
@@ -316,8 +389,8 @@ class SyncEngine @Inject constructor(
     }
 
     /** 404 means the row is already gone (for example deleted on the web), which is what a DELETE wants. */
-    private suspend fun deleteOnServer(serverId: String): ApiResult<Unit> =
-        when (val r = safeApi { api.delete(serverId) }) {
+    private suspend fun deleteOnServer(auth: String, serverId: String): ApiResult<Unit> =
+        when (val r = safeApi { api.delete(auth, serverId) }) {
             is ApiResult.Ok -> if (r.v.code() == HTTP_NOT_FOUND) ApiResult.Ok(Unit) else safeApiResponse { r.v }
             is ApiResult.Unauthorized -> r
             is ApiResult.Failure -> r
@@ -339,20 +412,24 @@ class SyncEngine @Inject constructor(
         if (kept) tally.failed += op.clientId
     }
 
-    private suspend fun needsLogin(): SyncOutcome {
-        session.onUnauthorized(sentToken)
+    /** A 401 expires only the session that sent the request. */
+    private suspend fun needsLogin(tally: Tally): SyncOutcome {
+        session.onUnauthorized(tally.owner, tally.token)
         return SyncOutcome.NeedsLogin
     }
 
     // Pull.
 
     private suspend fun pull(fullPull: Boolean, tally: Tally): SyncOutcome? {
-        val since = if (fullPull) null else cursor.lastPulledAt.first()
-        val response = when (val r = safeApi { api.transactions(since?.let(::wireInstant)) }) {
+        val since = if (fullPull) null else cursor.lastPulledAt(tally.owner).first()
+        val response = when (val r = safeApi { api.transactions(tally.auth, since?.let(::wireInstant)) }) {
             is ApiResult.Ok -> r.v
-            is ApiResult.Unauthorized -> return needsLogin()
+            is ApiResult.Unauthorized -> return needsLogin(tally)
             // A GET carries no user data the server could reject, so treat any other failure as transient.
-            is ApiResult.Failure -> return SyncOutcome.RetryLater
+            is ApiResult.Failure -> {
+                if (r.code == NETWORK_ERROR_CODE) tally.unreachable = true
+                return SyncOutcome.RetryLater
+            }
         }
         val listed = HashSet<String>()
         val rows = ArrayList<Transaction>(response.transactions.size)
@@ -369,14 +446,16 @@ class SyncEngine @Inject constructor(
             var changed = 0
             for (t in rows) {
                 if (outbox.hasPendingFor(t.clientId)) continue
-                val entity = t.toEntity()
-                if (tx.byClientId(t.clientId) != entity) {
+                val local = tx.byClientId(t.clientId)
+                if (local != null && local.ownerId != tally.owner) continue // another account's row: never taken over
+                val entity = t.toEntity(tally.owner)
+                if (local != entity) {
                     tx.upsert(entity)
                     changed++
                 }
             }
             if (fullPull) {
-                for (id in tx.syncedClientIds()) {
+                for (id in tx.syncedClientIds(tally.owner)) {
                     if (id !in listed && !outbox.hasPendingFor(id)) {
                         tx.deleteByClientId(id)
                         changed++
@@ -386,13 +465,13 @@ class SyncEngine @Inject constructor(
             changed
         }
         rows.maxOfOrNull { it.updatedAt }?.minus(CURSOR_OVERLAP)?.let { next ->
-            if (since == null || next > since) cursor.setLastPulledAt(next)
+            if (since == null || next > since) cursor.setLastPulledAt(tally.owner, next)
         }
         return null
     }
 
     private fun TransactionDto.toEntityOr(local: TransactionEntity): TransactionEntity = try {
-        toDomain().toEntity()
+        toDomain().toEntity(local.ownerId)
     } catch (_: InvalidWireDataException) {
         local.copy(serverId = id, syncState = SyncState.SYNCED)
     }

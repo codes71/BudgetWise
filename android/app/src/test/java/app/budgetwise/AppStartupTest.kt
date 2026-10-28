@@ -78,7 +78,7 @@ class AppStartupTest {
 
     private fun startup(store: FakeTokenStore): Pair<AppStartup, SessionManager> {
         val session = SessionManager(store, Clock.systemUTC())
-        return AppStartup(session, SyncScheduler(context), scope) to session
+        return AppStartup(session, { session.load() }, SyncScheduler(context), scope) to session
     }
 
     private fun stored(expiresIn: Duration) = StoredSession("tok", Instant.now().plus(expiresIn), TestUser)

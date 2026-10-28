@@ -6,8 +6,10 @@ import app.budgetwise.CategorySource
 import app.budgetwise.DefaultAccountActions
 import app.budgetwise.DefaultBudgetSource
 import app.budgetwise.DefaultCategorySource
+import app.budgetwise.DefaultSessionLoader
 import app.budgetwise.DefaultSyncControls
 import app.budgetwise.DefaultTransactionStore
+import app.budgetwise.SessionLoader
 import app.budgetwise.SyncControls
 import app.budgetwise.TransactionStore
 import dagger.Binds
@@ -43,6 +45,9 @@ annotation class DeviceClock
 abstract class AppBindingsModule {
     @Binds
     abstract fun accountActions(impl: DefaultAccountActions): AccountActions
+
+    @Binds
+    abstract fun sessionLoader(impl: DefaultSessionLoader): SessionLoader
 
     @Binds
     abstract fun syncControls(impl: DefaultSyncControls): SyncControls

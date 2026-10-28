@@ -48,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,17 +91,29 @@ import java.time.YearMonth
 
 /**
  * The home screen: this month's totals and every entry by day. The shell gives it the session banner (expired or
- * expiring soon) with its sign-in action, and opens `manual` for Add.
+ * expiring soon) with its sign-in action, and opens `manual` for Add. [signedInOffline] is true right after a sign-in
+ * made on the phone without the server: a snackbar says the entries sync once online, then [onSignedInOfflineShown].
  */
 @Composable
 fun TransactionsRoute(
     sessionNotice: SessionNotice?,
+    signedInOffline: Boolean,
+    onSignedInOfflineShown: () -> Unit,
     onSignIn: () -> Unit,
     onAddManual: () -> Unit,
     viewModel: TransactionsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+
+    // Told once it has been on screen; a rotation meanwhile shows it again rather than not at all.
+    val offlineSignIn = stringResource(R.string.transactions_signed_in_offline)
+    val offlineSignInShown by rememberUpdatedState(onSignedInOfflineShown)
+    LaunchedEffect(signedInOffline) {
+        if (!signedInOffline) return@LaunchedEffect
+        snackbar.showSnackbar(offlineSignIn, duration = SnackbarDuration.Long)
+        offlineSignInShown()
+    }
 
     val unreachable = stringResource(R.string.transactions_unreachable)
     val waiting = stringResource(R.string.transactions_waiting_for_network)

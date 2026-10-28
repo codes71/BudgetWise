@@ -59,8 +59,8 @@ class LoginViewModelTest {
 
         // AuthRepository stores the token and enqueues the full sync and the periodic sync itself; the ViewModel
         // only calls it (once, with the trimmed email) and then navigates.
-        assertEquals(listOf(LoginCall(TestUser.email, "secret", discard = false)), accounts.logins)
-        assertEquals(listOf(LoginEvent.SignedIn), events)
+        assertEquals(listOf(LoginCall(TestUser.email, "secret")), accounts.logins)
+        assertEquals(listOf(LoginEvent.SignedIn(offline = false)), events)
         assertTrue(vm.state.value.signedIn)
         assertNull(vm.state.value.error)
         assertEquals("", vm.state.value.password) // not kept in memory after sign-in
@@ -85,16 +85,31 @@ class LoginViewModelTest {
     }
 
     @Test
-    fun networkFailureShowsConnectionMessage() = runTest {
-        accounts.onLogin = { LoginResult.Failure("network", "timeout", retryable = true) }
+    fun offlineSignInGoesToTransactionsAndSaysSo() = runTest {
+        accounts.onLogin = { LoginResult.Success(TestUser, offline = true) }
         val vm = LoginViewModel(accounts, session())
         val events = collectEvents(vm)
 
         vm.fill()
         vm.submit()
 
-        assertEquals(LoginError.Network, vm.state.value.error)
+        assertEquals(listOf(LoginEvent.SignedIn(offline = true)), events)
+        assertTrue(vm.state.value.signedIn)
+        assertEquals("", vm.state.value.password)
+    }
+
+    @Test
+    fun noConnectionForANewAccountAsksForTheInternet() = runTest {
+        accounts.onLogin = { LoginResult.NeedsInternet }
+        val vm = LoginViewModel(accounts, session())
+        val events = collectEvents(vm)
+
+        vm.fill()
+        vm.submit()
+
+        assertEquals(LoginError.NeedsInternet, vm.state.value.error)
         assertFalse(vm.state.value.loading)
+        assertTrue(vm.state.value.canSubmit)
         assertTrue(events.isEmpty())
     }
 
@@ -165,45 +180,14 @@ class LoginViewModelTest {
     }
 
     @Test
-    fun otherUsersUnsyncedRowsAskBeforeDeleting() = runTest {
-        accounts.onLogin = { call ->
-            if (call.discard) LoginResult.Success(TestUser) else LoginResult.ConfirmDiscard("old@example.com", 3)
-        }
-        val vm = LoginViewModel(accounts, session())
-        val events = collectEvents(vm)
-
-        vm.fill()
-        vm.submit()
-        assertEquals(DiscardPrompt(previousEmail = "old@example.com", unsyncedCount = 3), vm.state.value.discardPrompt)
-        assertFalse(vm.state.value.loading)
-        assertTrue(events.isEmpty())
-
-        vm.confirmDiscard()
-
-        assertEquals(
-            listOf(LoginCall(TestUser.email, "secret", discard = false), LoginCall(TestUser.email, "secret", discard = true)),
-            accounts.logins,
-        )
-        assertNull(vm.state.value.discardPrompt)
-        assertEquals(listOf(LoginEvent.SignedIn), events)
-    }
-
-    @Test
-    fun confirmDiscardRetriesWithTheSubmittedCredentials() = runTest {
-        accounts.onLogin = { call ->
-            if (call.discard) LoginResult.Success(TestUser) else LoginResult.ConfirmDiscard("old@example.com", 1)
-        }
+    fun theOverloadSendsTheGivenCredentialsOnce() = runTest {
+        accounts.onLogin = { LoginResult.Success(TestUser) }
         val vm = LoginViewModel(accounts, session())
         vm.fill(email = "typed@example.com", password = "typed")
 
-        // The overload sends credentials that differ from the fields; the retry must send the same ones again.
         vm.submit("  other@example.com ", "pw2")
-        vm.confirmDiscard()
 
-        assertEquals(
-            listOf(LoginCall("other@example.com", "pw2", discard = false), LoginCall("other@example.com", "pw2", discard = true)),
-            accounts.logins,
-        )
+        assertEquals(listOf(LoginCall("other@example.com", "pw2")), accounts.logins)
     }
 
     @Test
@@ -220,21 +204,6 @@ class LoginViewModelTest {
         assertFalse(vm.state.value.loading)
         assertFalse(vm.state.value.signedIn)
         assertTrue(vm.state.value.canSubmit)
-        assertTrue(events.isEmpty())
-    }
-
-    @Test
-    fun cancellingTheDiscardPromptChangesNothing() = runTest {
-        accounts.onLogin = { LoginResult.ConfirmDiscard(null, 2) }
-        val vm = LoginViewModel(accounts, session())
-        val events = collectEvents(vm)
-
-        vm.fill()
-        vm.submit()
-        vm.dismissDiscard()
-
-        assertNull(vm.state.value.discardPrompt)
-        assertEquals(1, accounts.logins.size)
         assertTrue(events.isEmpty())
     }
 

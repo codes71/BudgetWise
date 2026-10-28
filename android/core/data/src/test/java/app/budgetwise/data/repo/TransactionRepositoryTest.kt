@@ -128,4 +128,32 @@ class TransactionRepositoryTest {
         assertEquals(synced.serverId, op.serverId)
         assertEquals(1, h.work("sync").size)
     }
+
+    @Test
+    fun readsAndWritesBelongToTheActiveAccount() = runBlocking {
+        val (mine) = repo.addAll(listOf(input(100)))
+        assertEquals("u1", h.sync.tx.byClientId(mine)!!.ownerId)
+        assertEquals("u1", h.sync.pendingOps("u1").single().ownerId)
+
+        h.sync.signInSecond()
+        assertTrue(repo.observe().first().isEmpty())
+        assertEquals(0, repo.observeUnsyncedCount().first())
+        val (theirs) = repo.addAll(listOf(input(200)))
+        assertEquals("u2", h.sync.tx.byClientId(theirs)!!.ownerId)
+        assertEquals(listOf(theirs), repo.observe().first().map { it.clientId })
+
+        h.sync.session.signIn(h.sync.server.token, h.sync.now.plusSeconds(3600), app.budgetwise.data.sync.SyncHarness.USER)
+        assertEquals(listOf(mine), repo.observe().first().map { it.clientId })
+    }
+
+    @Test
+    fun addAllRefusesWhenNoAccountIsSignedIn() = runBlocking {
+        h.sync.session.signOut(keepSession = false)
+        try {
+            repo.addAll(listOf(input(100)))
+            fail("expected no owner")
+        } catch (_: IllegalStateException) {
+        }
+        assertTrue(h.sync.tx.observeAll("u1").first().isEmpty())
+    }
 }

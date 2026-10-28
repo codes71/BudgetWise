@@ -1,6 +1,5 @@
 package app.budgetwise.data.auth
 
-import app.budgetwise.data.net.BearerProvider
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -22,7 +21,4 @@ object AuthModule {
     @Provides
     @Singleton
     fun clock(): Clock = Clock.systemUTC()
-
-    @Provides
-    fun bearerProvider(session: SessionManager): BearerProvider = BearerProvider { session.bearer() }
 }
