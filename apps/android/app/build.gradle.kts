@@ -69,6 +69,15 @@ android {
                 "proguard-rules.pro",
             )
         }
+        // Optimized like release (R8, not debuggable) but signed with the debug key and pointed at the local
+        // server, so it installs over a debug build without losing data. Use it to judge scrolling and speed;
+        // debug builds run without ART optimizations and stutter on any phone.
+        create("profile") {
+            initWith(getByName("release"))
+            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
     }
 
     compileOptions {
