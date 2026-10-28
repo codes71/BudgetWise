@@ -1,5 +1,6 @@
 package app.budgetwise.data.repo
 
+import app.budgetwise.data.model.DailySpend
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.db.OutboxOp
@@ -144,6 +145,22 @@ class TransactionRepositoryTest {
 
         h.sync.session.signIn(h.sync.server.token, h.sync.now.plusSeconds(3600), app.budgetwise.data.sync.SyncHarness.USER)
         assertEquals(listOf(mine), repo.observe().first().map { it.clientId })
+    }
+
+    @Test
+    fun dailySpendIsTheActiveAccountsOnly() = runBlocking {
+        val october = LocalDate.parse("2026-10-01") to LocalDate.parse("2026-10-31")
+        repo.addAll(listOf(input(100), input(250)))
+        assertEquals(
+            listOf(DailySpend(LocalDate.parse("2026-10-21"), "Groceries", 350)),
+            repo.observeDailySpend(october.first, october.second).first(),
+        )
+
+        h.sync.signInSecond()
+        assertTrue("another account's spending is not counted", repo.observeDailySpend(october.first, october.second).first().isEmpty())
+
+        h.sync.session.signOut(keepSession = false)
+        assertTrue(repo.observeDailySpend(october.first, october.second).first().isEmpty())
     }
 
     @Test
