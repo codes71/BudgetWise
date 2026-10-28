@@ -49,7 +49,7 @@ class SyncWorkerTest {
 
     @Test
     fun needsLoginMapsToSuccessSoThereIsNoRetryStorm() = runTest {
-        h.session.signOut()
+        h.session.signOut(keepSession = false)
         assertEquals(ListenableWorker.Result.success(), worker().doWork())
         assertEquals(0, h.web.requestCount)
     }
@@ -63,8 +63,19 @@ class SyncWorkerTest {
     }
 
     @Test
+    fun anInactiveAccountsWaitingEntriesMakeTheWorkerRetry() = runTest {
+        h.addLocal(1) // u1's entry
+        h.signInSecond()
+        h.server.htmlStatusOnPost = 503 // u2's run goes well, u1's push cannot get through yet
+        assertEquals(ListenableWorker.Result.retry(), worker().doWork())
+
+        h.server.htmlStatusOnPost = null
+        assertEquals(ListenableWorker.Result.success(), worker().doWork())
+    }
+
+    @Test
     fun fullPullFlagReachesTheEngine() = runTest {
-        h.cursor.setLastPulledAt(Instant.parse("2026-10-21T05:00:00Z"))
+        h.cursor.setLastPulledAt("u1", Instant.parse("2026-10-21T05:00:00Z"))
         assertEquals(ListenableWorker.Result.success(), worker(fullPull = true).doWork())
         assertNull(h.server.gets.single())
     }

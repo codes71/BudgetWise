@@ -65,11 +65,33 @@ class BudgetAndCategoryRepositoryTest {
     }
 
     @Test
-    fun clearDropsCachedCategories() = runBlocking {
+    fun eachAccountHasItsOwnBudgetsAndCategoriesFetchedWithItsOwnToken() = runBlocking {
+        h.json(200, """{"budgets":[{"category":"Groceries","limit":1000}]}""")
         h.json(200, """{"categories":["Rent"]}""")
+        budgets.refresh()
         categories.refresh()
-        categories.clear()
+        assertEquals("Bearer ${h.sync.server.token}", h.apiServer.takeRequest().getHeader("Authorization"))
+        h.apiServer.takeRequest()
+
+        h.sync.signInSecond()
+        assertTrue(budgets.observe().first().isEmpty())
         assertEquals(CategoryRepository.BUILT_IN, categories.categories.first())
+        h.json(200, """{"budgets":[{"category":"Groceries","limit":2000}]}""")
+        budgets.refresh()
+        assertEquals("Bearer ${h.sync.server2.token}", h.apiServer.takeRequest().getHeader("Authorization"))
+        assertEquals(listOf(Budget("Groceries", 2000)), budgets.observe().first())
+
+        h.sync.session.signIn(h.sync.server.token, h.sync.now.plusSeconds(3600), app.budgetwise.data.sync.SyncHarness.USER)
+        assertEquals(listOf(Budget("Groceries", 1000)), budgets.observe().first())
+        assertEquals(listOf("Rent"), categories.categories.first())
+    }
+
+    @Test
+    fun withoutAValidTokenNothingIsSent() = runBlocking {
+        h.sync.session.onUnauthorized()
+        assertTrue(budgets.refresh() is ApiResult.Unauthorized)
+        assertTrue(categories.refresh() is ApiResult.Unauthorized)
+        assertEquals(0, h.apiServer.requestCount)
     }
 
     @Test

@@ -1,5 +1,6 @@
 package app.budgetwise.data.sync
 
+import app.budgetwise.data.net.LoginBody
 import app.budgetwise.data.net.SavedResponse
 import app.budgetwise.data.net.TransactionDto
 import app.budgetwise.data.net.TransactionInput
@@ -13,12 +14,14 @@ import okhttp3.mockwebserver.RecordedRequest
 import okhttp3.mockwebserver.SocketPolicy
 
 /**
- * In-memory stand-in for the WS1 mobile API on MockWebServer. Like the real `saveBatch`, POST is idempotent
- * on clientId (an existing row is returned unchanged) and a batch with any invalid item is refused whole.
+ * In-memory stand-in for one account on the WS1 mobile API, on MockWebServer. Like the real `saveBatch`, POST is
+ * idempotent on clientId (an existing row is returned unchanged) and a batch with any invalid item is refused whole.
+ * A request without this account's [token] gets 401.
  */
-class FakeServer : Dispatcher() {
-    val token = "test-token-not-a-secret"
-
+class FakeServer(
+    val token: String = "test-token-not-a-secret",
+    private val idPrefix: String = "srv",
+) : Dispatcher() {
     /** Server rows by clientId, mirroring the unique (userId, clientId) index. */
     val rows = LinkedHashMap<String, TransactionDto>()
     val posts = mutableListOf<List<String>>()
@@ -61,7 +64,7 @@ class FakeServer : Dispatcher() {
     ): TransactionDto {
         val at = nextStamp()
         val dto = TransactionDto(
-            id = "srv-${nextId++}", clientId = clientId, type = "expense", amount = amount, category = category,
+            id = "$idPrefix-${nextId++}", clientId = clientId, type = "expense", amount = amount, category = category,
             description = description, date = "2026-10-20", source = "web", createdAt = at, updatedAt = at,
         )
         rows[clientId] = dto
@@ -127,7 +130,7 @@ class FakeServer : Dispatcher() {
     private fun TransactionInput.toServerRow(): TransactionDto {
         val at = nextStamp()
         return TransactionDto(
-            id = "srv-${nextId++}", clientId = clientId, type = type, amount = amount.toDouble(), category = category,
+            id = "$idPrefix-${nextId++}", clientId = clientId, type = type, amount = amount.toDouble(), category = category,
             description = description, date = date, source = source, transcript = transcript, createdAt = at, updatedAt = at,
         )
     }
@@ -151,4 +154,36 @@ class FakeServer : Dispatcher() {
 
     private fun error(code: Int, errorCode: String, message: String) =
         json(code, """{"error":{"code":"$errorCode","message":"$message"}}""")
+}
+
+/**
+ * Several [accounts] behind one MockWebServer: each request goes to the account whose token it carries (no token or an
+ * unknown one: the first account, which answers 401). POST /auth/token is answered by [login] and recorded in [logins].
+ */
+class FakeBackend(private val accounts: List<FakeServer>) : Dispatcher() {
+    val logins = mutableListOf<LoginBody>()
+
+    /** The answer to a sign-in. By default every password is wrong. */
+    var login: (LoginBody) -> MockResponse = {
+        MockResponse().setResponseCode(401).setHeader("Content-Type", "application/json")
+            .setBody("""{"error":{"code":"unauthorized","message":"Invalid credentials"}}""")
+    }
+
+    override fun dispatch(request: RecordedRequest): MockResponse {
+        if (request.requestUrl!!.encodedPath == "/api/v1/auth/token") {
+            val body = WireJson.decodeFromString(LoginBody.serializer(), request.body.readUtf8())
+            synchronized(this) { logins += body }
+            return login(body)
+        }
+        val auth = request.getHeader("Authorization")
+        return (accounts.firstOrNull { auth == "Bearer ${it.token}" } ?: accounts.first()).dispatch(request)
+    }
+
+    companion object {
+        /** A sign-in answer that hands out [token] for [userId]. */
+        fun tokenFor(token: String, userId: String, email: String, expiresAt: String = "2026-12-01T00:00:00Z"): MockResponse =
+            MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json").setBody(
+                """{"token":"$token","expiresAt":"$expiresAt","user":{"id":"$userId","email":"$email","fullName":"Name"}}""",
+            )
+    }
 }

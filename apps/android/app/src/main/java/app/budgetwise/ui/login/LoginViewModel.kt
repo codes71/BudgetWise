@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.budgetwise.AccountActions
 import app.budgetwise.data.auth.SessionManager
-import app.budgetwise.data.net.NETWORK_ERROR_CODE
 import app.budgetwise.data.repo.LoginResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -19,23 +18,23 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 sealed interface LoginError {
-    /** 401 from sign-in. */
+    /** 401 from sign-in, or offline a password that does not match this phone's check. */
     data object WrongCredentials : LoginError
 
     /** 429. [minutes] when the server said how long to wait. */
     data class RateLimited(val minutes: Int?) : LoginError
 
-    /** No connection, or the dev server is not reachable (adb reverse not set up). */
-    data object Network : LoginError
+    /**
+     * No connection (or the dev server is not reachable, adb reverse not set up) and this account never signed in on
+     * this phone, so there is nothing to check the password against.
+     */
+    data object NeedsInternet : LoginError
 
-    /** A 5xx or timeout: the server is there but failing. */
+    /** A 5xx: the server is there but failing. */
     data object Server : LoginError
 
     data object Generic : LoginError
 }
-
-/** Sign-in would delete [unsyncedCount] rows of another account ([previousEmail], when known) that never synced. */
-data class DiscardPrompt(val previousEmail: String?, val unsyncedCount: Int)
 
 data class LoginUiState(
     val email: String = "",
@@ -44,24 +43,27 @@ data class LoginUiState(
     val returning: Boolean = false,
     val loading: Boolean = false,
     val error: LoginError? = null,
-    val discardPrompt: DiscardPrompt? = null,
     val signedIn: Boolean = false,
 ) {
     val canSubmit: Boolean get() = email.isNotBlank() && password.isNotEmpty() && !loading && !signedIn
 
     override fun toString() =
         "LoginUiState(email=$email, password=<redacted>, returning=$returning, loading=$loading, error=$error, " +
-            "discardPrompt=$discardPrompt, signedIn=$signedIn)"
+            "signedIn=$signedIn)"
 }
 
 sealed interface LoginEvent {
-    /** Signed in: go to transactions and drop sign-in from the back stack. Fires once. */
-    data object SignedIn : LoginEvent
+    /**
+     * Signed in: go to transactions and drop sign-in from the back stack. Fires once. [offline] when the phone signed
+     * in without the server: transactions then says the entries sync once it is back online.
+     */
+    data class SignedIn(val offline: Boolean) : LoginEvent
 }
 
 /**
  * Sign-in form. The password lives only here, in memory (never in saved state), and is dropped after sign-in.
- * [AccountActions.login] stores the token and schedules the full and periodic syncs, so this class does not.
+ * [AccountActions.login] stores the session and schedules the full and periodic syncs, so this class does not. Signing
+ * in as another account never asks anything: each account keeps its own entries.
  */
 @HiltViewModel
 class LoginViewModel @Inject constructor(
@@ -84,34 +86,14 @@ class LoginViewModel @Inject constructor(
     fun submit(email: String, password: String) {
         val s = _state.value
         if (email.isBlank() || password.isEmpty() || s.loading || s.signedIn) return
-        attempt(email.trim(), password, discard = false)
+        attempt(email.trim(), password)
     }
 
-    /** The user agreed to delete the other account's unsynced rows: sign in again with the credentials they sent. */
-    fun confirmDiscard() {
-        val credentials = discardCredentials ?: return
-        if (_state.value.discardPrompt == null || _state.value.loading) return
-        attempt(credentials.email, credentials.password, discard = true)
-    }
-
-    fun dismissDiscard() {
-        discardCredentials = null
-        _state.update { it.copy(discardPrompt = null) }
-    }
-
-    /** What the sign-in that asked for the discard sent, kept until the prompt is answered. In memory only. */
-    private class Credentials(val email: String, val password: String) {
-        override fun toString() = "Credentials(email=$email, password=<redacted>)"
-    }
-
-    private var discardCredentials: Credentials? = null
-
-    private fun attempt(email: String, password: String, discard: Boolean) {
-        discardCredentials = null
-        _state.update { it.copy(loading = true, error = null, discardPrompt = null) }
+    private fun attempt(email: String, password: String) {
+        _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
             val r = try {
-                accounts.login(email, password, discard)
+                accounts.login(email, password)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -122,13 +104,10 @@ class LoginViewModel @Inject constructor(
             when (r) {
                 is LoginResult.Success -> {
                     _state.update { it.copy(password = "", loading = false, signedIn = true) }
-                    _events.send(LoginEvent.SignedIn)
-                }
-                is LoginResult.ConfirmDiscard -> {
-                    discardCredentials = Credentials(email, password)
-                    _state.update { it.copy(loading = false, discardPrompt = DiscardPrompt(r.previousEmail, r.unsyncedCount)) }
+                    _events.send(LoginEvent.SignedIn(offline = r.offline))
                 }
                 LoginResult.WrongCredentials -> _state.update { it.copy(loading = false, error = LoginError.WrongCredentials) }
+                LoginResult.NeedsInternet -> _state.update { it.copy(loading = false, error = LoginError.NeedsInternet) }
                 is LoginResult.Failure -> _state.update { it.copy(loading = false, error = loginErrorFor(r)) }
             }
         }
@@ -137,9 +116,11 @@ class LoginViewModel @Inject constructor(
 
 private val minutesInMessage = Regex("""(\d+)\s*min""", RegexOption.IGNORE_CASE)
 
-/** `rate_limited` is the WS1 code for 429 (its message has no wait time today; Retry-After does not reach the app). */
+/**
+ * `rate_limited` is the WS1 code for 429 (its message has no wait time today; Retry-After does not reach the app). No
+ * connection never ends up here: [AccountActions.login] then signs in offline or answers [LoginResult.NeedsInternet].
+ */
 internal fun loginErrorFor(failure: LoginResult.Failure): LoginError = when {
-    failure.code == NETWORK_ERROR_CODE -> LoginError.Network
     failure.code == "rate_limited" || failure.code == "http_429" ->
         LoginError.RateLimited(minutesInMessage.find(failure.message)?.groupValues?.get(1)?.toIntOrNull())
     failure.retryable -> LoginError.Server

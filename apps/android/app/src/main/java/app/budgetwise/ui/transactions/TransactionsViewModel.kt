@@ -2,6 +2,7 @@ package app.budgetwise.ui.transactions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.budgetwise.NetworkStatus
 import app.budgetwise.SyncControls
 import app.budgetwise.TransactionStore
 import app.budgetwise.data.model.Transaction
@@ -56,6 +57,8 @@ data class TransactionsUiState(
     val pendingDelete: String? = null,
     /** How often Undo brought each row back. Part of the row's list key, so it returns with its swipe reset. */
     val restored: Map<String, Int> = emptyMap(),
+    /** No internet: the Offline chip shows. Entries still save on the phone and sync later. */
+    val offline: Boolean = false,
 ) {
     val isEmpty: Boolean get() = !loading && days.isEmpty()
 }
@@ -97,6 +100,7 @@ class TransactionsViewModel @Inject constructor(
     private val transactions: TransactionStore,
     private val sync: SyncControls,
     settings: SettingsStore,
+    network: NetworkStatus,
     @DeviceClock private val clock: Clock,
     @ApplicationScope private val appScope: CoroutineScope,
 ) : ViewModel() {
@@ -114,7 +118,7 @@ class TransactionsViewModel @Inject constructor(
     private var refreshJob: Job? = null
 
     val state: StateFlow<TransactionsUiState> =
-        combine(transactions.observe(), local, settings.myanmarDigits) { rows, l, digits ->
+        combine(transactions.observe(), local, settings.myanmarDigits, network.online) { rows, l, digits, online ->
             val today = LocalDate.now(clock)
             val visible = rows.filterNot { it.clientId in l.hidden }
             TransactionsUiState(
@@ -126,6 +130,7 @@ class TransactionsViewModel @Inject constructor(
                 refreshing = l.refreshRequested,
                 pendingDelete = l.pendingDelete,
                 restored = l.restored,
+                offline = !online,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TransactionsUiState(today = LocalDate.now(clock)))
 

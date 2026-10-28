@@ -36,7 +36,8 @@ import kotlinx.coroutines.withContext
  *   server was unreachable for a while). Cancelling a run mid-way is safe: every row and op change is its own
  *   transaction and a resent POST is idempotent.
  *
- * The periodic sync is separate unique work.
+ * The periodic sync is separate unique work. Nothing cancels it: after a sign-out it keeps pushing the entries of the
+ * accounts still on the phone.
  */
 @Singleton
 class SyncScheduler @Inject constructor(@ApplicationContext private val context: Context) {
@@ -72,13 +73,6 @@ class SyncScheduler @Inject constructor(@ApplicationContext private val context:
     fun periodic() {
         WorkManager.getInstance(context)
             .enqueueUniquePeriodicWork(PERIODIC_WORK, ExistingPeriodicWorkPolicy.UPDATE, periodicRequest())
-    }
-
-    /** Cancels queued and running syncs and the periodic sync. Used on sign-out so no work outlives the session. */
-    fun cancelAll() {
-        val wm = WorkManager.getInstance(context)
-        wm.cancelUniqueWork(UNIQUE_WORK)
-        wm.cancelUniqueWork(PERIODIC_WORK)
     }
 
     companion object {

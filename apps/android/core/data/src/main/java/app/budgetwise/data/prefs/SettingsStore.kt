@@ -27,7 +27,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-/** User settings and the pull cursor. Every flag defaults to off. */
+/** User settings and the pull cursors. Every flag defaults to off. */
 interface SettingsStore : PullCursorStore {
     /** Save a parsed transaction without asking when the parser is confident. Default false. */
     val autoSaveHighConfidence: Flow<Boolean>
@@ -50,7 +50,9 @@ class DataStoreSettingsStore @Inject constructor(
     override val autoSaveHighConfidence: Flow<Boolean> = store.data.map { it[AUTO_SAVE] ?: false }
     override val cloudParseEnabled: Flow<Boolean> = store.data.map { it[CLOUD_PARSE] ?: false }
     override val myanmarDigits: Flow<Boolean> = store.data.map { it[MYANMAR_DIGITS] ?: false }
-    override val lastPulledAt: Flow<Instant?> = store.data.map { p -> p[LAST_PULLED_AT]?.let(Instant::ofEpochMilli) }
+
+    override fun lastPulledAt(owner: String): Flow<Instant?> =
+        store.data.map { p -> p[lastPulledAtKey(owner)]?.let(Instant::ofEpochMilli) }
 
     override suspend fun setAutoSaveHighConfidence(on: Boolean) {
         store.edit { it[AUTO_SAVE] = on }
@@ -64,19 +66,20 @@ class DataStoreSettingsStore @Inject constructor(
         store.edit { it[MYANMAR_DIGITS] = on }
     }
 
-    override suspend fun setLastPulledAt(at: Instant) {
-        store.edit { it[LAST_PULLED_AT] = at.toEpochMilli() }
-    }
-
-    override suspend fun clearLastPulledAt() {
-        store.edit { it.remove(LAST_PULLED_AT) }
+    override suspend fun setLastPulledAt(owner: String, at: Instant) {
+        store.edit { it[lastPulledAtKey(owner)] = at.toEpochMilli() }
     }
 
     private companion object {
         val AUTO_SAVE = booleanPreferencesKey("auto_save_high_confidence")
         val CLOUD_PARSE = booleanPreferencesKey("cloud_parse_enabled")
         val MYANMAR_DIGITS = booleanPreferencesKey("myanmar_digits")
-        val LAST_PULLED_AT = longPreferencesKey("last_pulled_at_ms")
+
+        /**
+         * One cursor per account. The single cursor of earlier versions (`last_pulled_at_ms`) is not read: the first
+         * pull after the update starts from scratch, which only costs one full download.
+         */
+        fun lastPulledAtKey(owner: String) = longPreferencesKey("last_pulled_at_ms.$owner")
     }
 }
 

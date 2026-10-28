@@ -1,12 +1,15 @@
 package app.budgetwise.data.repo
 
 import androidx.work.WorkInfo
+import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.auth.SessionState
-import app.budgetwise.data.db.BudgetEntity
 import app.budgetwise.data.model.Source
+import app.budgetwise.data.model.SyncState
+import app.budgetwise.data.net.NetLogging
+import app.budgetwise.data.net.createApiService
+import app.budgetwise.data.net.createOkHttpClient
 import app.budgetwise.data.sync.SyncScheduler
 import app.budgetwise.nlu.TxType
-import java.time.Instant
 import java.time.LocalDate
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -15,8 +18,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -28,20 +34,17 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class AuthRepositoryTest {
     private lateinit var h: RepoHarness
-    private lateinit var categories: CategoryRepository
     private lateinit var auth: AuthRepository
 
     @Before
     fun setUp() {
         h = RepoHarness()
-        categories = CategoryRepository(h.dataStore, h.api, h.sync.session)
-        auth = AuthRepository(h.api, h.sync.session, h.sync.db, h.sync.engine, h.scheduler, categories)
+        auth = AuthRepository(h.api, h.sync.session, h.sync.db, h.scheduler)
     }
 
     @After fun tearDown() { h.close() }
 
-    /** User u2 (the harness session is user u1). */
-    private val tokenBody = tokenFor("u2", "b@c.co")
+    private val session get() = h.sync.session
 
     private fun tokenFor(id: String, email: String) = """{"token":"new-token-not-a-secret","expiresAt":"2026-12-01T00:00:00Z",
         "user":{"id":"$id","email":"$email","fullName":"Bo Bo"}}"""
@@ -50,15 +53,25 @@ class AuthRepositoryTest {
         TxType.EXPENSE, 100, "Other", "x", LocalDate.parse("2026-10-21"), Source.MANUAL, null,
     )
 
+    /** u1 signs in online with [password] (saving the offline check), then signs out with nothing queued. */
+    private suspend fun knownAndSignedOut(password: String = "pw") {
+        h.json(200, tokenFor("u1", "a@b.co"))
+        assertTrue(auth.login("a@b.co", password) is LoginResult.Success)
+        auth.logout()
+        assertEquals(SessionState.SignedOut, session.state.value)
+    }
+
     @Test
-    fun loginSavesSessionAndSchedulesFullSyncAndPeriodic() = runBlocking {
+    fun loginSavesSessionAndCheckAndSchedulesFullSyncAndPeriodic() = runBlocking {
         h.transactions.addAll(listOf(newTx())) // an earlier incremental sync is queued
         assertEquals(1, h.work(SyncScheduler.UNIQUE_WORK).size)
         h.json(200, tokenFor("u1", "a@b.co"))
         val r = auth.login("a@b.co", "pw")
         assertEquals("u1", (r as LoginResult.Success).user.id)
-        assertEquals("new-token-not-a-secret", h.sync.session.bearer())
-        assertTrue(h.sync.session.state.value is SessionState.SignedIn)
+        assertFalse(r.offline)
+        assertEquals("new-token-not-a-secret", session.bearer())
+        assertTrue(session.state.value is SessionState.SignedIn)
+        assertTrue("the offline check is saved", session.accountFor("a@b.co")!!.check!!.matches("pw"))
         // A full pull uses REPLACE, so it takes the queued incremental request's place (an incremental one would
         // have been appended, giving two).
         val sync = h.work(SyncScheduler.UNIQUE_WORK)
@@ -68,77 +81,61 @@ class AuthRepositoryTest {
     }
 
     @Test
-    fun login401ReturnsWrongCredentialsAndLeavesSessionUntouched() = runBlocking {
-        val before = h.sync.session.bearer()
+    fun login401IsWrongCredentialsAndNeverFallsBackToThePhone() = runBlocking {
+        knownAndSignedOut()
+        h.json(401, """{"error":{"code":"unauthorized","message":"Invalid credentials"}}""")
+        // The password matches the phone's check, but the server said no (changed on the web): the server wins.
+        assertEquals(LoginResult.WrongCredentials, auth.login("a@b.co", "pw"))
+        assertEquals(SessionState.SignedOut, session.state.value)
+    }
+
+    @Test
+    fun login401LeavesTheCurrentSessionUntouched() = runBlocking {
+        val before = session.bearer()
         assertNotNull(before)
         h.json(401, """{"error":{"code":"unauthorized","message":"Invalid credentials"}}""")
         assertEquals(LoginResult.WrongCredentials, auth.login("a@b.co", "bad"))
-        assertEquals(before, h.sync.session.bearer())
-        assertTrue(h.sync.session.state.value is SessionState.SignedIn)
+        assertEquals(before, session.bearer())
+        assertTrue(session.state.value is SessionState.SignedIn)
         assertTrue(h.work(SyncScheduler.UNIQUE_WORK).isEmpty())
     }
 
     @Test
-    fun loginNetworkFailureIsRetryableFailure() = runBlocking {
-        h.apiServer.shutdown()
+    fun aServerErrorIsAFailureNotAnOfflineSignIn() = runBlocking {
+        knownAndSignedOut()
+        h.json(503, """{"error":{"code":"internal_error","message":"down"}}""")
         val r = auth.login("a@b.co", "pw")
-        assertTrue(r is LoginResult.Failure && r.retryable)
+        assertTrue(r is LoginResult.Failure && r.retryable && r.code == "internal_error")
+        assertEquals(SessionState.SignedOut, session.state.value)
     }
 
     @Test
     fun staleUnauthorizedAfterFreshSignInIsIgnored() = runBlocking {
-        val stale = h.sync.session.bearer()
-        h.json(200, tokenBody)
+        val stale = session.bearer()
+        h.json(200, tokenFor("u2", "b@c.co"))
         auth.login("b@c.co", "pw")
-        h.sync.session.onUnauthorized(stale)
-        assertEquals("new-token-not-a-secret", h.sync.session.bearer())
+        session.onUnauthorized(stale)
+        assertEquals("new-token-not-a-secret", session.bearer())
     }
 
     @Test
-    fun differentUserOverExpiredSessionWithUnsyncedRowsAsksAndChangesNothing() = runBlocking {
-        h.transactions.addAll(listOf(newTx()))
-        h.sync.session.onUnauthorized() // user u1 is now Expired, the identity is kept
-        h.json(200, tokenBody)
+    fun switchingAccountsKeepsTheFirstAccountsEntriesAndSessionWithoutAsking() = runBlocking {
+        val (id) = h.transactions.addAll(listOf(newTx())) // u1's, not synced yet
+        h.json(200, tokenFor("u2", "b@c.co"))
 
-        val r = auth.login("b@c.co", "pw")
-
-        assertEquals(LoginResult.ConfirmDiscard("a@b.co", 1), r)
-        assertEquals(SessionState.Expired, h.sync.session.state.value)
-        assertEquals(1, h.transactions.observe().first().size)
-        assertEquals(1, h.sync.pendingOps().size)
-        assertTrue("nothing reached the data API", h.sync.server.posts.isEmpty())
-        assertEquals("only the login request hit the auth server", 1, h.apiServer.requestCount)
-    }
-
-    @Test
-    fun confirmingDiscardWipesTheOldUsersRowsAndSignsInTheNewUser() = runBlocking {
-        h.transactions.addAll(listOf(newTx()))
-        h.sync.session.onUnauthorized()
-        h.sync.cursor.setLastPulledAt(Instant.parse("2026-10-21T05:00:00Z"))
-        h.json(200, tokenBody)
-
-        val r = auth.login("b@c.co", "pw", discardOtherUsersData = true)
-
-        assertTrue(r is LoginResult.Success)
-        assertEquals(0, h.transactions.observe().first().size)
-        assertEquals(0, h.sync.pendingOps().size)
-        assertNull(h.sync.cursor.lastPulledAt.first())
-        assertEquals("u2", (h.sync.session.state.value as SessionState.SignedIn).user.id)
-    }
-
-    @Test
-    fun differentUserWithNothingUnsyncedWipesSilently() = runBlocking {
-        h.sync.seedSynced("c-old")
-        h.sync.session.onUnauthorized()
-        h.json(200, tokenBody)
         assertTrue(auth.login("b@c.co", "pw") is LoginResult.Success)
-        assertEquals(0, h.transactions.observe().first().size)
+
+        assertEquals("u2", session.activeUserId.value)
+        assertTrue("the screens show u2's entries only", h.transactions.observe().first().isEmpty())
+        assertEquals("u1", h.sync.tx.byClientId(id)!!.ownerId)
+        assertEquals(listOf(id), h.sync.pendingOps("u1").map { it.clientId })
+        assertNotNull("u1 keeps its session to push in the background", session.bearerFor("u1"))
     }
 
     @Test
     fun sameUserSigningInAgainKeepsTheirRows() = runBlocking {
         h.transactions.addAll(listOf(newTx()))
-        h.sync.session.onUnauthorized()
+        session.onUnauthorized()
         h.json(200, tokenFor("u1", "a@b.co"))
         assertTrue(auth.login("a@b.co", "pw") is LoginResult.Success)
         assertEquals(1, h.transactions.observe().first().size)
@@ -146,51 +143,136 @@ class AuthRepositoryTest {
     }
 
     @Test
-    fun logoutWithoutForceAsksWhenRowsAreUnsynced() = runBlocking {
-        h.transactions.addAll(listOf(newTx()))
-        assertEquals(LogoutResult.NeedsConfirmation(1), auth.logout(force = false))
-        assertNotNull(h.sync.session.bearer())
-        assertEquals(1, h.transactions.observe().first().size)
+    fun theFirstOnlineSignInTakesRowsWithoutAnOwner() = runBlocking {
+        val (old) = h.sync.addLocal(1, owner = null) // saved before several accounts, no session at the update
+        h.json(200, tokenFor("u2", "b@c.co"))
+        auth.login("b@c.co", "pw")
+        assertEquals("u2", h.sync.tx.byClientId(old)!!.ownerId)
+        assertEquals(listOf(old), h.sync.pendingOps("u2").map { it.clientId })
+
+        h.json(200, tokenFor("u1", "a@b.co"))
+        auth.login("a@b.co", "pw")
+        assertEquals("only the first one", "u2", h.sync.tx.byClientId(old)!!.ownerId)
     }
 
     @Test
-    fun logoutWithoutForceSignsOutWhenEverythingIsSynced() = runBlocking {
+    fun loadingTheSavedSessionGivesItTheRowsFromBeforeSeveralAccounts() = runBlocking {
+        val (old) = h.sync.addLocal(1, owner = null)
+        session.onUnauthorized() // an expired session still names its owner
+        val restarted = SessionManager(h.sync.tokens, h.sync.clock)
+
+        AuthRepository(h.api, restarted, h.sync.db, h.scheduler).loadSession()
+
+        assertEquals(SessionState.Expired, restarted.state.value)
+        assertEquals("u1", h.sync.tx.byClientId(old)!!.ownerId)
+        assertEquals(listOf(old), h.sync.pendingOps("u1").map { it.clientId })
+    }
+
+    @Test
+    fun withoutASavedSessionOldRowsWaitForTheNextOnlineSignIn() = runBlocking {
+        val (old) = h.sync.addLocal(1, owner = null)
+        val empty = SessionManager(app.budgetwise.data.sync.MemoryTokenStore(), h.sync.clock)
+
+        AuthRepository(h.api, empty, h.sync.db, h.scheduler).loadSession()
+
+        assertNull(h.sync.tx.byClientId(old)!!.ownerId)
+    }
+
+    @Test
+    fun offlineWithAKnownAccountAndTheRightPasswordSignsInFromThePhone() = runBlocking {
+        knownAndSignedOut()
+        val (id) = h.sync.addLocal(1)
+        h.apiServer.shutdown()
+
+        val r = auth.login("a@b.co", "pw")
+
+        assertEquals(LoginResult.Success(session.knownUser!!, offline = true), r)
+        assertEquals(SessionState.SignedInOffline(session.knownUser!!), session.state.value)
+        assertEquals(listOf(id), h.transactions.observe().first().map { it.clientId })
+        assertEquals(1, session.pendingSignIns().size)
+        assertEquals("the exchange runs once there is a connection", 1, h.work(SyncScheduler.UNIQUE_WORK).size)
+        assertEquals(1, h.work(SyncScheduler.PERIODIC_WORK).size)
+    }
+
+    @Test
+    fun offlineWithAKnownAccountMatchesTheEmailInAnyCase() = runBlocking {
+        knownAndSignedOut()
+        h.apiServer.shutdown()
+        assertTrue((auth.login("A@B.CO", "pw") as LoginResult.Success).offline)
+    }
+
+    @Test
+    fun offlineWithAKnownAccountAndAWrongPasswordIsWrongCredentials() = runBlocking {
+        knownAndSignedOut()
+        h.apiServer.shutdown()
+        assertEquals(LoginResult.WrongCredentials, auth.login("a@b.co", "nope"))
+        assertEquals(SessionState.SignedOut, session.state.value)
+        assertTrue(session.pendingSignIns().isEmpty())
+    }
+
+    @Test
+    fun offlineWithAnAccountNeverUsedHereNeedsTheInternet() = runBlocking {
+        knownAndSignedOut()
+        h.apiServer.shutdown()
+        assertEquals(LoginResult.NeedsInternet, auth.login("new@c.co", "pw"))
+        assertEquals(SessionState.SignedOut, session.state.value)
+    }
+
+    @Test
+    fun offlineWithAnAccountThatHasNoCheckYetNeedsTheInternet() = runBlocking {
+        // The harness signed u1 in without a check, which is how the update from one account leaves the phone.
+        auth.logout()
+        h.apiServer.shutdown()
+        assertEquals(LoginResult.NeedsInternet, auth.login("a@b.co", "pw"))
+    }
+
+    @Test
+    fun aTimeoutCountsAsOfflineToo() = runBlocking {
+        knownAndSignedOut()
+        val slow = createOkHttpClient(NetLogging.None).newBuilder().readTimeout(200, TimeUnit.MILLISECONDS).build()
+        val impatient = AuthRepository(
+            createApiService("http://127.0.0.1:${h.apiServer.port}/api/v1/", slow), session, h.sync.db, h.scheduler,
+        )
+        h.apiServer.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+        assertTrue((impatient.login("a@b.co", "pw") as LoginResult.Success).offline)
+    }
+
+    @Test
+    fun logoutWithNothingQueuedKeepsEntriesAndTheCheckButDropsTheToken() = runBlocking {
+        h.json(200, tokenFor("u1", "a@b.co"))
+        auth.login("a@b.co", "pw")
         h.sync.seedSynced("c1")
-        assertEquals(LogoutResult.SignedOut, auth.logout(force = false))
-        assertEquals(SessionState.SignedOut, h.sync.session.state.value)
-        assertNull(h.sync.session.knownUser)
-        assertEquals(0, h.transactions.observe().first().size)
-    }
-
-    @Test
-    fun logoutForceEmptiesDatabaseCursorCategoriesAndCancelsWork() = runBlocking {
-        h.transactions.addAll(listOf(newTx(), newTx())) // queues sync work
-        h.sync.seedSynced("c-synced")
-        h.sync.db.budgetDao().replaceAll(listOf(BudgetEntity("Other", 5000)))
-        h.sync.cursor.setLastPulledAt(Instant.parse("2026-10-21T05:00:00Z"))
-        h.json(200, """{"categories":["Rent"]}""")
-        categories.refresh()
         h.scheduler.periodic()
-        assertTrue(h.work(SyncScheduler.UNIQUE_WORK).isNotEmpty())
-        assertTrue(h.work(SyncScheduler.PERIODIC_WORK).isNotEmpty())
 
-        assertEquals(LogoutResult.SignedOut, auth.logout(force = true))
+        auth.logout()
 
-        assertEquals(SessionState.SignedOut, h.sync.session.state.value)
-        assertNull(h.sync.session.bearer())
-        assertEquals(0, h.sync.db.transactionDao().observeAll().first().size)
-        assertEquals(0, h.sync.db.transactionDao().unsyncedCount())
-        assertEquals(0, h.sync.pendingOps().size)
-        assertEquals(0, h.sync.db.budgetDao().observeAll().first().size)
-        assertNull(h.sync.cursor.lastPulledAt.first())
-        assertEquals(CategoryRepository.BUILT_IN, categories.categories.first())
-        assertTrue(h.work(SyncScheduler.UNIQUE_WORK).all { it.state == WorkInfo.State.CANCELLED })
-        assertTrue(h.work(SyncScheduler.PERIODIC_WORK).all { it.state == WorkInfo.State.CANCELLED })
+        assertEquals(SessionState.SignedOut, session.state.value)
+        assertNull(session.knownUser)
+        assertNull(session.bearerFor("u1"))
+        assertEquals(SyncState.SYNCED, h.sync.tx.byClientId("c1")!!.syncState)
+        assertTrue(session.accountFor("a@b.co")!!.check!!.matches("pw"))
+        assertTrue(
+            "background sync keeps running for the accounts on the phone",
+            h.work(SyncScheduler.PERIODIC_WORK).none { it.state == WorkInfo.State.CANCELLED },
+        )
     }
 
     @Test
-    fun wipeRequestedWhileSyncIsInFlightLeavesNothingBehind() = runBlocking {
-        h.sync.addLocal(1)
+    fun logoutWithQueuedEntriesKeepsThemAndTheSessionAndQueuesTheUpload() = runBlocking {
+        val ids = h.transactions.addAll(listOf(newTx(), newTx()))
+
+        auth.logout()
+
+        assertEquals(SessionState.SignedOut, session.state.value)
+        assertNotNull(session.bearerFor("u1"))
+        assertEquals(ids.toSet(), h.sync.pendingOps("u1").map { it.clientId }.toSet())
+        assertTrue(ids.all { h.sync.tx.byClientId(it)!!.syncState == SyncState.PENDING })
+        assertTrue(h.work(SyncScheduler.UNIQUE_WORK).any { it.state == WorkInfo.State.ENQUEUED })
+    }
+
+    @Test
+    fun logoutWhileASyncIsInFlightLosesNothing() = runBlocking {
+        val (id) = h.sync.addLocal(1)
         val inPost = CountDownLatch(1)
         val release = CountDownLatch(1)
         h.sync.server.duringPost = {
@@ -199,15 +281,16 @@ class AuthRepositoryTest {
         }
         val sync = async(Dispatchers.IO) { h.sync.engine.syncOnce(fullPull = true) }
         assertTrue(inPost.await(10, TimeUnit.SECONDS))
-        val wipe = async(Dispatchers.IO) { auth.logout(force = true) }
-        kotlinx.coroutines.delay(500) // let the wipe reach the engine while the POST is still unanswered
-        release.countDown() // the server answers: the ack would normally land first, then the wipe runs
+        val out = async(Dispatchers.IO) { auth.logout() }
+        kotlinx.coroutines.delay(200)
+        release.countDown()
 
-        withTimeout(20_000) { sync.await(); wipe.await() }
+        withTimeout(20_000) { sync.await(); out.await() }
 
-        assertEquals(0, h.sync.db.transactionDao().observeAll().first().size)
-        assertEquals(0, h.sync.pendingOps().size)
-        assertNull(h.sync.cursor.lastPulledAt.first())
-        assertTrue("no server DELETE survives the wipe", h.sync.server.deletes.isEmpty())
+        val row = h.sync.tx.byClientId(id)!!
+        assertEquals(SyncState.SYNCED, row.syncState)
+        assertEquals("u1", row.ownerId)
+        assertTrue(h.sync.pendingOps().isEmpty())
+        assertFalse(session.state.value is SessionState.SignedIn)
     }
 }

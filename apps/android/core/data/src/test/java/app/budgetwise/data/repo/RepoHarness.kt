@@ -35,10 +35,7 @@ class RepoHarness : Closeable {
     val sync = SyncHarness()
     val context: Context = ApplicationProvider.getApplicationContext()
     val apiServer = MockWebServer().apply { start() }
-    val api: ApiService = createApiService(
-        "http://127.0.0.1:${apiServer.port}/api/v1/",
-        createOkHttpClient({ sync.session.bearer() }, NetLogging.None),
-    )
+    val api: ApiService = createApiService("http://127.0.0.1:${apiServer.port}/api/v1/", createOkHttpClient(NetLogging.None))
 
     private val dir: File = Files.createTempDirectory("repo-harness").toFile()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -54,7 +51,7 @@ class RepoHarness : Closeable {
     }
 
     val scheduler = SyncScheduler(context)
-    val transactions = TransactionRepository(sync.db, sync.engine, scheduler, sync.clock)
+    val transactions = TransactionRepository(sync.db, sync.session, sync.engine, scheduler, sync.clock)
 
     fun work(name: String): List<WorkInfo> = WorkManager.getInstance(context).getWorkInfosForUniqueWork(name).get()
 

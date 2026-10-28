@@ -23,13 +23,15 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Process and UI start. [start] (from `Application.onCreate`) loads the stored session off the main thread, before
- * anything can reach the network. The first frame ([MainViewModel]) and every worker ([SessionAwareWorkerFactory])
- * wait for that load, so neither sees the "signed out" state that [SessionManager] holds until it finishes.
+ * Process and UI start. [start] (from `Application.onCreate`) loads the stored accounts off the main thread, before
+ * anything can reach the network ([SessionLoader]: rows saved before several accounts go to the account in the saved
+ * session then). The first frame ([MainViewModel]) and every worker ([SessionAwareWorkerFactory]) wait for that load,
+ * so neither sees the "signed out" state that [SessionManager] holds until it finishes, nor rows without an owner.
  */
 @Singleton
 class AppStartup @Inject constructor(
     private val session: SessionManager,
+    private val loader: SessionLoader,
     private val scheduler: SyncScheduler,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
@@ -42,13 +44,13 @@ class AppStartup @Inject constructor(
         if (!started.compareAndSet(false, true)) return
         scope.launch(Dispatchers.IO) {
             try {
-                session.load()
+                loader.load()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 // The store already clears an unreadable blob; anything else leaves the user signed out. Class name
                 // only: the message could carry stored data.
-                Log.w(TAG, "Session load failed: ${e.javaClass.simpleName}")
+                Log.w(TAG, "Startup load failed: ${e.javaClass.simpleName}")
             } finally {
                 loaded.complete(Unit)
             }

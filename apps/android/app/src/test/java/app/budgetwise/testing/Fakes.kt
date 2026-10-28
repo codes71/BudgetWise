@@ -3,8 +3,10 @@ package app.budgetwise.testing
 import app.budgetwise.AccountActions
 import app.budgetwise.BudgetSource
 import app.budgetwise.CategorySource
+import app.budgetwise.NetworkStatus
 import app.budgetwise.SyncControls
 import app.budgetwise.TransactionStore
+import app.budgetwise.data.auth.SavedAccounts
 import app.budgetwise.data.auth.StoredSession
 import app.budgetwise.data.auth.TokenStore
 import app.budgetwise.data.auth.UserInfo
@@ -16,7 +18,6 @@ import app.budgetwise.data.net.ApiResult
 import app.budgetwise.data.prefs.SettingsStore
 import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.LoginResult
-import app.budgetwise.data.repo.LogoutResult
 import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
@@ -39,46 +40,47 @@ import org.junit.runner.Description
 val TestUser = UserInfo(id = "u1", email = "aye@example.com", fullName = "Aye Aye")
 
 /** In-memory [TokenStore]. [gate], when set, holds [load] until completed. */
-class FakeTokenStore(var session: StoredSession? = null) : TokenStore {
+class FakeTokenStore(var accounts: SavedAccounts = SavedAccounts.EMPTY) : TokenStore {
+    /** [session] as the one, active account (none when null). */
+    constructor(session: StoredSession?) : this(session?.let(SavedAccounts::of) ?: SavedAccounts.EMPTY)
+
     var gate: CompletableDeferred<Unit>? = null
 
-    override suspend fun save(token: String, expiresAt: Instant, user: UserInfo) {
-        session = StoredSession(token, expiresAt, user)
-    }
-
-    override suspend fun load(): StoredSession? {
+    override suspend fun load(): SavedAccounts {
         gate?.await()
-        return session
+        return accounts
     }
 
-    override suspend fun clear() {
-        session = null
+    override suspend fun save(accounts: SavedAccounts) {
+        this.accounts = accounts
     }
 }
 
-data class LoginCall(val email: String, val password: String, val discard: Boolean)
+data class LoginCall(val email: String, val password: String)
 
 class FakeAccountActions : AccountActions {
     val logins = mutableListOf<LoginCall>()
-    val logouts = mutableListOf<Boolean>()
+    var logouts = 0
 
     /** May throw, like AuthRepository on a Keystore or Room failure. */
     var onLogin: (LoginCall) -> LoginResult = { error("no login result set") }
-    var onLogout: (force: Boolean) -> LogoutResult = { LogoutResult.SignedOut }
+
+    /** May throw, like AuthRepository on a Room or Keystore failure. */
+    var onLogout: () -> Unit = {}
 
     /** When set, login suspends here, so a test can look at the loading state. */
     var loginGate: CompletableDeferred<Unit>? = null
 
-    override suspend fun login(email: String, password: String, discardOtherUsersData: Boolean): LoginResult {
-        val call = LoginCall(email, password, discardOtherUsersData)
+    override suspend fun login(email: String, password: String): LoginResult {
+        val call = LoginCall(email, password)
         logins += call
         loginGate?.await()
         return onLogin(call)
     }
 
-    override suspend fun logout(force: Boolean): LogoutResult {
-        logouts += force
-        return onLogout(force)
+    override suspend fun logout() {
+        logouts++
+        onLogout()
     }
 }
 
@@ -110,6 +112,10 @@ class FakeSyncControls : SyncControls {
     }
 }
 
+class FakeNetworkStatus(online: Boolean = true) : NetworkStatus {
+    override val online = MutableStateFlow(online)
+}
+
 class FakeSettingsStore : SettingsStore {
     /** When set, setMyanmarDigits throws it (a DataStore IOException). */
     var writeFailure: Exception? = null
@@ -117,7 +123,9 @@ class FakeSettingsStore : SettingsStore {
     override val autoSaveHighConfidence = MutableStateFlow(false)
     override val cloudParseEnabled = MutableStateFlow(false)
     override val myanmarDigits = MutableStateFlow(false)
-    override val lastPulledAt = MutableStateFlow<Instant?>(null)
+    val lastPulled = mutableMapOf<String, MutableStateFlow<Instant?>>()
+
+    override fun lastPulledAt(owner: String): Flow<Instant?> = lastPulled.getOrPut(owner) { MutableStateFlow(null) }
 
     override suspend fun setAutoSaveHighConfidence(on: Boolean) {
         autoSaveHighConfidence.value = on
@@ -132,12 +140,8 @@ class FakeSettingsStore : SettingsStore {
         myanmarDigits.value = on
     }
 
-    override suspend fun setLastPulledAt(at: Instant) {
-        lastPulledAt.value = at
-    }
-
-    override suspend fun clearLastPulledAt() {
-        lastPulledAt.value = null
+    override suspend fun setLastPulledAt(owner: String, at: Instant) {
+        lastPulled.getOrPut(owner) { MutableStateFlow(null) }.value = at
     }
 }
 

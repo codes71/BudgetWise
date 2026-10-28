@@ -4,7 +4,6 @@
 
     <!-- Common -->
     <string name="action_cancel">Cancel</string>
-    <string name="server_url">Server: %1$s</string>
     <string name="time_just_now">just now</string>
 
     <!-- Bottom navigation -->
@@ -27,19 +26,9 @@
         <item quantity="one">Too many attempts. Try again in %d minute.</item>
         <item quantity="other">Too many attempts. Try again in %d minutes.</item>
     </plurals>
-    <string name="login_error_network">Can\'t reach BudgetWise. Check your connection.</string>
+    <string name="login_error_needs_internet">Connect to the internet to sign in to this account for the first time.</string>
     <string name="login_error_server">BudgetWise isn\'t responding right now. Try again in a moment.</string>
     <string name="login_error_generic">Something went wrong. Try again.</string>
-    <string name="login_discard_title">Delete unsynced entries?</string>
-    <plurals name="login_discard_message">
-        <item quantity="one">This phone has %1$d entry from %2$s that never synced. Signing in as a different account deletes it.</item>
-        <item quantity="other">This phone has %1$d entries from %2$s that never synced. Signing in as a different account deletes them.</item>
-    </plurals>
-    <plurals name="login_discard_message_unknown">
-        <item quantity="one">This phone has %d entry that never synced. Signing in deletes it.</item>
-        <item quantity="other">This phone has %d entries that never synced. Signing in deletes them.</item>
-    </plurals>
-    <string name="login_discard_confirm">Delete and sign in</string>
 
     <!-- Session banner (transactions screen) -->
     <string name="session_expired_message">Your session ended. Sign in again to sync.</string>
@@ -83,6 +72,9 @@
     <string name="transactions_add_first">Add your first expense</string>
     <string name="transactions_unreachable">Couldn\'t reach BudgetWise. Your entries are safe on this phone.</string>
     <string name="transactions_waiting_for_network">No connection yet. Your entries sync as soon as you\'re online.</string>
+    <string name="transactions_offline">Offline</string>
+    <string name="transactions_offline_description">Offline. Entries sync when you\'re online</string>
+    <string name="transactions_signed_in_offline">Signed in without internet. Your entries sync when you\'re back online.</string>
 
     <!-- Add entry -->
     <string name="manual_title">Add entry</string>
@@ -125,8 +117,8 @@
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_section_sync">Sync</string>
-    <string name="settings_section_developer">Developer</string>
     <string name="settings_section_display">Display</string>
+    <string name="settings_section_about">About</string>
     <string name="settings_myanmar_digits">Myanmar digits</string>
     <string name="settings_myanmar_digits_detail">Show amounts as ၅,၀၀၀ Ks</string>
     <string name="settings_sync_syncing">Syncing…</string>
@@ -150,13 +142,6 @@
     <string name="settings_all_synced">Every entry is synced</string>
     <string name="settings_sync_now">Sync now</string>
     <string name="settings_sign_out">Sign out</string>
-    <string name="settings_sign_out_title">Sign out?</string>
-    <plurals name="settings_sign_out_message">
-        <item quantity="one">%d entry hasn\'t synced yet. Signing out deletes it from this phone.</item>
-        <item quantity="other">%d entries haven\'t synced yet. Signing out deletes them from this phone.</item>
-    </plurals>
-    <string name="settings_sign_out_anyway">Sign out anyway</string>
     <string name="settings_sign_out_failed">Couldn\'t sign out. Try again.</string>
-    <string name="settings_server">Server</string>
     <string name="settings_version">Version %1$s (%2$d)</string>
 </resources>

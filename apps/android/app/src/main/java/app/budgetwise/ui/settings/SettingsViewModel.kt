@@ -8,7 +8,6 @@ import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.auth.SessionState
 import app.budgetwise.data.auth.UserInfo
 import app.budgetwise.data.prefs.SettingsStore
-import app.budgetwise.data.repo.LogoutResult
 import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,7 +19,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class AccountInfo(val name: String, val email: String)
@@ -35,8 +33,6 @@ data class SettingsUiState(
     val sessionExpired: Boolean = false,
     val sync: SyncSummary = SyncSummary(SyncPhase.NEVER),
     val unsyncedCount: Int = 0,
-    /** Set while asking whether to sign out and lose this many unsynced rows. */
-    val signOutPrompt: Int? = null,
     val signingOut: Boolean = false,
     /** The last sign-out threw (a Room or Keystore failure); nothing was signed out. */
     val signOutFailed: Boolean = false,
@@ -71,7 +67,7 @@ class SettingsViewModel @Inject constructor(
     private val sync: SyncControls,
     private val settings: SettingsStore,
 ) : ViewModel() {
-    private data class SignOut(val prompt: Int? = null, val running: Boolean = false, val failed: Boolean = false)
+    private data class SignOut(val running: Boolean = false, val failed: Boolean = false)
 
     private val signOut = MutableStateFlow(SignOut())
 
@@ -93,6 +89,7 @@ class SettingsViewModel @Inject constructor(
         val expired = s == SessionState.Expired
         val user: UserInfo? = when (s) {
             is SessionState.SignedIn -> s.user
+            is SessionState.SignedInOffline -> s.user
             SessionState.Expired -> session.knownUser
             SessionState.SignedOut -> null
         }
@@ -101,7 +98,6 @@ class SettingsViewModel @Inject constructor(
             sessionExpired = expired,
             sync = syncSummary(status, queued, expired),
             unsyncedCount = unsynced,
-            signOutPrompt = l.out.prompt,
             signingOut = l.out.running,
             signOutFailed = l.out.failed,
             myanmarDigits = l.myanmarDigits,
@@ -113,30 +109,24 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * With unsynced rows and `force = false` nothing happens except the prompt. Signing out wipes local data; the
-     * shell sees the session go to SignedOut and returns to sign-in.
+     * Signs out at once, without asking: nothing on the phone is deleted, and entries that have not synced yet keep
+     * uploading in the background. The shell sees the session go to SignedOut and returns to sign-in.
      */
-    fun signOut(force: Boolean) {
+    fun signOut() {
         if (signOut.value.running) return
         signOut.value = SignOut(running = true)
         viewModelScope.launch {
-            val r = try {
-                accounts.logout(force)
+            signOut.value = try {
+                accounts.logout()
+                SignOut()
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 // A Room or Keystore failure: say so, and let the user try again.
-                signOut.value = SignOut(failed = true)
-                return@launch
-            }
-            when (r) {
-                is LogoutResult.NeedsConfirmation -> signOut.value = SignOut(prompt = r.unsyncedCount)
-                LogoutResult.SignedOut -> signOut.value = SignOut()
+                SignOut(failed = true)
             }
         }
     }
-
-    fun dismissSignOut() = signOut.update { it.copy(prompt = null) }
 
     fun setMyanmarDigits(on: Boolean) {
         viewModelScope.launch {

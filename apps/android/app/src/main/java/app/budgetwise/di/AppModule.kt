@@ -6,8 +6,12 @@ import app.budgetwise.CategorySource
 import app.budgetwise.DefaultAccountActions
 import app.budgetwise.DefaultBudgetSource
 import app.budgetwise.DefaultCategorySource
+import app.budgetwise.DefaultNetworkStatus
+import app.budgetwise.DefaultSessionLoader
 import app.budgetwise.DefaultSyncControls
 import app.budgetwise.DefaultTransactionStore
+import app.budgetwise.NetworkStatus
+import app.budgetwise.SessionLoader
 import app.budgetwise.SyncControls
 import app.budgetwise.TransactionStore
 import dagger.Binds
@@ -45,6 +49,9 @@ abstract class AppBindingsModule {
     abstract fun accountActions(impl: DefaultAccountActions): AccountActions
 
     @Binds
+    abstract fun sessionLoader(impl: DefaultSessionLoader): SessionLoader
+
+    @Binds
     abstract fun syncControls(impl: DefaultSyncControls): SyncControls
 
     @Binds
@@ -55,6 +62,9 @@ abstract class AppBindingsModule {
 
     @Binds
     abstract fun categorySource(impl: DefaultCategorySource): CategorySource
+
+    @Binds
+    abstract fun networkStatus(impl: DefaultNetworkStatus): NetworkStatus
 }
 
 @Module

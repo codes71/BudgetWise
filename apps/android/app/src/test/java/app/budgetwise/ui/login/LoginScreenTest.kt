@@ -1,6 +1,7 @@
 package app.budgetwise.ui.login
 
 import android.content.Context
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -26,10 +27,7 @@ class LoginScreenTest {
                 onEmailChange = {},
                 onPasswordChange = {},
                 onSubmit = {},
-                onConfirmDiscard = {},
-                onDismissDiscard = {},
                 onClose = null,
-                serverUrl = null,
             )
         }
     }
@@ -40,6 +38,22 @@ class LoginScreenTest {
         show(LoginUiState(email = "aye@example.com", password = "secret", loading = true))
 
         compose.onNodeWithText(context.getString(R.string.login_signing_in)).assertIsNotEnabled()
+    }
+
+    @Test
+    fun noConnectionForANewAccountShowsTheRefusal() {
+        show(LoginUiState(email = "aye@example.com", password = "secret", error = LoginError.NeedsInternet))
+
+        compose.onNodeWithText(context.getString(R.string.login_error_needs_internet)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.login_submit)).assertIsEnabled()
+    }
+
+    @Test
+    fun thereIsNoServerLine() {
+        show(LoginUiState())
+
+        compose.onNodeWithText("Server", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("http", substring = true).assertDoesNotExist()
     }
 
     @Test

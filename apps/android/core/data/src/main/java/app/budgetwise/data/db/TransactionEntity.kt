@@ -1,6 +1,7 @@
 package app.budgetwise.data.db
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
@@ -12,11 +13,13 @@ import java.time.LocalDate
 /**
  * Local transaction row. [clientId] is the primary key, so it is unique and an upsert with the
  * same clientId replaces the row. [deleted] is a local tombstone, kept until the server confirms
- * the DELETE.
+ * the DELETE. [ownerId] is the user id of the account the row belongs to; null only for a row saved
+ * before several accounts, until an account claims it ([claimUnowned]).
  */
-@Entity(tableName = "tx")
+@Entity(tableName = "tx", indices = [Index("ownerId")])
 data class TransactionEntity(
     @PrimaryKey val clientId: String,
+    val ownerId: String?,
     val serverId: String?,
     val type: TxType,
     val amountKyat: Long,
@@ -44,8 +47,9 @@ fun TransactionEntity.toDomain() = Transaction(
     syncState = syncState,
 )
 
-fun Transaction.toEntity(deleted: Boolean = false) = TransactionEntity(
+fun Transaction.toEntity(ownerId: String?, deleted: Boolean = false) = TransactionEntity(
     clientId = clientId,
+    ownerId = ownerId,
     serverId = serverId,
     type = type,
     amountKyat = amountKyat,

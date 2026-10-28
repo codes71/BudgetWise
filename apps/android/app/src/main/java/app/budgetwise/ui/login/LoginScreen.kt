@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -61,32 +60,31 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.budgetwise.BuildConfig
 import app.budgetwise.R
 import app.budgetwise.ui.common.BrandMark
 import app.budgetwise.ui.theme.BudgetWiseTheme
 
-/** [onClose] is set when sign-in was opened on top of the app (expired session), so the user can go back. */
+/**
+ * [onClose] is set when sign-in was opened on top of the app (expired session), so the user can go back. [onSignedIn]
+ * gets `true` when the phone signed in without the server.
+ */
 @Composable
 fun LoginRoute(
-    onSignedIn: () -> Unit,
+    onSignedIn: (offline: Boolean) -> Unit,
     onClose: (() -> Unit)?,
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val signedIn by rememberUpdatedState(onSignedIn)
     LaunchedEffect(viewModel) {
-        viewModel.events.collect { if (it == LoginEvent.SignedIn) signedIn() }
+        viewModel.events.collect { if (it is LoginEvent.SignedIn) signedIn(it.offline) }
     }
     LoginScreen(
         state = state,
         onEmailChange = viewModel::onEmailChange,
         onPasswordChange = viewModel::onPasswordChange,
         onSubmit = viewModel::submit,
-        onConfirmDiscard = viewModel::confirmDiscard,
-        onDismissDiscard = viewModel::dismissDiscard,
         onClose = onClose,
-        serverUrl = if (BuildConfig.DEBUG) BuildConfig.API_BASE_URL else null,
     )
 }
 
@@ -96,10 +94,7 @@ fun LoginScreen(
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onSubmit: () -> Unit,
-    onConfirmDiscard: () -> Unit,
-    onDismissDiscard: () -> Unit,
     onClose: (() -> Unit)?,
-    serverUrl: String?,
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -225,51 +220,9 @@ fun LoginScreen(
                             Text(stringResource(R.string.action_cancel), style = MaterialTheme.typography.labelLarge)
                         }
                     }
-                    if (serverUrl != null) {
-                        Spacer(Modifier.height(24.dp))
-                        Text(
-                            text = stringResource(R.string.server_url, serverUrl),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
                 }
             }
         }
-    }
-
-    state.discardPrompt?.let { prompt ->
-        AlertDialog(
-            onDismissRequest = onDismissDiscard,
-            iconContentColor = MaterialTheme.colorScheme.error,
-            icon = { Icon(painterResource(R.drawable.ic_error), contentDescription = null) },
-            title = { Text(stringResource(R.string.login_discard_title), style = MaterialTheme.typography.headlineSmall) },
-            text = {
-                val n = prompt.unsyncedCount
-                Text(
-                    text = if (prompt.previousEmail != null) {
-                        pluralStringResource(R.plurals.login_discard_message, n, n, prompt.previousEmail)
-                    } else {
-                        pluralStringResource(R.plurals.login_discard_message_unknown, n, n)
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = onConfirmDiscard,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) {
-                    Text(stringResource(R.string.login_discard_confirm), style = MaterialTheme.typography.labelLarge)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismissDiscard) {
-                    Text(stringResource(R.string.action_cancel), style = MaterialTheme.typography.labelLarge)
-                }
-            },
-        )
     }
 }
 
@@ -280,16 +233,18 @@ private fun LoginErrorText(error: LoginError, modifier: Modifier = Modifier) {
         is LoginError.RateLimited -> error.minutes?.let {
             pluralStringResource(R.plurals.login_error_rate_limited_minutes, it, it)
         } ?: stringResource(R.string.login_error_rate_limited)
-        LoginError.Network -> stringResource(R.string.login_error_network)
+        LoginError.NeedsInternet -> stringResource(R.string.login_error_needs_internet)
         LoginError.Server -> stringResource(R.string.login_error_server)
         LoginError.Generic -> stringResource(R.string.login_error_generic)
     }
+    // No connection is about the network, not a mistake: the crossed-out cloud, as on Settings.
+    val icon = if (error == LoginError.NeedsInternet) R.drawable.ic_cloud_off else R.drawable.ic_error
     Row(
         modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
         verticalAlignment = Alignment.Top,
     ) {
         Icon(
-            painter = painterResource(R.drawable.ic_error),
+            painter = painterResource(icon),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(top = 2.dp).size(18.dp),
@@ -308,10 +263,7 @@ private fun LoginScreenPreview() {
             onEmailChange = {},
             onPasswordChange = {},
             onSubmit = {},
-            onConfirmDiscard = {},
-            onDismissDiscard = {},
             onClose = null,
-            serverUrl = "http://127.0.0.1:9002/api/v1/",
         )
     }
 }
