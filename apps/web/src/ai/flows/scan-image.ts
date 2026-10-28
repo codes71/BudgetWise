@@ -46,9 +46,9 @@ First decide the kind of image:
 
 For every entry:
 - amount: a positive number of kyat, rounded to whole kyat. Ignore the sign; type gives the direction. Read Burmese digits (၀ to ၉) as numbers.
-- date: YYYY-MM-DD. Read Burmese digits and month names.
+- date: YYYY-MM-DD. Read Burmese digits and month names. When a receipt or slip shows no readable date, leave date out instead of guessing it; leave out history rows whose date you cannot read.
 - description: short, a few words: the shop or the other person's name. Keep Burmese text exactly as written; do not translate or romanize it.
-- Never guess. Leave out any entry whose amount or date you cannot read, any line item whose amount you cannot read, and any reference you cannot read in full.
+- Never guess. Leave out any entry or line item whose amount you cannot read, and any reference you cannot read in full.
 `.trim();
 }
 

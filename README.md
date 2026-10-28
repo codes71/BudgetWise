@@ -153,10 +153,11 @@ npm start
 `POST /api/v1/scan` reads a shop receipt, a KBZPay (KPay) payment slip or a screenshot of the KPay history list, and returns the entries in it. Nothing is saved: the phone shows the entries for review, then saves the chosen ones with `POST /api/v1/transactions` (adding `source`, and a new `clientId` for entries that have none).
 
 - Auth: `Authorization: Bearer <token>` from `POST /api/v1/auth/token`. 20 scans per user per hour.
-- Body: `{ "image": "<base64>", "mediaType": "image/jpeg" | "image/png" | "image/webp" }`. Plain base64 without a `data:` prefix (line breaks are ignored), at most 6 MB decoded. Vercel rejects request bodies over 4.5 MB before the route runs, so the phone should shrink photos first.
+- Body: `{ "image": "<base64>", "mediaType": "image/jpeg" | "image/png" | "image/webp" }`. Plain base64 without a `data:` prefix (line breaks are ignored), at most 3 MB decoded, which keeps the request under Vercel's 4.5 MB body limit. The phone shrinks photos first (2000 px on the long edge, JPEG quality 90).
 - Errors, in the usual `{ "error": { "code", "message" } }` shape: 401 `unauthorized`, 413 `image_too_large`, 422 `validation_failed` (missing field or another media type) or `invalid_image` (not base64, or the bytes are not the declared type), 429 `rate_limited` with `Retry-After`, 502 `scan_failed` when Claude cannot read it.
 - `kind` is `receipt`, `payment`, `history` or `unknown` (no entries). A receipt gives one expense per category, with its line items in `items`; a slip gives one entry; a history screenshot gives one entry per transaction (received is income, paid or sent is expense).
-- Amounts are whole kyat. Categories are the user's own, else `Other`; income is always `Income`. Entries whose amount or date cannot be read are left out, not guessed.
+- Amounts are whole kyat. Categories are the user's own, else `Other`; income is always `Income`. Entries whose amount cannot be read are left out, not guessed.
+- Dates: a receipt or slip with no readable date gets today's date in Myanmar and `"dateGuessed": true`, so the review screen can point it out. A history row without a readable date is left out.
 - An entry with a KPay transaction id gets `reference` and a fixed `clientId` (sha256 of `kpay:` + reference, shaped as a UUID v4), so saving the same transaction twice stores it once.
 
 ```json

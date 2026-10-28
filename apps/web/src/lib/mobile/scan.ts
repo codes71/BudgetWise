@@ -5,9 +5,12 @@ import type { ScanEntryDto, ScanResultDto } from "./dto";
 import { ApiError } from "./errors";
 import { transactionInputSchema, type ScanMediaType } from "./schemas";
 
-export const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
-// Base64 is 4/3 of the bytes; the rest leaves room for line breaks and the JSON around it.
+// As base64 (4/3 of the bytes) inside the JSON body, 3 MB stays under Vercel's 4.5 MB request limit.
+export const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+// Leaves room for line breaks and the JSON around the base64.
 export const MAX_BODY_BYTES = 2 * MAX_IMAGE_BYTES;
+
+export const imageTooLarge = () => new ApiError(413, "image_too_large", "Image must be 3 MB or smaller");
 
 export const OTHER = "Other";
 export const INCOME = "Income";
@@ -27,9 +30,7 @@ export function decodeImage(image: string, mediaType: ScanMediaType): string {
   // Android's Base64.DEFAULT wraps lines, so whitespace is dropped first.
   const data = image.replace(/\s+/g, "");
   const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
-  if ((data.length / 4) * 3 - padding > MAX_IMAGE_BYTES) {
-    throw new ApiError(413, "image_too_large", "Image must be 6 MB or smaller");
-  }
+  if ((data.length / 4) * 3 - padding > MAX_IMAGE_BYTES) throw imageTooLarge();
   if (data.length === 0 || data.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) {
     throw new ApiError(422, "invalid_image", "image must be plain base64, without a data: prefix");
   }
@@ -117,9 +118,12 @@ export function normalizeScan(
   let entries: ScanEntryDto[] = [];
   for (const e of raw.entries) {
     const amount = kyat(e.amount);
-    // An entry without its own date takes the receipt's; a date that is there but unreadable drops it.
-    const entryDate = e.date === undefined ? date : validDate(e.date, today);
-    if (amount === undefined || entryDate === undefined) continue;
+    if (amount === undefined) continue;
+    const ownDate = e.date === undefined ? undefined : validDate(e.date, today);
+    // A history row needs its own readable date (or the screenshot's, when the row shows none).
+    // A receipt or slip without one gets today's, flagged so the review screen can point it out.
+    const readDate = raw.kind === "history" && e.date !== undefined ? ownDate : (ownDate ?? date);
+    if (readDate === undefined && raw.kind === "history") continue;
     const category =
       e.type === "income" ? INCOME : (known.get(categoryKey(e.category)) ?? OTHER);
     const entry: ScanEntryDto = {
@@ -127,7 +131,8 @@ export function normalizeScan(
       amount,
       category,
       description: text(e.description) ?? merchant ?? category,
-      date: entryDate,
+      date: readDate ?? today,
+      ...(readDate === undefined ? { dateGuessed: true } : {}),
     };
     if (raw.kind === "receipt") {
       const items = (e.items ?? []).flatMap((item) => {

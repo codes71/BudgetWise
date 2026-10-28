@@ -29,6 +29,8 @@ export interface ScanEntryDto {
   category: string;
   description: string;
   date: string;
+  /** Set when a receipt or slip showed no readable date and `date` is today in Yangon. */
+  dateGuessed?: true;
   reference?: string;
   clientId?: string;
   items?: { name: string; amount: number }[];

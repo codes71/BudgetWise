@@ -62,8 +62,8 @@ describe("POST /api/v1/scan", () => {
     expect(claude).not.toHaveBeenCalled();
   });
 
-  it("rejects an image over 6 MB with 413", async () => {
-    const big = Buffer.alloc(6 * 1024 * 1024 + 1);
+  it("rejects an image over 3 MB with 413", async () => {
+    const big = Buffer.alloc(3 * 1024 * 1024 + 1);
     big.set([0xff, 0xd8, 0xff]);
     const res = await scan(tokenA, { image: big.toString("base64"), mediaType: "image/jpeg" });
     expect(res.status).toBe(413);
@@ -74,7 +74,7 @@ describe("POST /api/v1/scan", () => {
   it("rejects an oversized body by its Content-Length before reading it", async () => {
     const r = new Request("http://localhost/api/v1/scan", {
       method: "POST",
-      headers: { authorization: `Bearer ${tokenA}`, "content-type": "application/json", "content-length": String(13 * 1024 * 1024) },
+      headers: { authorization: `Bearer ${tokenA}`, "content-type": "application/json", "content-length": String(7 * 1024 * 1024) },
       body: JSON.stringify({ image: JPEG, mediaType: "image/jpeg" }),
     });
     expect((await SCAN(r)).status).toBe(413);
@@ -138,6 +138,24 @@ describe("POST /api/v1/scan", () => {
           items: [{ name: "ချိုချဉ်", amount: 3950 }] },
       ],
     });
+  });
+
+  it("dates a receipt with no readable date today in Yangon and flags it as guessed", async () => {
+    reads({
+      kind: "receipt",
+      merchant: "ကုန်စုံဆိုင်",
+      entries: [
+        { type: "expense", amount: 3000, category: "Groceries", description: "ကုန်စုံဆိုင်",
+          items: [{ name: "ဆန်", amount: 3000 }] },
+      ],
+    });
+    const { yangonDate } = await import("@/lib/mobile/scan");
+    const before = yangonDate(new Date());
+    const body = await (await scan(tokenA)).json();
+    expect(body.date).toBeUndefined();
+    expect(body.entries).toHaveLength(1);
+    expect(body.entries[0]).toMatchObject({ category: "Groceries", dateGuessed: true });
+    expect([before, yangonDate(new Date())]).toContain(body.entries[0].date);
   });
 
   it("turns a KPay history screenshot into one entry per transaction", async () => {

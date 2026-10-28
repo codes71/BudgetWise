@@ -48,17 +48,24 @@ describe("decodeImage", () => {
     expect(decodeError(JPEG.slice(0, -1), "image/jpeg")).toMatchObject({ status: 422 });
   });
 
-  it("allows exactly 6 MB and rejects one byte more with 413", () => {
+  it("allows exactly 3 MB and rejects one byte more with 413", () => {
     const image = (size: number) => {
       const buf = Buffer.alloc(size);
       buf.set([0xff, 0xd8, 0xff]);
       return buf.toString("base64");
     };
+    expect(MAX_IMAGE_BYTES).toBe(3 * 1024 * 1024);
     expect(() => decodeImage(image(MAX_IMAGE_BYTES), "image/jpeg")).not.toThrow();
     expect(decodeError(image(MAX_IMAGE_BYTES + 1), "image/jpeg")).toMatchObject({
       status: 413,
       code: "image_too_large",
+      message: "Image must be 3 MB or smaller",
     });
+  });
+
+  it("keeps the largest allowed request under Vercel's 4.5 MB body limit, even with line breaks", () => {
+    const wrapped = Buffer.alloc(MAX_IMAGE_BYTES).toString("base64").replace(/(.{76})/g, "$1\n");
+    expect(JSON.stringify({ image: wrapped, mediaType: "image/jpeg" }).length).toBeLessThan(4.5 * 1000 * 1000);
   });
 });
 
@@ -131,10 +138,30 @@ describe("normalizeScan", () => {
     expect(out.map((e) => e.date)).toEqual(["2026-10-30", "2026-10-29"]);
   });
 
-  it("an entry without a date takes the scan's date, else it is dropped", () => {
-    expect(normalizeScan({ kind: "payment", date: "2026-10-21", entries: [entry({ date: undefined })] }, ctx).entries[0].date)
-      .toBe("2026-10-21");
-    expect(normalizeScan({ kind: "payment", entries: [entry({ date: undefined })] }, ctx).entries).toEqual([]);
+  it("a receipt or slip entry takes its own date, else the scan's, else today flagged as guessed", () => {
+    const first = (raw: ScanOutput) => normalizeScan(raw, ctx).entries[0];
+    expect(first({ kind: "payment", date: "2026-10-21", entries: [entry({ date: undefined })] })).toMatchObject({
+      date: "2026-10-21",
+    });
+    expect(first({ kind: "receipt", date: "2026-10-21", entries: [entry({ date: "2026-13-01" })] })).toMatchObject({
+      date: "2026-10-21",
+    });
+    expect(first({ kind: "payment", date: "2026-10-21", entries: [entry()] }).dateGuessed).toBeUndefined();
+    for (const kind of ["payment", "receipt"] as const) {
+      for (const date of [undefined, "2026-10-??", "2027-01-01"]) {
+        const out = normalizeScan({ kind, date, entries: [entry({ date })] }, ctx);
+        expect(out.date).toBeUndefined();
+        expect(out.entries[0]).toMatchObject({ date: "2026-10-29", dateGuessed: true });
+      }
+    }
+  });
+
+  it("drops a history row without a readable date, never guessing it", () => {
+    expect(history([entry({ date: undefined })])).toEqual([]);
+    expect(normalizeScan({ kind: "history", date: "2026-10-21", entries: [entry({ date: undefined })] }, ctx).entries[0])
+      .toMatchObject({ date: "2026-10-21" });
+    expect(normalizeScan({ kind: "history", date: "2026-10-21", entries: [entry({ date: "bad" })] }, ctx).entries)
+      .toEqual([]);
   });
 
   it("keeps Burmese text as written and falls back to the merchant for a blank description", () => {

@@ -4,20 +4,25 @@ import { requireUser } from "@/lib/mobile/bearer";
 import { ApiError, handle, readJson } from "@/lib/mobile/errors";
 import { rateLimit } from "@/lib/mobile/rate-limit";
 import { getCategoriesForUser } from "@/lib/mobile/reference-data";
-import { MAX_BODY_BYTES, decodeImage, expenseCategories, normalizeScan, yangonDate } from "@/lib/mobile/scan";
+import {
+  MAX_BODY_BYTES,
+  decodeImage,
+  expenseCategories,
+  imageTooLarge,
+  normalizeScan,
+  yangonDate,
+} from "@/lib/mobile/scan";
 import { scanRequestSchema } from "@/lib/mobile/schemas";
 
 export const dynamic = "force-dynamic";
 // Reading one image takes Claude a few seconds; leave room for a slow call.
 export const maxDuration = 60;
 
-const tooLarge = () => new ApiError(413, "image_too_large", "Image must be 6 MB or smaller");
-
 // Returns the entries found in a receipt, KPay slip or KPay history screenshot.
 // Nothing is saved: the phone shows them for review and saves through POST /transactions.
 export const POST = handle(async (req) => {
   const { userId } = await requireUser(req);
-  if (Number(req.headers.get("content-length")) > MAX_BODY_BYTES) throw tooLarge();
+  if (Number(req.headers.get("content-length")) > MAX_BODY_BYTES) throw imageTooLarge();
   const { image, mediaType } = scanRequestSchema.parse(await readJson(req));
   const data = decodeImage(image, mediaType);
 
