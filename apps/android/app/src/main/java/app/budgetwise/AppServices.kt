@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import app.budgetwise.data.model.Budget
+import app.budgetwise.data.model.DailySpend
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.data.net.ApiResult
 import app.budgetwise.data.repo.AuthRepository
@@ -19,6 +20,7 @@ import app.budgetwise.data.sync.SyncEngine
 import app.budgetwise.data.sync.SyncScheduler
 import app.budgetwise.data.sync.SyncStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.LocalDate
 import javax.inject.Inject
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.awaitClose
@@ -70,6 +72,9 @@ interface SyncControls {
 interface TransactionStore {
     fun observe(): Flow<List<Transaction>>
 
+    /** The active account's spending from [from] to [to] (both included), per day and category, for the month chart. */
+    fun observeDailySpend(from: LocalDate, to: LocalDate): Flow<List<DailySpend>>
+
     /** Saves PENDING rows plus their outbox ops and requests a sync; works offline. Returns the new clientIds. */
     suspend fun addAll(inputs: List<NewTransaction>): List<String>
 
@@ -83,7 +88,7 @@ interface BudgetSource {
     suspend fun refresh(): ApiResult<Unit>
 }
 
-/** Whether the phone can reach the internet, for the Offline chip on Transactions. */
+/** Whether the phone can reach the internet, for the header's Offline chip. */
 interface NetworkStatus {
     val online: Flow<Boolean>
 }
@@ -137,6 +142,8 @@ class DefaultSyncControls @Inject constructor(
  */
 class DefaultTransactionStore @Inject constructor(private val repo: TransactionRepository) : TransactionStore {
     override fun observe(): Flow<List<Transaction>> = repo.observe()
+
+    override fun observeDailySpend(from: LocalDate, to: LocalDate): Flow<List<DailySpend>> = repo.observeDailySpend(from, to)
 
     override suspend fun addAll(inputs: List<NewTransaction>) = withContext(NonCancellable) { repo.addAll(inputs) }
 

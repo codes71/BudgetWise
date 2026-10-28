@@ -53,12 +53,18 @@ data class TransactionsUiState(
      * after a save, on reconnect) stay out of sight, or the spinner drops into the screen for no visible reason.
      */
     val refreshing: Boolean = false,
-    /** The row swiped away whose snackbar (with Undo) is showing; it is deleted when the snackbar ends. */
+    /** The row swiped away whose notice (with Undo) is showing; it is deleted when the notice ends. */
     val pendingDelete: String? = null,
+    /** [pendingDelete]'s row, for the notice to name it; null once Room has dropped it. */
+    val pendingDeleteRow: Transaction? = null,
     /** How often Undo brought each row back. Part of the row's list key, so it returns with its swipe reset. */
     val restored: Map<String, Int> = emptyMap(),
-    /** No internet: the Offline chip shows. Entries still save on the phone and sync later. */
+    /** No internet. Entries still save on the phone and sync later; the header's chip says so. */
     val offline: Boolean = false,
+    /** The month chart's Total view: this month's running total against last month's by the same day. */
+    val pace: MonthPace = MonthPace.empty(today),
+    /** The month chart's By category view. */
+    val categories: CategoryBreakdown = CategoryBreakdown.EMPTY,
 ) {
     val isEmpty: Boolean get() = !loading && days.isEmpty()
 }
@@ -91,8 +97,9 @@ internal fun monthSummary(rows: List<Transaction>, month: YearMonth): MonthSumma
 }
 
 /**
- * The list reads Room only. Swipe to delete hides the row at once and offers Undo; the delete reaches the
- * repository when the snackbar ends without Undo, when another row is swiped, or when the user leaves the screen.
+ * The list and the month chart read Room only. Swipe to delete hides the row at once (from the chart too) and offers
+ * Undo; the delete reaches the repository when the notice ends without Undo, when another row is swiped, or when the
+ * user leaves the screen.
  * Deletes run in [appScope], so leaving the screen never cancels one half way.
  */
 @HiltViewModel
@@ -117,10 +124,16 @@ class TransactionsViewModel @Inject constructor(
     val events: Flow<TransactionsEvent> = _events.receiveAsFlow()
     private var refreshJob: Job? = null
 
+    /** This month and last, for the chart; read once when the screen opens, like "today". */
+    private val dailySpend = YearMonth.from(LocalDate.now(clock)).let { month ->
+        transactions.observeDailySpend(month.minusMonths(1).atDay(1), month.atEndOfMonth())
+    }
+
     val state: StateFlow<TransactionsUiState> =
-        combine(transactions.observe(), local, settings.myanmarDigits, network.online) { rows, l, digits, online ->
+        combine(transactions.observe(), local, settings.myanmarDigits, network.online, dailySpend) { rows, l, digits, online, daily ->
             val today = LocalDate.now(clock)
-            val visible = rows.filterNot { it.clientId in l.hidden }
+            val (hidden, visible) = rows.partition { it.clientId in l.hidden }
+            val spending = withoutRows(daily, hidden)
             TransactionsUiState(
                 today = today,
                 loading = false,
@@ -129,8 +142,11 @@ class TransactionsViewModel @Inject constructor(
                 myanmarDigits = digits,
                 refreshing = l.refreshRequested,
                 pendingDelete = l.pendingDelete,
+                pendingDeleteRow = l.pendingDelete?.let { id -> hidden.firstOrNull { it.clientId == id } },
                 restored = l.restored,
                 offline = !online,
+                pace = monthPace(spending, today),
+                categories = categoryBreakdown(spending, today),
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TransactionsUiState(today = LocalDate.now(clock)))
 
@@ -152,14 +168,14 @@ class TransactionsViewModel @Inject constructor(
         }
     }
 
-    /** The snackbar for [clientId] ended without Undo. Ignored when that row was already undone or committed. */
+    /** The notice for [clientId] ended without Undo. Ignored when that row was already undone or committed. */
     fun commitDelete(clientId: String) {
         if (local.value.pendingDelete != clientId) return
         local.update { it.copy(pendingDelete = null) }
         send(clientId)
     }
 
-    /** The screen is going away while a snackbar shows: the delete happens, as if the snackbar had timed out. */
+    /** The screen is going away while a notice shows: the delete happens, as if the notice had timed out. */
     fun commitPendingDelete() {
         local.value.pendingDelete?.let(::commitDelete)
     }

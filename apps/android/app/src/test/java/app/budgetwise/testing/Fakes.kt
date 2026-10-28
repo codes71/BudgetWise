@@ -11,6 +11,7 @@ import app.budgetwise.data.auth.StoredSession
 import app.budgetwise.data.auth.TokenStore
 import app.budgetwise.data.auth.UserInfo
 import app.budgetwise.data.model.Budget
+import app.budgetwise.data.model.DailySpend
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
@@ -30,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -155,6 +157,13 @@ class FakeTransactionStore(initial: List<Transaction> = emptyList()) : Transacti
     var addFailure: Exception? = null
 
     override fun observe(): Flow<List<Transaction>> = rows
+
+    /** What the DAO query answers: [rows]' expenses in the range, summed per day and category. */
+    override fun observeDailySpend(from: LocalDate, to: LocalDate): Flow<List<DailySpend>> = rows.map { all ->
+        all.filter { it.type == TxType.EXPENSE && !it.date.isBefore(from) && !it.date.isAfter(to) }
+            .groupBy { it.date to it.category }
+            .map { (key, rows) -> DailySpend(key.first, key.second, rows.sumOf { it.amountKyat }) }
+    }
 
     override suspend fun addAll(inputs: List<NewTransaction>): List<String> {
         addFailure?.let { throw it }
