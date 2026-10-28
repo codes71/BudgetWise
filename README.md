@@ -18,7 +18,7 @@ BudgetWise is a modern, AI-powered personal finance application built with Next.
 This application demonstrates advanced full-stack capabilities:
 
 - **Next.js 15 App Router**: Organized routing with `(authenticated)` layout for protected pages, server actions for form handling (`actions.ts`, `db-actions.ts`), and middleware for auth checks (`src/middleware.ts`).
-- **Type-Safe Data Models**: Custom TypeScript models for users, budgets, categories, and transactions (`src/lib/models/`), ensuring robust data integrity.
+- **Firestore Data Layer**: Server-side Firestore access for users, budgets, categories, and transactions (`src/lib/firestore.ts`, `src/lib/users.ts`, `src/lib/budgets.ts`, `src/lib/mobile/`).
 - **AI Integration with Genkit**: Custom flows for transaction data extraction, categorization, and spending suggestions (`src/ai/flows/`), powered by Google AI. Development server runs concurrently with the app for seamless testing.
 - **State Management & Hooks**: Context providers for auth and theme (`src/context/`), custom hooks like `use-toast` for UI feedback.
 - **UI Components**: Reusable Shadcn/UI components (built on Radix UI and Tailwind) for modals, charts, forms, and more, emphasizing accessible and customizable design.
@@ -72,18 +72,33 @@ The codebase follows best practices: clean separation of concerns, ESLint/Pretti
    ```
 
 ### Environment Variables
-Create a `.env.local` file in the project root with Firebase configuration:
+All data lives in Cloud Firestore, accessed on the server with `firebase-admin` (`src/lib/firestore.ts`). Create a `.env.local` file in the project root (it is git-ignored) with placeholder values replaced:
 ```
+# Firestore, option A: service account fields (what Vercel uses)
 FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project-id.iam.gserviceaccount.com
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-FIREBASE_CLIENT_EMAIL=your-client-email@project.iam.gserviceaccount.com
-GOOGLE_API_KEY=your-google-api-key-for-genkit
-NEXTAUTH_SECRET=your-nextauth-secret (if using additional auth)
-JWT_SECRET=at-least-32-characters-long (required for the mobile API under /api/v1)
+
+# Firestore, option B: path to a service account key file instead of the three above
+# GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/service-account.json
+
+# Firestore, option C: the local emulator (see "Firestore emulator" below)
+# FIRESTORE_EMULATOR_HOST=127.0.0.1:8085
+# FIREBASE_PROJECT_ID=demo-budgetwise
+
+JWT_SECRET=at-least-32-characters-long (web sessions and the mobile API under /api/v1)
+ANTHROPIC_API_KEY=your-anthropic-api-key (optional, only for the AI features)
 ```
-- Set up Firebase: Create a project at [console.firebase.google.com](https://console.firebase.google.com), enable Authentication and Firestore.
-- Download service account key JSON and extract values above.
-- For AI features, get a Google API key from [makersuite.google.com](https://makersuite.google.com).
+- The server picks credentials in this order: `FIRESTORE_EMULATOR_HOST`, then the three `FIREBASE_*` fields, then `GOOGLE_APPLICATION_CREDENTIALS`. With none of them set it fails with a clear error; it never falls back to a local gcloud login.
+- `FIREBASE_PRIVATE_KEY` may contain literal `\n` sequences; they are turned into newlines.
+- Firestore needs no indexes or rules files for this app: the server uses only single-field queries, and the admin SDK is not subject to security rules.
+
+#### Data layout
+- `users/{userId}` with `email`, `emailLower`, bcrypt `password`, profile fields, `createdAt`, `updatedAt`.
+- `userEmails/{sha256(emailLower)}` holds `{ userId }`, so an email can only be registered once in any letter case.
+- `users/{userId}/transactions/{id}`: phone rows use their `clientId` as the id, web rows get an auto id.
+- `users/{userId}/budgets/{sha256(category)}`, `users/{userId}/categories/{id}` and global `categories/{slug}`.
+- `rateLimits/{sha256(key)}` for login rate limiting. Expired windows are reset on the next attempt.
 
 ### Running the Application
 #### Development Mode
@@ -93,9 +108,31 @@ npm run dev
 This starts Next.js on http://localhost:9002 and Genkit dev server concurrently. Open [http://localhost:9002](http://localhost:9002) in your browser.
 
 #### Seed Categories (Optional)
+Creates the default global categories; it never overwrites existing ones, so it is safe to rerun.
 ```bash
 npm run seed:categories
 ```
+
+#### Firestore emulator
+For local development without a Firebase project, run the emulator (needs Java 11+; the script finds `JAVA_HOME`, `/usr/libexec/java_home` or Android Studio's bundled JDK):
+```bash
+npm run emulator
+```
+Then start the app with `FIRESTORE_EMULATOR_HOST=127.0.0.1:8085` and `FIREBASE_PROJECT_ID=demo-budgetwise`. `demo-` projects exist only in the emulator.
+
+#### Tests
+```bash
+npm test
+```
+The test run starts the Firestore emulator itself (or reuses one already running on port 8085) and clears it between tests.
+
+#### One-time copy from MongoDB
+`scripts/copyMongoToFirestore.ts` copies an existing MongoDB database into Firestore, keeping user and transaction ids so the Android app keeps working. It is a dry run unless `--write` is passed, never overwrites existing docs, and prints counts only.
+```bash
+MONGODB_URI="mongodb+srv://user:password@cluster.example.net/budgetWise" npm run copy:mongo-to-firestore
+MONGODB_URI="mongodb+srv://user:password@cluster.example.net/budgetWise" npm run copy:mongo-to-firestore -- --write
+```
+Run it with the same Firestore variables as the app, before the Firestore version takes traffic.
 
 #### Production Build
 ```bash
@@ -104,7 +141,7 @@ npm start
 ```
 
 ### Deployment
-- **Vercel**: Push to GitHub and connect to Vercel; it auto-detects Next.js. Configure Firebase env vars in Vercel dashboard.
+- **Vercel**: Push to GitHub and connect to Vercel; it auto-detects Next.js. Set `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` and `JWT_SECRET` (plus `ANTHROPIC_API_KEY` for AI features) in the Vercel dashboard.
 - Ensure Genkit is built: `npm run genkit:build` before deploy.
 
 ## 🤝 Contributing
