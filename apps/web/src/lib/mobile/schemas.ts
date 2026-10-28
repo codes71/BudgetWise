@@ -37,5 +37,14 @@ export const voiceParseSchema = z.object({
 
 export const updatedSinceSchema = z.iso.datetime();
 
+export const SCAN_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+
+// The size and the bytes are checked by decodeImage, so an oversized image gets its own error.
+export const scanRequestSchema = z.object({
+  image: z.string().min(1),
+  mediaType: z.enum(SCAN_MEDIA_TYPES),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type TransactionInputParsed = z.infer<typeof transactionInputSchema>;
+export type ScanMediaType = (typeof SCAN_MEDIA_TYPES)[number];

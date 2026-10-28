@@ -23,6 +23,25 @@ export interface DraftTransactionDto {
   confidence: number;
 }
 
+export interface ScanEntryDto {
+  type: "expense" | "income";
+  amount: number;
+  category: string;
+  description: string;
+  date: string;
+  reference?: string;
+  clientId?: string;
+  items?: { name: string; amount: number }[];
+}
+
+export interface ScanResultDto {
+  kind: "receipt" | "payment" | "history" | "unknown";
+  merchant?: string;
+  date?: string;
+  total?: number;
+  entries: ScanEntryDto[];
+}
+
 export interface LeanTransaction {
   _id: unknown;
   date: string;
