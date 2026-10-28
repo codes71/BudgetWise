@@ -18,6 +18,7 @@ import app.budgetwise.R
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.nlu.TxType
+import app.budgetwise.testing.FakeNetworkStatus
 import app.budgetwise.testing.FakeSettingsStore
 import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTransactionStore
@@ -55,11 +56,14 @@ class TransactionsScreenTest {
         rows: List<Transaction>,
         onAddManual: () -> Unit = {},
         signedInOffline: Boolean = false,
+        online: Boolean = true,
         onSignedInOfflineShown: () -> Unit = {},
     ): FakeTransactionStore {
         val store = FakeTransactionStore(rows)
         // The delete outlives the screen in the app; here it runs straight away.
-        vm = TransactionsViewModel(store, FakeSyncControls(), FakeSettingsStore(), clock, CoroutineScope(Dispatchers.Unconfined))
+        vm = TransactionsViewModel(
+            store, FakeSyncControls(), FakeSettingsStore(), FakeNetworkStatus(online), clock, CoroutineScope(Dispatchers.Unconfined),
+        )
         compose.setContent {
             BudgetWiseTheme {
                 TransactionsRoute(
@@ -78,9 +82,12 @@ class TransactionsScreenTest {
     @Test
     fun anOfflineSignInSaysTheEntriesSyncOnceOnline() {
         var shown = 0
-        show(listOf(testTransaction("Tea", 1500, today, syncState = SyncState.PENDING)), signedInOffline = true) { shown++ }
+        show(listOf(testTransaction("Tea", 1500, today, syncState = SyncState.PENDING)), signedInOffline = true, online = false) {
+            shown++
+        }
 
         compose.onNodeWithText(text(R.string.transactions_signed_in_offline)).assertIsDisplayed()
+        compose.onNode(hasContentDescription(text(R.string.transactions_offline_description))).assertIsDisplayed()
         compose.onNodeWithText("Tea").assertIsDisplayed()
         assertEquals("told only once the snackbar is gone", 0, shown)
 

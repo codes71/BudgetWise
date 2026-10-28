@@ -2,6 +2,7 @@ package app.budgetwise.ui.transactions
 
 import androidx.activity.compose.LocalActivity
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,6 +59,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
@@ -177,6 +179,7 @@ fun TransactionsScreen(
         topBar = {
             LargeTopAppBar(
                 title = { Text(stringResource(R.string.transactions_title)) },
+                actions = { if (state.offline) OfflineChip(Modifier.padding(end = 12.dp)) },
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -433,6 +436,26 @@ private fun SecondaryLine(row: Transaction) {
                 container = MaterialTheme.colorScheme.errorContainer,
                 content = MaterialTheme.colorScheme.error,
             )
+        }
+    }
+}
+
+/** No internet. Not a button: there is nothing to do about it here, the entries sync on their own once online. */
+@Composable
+private fun OfflineChip(modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    val description = stringResource(R.string.transactions_offline_description)
+    Surface(
+        modifier = modifier.clearAndSetSemantics { contentDescription = description },
+        shape = CircleShape,
+        color = Color.Transparent,
+        contentColor = colors.secondary,
+        border = BorderStroke(1.dp, colors.secondaryContainer),
+    ) {
+        Row(Modifier.height(32.dp).padding(start = 10.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.ic_cloud_off), contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.transactions_offline), style = MaterialTheme.typography.labelLarge)
         }
     }
 }

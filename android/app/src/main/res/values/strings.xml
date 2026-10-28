@@ -72,6 +72,8 @@
     <string name="transactions_add_first">Add your first expense</string>
     <string name="transactions_unreachable">Couldn\'t reach BudgetWise. Your entries are safe on this phone.</string>
     <string name="transactions_waiting_for_network">No connection yet. Your entries sync as soon as you\'re online.</string>
+    <string name="transactions_offline">Offline</string>
+    <string name="transactions_offline_description">Offline. Entries sync when you\'re online</string>
     <string name="transactions_signed_in_offline">Signed in without internet. Your entries sync when you\'re back online.</string>
 
     <!-- Add entry -->

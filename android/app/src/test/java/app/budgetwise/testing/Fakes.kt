@@ -3,6 +3,7 @@ package app.budgetwise.testing
 import app.budgetwise.AccountActions
 import app.budgetwise.BudgetSource
 import app.budgetwise.CategorySource
+import app.budgetwise.NetworkStatus
 import app.budgetwise.SyncControls
 import app.budgetwise.TransactionStore
 import app.budgetwise.data.auth.SavedAccounts
@@ -109,6 +110,10 @@ class FakeSyncControls : SyncControls {
     fun stop(restored: SyncStatus) {
         status.value = restored
     }
+}
+
+class FakeNetworkStatus(online: Boolean = true) : NetworkStatus {
+    override val online = MutableStateFlow(online)
 }
 
 class FakeSettingsStore : SettingsStore {

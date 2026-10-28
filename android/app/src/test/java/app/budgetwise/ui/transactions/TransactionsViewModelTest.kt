@@ -3,6 +3,7 @@ package app.budgetwise.ui.transactions
 import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
 import app.budgetwise.nlu.TxType
+import app.budgetwise.testing.FakeNetworkStatus
 import app.budgetwise.testing.FakeSettingsStore
 import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTransactionStore
@@ -38,10 +39,11 @@ class TransactionsViewModelTest {
     private val store = FakeTransactionStore()
     private val sync = FakeSyncControls()
     private val settings = FakeSettingsStore()
+    private val network = FakeNetworkStatus()
 
     private fun d(s: String) = LocalDate.parse(s)
 
-    private fun TestScope.vm() = TransactionsViewModel(store, sync, settings, clock, backgroundScope).also { vm ->
+    private fun TestScope.vm() = TransactionsViewModel(store, sync, settings, network, clock, backgroundScope).also { vm ->
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
     }
 
@@ -269,5 +271,17 @@ class TransactionsViewModelTest {
         settings.myanmarDigits.value = true
 
         assertTrue(vm.state.value.myanmarDigits)
+    }
+
+    @Test
+    fun theOfflineChipFollowsTheNetwork() = runTest {
+        val vm = vm()
+        assertFalse(vm.state.value.offline)
+
+        network.online.value = false
+        assertTrue(vm.state.value.offline)
+
+        network.online.value = true
+        assertFalse(vm.state.value.offline)
     }
 }

@@ -1,6 +1,9 @@
 package app.budgetwise
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import app.budgetwise.data.model.Budget
@@ -18,8 +21,10 @@ import app.budgetwise.data.sync.SyncStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -78,6 +83,11 @@ interface BudgetSource {
     suspend fun refresh(): ApiResult<Unit>
 }
 
+/** Whether the phone can reach the internet, for the Offline chip on Transactions. */
+interface NetworkStatus {
+    val online: Flow<Boolean>
+}
+
 /** Category names for the add form ([CategoryRepository]): the cached server list, else the eight built-ins. */
 interface CategorySource {
     val categories: Flow<List<String>>
@@ -131,6 +141,32 @@ class DefaultTransactionStore @Inject constructor(private val repo: TransactionR
     override suspend fun addAll(inputs: List<NewTransaction>) = withContext(NonCancellable) { repo.addAll(inputs) }
 
     override suspend fun delete(clientId: String) = withContext(NonCancellable) { repo.delete(clientId) }
+}
+
+/**
+ * The default network, from [ConnectivityManager]: online while it has validated internet, so a Wi-Fi without
+ * internet counts as offline. Starts from the current network.
+ */
+class DefaultNetworkStatus @Inject constructor(@ApplicationContext private val context: Context) : NetworkStatus {
+    override val online: Flow<Boolean>
+        get() = callbackFlow {
+            val cm = context.getSystemService(ConnectivityManager::class.java)
+            fun NetworkCapabilities?.online() = this != null &&
+                hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            trySend(cm.getNetworkCapabilities(cm.activeNetwork).online())
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                    trySend(capabilities.online())
+                }
+
+                override fun onLost(network: Network) {
+                    trySend(false)
+                }
+            }
+            cm.registerDefaultNetworkCallback(callback)
+            awaitClose { cm.unregisterNetworkCallback(callback) }
+        }.distinctUntilChanged()
 }
 
 class DefaultBudgetSource @Inject constructor(private val repo: BudgetRepository) : BudgetSource {

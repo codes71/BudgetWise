@@ -69,6 +69,8 @@
     <string name="transactions_add_first">ပထမဆုံး သုံးငွေ ထည့်မည်</string>
     <string name="transactions_unreachable">BudgetWise နှင့် ချိတ်ဆက်၍ မရပါ။ စာရင်းများ ဤဖုန်းထဲတွင် ရှိနေပါသည်။</string>
     <string name="transactions_waiting_for_network">အင်တာနက် မရသေးပါ။ အင်တာနက်ရလျှင် စင့်ခ်လုပ်ပါမည်။</string>
+    <string name="transactions_offline">အင်တာနက် မရှိ</string>
+    <string name="transactions_offline_description">အင်တာနက် မရှိပါ။ အင်တာနက်ရလျှင် စာရင်းများ စင့်ခ်လုပ်ပါမည်</string>
     <string name="transactions_signed_in_offline">အင်တာနက် မရှိဘဲ ဝင်ထားပါသည်။ အင်တာနက် ပြန်ရလျှင် စာရင်းများ စင့်ခ်လုပ်ပါမည်။</string>
 
     <!-- Add entry -->
