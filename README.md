@@ -4,7 +4,7 @@ BudgetWise is a modern, AI-powered personal finance application built with Next.
 
 ## Repository layout
 
-- `apps/web/`: the Next.js web app and the `/api/v1` mobile API (deployed on Vercel). Run the npm commands below from here.
+- `apps/web/`: the Next.js web app and the `/api/v1` mobile API (deployed on Vercel). Run the npm commands below from here; paths such as `src/...` and `scripts/...` are relative to it.
 - `apps/android/`: the Android app (Gradle project; run `./gradlew` from here).
 - `brand/`: logo and icon sources for both apps. `docs/`: plans and specs.
 - `.github/workflows/`: one CI pipeline per deployment.
@@ -81,7 +81,7 @@ The codebase follows best practices: clean separation of concerns, ESLint/Pretti
    ```
 
 ### Environment Variables
-All data lives in Cloud Firestore, accessed on the server with `firebase-admin` (`src/lib/firestore.ts`). Create a `.env.local` file in the project root (it is git-ignored) with placeholder values replaced:
+All data lives in Cloud Firestore, accessed on the server with `firebase-admin` (`src/lib/firestore.ts`). Create a `.env.local` file in `apps/web/` (it is git-ignored) with placeholder values replaced:
 ```
 # Firestore, option A: service account fields (what Vercel uses)
 FIREBASE_PROJECT_ID=your-project-id

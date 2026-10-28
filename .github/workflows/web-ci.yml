@@ -37,7 +37,7 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
-      # The Firestore emulator (firebase-tools 15) needs Java 21 or newer.
+      # `npm test` starts the Firestore emulator from the firebase-tools devDependency; version 15 needs Java 21+.
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -59,11 +59,8 @@ jobs:
         if: hashFiles('apps/web/eslint.config.*', 'apps/web/.eslintrc*') != ''
         run: npm run lint
 
-      - name: Unit and API tests
-        run: npx vitest run
+      - name: Unit and API tests (Firestore emulator)
+        run: npm test
 
-      # src/lib/db.ts checks MONGODB_URI when it is imported; the build never connects, so a placeholder is enough.
       - name: Build
         run: npm run build
-        env:
-          MONGODB_URI: mongodb://127.0.0.1:27017/budgetwise-ci-build
