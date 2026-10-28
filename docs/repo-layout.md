@@ -32,7 +32,7 @@ Compared with `feat/m1-android` (head `fa88747`), the most complete line.
 | ws3-spike | ee0e814 | 2 commits, but both are already in as 8f51436 and 54f14a0 | yes |
 | feat/claude-ai-android-voice-plan | aeb5952 | nothing | yes |
 | feat/firestore | 165b047 | 4 commits, final | no upstream |
-| feat/android-accounts | 2c2b0a7 | 6 commits, final | no upstream |
+| feat/android-accounts | dc6c14c | 7 commits, final | no upstream |
 
 `chore/monorepo` starts at `fa88747` and merges the two branches that were not fully in:
 
@@ -50,16 +50,21 @@ After the move and path fixes, both feature branches were merged at their final 
   carried every changed and new file into `apps/web`. The eleven Mongo-era files it deletes came up as
   rename/delete conflicts and were deleted. `firebase.json`, which it adds at the repo root, was moved to
   `apps/web/firebase.json` next to `.firebaserc`.
-- `feat/android-accounts` at 6326b23 (merge 01ec203), then its top bar fix 2c2b0a7 (merge 57f06e0, no conflicts): every file landed in `apps/android`, including the Room v3
-  schema `core/data/schemas/.../3.json` and the new tests. Its two deleted files (`ic_dns.xml`,
-  `AuthInterceptor.kt`) were deleted.
+- `feat/android-accounts` at 6326b23 (merge 01ec203), then 2c2b0a7 (top bar, merge 57f06e0) and dc6c14c
+  (profile build type, merge add6c85): files landed in `apps/android`, including the Room v3 schema
+  `core/data/schemas/.../3.json` and the new tests. Its two deleted files (`ic_dns.xml`, `AuthInterceptor.kt`)
+  were deleted. One new file in a new folder, `app/src/profile/res/xml/network_security_config.xml`, stayed at
+  the old `android/` path and was moved by hand; the old-path check below is what caught it. The `profile`
+  build type keeps `signingConfig = debug` next to this branch's env-based release signing.
 
 In both merges every file from the branch is byte-identical under `apps/`, except files this branch had already
 edited for the move, which the feature branches did not touch.
 
 Verified on the merged tree (2026-10-29): in `apps/web`, `npm test` (Firestore emulator) passes 109 of 109 and
-`npm run build` passes with no database settings; in `apps/android`, unit tests pass for :core:data (166), :app
-(115) and :nlu (2), and `:app:assembleDebug` and lint (0 errors) pass.
+`npm run build` passes with no database settings; in `apps/android` (at dc6c14c), unit tests pass for :core:data
+(166), :app (115) and :nlu (2), and `:app:assembleDebug`, `:app:assembleProfile` and lint (0 errors) pass. With the
+release signing variables set to a throwaway keystore, the profile APK is still signed with the debug key and the
+release APK with the throwaway key.
 
 ## Worktrees and other folders (survey, 2026-10-29)
 
@@ -162,7 +167,7 @@ cut from the old layout, merge the same way:
 cd /Users/code/Projects/BudgetWise-mono
 git -c merge.directoryRenames=true merge --no-ff <branch>
 git status --short | awk '$1=="UD"{print $2}' | xargs git rm   # only if git reports rename/delete
-git ls-files | grep -E '^(src|tests|scripts|public|android)/'   # must print nothing
+git ls-files | grep -E '^(src|tests|scripts|public|android)/'   # must print nothing; git mv anything it lists
 git commit --no-edit
 ```
 
@@ -199,5 +204,5 @@ ignored files, so copy any `.superpowers/` ledger you want first.
 - BudgetWise-ws3: merged and pushed; copy its ledger if wanted, then remove.
 - BudgetWise-ws3-spike: merged and pushed, nothing local; remove.
 - BudgetWise-firestore: merged at 165b047, never pushed on its own; remove once chore/monorepo is pushed.
-- BudgetWise-android-accounts: merged at 2c2b0a7, never pushed on its own; remove once chore/monorepo is pushed.
+- BudgetWise-android-accounts: merged at dc6c14c, never pushed on its own; remove once chore/monorepo is pushed.
 - BudgetWise-mono: remove after chore/monorepo is on master and `BudgetWise` has switched to it.
