@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "seed:categories": "tsx scripts/seedCategories.ts",
+    "copy:mongo-to-firestore": "tsx scripts/copyMongoToFirestore.ts",
     "test": "vitest run",
     "emulator": "tsx scripts/firestoreEmulator.ts"
   },
