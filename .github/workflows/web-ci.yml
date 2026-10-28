@@ -1,0 +1,69 @@
+name: Web CI
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/web-ci.yml"
+  push:
+    branches: [master]
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/web-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      # The Firestore emulator (firebase-tools 15) needs Java 21 or newer.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # mongod binaries for mongodb-memory-server and the Firestore emulator jar, both downloaded on first use.
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/mongodb-binaries
+            ~/.cache/firebase/emulators
+          key: web-test-binaries-${{ runner.os }}-${{ hashFiles('apps/web/package-lock.json') }}
+          restore-keys: web-test-binaries-${{ runner.os }}-
+
+      - run: npm ci
+
+      # `next lint` has no ESLint config yet; this step turns on once one is added.
+      - name: Lint
+        if: hashFiles('apps/web/eslint.config.*', 'apps/web/.eslintrc*') != ''
+        run: npm run lint
+
+      - name: Unit and API tests
+        run: npx vitest run
+
+      # src/lib/db.ts checks MONGODB_URI when it is imported; the build never connects, so a placeholder is enough.
+      - name: Build
+        run: npm run build
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017/budgetwise-ci-build

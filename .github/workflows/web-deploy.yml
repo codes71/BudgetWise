@@ -1,0 +1,87 @@
+name: Web deploy
+
+# Deploys apps/web to Vercel with the Vercel CLI: production on a push to master, a preview for a pull request.
+# The Vercel project's Root Directory must be apps/web, and the CLI runs from the repo root (Vercel's monorepo rule).
+# Turn off Vercel's own Git deployments so each change deploys once (see docs/repo-layout.md).
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/web-deploy.yml"
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/web-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-deploy-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TELEMETRY_DISABLED: "1"
+    steps:
+      # Secrets are absent until the owner adds them, and on pull requests from forks.
+      - name: Check Vercel secrets
+        id: vercel
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::notice title=Web deploy skipped::Add the VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID repository secrets to deploy apps/web."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pick the Vercel environment
+        if: steps.vercel.outputs.ready == 'true'
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF" = "refs/heads/master" ]; then
+            echo "VERCEL_ENV_NAME=production" >> "$GITHUB_ENV"
+          else
+            echo "VERCEL_ENV_NAME=preview" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.vercel.outputs.ready == 'true'
+
+      - uses: actions/setup-node@v7
+        if: steps.vercel.outputs.ready == 'true'
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install the Vercel CLI
+        if: steps.vercel.outputs.ready == 'true'
+        run: npm install --global vercel@64.1.0
+
+      - name: Pull project settings and environment variables
+        if: steps.vercel.outputs.ready == 'true'
+        run: vercel pull --yes --environment="$VERCEL_ENV_NAME" --token="$VERCEL_TOKEN"
+
+      - name: Build
+        if: steps.vercel.outputs.ready == 'true'
+        run: |
+          prod=()
+          if [ "$VERCEL_ENV_NAME" = "production" ]; then prod=(--prod); fi
+          vercel build "${prod[@]}" --token="$VERCEL_TOKEN"
+
+      - name: Deploy
+        if: steps.vercel.outputs.ready == 'true'
+        run: |
+          prod=()
+          if [ "$VERCEL_ENV_NAME" = "production" ]; then prod=(--prod); fi
+          url=$(vercel deploy --prebuilt "${prod[@]}" --token="$VERCEL_TOKEN")
+          echo "Deployed $VERCEL_ENV_NAME: $url" >> "$GITHUB_STEP_SUMMARY"
