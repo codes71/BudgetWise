@@ -1,34 +1,29 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { startMongo, stopMongo, clearDb } from "../helpers/db";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { Timestamp } from "firebase-admin/firestore";
+import { clearDb, newUserId, testDb } from "../helpers/db";
 import { req } from "../helpers/request";
 
 let POST: (r: Request, c?: unknown) => Promise<Response>;
 let GET: (r: Request, c?: unknown) => Promise<Response>;
 let DELETE: (r: Request, c: { params: Promise<{ id: string }> }) => Promise<Response>;
-let Tx: typeof import("@/lib/models/transaction").default;
 let tokenA: string;
 let tokenB: string;
-const userA = new mongoose.Types.ObjectId().toString();
-const userB = new mongoose.Types.ObjectId().toString();
+const userA = newUserId();
+const userB = newUserId();
+const txCol = (userId: string) => testDb().collection("users").doc(userId).collection("transactions");
+const count = async (userId: string) => (await txCol(userId).count().get()).data().count;
 
 beforeAll(async () => {
-  await startMongo();
   const list = await import("@/app/api/v1/transactions/route");
   POST = list.POST as typeof POST;
   GET = list.GET as typeof GET;
   DELETE = (await import("@/app/api/v1/transactions/[id]/route")).DELETE as typeof DELETE;
-  Tx = (await import("@/lib/models/transaction")).default;
   const { signMobileToken } = await import("@/lib/mobile/token");
   tokenA = (await signMobileToken({ id: userA, email: "a@x.com" })).token;
   tokenB = (await signMobileToken({ id: userB, email: "b@x.com" })).token;
 });
-afterAll(async () => {
-  await stopMongo();
-});
 beforeEach(async () => {
   await clearDb();
-  await Tx.init();
 });
 
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -56,12 +51,25 @@ describe("POST /api/v1/transactions", () => {
     expect(transactions[0]).toMatchObject({ clientId: uuid(1), amount: 101, source: "manual" });
     expect(transactions[1].clientId).toBe(uuid(2));
     for (const t of transactions) {
-      expect(t.id).toMatch(/^[0-9a-f]{24}$/);
+      // New mobile rows use the clientId as their doc id.
+      expect(t.id).toMatch(/^[A-Za-z0-9_-]{1,128}$/);
+      expect(t.id).toBe(t.clientId);
       expect(new Date(t.createdAt).getTime()).toBeGreaterThan(0);
       expect(new Date(t.updatedAt).getTime()).toBeGreaterThan(0);
     }
-    const stored = await Tx.findOne({ userId: userA, clientId: uuid(1) }).lean();
-    expect(stored?.createdAt).toBeInstanceOf(Date);
+    const stored = await txCol(userA).doc(uuid(1)).get();
+    expect(stored.get("createdAt")).toBeInstanceOf(Timestamp);
+    expect(stored.get("userId")).toBe(userA);
+    expect(stored.get("transcript")).toBeUndefined();
+  });
+
+  it("stores only the contract fields", async () => {
+    await post(tokenA, [item(1, { source: "voice", transcript: "kafe 101", extra: "dropped" })]);
+    const stored = (await txCol(userA).doc(uuid(1)).get()).data()!;
+    expect(Object.keys(stored).sort()).toEqual(
+      ["amount", "category", "clientId", "createdAt", "date", "description", "source", "transcript", "type", "updatedAt", "userId"],
+    );
+    expect(stored.transcript).toBe("kafe 101");
   });
 
   it("resubmitting same clientId returns existing row, count stays 1", async () => {
@@ -73,14 +81,55 @@ describe("POST /api/v1/transactions", () => {
     expect(second.saved[0].description).toBe("item 1");
     expect(second.saved[0].updatedAt).toBe(first.saved[0].updatedAt);
     expect(second.saved[0].createdAt).toBe(first.saved[0].createdAt);
-    expect(await Tx.countDocuments({ userId: userA })).toBe(1);
+    expect(await count(userA)).toBe(1);
+  });
+
+  it("a clientId repeated inside one batch is stored once", async () => {
+    const res = await post(tokenA, [item(1), item(1, { amount: 999 })]);
+    expect(res.status).toBe(200);
+    const { saved } = await res.json();
+    expect(saved).toHaveLength(2);
+    expect(saved[1].id).toBe(saved[0].id);
+    expect(saved[1].amount).toBe(101);
+    expect(await count(userA)).toBe(1);
+  });
+
+  it("matches a row copied from Mongo by its clientId field, without a duplicate", async () => {
+    const legacyId = "64b0000000000000000000aa";
+    const createdAt = new Date("2026-09-01T00:00:00.000Z");
+    await txCol(userA).doc(legacyId).set({
+      userId: userA, clientId: uuid(7), date: "2026-09-01", description: "copied", amount: 70,
+      category: "Food", type: "expense", source: "manual", createdAt, updatedAt: createdAt,
+    });
+    const { saved } = await (await post(tokenA, [item(7), item(8)])).json();
+    expect(saved[0]).toMatchObject({ id: legacyId, clientId: uuid(7), description: "copied" });
+    expect(saved[0].updatedAt).toBe(createdAt.toISOString());
+    expect(saved[1].id).toBe(uuid(8));
+    expect(await count(userA)).toBe(2);
+  });
+
+  it("finds copied rows past the 30-value in-filter limit", async () => {
+    const batch = testDb().batch();
+    for (let n = 1; n <= 35; n++) {
+      batch.set(txCol(userA).doc(`64b0000000000000000000${String(n).padStart(2, "0")}`), {
+        userId: userA, clientId: uuid(n), date: "2026-09-01", description: `copied ${n}`, amount: n,
+        category: "Food", type: "expense", source: "manual",
+      });
+    }
+    await batch.commit();
+    const { saved } = await (await post(tokenA, Array.from({ length: 36 }, (_, i) => item(i + 1)))).json();
+    expect(saved).toHaveLength(36);
+    expect(saved.slice(0, 35).every((t: any) => t.description.startsWith("copied"))).toBe(true);
+    expect(saved[35].id).toBe(uuid(36));
+    expect(await count(userA)).toBe(36);
   });
 
   it("same clientId for two users stays separate", async () => {
     const a = await (await post(tokenA, [item(1)])).json();
     const b = await (await post(tokenB, [item(1)])).json();
-    expect(a.saved[0].id).not.toBe(b.saved[0].id);
-    expect(await Tx.countDocuments({})).toBe(2);
+    expect(a.saved[0].clientId).toBe(b.saved[0].clientId);
+    expect(await count(userA)).toBe(1);
+    expect(await count(userB)).toBe(1);
   });
 
   it("concurrent identical batches yield one row each", async () => {
@@ -89,8 +138,9 @@ describe("POST /api/v1/transactions", () => {
     expect(r1.status).toBe(200);
     expect(r2.status).toBe(200);
     const [b1, b2] = [await r1.json(), await r2.json()];
-    expect(await Tx.countDocuments({ userId: userA })).toBe(5);
+    expect(await count(userA)).toBe(5);
     expect(b1.saved.map((t: any) => t.id)).toEqual(b2.saved.map((t: any) => t.id));
+    expect(b1.saved.map((t: any) => t.createdAt)).toEqual(b2.saved.map((t: any) => t.createdAt));
   });
 
   it("no token 401; 51 items 422; malformed JSON 400", async () => {
@@ -108,9 +158,9 @@ describe("POST /api/v1/transactions", () => {
 describe("GET /api/v1/transactions", () => {
   const get = (token: string, qs = "") => GET(req("GET", `/api/v1/transactions${qs}`, { token }));
 
-  it("returns all rows incl. legacy ones without updatedAt, ordered by updatedAt then _id", async () => {
+  it("returns all rows incl. legacy ones without updatedAt, ordered by updatedAt then id", async () => {
     await post(tokenA, [item(1), item(2), item(3)]);
-    await Tx.collection.insertOne({
+    await txCol(userA).add({
       userId: userA, date: "2026-01-01", description: "legacy", amount: 5, category: "Misc", type: "expense",
     });
     const res = await get(tokenA);
@@ -120,15 +170,26 @@ describe("GET /api/v1/transactions", () => {
     const times = transactions.map((t: any) => new Date(t.updatedAt).getTime());
     expect([...times].sort((a, b) => a - b)).toEqual(times);
     expect(transactions.find((t: any) => t.description === "legacy").updatedAt).toBe(new Date(0).toISOString());
+    const legacy = transactions.find((t: any) => t.description === "legacy");
+    expect(legacy).toMatchObject({ source: "web", clientId: legacy.id });
+    expect(transactions[0].id).toBe(legacy.id);
     const again = await (await get(tokenA)).json();
     expect(again.transactions.map((t: any) => t.id)).toEqual(transactions.map((t: any) => t.id));
+  });
+
+  it("orders rows with the same updatedAt by id", async () => {
+    const same = new Date("2026-10-05T00:00:00.000Z");
+    const { saved } = await (await post(tokenA, [item(3), item(1), item(2)])).json();
+    for (const t of saved) await txCol(userA).doc(t.id).update({ updatedAt: same });
+    const body = await (await get(tokenA)).json();
+    expect(body.transactions.map((t: any) => t.clientId)).toEqual([uuid(1), uuid(2), uuid(3)]);
   });
 
   it("includes rows updated exactly at the cursor", async () => {
     const { saved: transactions } = await (await post(tokenA, [item(1), item(2)])).json();
     const cursor = new Date("2026-10-10T00:00:00.000Z");
-    await Tx.collection.updateOne({ _id: new mongoose.Types.ObjectId(transactions[0].id) }, { $set: { updatedAt: cursor } });
-    await Tx.collection.updateOne({ _id: new mongoose.Types.ObjectId(transactions[1].id) }, { $set: { updatedAt: new Date(cursor.getTime() - 1) } });
+    await txCol(userA).doc(transactions[0].id).update({ updatedAt: cursor });
+    await txCol(userA).doc(transactions[1].id).update({ updatedAt: new Date(cursor.getTime() - 1) });
     const res = await get(tokenA, `?updatedSince=${encodeURIComponent(cursor.toISOString())}`);
     const body = await res.json();
     expect(body.transactions.map((t: any) => t.id)).toEqual([transactions[0].id]);
@@ -152,17 +213,20 @@ describe("GET /api/v1/transactions", () => {
 });
 
 describe("DELETE /api/v1/transactions/:id", () => {
-  it("own row 204; other user's row 404; bad ObjectId 404 not 500", async () => {
+  it("own row 204; other user's row 404; unknown or malformed id 404 not 500", async () => {
     const { saved: transactions } = await (await post(tokenA, [item(1)])).json();
     const id = transactions[0].id;
     const other = await del(tokenB, id);
     expect(other.status).toBe(404);
     expect((await other.json()).error.code).toBe("not_found");
-    expect(await Tx.countDocuments({ userId: userA })).toBe(1);
+    expect(await count(userA)).toBe(1);
     expect((await del(tokenA, id)).status).toBe(204);
-    expect(await Tx.countDocuments({ userId: userA })).toBe(0);
+    expect(await count(userA)).toBe(0);
     expect((await del(tokenA, id)).status).toBe(404);
     expect((await del(tokenA, "not-an-id")).status).toBe(404);
+    for (const bad of ["a/b", "..", "__x__", "x".repeat(129), "has space", ""]) {
+      expect((await del(tokenA, bad)).status).toBe(404);
+    }
     expect((await del(undefined, id)).status).toBe(401);
   });
 });

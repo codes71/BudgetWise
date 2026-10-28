@@ -1,29 +1,32 @@
-import mongoose from "mongoose";
-import dbConnect from "@/lib/db";
-import BudgetModel from "@/lib/models/budget";
-import CategoryModel from "@/lib/models/category";
+import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
+import { listBudgets } from "@/lib/budgets";
+import { db, isDocId, toDate, userDoc } from "@/lib/firestore";
 
+const byName = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+// Global categories (categories/{slug}) in their seeded order, then the user's own.
 export async function getCategoriesForUser(userId: string): Promise<string[]> {
-  await dbConnect();
-
-  let query: any = { userId: { $exists: false } }; // Start with global categories
-
-  if (userId) {
-    if (mongoose.Types.ObjectId.isValid(userId)) {
-      // If it's a valid ObjectId, query by userId
-      query = { $or: [{ userId: new mongoose.Types.ObjectId(userId) }, { userId: { $exists: false } }] };
-    } else {
-      // If it's not a valid ObjectId (e.g., guest ID), only fetch global categories
-      query = { userId: { $exists: false } };
-    }
-  }
-
-  const categories = await CategoryModel.find(query);
-  return categories.map((cat) => cat.name);
+  const [globals, own] = await Promise.all([
+    db().collection("categories").get(),
+    isDocId(userId) ? userDoc(userId).collection("categories").get() : null,
+  ]);
+  const sortKey = (doc: QueryDocumentSnapshot) => {
+    const sort = doc.get("sort");
+    return typeof sort === "number" ? sort : Number.MAX_SAFE_INTEGER;
+  };
+  const created = (doc: QueryDocumentSnapshot) => toDate(doc.get("createdAt"))?.getTime() ?? 0;
+  const names = [
+    ...globals.docs
+      .sort((a, b) => sortKey(a) - sortKey(b) || byName(a.get("name"), b.get("name")))
+      .map((doc) => doc.get("name")),
+    ...(own?.docs ?? [])
+      .sort((a, b) => created(a) - created(b) || byName(a.get("name"), b.get("name")))
+      .map((doc) => doc.get("name")),
+  ];
+  return [...new Set(names.filter((name): name is string => typeof name === "string" && name.length > 0))];
 }
 
 export async function getBudgetsForUser(userId: string): Promise<{ category: string; limit: number }[]> {
-  await dbConnect();
-  const rows = await BudgetModel.find({ userId }).lean();
+  const rows = await listBudgets(userId);
   return rows.map((b) => ({ category: b.category, limit: b.limit }));
 }

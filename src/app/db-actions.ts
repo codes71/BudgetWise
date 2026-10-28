@@ -1,9 +1,10 @@
 'use server';
 
-import dbConnect from '@/lib/db';
-import TransactionModel from '@/lib/models/transaction';
-import BudgetModel from '@/lib/models/budget';
+import { z } from 'zod';
+import { listBudgets, setBudgetLimit } from '@/lib/budgets';
+import type { LeanTransaction } from '@/lib/mobile/dto';
 import { getCategoriesForUser } from '@/lib/mobile/reference-data';
+import { removeOne, toLeanTransaction, transactionsCol } from '@/lib/mobile/transactions-service';
 import type { Transaction, Budget } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { verifySession } from '@/lib/auth';
@@ -20,21 +21,49 @@ async function getUserId(): Promise<string> {
   return user.userId;
 }
 
+// The web form's fields; anything else a caller sends is dropped.
+const webTransactionFields = z.object({
+  date: z.string().min(1),
+  description: z.string().min(1),
+  amount: z.number(),
+  category: z.string().min(1),
+  type: z.enum(['income', 'expense']),
+});
+
+const isoOrUndefined = (value: Date | string | undefined) =>
+  value === undefined ? undefined : new Date(value).toISOString();
+
+// The UI keys rows by `_id`, which is the Firestore doc id.
+function toWebTransaction(userId: string, row: LeanTransaction): Transaction {
+  return {
+    _id: String(row._id),
+    userId,
+    date: row.date,
+    description: row.description,
+    amount: row.amount,
+    category: row.category,
+    type: row.type,
+    ...(row.clientId ? { clientId: row.clientId } : {}),
+    source: row.source ?? 'web',
+    ...(row.transcript ? { transcript: row.transcript } : {}),
+    createdAt: isoOrUndefined(row.createdAt),
+    updatedAt: isoOrUndefined(row.updatedAt),
+  };
+}
+
 export async function getTransactions(): Promise<Transaction[]> {
   const userId = await getUserId();
   console.log('Fetching transactions for user:', userId);
-  await dbConnect();
-  const transactions = await TransactionModel.find({ userId }).sort({
-    date: -1,
-  });
-  return JSON.parse(JSON.stringify(transactions));
+  const snap = await transactionsCol(userId).get();
+  // Newest date first.
+  return snap.docs
+    .map((doc) => toWebTransaction(userId, toLeanTransaction(doc)))
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
 export async function getBudgets(): Promise<Budget[]> {
   const userId = await getUserId();
-  await dbConnect();
-  const budgets = await BudgetModel.find({ userId });
-  return JSON.parse(JSON.stringify(budgets));
+  return listBudgets(userId);
 }
 
 export async function getCategories(): Promise<string[]> {
@@ -49,19 +78,16 @@ export async function addTransaction(
   const userId = await getUserId();
   // The form already refuses decimals; this covers callers that skip it.
   if (!isWholeKyat(transaction.amount)) return null;
-  await dbConnect();
   try {
-    // Strip mobile-only fields; source is forced after the spread so the client cannot override it.
-    const { clientId: _clientId, transcript: _transcript, ...webFields } =
-      transaction as Record<string, unknown>;
-    const newTransaction = new TransactionModel({
-      ...webFields,
-      userId,
-      source: 'web',
-    });
-    await newTransaction.save();
+    // Mobile-only fields (clientId, transcript) are dropped and source is
+    // always web, so the client cannot pose as the phone app.
+    const fields = webTransactionFields.safeParse(transaction);
+    if (!fields.success) return null;
+    const now = new Date();
+    const data = { ...fields.data, userId, source: 'web' as const, createdAt: now, updatedAt: now };
+    const ref = await transactionsCol(userId).add(data);
     revalidatePath('/');
-    return JSON.parse(JSON.stringify(newTransaction));
+    return { ...data, _id: ref.id, createdAt: now.toISOString(), updatedAt: now.toISOString() };
   } catch (error) {
     logger.error('Error adding transaction', error as Error);
     return null;
@@ -74,18 +100,14 @@ export async function setBudget(
   try {
     const userId = await getUserId();
     if (!isWholeKyat(budget.limit)) return null;
-    await dbConnect();
+    if (typeof budget.category !== 'string' || !budget.category) return null;
 
-    const updatedBudget = await BudgetModel.findOneAndUpdate(
-      { category: budget.category, userId },
-      { limit: budget.limit },
-      { new: true, upsert: true, runValidators: true }
-    );
+    const updatedBudget = await setBudgetLimit(userId, budget.category, budget.limit);
 
     revalidatePath('/');
     revalidatePath('/budgets');
-    
-    return JSON.parse(JSON.stringify(updatedBudget));
+
+    return updatedBudget;
   } catch (error) {
     logger.error('Error setting budget', error as Error);
     return null;
@@ -95,11 +117,8 @@ export async function setBudget(
 export async function deleteTransaction(transactionId: string): Promise<{ success: boolean, error?: string }> {
   try {
     const userId = await getUserId();
-    await dbConnect();
 
-    const result = await TransactionModel.deleteOne({ _id: transactionId, userId });
-
-    if (result.deletedCount === 0) {
+    if (!(await removeOne(userId, transactionId))) {
       return { success: false, error: 'Transaction not found or you do not have permission to delete it.' };
     }
 
