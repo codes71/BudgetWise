@@ -13,16 +13,17 @@ const ROOT = path.resolve(__dirname, "..");
 const FIREBASE_BIN = path.join(ROOT, "node_modules", ".bin", "firebase");
 const ANDROID_STUDIO_JBR = "/Applications/Android Studio.app/Contents/jbr/Contents/Home";
 
-// /usr/bin/java is only a stub on macOS without a JDK, so look for a real one.
+// firebase-tools 15 needs Java 21 or newer. /usr/bin/java is only a stub on
+// macOS without a JDK, so look for a real one.
 export function findJavaHome(): string | undefined {
   if (process.env.JAVA_HOME) return process.env.JAVA_HOME;
   try {
-    const out = execFileSync("/usr/libexec/java_home", { stdio: ["ignore", "pipe", "ignore"] })
+    const out = execFileSync("/usr/libexec/java_home", ["-v", "21+"], { stdio: ["ignore", "pipe", "ignore"] })
       .toString()
       .trim();
     if (out) return out;
   } catch {
-    // no JDK registered with macOS
+    // no JDK 21+ registered with macOS
   }
   if (fs.existsSync(path.join(ANDROID_STUDIO_JBR, "bin", "java"))) return ANDROID_STUDIO_JBR;
   return undefined;
@@ -31,7 +32,7 @@ export function findJavaHome(): string | undefined {
 function emulatorEnv(): NodeJS.ProcessEnv {
   const javaHome = findJavaHome();
   if (!javaHome) {
-    throw new Error("No Java runtime found. Set JAVA_HOME; the Firestore emulator needs Java 11 or newer.");
+    throw new Error("No Java runtime found. Set JAVA_HOME; the Firestore emulator needs Java 21 or newer.");
   }
   const env: NodeJS.ProcessEnv = {
     ...process.env,

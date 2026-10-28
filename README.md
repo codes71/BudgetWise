@@ -123,7 +123,7 @@ npm run seed:categories
 ```
 
 #### Firestore emulator
-For local development without a Firebase project, run the emulator (needs Java 11+; the script finds `JAVA_HOME`, `/usr/libexec/java_home` or Android Studio's bundled JDK):
+For local development without a Firebase project, run the emulator (needs Java 21+, the minimum for firebase-tools 15; the script uses `JAVA_HOME`, else a JDK 21+ from `/usr/libexec/java_home`, else Android Studio's bundled JDK):
 ```bash
 npm run emulator
 ```
