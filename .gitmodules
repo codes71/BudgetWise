@@ -1,4 +1,4 @@
 [submodule "android/asr/third_party/llama.cpp"]
-	path = android/asr/third_party/llama.cpp
+	path = apps/android/asr/third_party/llama.cpp
 	url = https://github.com/ggml-org/llama.cpp
 	shallow = true
