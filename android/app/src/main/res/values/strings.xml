@@ -4,7 +4,6 @@
 
     <!-- Common -->
     <string name="action_cancel">Cancel</string>
-    <string name="server_url">Server: %1$s</string>
     <string name="time_just_now">just now</string>
 
     <!-- Bottom navigation -->
@@ -116,8 +115,8 @@
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_section_sync">Sync</string>
-    <string name="settings_section_developer">Developer</string>
     <string name="settings_section_display">Display</string>
+    <string name="settings_section_about">About</string>
     <string name="settings_myanmar_digits">Myanmar digits</string>
     <string name="settings_myanmar_digits_detail">Show amounts as ၅,၀၀၀ Ks</string>
     <string name="settings_sync_syncing">Syncing…</string>
@@ -142,6 +141,5 @@
     <string name="settings_sync_now">Sync now</string>
     <string name="settings_sign_out">Sign out</string>
     <string name="settings_sign_out_failed">Couldn\'t sign out. Try again.</string>
-    <string name="settings_server">Server</string>
     <string name="settings_version">Version %1$s (%2$d)</string>
 </resources>

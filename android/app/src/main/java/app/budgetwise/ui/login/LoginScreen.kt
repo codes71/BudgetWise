@@ -60,7 +60,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.budgetwise.BuildConfig
 import app.budgetwise.R
 import app.budgetwise.ui.common.BrandMark
 import app.budgetwise.ui.theme.BudgetWiseTheme
@@ -86,7 +85,6 @@ fun LoginRoute(
         onPasswordChange = viewModel::onPasswordChange,
         onSubmit = viewModel::submit,
         onClose = onClose,
-        serverUrl = if (BuildConfig.DEBUG) BuildConfig.API_BASE_URL else null,
     )
 }
 
@@ -97,7 +95,6 @@ fun LoginScreen(
     onPasswordChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onClose: (() -> Unit)?,
-    serverUrl: String?,
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -223,15 +220,6 @@ fun LoginScreen(
                             Text(stringResource(R.string.action_cancel), style = MaterialTheme.typography.labelLarge)
                         }
                     }
-                    if (serverUrl != null) {
-                        Spacer(Modifier.height(24.dp))
-                        Text(
-                            text = stringResource(R.string.server_url, serverUrl),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
                 }
             }
         }
@@ -276,7 +264,6 @@ private fun LoginScreenPreview() {
             onPasswordChange = {},
             onSubmit = {},
             onClose = null,
-            serverUrl = "http://127.0.0.1:9002/api/v1/",
         )
     }
 }

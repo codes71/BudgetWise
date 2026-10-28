@@ -28,7 +28,6 @@ class LoginScreenTest {
                 onPasswordChange = {},
                 onSubmit = {},
                 onClose = null,
-                serverUrl = null,
             )
         }
     }
@@ -47,6 +46,14 @@ class LoginScreenTest {
 
         compose.onNodeWithText(context.getString(R.string.login_error_needs_internet)).assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.login_submit)).assertIsEnabled()
+    }
+
+    @Test
+    fun thereIsNoServerLine() {
+        show(LoginUiState())
+
+        compose.onNodeWithText("Server", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("http", substring = true).assertDoesNotExist()
     }
 
     @Test

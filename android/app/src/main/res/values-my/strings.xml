@@ -3,7 +3,6 @@
 <resources>
     <!-- Common -->
     <string name="action_cancel">မလုပ်တော့ပါ</string>
-    <string name="server_url">ဆာဗာ: %1$s</string>
     <string name="time_just_now">ယခုလေးတင်</string>
 
     <!-- Bottom navigation -->
@@ -112,8 +111,8 @@
     <!-- Settings -->
     <string name="settings_title">ဆက်တင်</string>
     <string name="settings_section_sync">စင့်ခ်</string>
-    <string name="settings_section_developer">ဆော့ဖ်ဝဲ ရေးသူအတွက်</string>
     <string name="settings_section_display">ပြသမှု</string>
+    <string name="settings_section_about">အက်ပ်အကြောင်း</string>
     <string name="settings_myanmar_digits">မြန်မာ ဂဏန်း</string>
     <string name="settings_myanmar_digits_detail">ပမာဏများကို ၅,၀၀၀ Ks ဟု ပြမည်</string>
     <string name="settings_sync_syncing">စင့်ခ်လုပ်နေသည်…</string>
@@ -136,6 +135,5 @@
     <string name="settings_sync_now">ယခု စင့်ခ်လုပ်မည်</string>
     <string name="settings_sign_out">အကောင့်မှ ထွက်မည်</string>
     <string name="settings_sign_out_failed">အကောင့်မှ ထွက်၍ မရပါ။ ထပ်ကြိုးစားပါ။</string>
-    <string name="settings_server">ဆာဗာ</string>
     <string name="settings_version">ဗားရှင်း %1$s (%2$d)</string>
 </resources>

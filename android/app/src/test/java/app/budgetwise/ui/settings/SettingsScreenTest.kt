@@ -1,6 +1,7 @@
 package app.budgetwise.ui.settings
 
 import android.content.Context
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -36,7 +37,6 @@ class SettingsScreenTest {
                 onSignOut = { signOuts++ },
                 onMyanmarDigitsChange = {},
                 onSignIn = {},
-                serverUrl = null,
                 version = "Version 0.1.0 (1)",
             )
         }
@@ -47,6 +47,19 @@ class SettingsScreenTest {
         sync = SyncSummary(SyncPhase.SYNCED, now.minusSeconds(120)),
         unsyncedCount = 2,
     )
+
+    @Test
+    fun theVersionSitsUnderAboutAndThereIsNoServerRow() {
+        show(signedIn)
+
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Version 0.1.0 (1)"))
+        compose.onNodeWithText(context.getString(R.string.settings_section_about)).assertIsDisplayed()
+        compose.onNodeWithText("Version 0.1.0 (1)").assertIsDisplayed()
+        compose.onNodeWithText("Server", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Developer", substring = true).assertDoesNotExist()
+        // The sync button and its state stay.
+        compose.onNodeWithText(context.getString(R.string.settings_sync_now)).assertExists()
+    }
 
     @Test
     fun signOutWithUnsyncedEntriesHappensWithoutADialog() {

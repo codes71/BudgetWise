@@ -46,7 +46,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -71,7 +70,6 @@ fun SettingsRoute(onSignIn: () -> Unit, viewModel: SettingsViewModel = hiltViewM
         onSignOut = viewModel::signOut,
         onMyanmarDigitsChange = viewModel::setMyanmarDigits,
         onSignIn = onSignIn,
-        serverUrl = if (BuildConfig.DEBUG) BuildConfig.API_BASE_URL else null,
         version = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
     )
 }
@@ -85,7 +83,6 @@ fun SettingsScreen(
     onSignOut: () -> Unit,
     onMyanmarDigitsChange: (Boolean) -> Unit,
     onSignIn: () -> Unit,
-    serverUrl: String?,
     version: String,
     modifier: Modifier = Modifier,
 ) {
@@ -119,27 +116,15 @@ fun SettingsScreen(
             if (state.account != null) {
                 item(key = "sign-out") { SignOutCard(state.signingOut, state.signOutFailed, onSignOut) }
             }
-            if (serverUrl != null) {
-                item(key = "dev-header") { SectionHeader(stringResource(R.string.settings_section_developer)) }
-                item(key = "server") {
-                    SettingsCard {
-                        ListItem(
-                            leadingContent = { ListIcon(R.drawable.ic_dns) },
-                            headlineContent = { Text(stringResource(R.string.settings_server)) },
-                            supportingContent = { Text(serverUrl) },
-                            colors = transparentListItemColors(),
-                        )
-                    }
-                }
-            }
+            item(key = "about-header") { SectionHeader(stringResource(R.string.settings_section_about)) }
             item(key = "version") {
-                Text(
-                    text = version,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                )
+                SettingsCard {
+                    ListItem(
+                        leadingContent = { ListIcon(R.drawable.ic_info) },
+                        headlineContent = { Text(version) },
+                        colors = transparentListItemColors(),
+                    )
+                }
             }
         }
     }
@@ -349,7 +334,6 @@ private fun SettingsScreenPreview() {
             onSignOut = {},
             onMyanmarDigitsChange = {},
             onSignIn = {},
-            serverUrl = "http://127.0.0.1:9002/api/v1/",
             version = "Version 0.1.0 (1)",
         )
     }
