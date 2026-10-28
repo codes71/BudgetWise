@@ -2,6 +2,15 @@
 
 BudgetWise is a modern, AI-powered personal finance application built with Next.js and Firebase. It empowers users to track expenses, manage budgets, visualize spending patterns, and receive intelligent insights—all in a secure, responsive interface. This project showcases full-stack development skills, including server-side rendering, real-time data handling, and seamless AI integration for enhanced user experience.
 
+## Repository layout
+
+- `apps/web/`: the Next.js web app and the `/api/v1` mobile API (deployed on Vercel). Run the npm commands below from here.
+- `apps/android/`: the Android app (Gradle project; run `./gradlew` from here).
+- `brand/`: logo and icon sources for both apps. `docs/`: plans and specs.
+- `.github/workflows/`: one CI pipeline per deployment.
+
+See [docs/repo-layout.md](docs/repo-layout.md) for the CI pipelines, the secrets they need and the history of this layout.
+
 ## ✨ Key Features
 
 - **Interactive Dashboard**: Real-time overview of financial health with overview cards, recent transactions, spending charts (using Recharts), and budget progress trackers. 📊
@@ -64,7 +73,7 @@ The codebase follows best practices: clean separation of concerns, ESLint/Pretti
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/codes71/BudgetWise.git
-   cd BudgetWise
+   cd BudgetWise/apps/web
    ```
 2. **Install dependencies:**
    ```bash
