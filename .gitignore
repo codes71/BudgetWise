@@ -5,3 +5,6 @@
 
 # Vercel CLI link and prebuilt output; web-deploy.yml runs the CLI from the repo root.
 .vercel
+
+# Leftover dependency folders, for example from the old root layout.
+node_modules/
