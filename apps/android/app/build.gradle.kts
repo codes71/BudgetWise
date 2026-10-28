@@ -19,16 +19,32 @@ check(releaseApiBaseUrl.startsWith("https://")) {
     "budgetwise.releaseApiBaseUrl must be HTTPS, was $releaseApiBaseUrl"
 }
 
+// Release signing comes from the environment (android-release.yml decodes the keystore from secrets); no
+// keystore or password is committed. Without ANDROID_KEYSTORE_FILE the release build stays unsigned.
+val releaseKeystoreFile = providers.environmentVariable("ANDROID_KEYSTORE_FILE").orNull
+
 android {
     namespace = "app.budgetwise"
     compileSdk = 37
+
+    signingConfigs {
+        if (releaseKeystoreFile != null) {
+            create("release") {
+                storeFile = file(releaseKeystoreFile)
+                storePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+                keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+                keyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "app.budgetwise"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // Play rejects an upload whose versionCode is not higher than the last one; android-release.yml sets it.
+        versionCode = providers.gradleProperty("budgetwise.versionCode").map(String::toInt).getOrElse(1)
+        versionName = providers.gradleProperty("budgetwise.versionName").getOrElse("0.1.0")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -44,6 +60,9 @@ android {
         }
         release {
             buildConfigField("String", "API_BASE_URL", "\"$releaseApiBaseUrl\"")
+            if (releaseKeystoreFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
