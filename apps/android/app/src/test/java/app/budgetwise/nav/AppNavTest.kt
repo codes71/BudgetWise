@@ -9,9 +9,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.Lifecycle
@@ -85,19 +87,42 @@ class AppNavTest {
     }
 
     @Test
-    fun expiredSessionBannerShowsSignInAction() {
+    fun anExpiredSessionShowsTheSignInChip() {
         assertEquals(SessionState.Expired, session.state.value)
         showApp()
 
-        // Expired keeps the user in the app: transactions with the bottom bar, plus the banner.
-        compose.onNodeWithText(text(R.string.session_expired_message)).assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.nav_settings)).assertIsDisplayed()
-        compose.onNode(hasText(text(R.string.session_sign_in)) and hasClickAction()).assertIsDisplayed().performClick()
+        // Expired keeps the user in the app: transactions with the bottom bar, and the header's chip asks to sign in.
+        compose.onNodeWithText(text(R.string.nav_budgets)).assertIsDisplayed()
+        compose.onNode(hasContentDescription(text(R.string.chip_sign_in_description)) and hasClickAction())
+            .assertIsDisplayed()
+            .performClick()
 
         // Sign-in opens with the known email filled in, and without the bottom bar.
         compose.onNodeWithText(TestUser.email).assertIsDisplayed()
         compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.nav_settings)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.nav_budgets)).assertDoesNotExist()
+    }
+
+    @Test
+    fun theGearOpensSettingsOnTopWithABackArrow() {
+        showApp()
+
+        compose.onNodeWithContentDescription(text(R.string.nav_settings)).performClick()
+        compose.onNodeWithText(text(R.string.settings_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.nav_budgets)).assertDoesNotExist()
+
+        compose.onNodeWithContentDescription(text(R.string.action_back)).performClick()
+        compose.onNodeWithText(text(R.string.settings_title)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.nav_budgets)).assertIsDisplayed()
+    }
+
+    @Test
+    fun theAddPillOpensTheForm() {
+        showApp()
+
+        compose.onNode(hasText(text(R.string.action_add)) and hasClickAction()).performClick()
+        compose.onNodeWithText(text(R.string.manual_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.nav_budgets)).assertDoesNotExist()
     }
 
     @Test
@@ -106,7 +131,6 @@ class AppNavTest {
 
         compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.nav_transactions)).assertDoesNotExist()
-        compose.onNodeWithText(text(R.string.session_expired_message)).assertDoesNotExist()
     }
 
     @Test
@@ -149,17 +173,18 @@ class AppNavTest {
     }
 
     @Test
-    fun bottomBarSwitchesBetweenTheThreeDestinations() {
+    fun bottomBarSwitchesBetweenTheTwoTabs() {
         showApp()
 
         compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
         // The empty state waits for Room's first answer, which arrives from Room's own thread.
         compose.waitUntil(5_000) { compose.onAllNodesWithText(text(R.string.budgets_empty)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText(text(R.string.budgets_empty)).assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.session_expired_message)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.transactions_empty_title)).assertDoesNotExist()
 
         compose.onNodeWithText(text(R.string.nav_transactions)).performClick()
-        compose.onNodeWithText(text(R.string.session_expired_message)).assertIsDisplayed()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText(text(R.string.transactions_empty_title)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(text(R.string.transactions_empty_title)).assertIsDisplayed()
     }
 
     private fun signedIn(user: UserInfo) = SessionState.SignedIn(user, Instant.now().plusSeconds(86_400 * 20L), false)
@@ -167,7 +192,7 @@ class AppNavTest {
     private val otherUser = TestUser.copy(id = "u2", email = "ko@example.com")
 
     /**
-     * Opens Budgets and leaves it through the bottom bar, which saves its back stack (ViewModel included) to restore
+     * Opens Budgets and leaves it for Transactions through the bottom bar, which saves its back stack (ViewModel included) to restore
      * later. Then the session goes through [between], [next] signs in the way LoginRoute does on success, and Budgets
      * is opened again. True when the saved Budgets entry came back.
      */
@@ -181,7 +206,7 @@ class AppNavTest {
 
         compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
         val firstBudgets = compose.runOnIdle { nav.currentBackStackEntry!!.id }
-        compose.onNodeWithText(text(R.string.nav_settings)).performClick()
+        compose.onNodeWithText(text(R.string.nav_transactions)).performClick()
 
         for (s in between) {
             compose.runOnIdle { state = s }

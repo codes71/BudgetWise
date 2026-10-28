@@ -3,36 +3,58 @@
 <resources>
     <!-- Common -->
     <string name="action_cancel">မလုပ်တော့ပါ</string>
+    <string name="action_back">နောက်သို့</string>
+    <string name="action_try_again">ထပ်ကြိုးစားမည်</string>
     <string name="time_just_now">ယခုလေးတင်</string>
 
-    <!-- Bottom navigation -->
+    <!-- Bottom navigation and the header's gear -->
     <string name="nav_transactions">ငွေစာရင်း</string>
     <string name="nav_budgets">ဘတ်ဂျက်</string>
     <string name="nav_settings">ဆက်တင်</string>
 
+    <!-- The header's sync chip -->
+    <string name="chip_synced">စင့်ခ်ပြီး</string>
+    <string name="chip_syncing">စင့်ခ်လုပ်နေသည်</string>
+    <string name="chip_offline">အင်တာနက် မရှိ</string>
+    <string name="chip_not_synced">မစင့်ခ်ရသေး</string>
+    <string name="chip_sign_in">ပြန်ဝင်ရန်</string>
+    <string name="chip_could_not_sync">စင့်ခ်၍ မရပါ</string>
+    <string name="chip_synced_description">စင့်ခ်ပြီးပါပြီ။ စင့်ခ် အသေးစိတ် ကြည့်ရန်</string>
+    <string name="chip_syncing_description">စင့်ခ်လုပ်နေသည်။ စင့်ခ် အသေးစိတ် ကြည့်ရန်</string>
+    <string name="chip_offline_description">အင်တာနက် မရှိပါ။ အင်တာနက်ရလျှင် စာရင်းများ စင့်ခ်လုပ်ပါမည်</string>
+    <string name="chip_not_synced_description">မစင့်ခ်ရသေးပါ။ BudgetWise နှင့် ချိတ်ဆက်၍ မရပါ</string>
+    <string name="chip_sign_in_description">ဝင်ထားချိန် ကုန်သွားပါပြီ။ စင့်ခ်လုပ်ရန် ပြန်ဝင်ပါ</string>
+    <string name="chip_could_not_sync_description">စာရင်းအချို့ စင့်ခ်လုပ်၍ မရပါ။ ဆက်တင် ဖွင့်ရန်</string>
+
     <!-- Sign in -->
+    <string name="login_title">အကောင့်ဝင်ရန်</string>
     <string name="login_subtitle">သင့်စာရင်းများကို ကြည့်ရန်နှင့် စင့်ခ်လုပ်ရန် BudgetWise အကောင့်ဖြင့် ဝင်ပါ။</string>
     <string name="login_subtitle_returning">ပြန်လာတာ ကြိုဆိုပါတယ်။ စာရင်းများ ဆက်စင့်ခ်ဖြစ်ရန် ပြန်ဝင်ပါ။</string>
     <string name="login_email">အီးမေးလ်</string>
     <string name="login_password">စကားဝှက်</string>
+    <string name="login_password_hint">သင့်စကားဝှက်</string>
     <string name="login_show_password">စကားဝှက် ပြရန်</string>
     <string name="login_hide_password">စကားဝှက် ဖျောက်ရန်</string>
     <string name="login_submit">ဝင်မည်</string>
     <string name="login_signing_in">ဝင်နေသည်…</string>
     <string name="login_error_wrong_credentials">အီးမေးလ် သို့မဟုတ် စကားဝှက် မှားနေပါသည်</string>
-    <string name="login_error_rate_limited">အကြိမ်များလွန်းနေပါသည်။ မိနစ်အနည်းငယ်ကြာမှ ထပ်ကြိုးစားပါ။</string>
+    <string name="login_error_rate_limited_title">အကြိမ်များလွန်းနေပါသည်</string>
+    <string name="login_error_rate_limited">မိနစ်အနည်းငယ် စောင့်ပြီးမှ ထပ်ကြိုးစားပါ။</string>
     <plurals name="login_error_rate_limited_minutes">
-        <item quantity="other">အကြိမ်များလွန်းနေပါသည်။ %d မိနစ်ကြာမှ ထပ်ကြိုးစားပါ။</item>
+        <item quantity="other">%d မိနစ် စောင့်ပြီးမှ ထပ်ကြိုးစားပါ။</item>
     </plurals>
+    <string name="login_error_needs_internet_title">အင်တာနက် မရှိပါ</string>
     <string name="login_error_needs_internet">ဤအကောင့်ဖြင့် ပထမဆုံးအကြိမ် ဝင်ရန် အင်တာနက် ချိတ်ဆက်ပါ။</string>
-    <string name="login_error_server">BudgetWise က ယခု မတုံ့ပြန်နိုင်ပါ။ ခဏနေမှ ထပ်ကြိုးစားပါ။</string>
-    <string name="login_error_generic">တစ်ခုခု မှားသွားပါသည်။ ထပ်ကြိုးစားပါ။</string>
+    <string name="login_error_server_title">BudgetWise က ယခု မတုံ့ပြန်နိုင်ပါ</string>
+    <string name="login_error_server">ခဏနေမှ ထပ်ကြိုးစားပါ။</string>
+    <string name="login_error_generic_title">တစ်ခုခု မှားသွားပါသည်</string>
+    <string name="login_error_generic">ထပ်ကြိုးစားပါ။</string>
 
-    <!-- Session banner (transactions screen) -->
-    <string name="session_expired_message">ဝင်ထားချိန် ကုန်သွားပါပြီ။ စင့်ခ်လုပ်ရန် ပြန်ဝင်ပါ။</string>
-    <plurals name="session_expiring_message">
-        <item quantity="other">ဝင်ထားချိန် %d ရက်အတွင်း ကုန်ပါမည်။ ဆက်စင့်ခ်ရန် ပြန်ဝင်ပါ။</item>
+    <!-- The notice on Transactions before a session ends -->
+    <plurals name="session_ending">
+        <item quantity="other">%d ရက်အတွင်း အကောင့်မှ ထွက်သွားပါမည်</item>
     </plurals>
+    <string name="session_ending_detail">စာရင်းများ ဆက်စင့်ခ်ရန် ပြန်ဝင်ပါ။</string>
     <string name="session_sign_in">ဝင်မည်</string>
 
     <!-- Amounts, as TalkBack reads them -->
@@ -51,27 +73,42 @@
     <string name="category_other">အခြား</string>
     <string name="category_income">ဝင်ငွေ</string>
 
-    <!-- Transactions -->
+    <!-- Transactions (%1$s is a month's name: "အောက်တိုဘာ"; "လ" after it makes "the month of") -->
     <string name="transactions_title">ငွေစာရင်း</string>
     <string name="action_add">ထည့်မည်</string>
-    <string name="transactions_balance">လက်ကျန်</string>
-    <string name="transactions_spent">သုံးငွေ</string>
-    <string name="transactions_income">ဝင်ငွေ</string>
+    <string name="transactions_left_in">%1$sလ လက်ကျန်</string>
+    <string name="transactions_left_spoken">%1$sလ လက်ကျန် %2$s ကျပ်</string>
     <string name="transactions_today">ယနေ့</string>
     <string name="transactions_yesterday">မနေ့က</string>
-    <string name="transactions_not_synced">မစင့်ခ်ရသေးပါ</string>
-    <string name="transactions_sync_failed">စင့်ခ်လုပ်၍ မရပါ</string>
     <string name="transactions_delete">ဖျက်မည်</string>
-    <string name="transactions_deleted">ဖျက်ပြီးပါပြီ</string>
+    <string name="transactions_deleted">စာရင်း ဖျက်ပြီးပါပြီ</string>
+    <string name="transactions_deleted_detail">%1$s၊ %2$s</string>
     <string name="transactions_undo">ပြန်ယူမည်</string>
     <string name="transactions_empty_title">စာရင်း မရှိသေးပါ</string>
     <string name="transactions_empty_message">သုံးငွေနှင့် ဝင်ငွေများကို ထည့်ပါ။ ဝဘ်ပေါ်ရှိ BudgetWise နှင့် စင့်ခ်ဖြစ်ပါမည်။</string>
     <string name="transactions_add_first">ပထမဆုံး သုံးငွေ ထည့်မည်</string>
+    <string name="transactions_loading">စာရင်းများ ဖွင့်နေသည်</string>
+    <string name="transactions_refresh_failed">အသစ် ပြန်မယူနိုင်ပါ</string>
     <string name="transactions_unreachable">BudgetWise နှင့် ချိတ်ဆက်၍ မရပါ။ စာရင်းများ ဤဖုန်းထဲတွင် ရှိနေပါသည်။</string>
-    <string name="transactions_waiting_for_network">အင်တာနက် မရသေးပါ။ အင်တာနက်ရလျှင် စင့်ခ်လုပ်ပါမည်။</string>
-    <string name="transactions_offline">အင်တာနက် မရှိ</string>
-    <string name="transactions_offline_description">အင်တာနက် မရှိပါ။ အင်တာနက်ရလျှင် စာရင်းများ စင့်ခ်လုပ်ပါမည်</string>
-    <string name="transactions_signed_in_offline">အင်တာနက် မရှိဘဲ ဝင်ထားပါသည်။ အင်တာနက် ပြန်ရလျှင် စာရင်းများ စင့်ခ်လုပ်ပါမည်။</string>
+    <string name="transactions_refresh_offline">အင်တာနက် မရှိပါ။ စာရင်းများ ဤဖုန်းထဲတွင် ရှိနေပါသည်။</string>
+
+    <!-- The month chart -->
+    <string name="spending_view">သုံးငွေ ကြည့်ပုံ</string>
+    <string name="spending_total">စုစုပေါင်း</string>
+    <string name="spending_by_category">အမျိုးအစားအလိုက်</string>
+    <string name="spending_less">%2$sလ ဤအချိန်ထက် %1$s Ks နည်းသည်</string>
+    <string name="spending_more">%2$sလ ဤအချိန်ထက် %1$s Ks ပိုသုံးထားသည်</string>
+    <string name="spending_same">%1$sလ ဤအချိန်နှင့် အတူတူပင်</string>
+    <string name="spending_so_far">ဤလ ယခုအထိ %1$s Ks သုံးထားသည်</string>
+    <string name="spending_nothing_yet">ဤလ မသုံးရသေးပါ</string>
+    <string name="spending_chart_spoken">%1$sလ ယခုအထိ %2$s ကျပ် သုံးထားသည်။</string>
+    <string name="spending_chart_compare_spoken">%1$sလ ဤရက်အထိ %2$s ကျပ်။</string>
+    <string name="spending_category_spoken">%1$s၊ ယခုအထိ %2$s ကျပ်၊ %4$sလ ဤအချိန်တွင် %3$s ကျပ်</string>
+    <string name="spending_category_alone_spoken">%1$s၊ ယခုအထိ %2$s ကျပ်</string>
+    <string name="spending_other">အခြား အမျိုးအစားများ</string>
+    <string name="spending_other_spoken">အခြား အမျိုးအစား %1$d ခု၊ %2$s ကျပ်</string>
+    <string name="spending_other_expanded">ဖွင့်ထားသည်</string>
+    <string name="spending_other_collapsed">ပိတ်ထားသည်</string>
 
     <!-- Add entry -->
     <string name="manual_title">စာရင်းသွင်းရန်</string>
@@ -82,6 +119,7 @@
     <string name="manual_amount">ပမာဏ</string>
     <string name="manual_amount_error_missing">ပမာဏ ထည့်ပါ</string>
     <string name="manual_amount_error_zero">ပမာဏသည် ၀ ထက် များရပါမည်</string>
+    <string name="manual_income_note">ဝင်ငွေကို ဝင်ငွေ အမျိုးအစားအောက်တွင် သိမ်းပါမည်။</string>
     <string name="manual_category">အမျိုးအစား</string>
     <string name="manual_category_error">အမျိုးအစား ရွေးပါ</string>
     <string name="manual_description">အကြောင်းအရာ</string>
@@ -94,18 +132,31 @@
     <string name="manual_date">ရက်စွဲ</string>
     <string name="manual_date_change">ရက်စွဲ ပြောင်းမည်</string>
     <string name="manual_date_error_future">နောင်ရက်စွဲ မရွေးနိုင်ပါ</string>
+    <string name="manual_previous_month">ယခင်လ</string>
+    <string name="manual_next_month">နောက်လ</string>
+    <string name="manual_day_today">ယနေ့</string>
     <string name="manual_save">သိမ်းမည်</string>
     <string name="manual_saving">သိမ်းနေသည်…</string>
-    <string name="manual_save_failed">သိမ်း၍ မရပါ။ ထပ်ကြိုးစားပါ။</string>
+    <string name="manual_save_failed">ဤစာရင်းကို သိမ်း၍ မရပါ</string>
+    <string name="manual_save_failed_detail">ဘာမှ မပျောက်ပါ။ ထပ်ကြိုးစားရန် သိမ်းမည် ကို နှိပ်ပါ။</string>
 
     <!-- Budgets -->
     <string name="budgets_title">ဘတ်ဂျက်</string>
-    <string name="budgets_empty">ဘတ်ဂျက် မရှိသေးပါ။ ဝဘ်ပေါ်ရှိ BudgetWise တွင် ဘတ်ဂျက် သတ်မှတ်ပါ။</string>
-    <string name="budgets_month_spent">ဘတ်ဂျက်ထဲမှ သုံးငွေ</string>
+    <string name="budgets_empty_title">ဘတ်ဂျက် မရှိသေးပါ</string>
+    <string name="budgets_empty">ဝဘ်ပေါ်ရှိ BudgetWise တွင် ဘတ်ဂျက် သတ်မှတ်ပါ။ ဤနေရာတွင် အလိုအလျောက် ပေါ်လာပါမည်။</string>
+    <string name="budgets_loading">ဘတ်ဂျက်များ ဖွင့်နေသည်</string>
+    <string name="budgets_spent_in">%1$sလ ဘတ်ဂျက်ထဲမှ သုံးငွေ</string>
     <string name="budgets_spent_of_limit">%2$s ထဲမှ %1$s</string>
     <string name="budgets_of_limit">%1$s ထဲမှ</string>
+    <plurals name="budgets_left_across">
+        <item quantity="other">ဘတ်ဂျက် %2$d ခုတွင် %1$s ကျန်သည်</item>
+    </plurals>
+    <plurals name="budgets_over_across">
+        <item quantity="other">ဘတ်ဂျက် %2$d ခုတွင် %1$s ကျော်သွားပြီ</item>
+    </plurals>
     <string name="budgets_left">%1$s ကျန်သည်</string>
     <string name="budgets_over">%1$s ကျော်သွားပြီ</string>
+    <string name="budgets_footer">ဘတ်ဂျက်များကို ဝဘ်ပေါ်ရှိ BudgetWise တွင် သတ်မှတ်ပါသည်။</string>
     <string name="budgets_spent_of_limit_spoken">%2$s ကျပ်ထဲမှ %1$s ကျပ် သုံးထားသည်</string>
     <string name="budgets_left_spoken">%1$s ကျပ် ကျန်သည်</string>
     <string name="budgets_over_spoken">ဘတ်ဂျက်ထက် %1$s ကျပ် ကျော်သွားပြီ</string>
@@ -122,6 +173,7 @@
     <string name="settings_sync_synced">စင့်ခ်ပြီးပါပြီ</string>
     <string name="settings_sync_offline">BudgetWise နှင့် ချိတ်ဆက်၍ မရပါ</string>
     <string name="settings_sync_needs_sign_in">စင့်ခ်လုပ်ရန် ပြန်ဝင်ပါ</string>
+    <string name="settings_sync_needs_sign_in_detail">ဝင်ထားချိန် ကုန်သွားပါပြီ။</string>
     <plurals name="settings_sync_rejected">
         <item quantity="other">စာရင်း %d ခု စင့်ခ်လုပ်၍ မရပါ</item>
     </plurals>
@@ -134,8 +186,10 @@
         <item quantity="other">စင့်ခ်ရန် စာရင်း %d ခု ကျန်သည်</item>
     </plurals>
     <string name="settings_all_synced">စာရင်းအားလုံး စင့်ခ်ပြီးပါပြီ</string>
+    <string name="settings_all_other_synced">အခြားစာရင်းအားလုံး စင့်ခ်ပြီးပါပြီ</string>
     <string name="settings_sync_now">ယခု စင့်ခ်လုပ်မည်</string>
     <string name="settings_sign_out">အကောင့်မှ ထွက်မည်</string>
-    <string name="settings_sign_out_failed">အကောင့်မှ ထွက်၍ မရပါ။ ထပ်ကြိုးစားပါ။</string>
+    <string name="settings_sign_out_failed">အကောင့်မှ ထွက်၍ မရပါ</string>
+    <string name="settings_sign_out_failed_detail">စာရင်းများ ဤဖုန်းထဲတွင် ရှိနေပါသည်။</string>
     <string name="settings_version">ဗားရှင်း %1$s (%2$d)</string>
 </resources>

@@ -1,34 +1,28 @@
 package app.budgetwise.ui.login
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,47 +31,50 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentType
-import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
+import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.BrandMark
+import app.budgetwise.ui.common.KitTextField
+import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.Notice
+import app.budgetwise.ui.common.NoticeTone
+import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.theme.BudgetWiseTheme
+import app.budgetwise.ui.theme.bold
 
 /**
- * [onClose] is set when sign-in was opened on top of the app (expired session), so the user can go back. [onSignedIn]
- * gets `true` when the phone signed in without the server.
+ * [onClose] is set when sign-in was opened on top of the app (expired session), so the user can go back. A sign-in made
+ * on the phone without the server lands on Transactions like any other; the header's chip says the entries wait.
  */
 @Composable
 fun LoginRoute(
-    onSignedIn: (offline: Boolean) -> Unit,
+    onSignedIn: () -> Unit,
     onClose: (() -> Unit)?,
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val signedIn by rememberUpdatedState(onSignedIn)
     LaunchedEffect(viewModel) {
-        viewModel.events.collect { if (it is LoginEvent.SignedIn) signedIn(it.offline) }
+        viewModel.events.collect { if (it is LoginEvent.SignedIn) signedIn() }
     }
     LoginScreen(
         state = state,
@@ -97,6 +94,8 @@ fun LoginScreen(
     onClose: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
     val keyboard = LocalSoftwareKeyboardController.current
     val passwordFocus = remember { FocusRequester() }
     var showPassword by rememberSaveable { mutableStateOf(false) }
@@ -104,49 +103,53 @@ fun LoginScreen(
         keyboard?.hide()
         onSubmit()
     }
+    // While signing in the fields are dimmed and locked; the button says it is busy.
+    val fieldsAlpha = if (state.loading) 0.6f else 1f
 
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = maxHeight)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Column(
-                    modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    BrandMark(size = 72.dp)
-                    Spacer(Modifier.height(20.dp))
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(if (state.returning) R.string.login_subtitle_returning else R.string.login_subtitle),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(36.dp))
+    Column(
+        modifier
+            .fillMaxSize()
+            .background(colors.ground)
+            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime)),
+    ) {
+        if (onClose != null) {
+            BackHeader(title = null, onBack = onClose)
+        } else {
+            Spacer(Modifier.windowInsetsPadding(WindowInsets.statusBars).height(56.dp))
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
+        ) {
+            Column(Modifier.widthIn(max = 440.dp).fillMaxWidth()) {
+                BrandMark(size = 48.dp)
+                Text(
+                    text = stringResource(R.string.login_title),
+                    style = type.size25.bold,
+                    color = colors.ink,
+                    modifier = Modifier.padding(top = 24.dp).semantics { heading() },
+                )
+                Text(
+                    text = stringResource(if (state.returning) R.string.login_subtitle_returning else R.string.login_subtitle),
+                    style = type.size15,
+                    color = colors.muted,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
 
-                    val wrong = state.error == LoginError.WrongCredentials
-                    OutlinedTextField(
+                val wrong = state.error == LoginError.WrongCredentials
+                Column(Modifier.padding(top = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    KitTextField(
                         value = state.email,
                         onValueChange = onEmailChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .semantics { contentType = ContentType.Username + ContentType.EmailAddress },
+                        label = stringResource(R.string.login_email),
+                        modifier = Modifier.alpha(fieldsAlpha),
+                        fieldModifier = Modifier.semantics { contentType = ContentType.Username + ContentType.EmailAddress },
+                        leading = Lucide.Mail,
+                        placeholder = stringResource(R.string.login_email_hint),
                         enabled = !state.loading,
-                        label = { Text(stringResource(R.string.login_email)) },
-                        leadingIcon = { Icon(painterResource(R.drawable.ic_mail), contentDescription = null) },
-                        isError = wrong,
-                        singleLine = true,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Email,
                             imeAction = ImeAction.Next,
@@ -154,29 +157,28 @@ fun LoginScreen(
                         ),
                         keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }),
                     )
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
+                    KitTextField(
                         value = state.password,
                         onValueChange = onPasswordChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(passwordFocus)
-                            .semantics { contentType = ContentType.Password },
+                        label = stringResource(R.string.login_password),
+                        modifier = Modifier.alpha(fieldsAlpha),
+                        fieldModifier = Modifier.focusRequester(passwordFocus).semantics { contentType = ContentType.Password },
+                        leading = Lucide.Lock,
+                        placeholder = stringResource(R.string.login_password_hint),
+                        error = if (wrong) stringResource(R.string.login_error_wrong_credentials) else null,
                         enabled = !state.loading,
-                        label = { Text(stringResource(R.string.login_password)) },
-                        leadingIcon = { Icon(painterResource(R.drawable.ic_lock), contentDescription = null) },
-                        trailingIcon = {
-                            IconButton(onClick = { showPassword = !showPassword }) {
+                        trailing = {
+                            IconButton(onClick = { showPassword = !showPassword }, enabled = !state.loading, modifier = Modifier.size(48.dp)) {
                                 Icon(
-                                    painter = painterResource(if (showPassword) R.drawable.ic_visibility_off else R.drawable.ic_visibility),
+                                    imageVector = if (showPassword) Lucide.EyeOff else Lucide.Eye,
                                     contentDescription = stringResource(
                                         if (showPassword) R.string.login_hide_password else R.string.login_show_password,
                                     ),
+                                    tint = colors.muted,
+                                    modifier = Modifier.size(20.dp),
                                 )
                             }
                         },
-                        isError = wrong,
-                        singleLine = true,
                         visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Password,
@@ -185,41 +187,15 @@ fun LoginScreen(
                         ),
                         keyboardActions = KeyboardActions(onDone = { if (state.canSubmit) submit() }),
                     )
-
-                    state.error?.let { LoginErrorText(it, Modifier.fillMaxWidth().padding(top = 16.dp)) }
-
-                    Spacer(Modifier.height(24.dp))
-                    // Disabled while signing in, so TalkBack says it cannot be pressed again, but kept in its brand
-                    // color (the spinner says it is busy) instead of the grey of an incomplete form.
-                    val colors = MaterialTheme.colorScheme
-                    Button(
+                    // A wrong password is the field's own error; anything else is a notice where it happened.
+                    state.error?.takeIf { !wrong }?.let { LoginNotice(it, Modifier.padding(top = 4.dp)) }
+                    PrimaryButton(
+                        text = stringResource(if (state.loading) R.string.login_signing_in else R.string.login_submit),
                         onClick = submit,
                         enabled = state.canSubmit,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                        colors = if (state.loading) {
-                            ButtonDefaults.buttonColors(disabledContainerColor = colors.primary, disabledContentColor = colors.onPrimary)
-                        } else {
-                            ButtonDefaults.buttonColors()
-                        },
-                    ) {
-                        if (state.loading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = LocalContentColor.current,
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text(stringResource(R.string.login_signing_in), style = MaterialTheme.typography.labelLarge)
-                        } else {
-                            Text(stringResource(R.string.login_submit), style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                    if (onClose != null) {
-                        Spacer(Modifier.height(8.dp))
-                        TextButton(onClick = onClose, enabled = !state.loading) {
-                            Text(stringResource(R.string.action_cancel), style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
+                        busy = state.loading,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    )
                 }
             }
         }
@@ -227,30 +203,38 @@ fun LoginScreen(
 }
 
 @Composable
-private fun LoginErrorText(error: LoginError, modifier: Modifier = Modifier) {
-    val message = when (error) {
-        LoginError.WrongCredentials -> stringResource(R.string.login_error_wrong_credentials)
-        is LoginError.RateLimited -> error.minutes?.let {
-            pluralStringResource(R.plurals.login_error_rate_limited_minutes, it, it)
-        } ?: stringResource(R.string.login_error_rate_limited)
-        LoginError.NeedsInternet -> stringResource(R.string.login_error_needs_internet)
-        LoginError.Server -> stringResource(R.string.login_error_server)
-        LoginError.Generic -> stringResource(R.string.login_error_generic)
-    }
-    // No connection is about the network, not a mistake: the crossed-out cloud, as on Settings.
-    val icon = if (error == LoginError.NeedsInternet) R.drawable.ic_cloud_off else R.drawable.ic_error
-    Row(
-        modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
-        verticalAlignment = Alignment.Top,
-    ) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(top = 2.dp).size(18.dp),
+private fun LoginNotice(error: LoginError, modifier: Modifier = Modifier) {
+    when (error) {
+        LoginError.WrongCredentials -> Unit
+        LoginError.NeedsInternet -> Notice(
+            tone = NoticeTone.INFO,
+            icon = Lucide.CloudOff,
+            title = stringResource(R.string.login_error_needs_internet_title),
+            detail = stringResource(R.string.login_error_needs_internet),
+            modifier = modifier,
         )
-        Spacer(Modifier.width(8.dp))
-        Text(text = message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+        is LoginError.RateLimited -> Notice(
+            tone = NoticeTone.ATTENTION,
+            icon = Lucide.Clock,
+            title = stringResource(R.string.login_error_rate_limited_title),
+            detail = error.minutes?.let { pluralStringResource(R.plurals.login_error_rate_limited_minutes, it, it) }
+                ?: stringResource(R.string.login_error_rate_limited),
+            modifier = modifier,
+        )
+        LoginError.Server -> Notice(
+            tone = NoticeTone.ERROR,
+            icon = Lucide.CloudAlert,
+            title = stringResource(R.string.login_error_server_title),
+            detail = stringResource(R.string.login_error_server),
+            modifier = modifier,
+        )
+        LoginError.Generic -> Notice(
+            tone = NoticeTone.ERROR,
+            icon = Lucide.CircleAlert,
+            title = stringResource(R.string.login_error_generic_title),
+            detail = stringResource(R.string.login_error_generic),
+            modifier = modifier,
+        )
     }
 }
 
@@ -259,7 +243,7 @@ private fun LoginErrorText(error: LoginError, modifier: Modifier = Modifier) {
 private fun LoginScreenPreview() {
     BudgetWiseTheme {
         LoginScreen(
-            state = LoginUiState(email = "aye@example.com", error = LoginError.WrongCredentials),
+            state = LoginUiState(email = "aye.chan@example.com", error = LoginError.WrongCredentials),
             onEmailChange = {},
             onPasswordChange = {},
             onSubmit = {},

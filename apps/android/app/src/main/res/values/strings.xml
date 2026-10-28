@@ -4,38 +4,61 @@
 
     <!-- Common -->
     <string name="action_cancel">Cancel</string>
+    <string name="action_back">Back</string>
+    <string name="action_try_again">Try again</string>
     <string name="time_just_now">just now</string>
 
-    <!-- Bottom navigation -->
+    <!-- Bottom navigation and the header's gear -->
     <string name="nav_transactions">Transactions</string>
     <string name="nav_budgets">Budgets</string>
     <string name="nav_settings">Settings</string>
 
+    <!-- The header's sync chip: one word on screen, a sentence for TalkBack -->
+    <string name="chip_synced">Synced</string>
+    <string name="chip_syncing">Syncing</string>
+    <string name="chip_offline">Offline</string>
+    <string name="chip_not_synced">Not synced</string>
+    <string name="chip_sign_in">Sign in</string>
+    <string name="chip_could_not_sync">Couldn\'t sync</string>
+    <string name="chip_synced_description">Synced. Open sync details</string>
+    <string name="chip_syncing_description">Syncing. Open sync details</string>
+    <string name="chip_offline_description">Offline. Entries sync when you\'re online</string>
+    <string name="chip_not_synced_description">Not synced. Couldn\'t reach BudgetWise</string>
+    <string name="chip_sign_in_description">Session ended. Sign in to sync</string>
+    <string name="chip_could_not_sync_description">Some entries couldn\'t sync. Open Settings</string>
+
     <!-- Sign in -->
+    <string name="login_title">Sign in</string>
     <string name="login_subtitle">Sign in with your BudgetWise account to see and sync your entries.</string>
     <string name="login_subtitle_returning">Welcome back. Sign in again to keep your entries in sync.</string>
     <string name="login_email">Email</string>
+    <string name="login_email_hint" translatable="false">you@example.com</string>
     <string name="login_password">Password</string>
+    <string name="login_password_hint">Your password</string>
     <string name="login_show_password">Show password</string>
     <string name="login_hide_password">Hide password</string>
     <string name="login_submit">Sign in</string>
     <string name="login_signing_in">Signing in…</string>
     <string name="login_error_wrong_credentials">Email or password is incorrect</string>
-    <string name="login_error_rate_limited">Too many attempts. Try again in a few minutes.</string>
+    <string name="login_error_rate_limited_title">Too many attempts</string>
+    <string name="login_error_rate_limited">Wait a few minutes, then try again.</string>
     <plurals name="login_error_rate_limited_minutes">
-        <item quantity="one">Too many attempts. Try again in %d minute.</item>
-        <item quantity="other">Too many attempts. Try again in %d minutes.</item>
+        <item quantity="one">Wait %d minute, then try again.</item>
+        <item quantity="other">Wait %d minutes, then try again.</item>
     </plurals>
-    <string name="login_error_needs_internet">Connect to the internet to sign in to this account for the first time.</string>
-    <string name="login_error_server">BudgetWise isn\'t responding right now. Try again in a moment.</string>
-    <string name="login_error_generic">Something went wrong. Try again.</string>
+    <string name="login_error_needs_internet_title">No internet connection</string>
+    <string name="login_error_needs_internet">Connect to sign in to this account for the first time.</string>
+    <string name="login_error_server_title">BudgetWise isn\'t responding</string>
+    <string name="login_error_server">Try again in a moment.</string>
+    <string name="login_error_generic_title">Something went wrong</string>
+    <string name="login_error_generic">Try again.</string>
 
-    <!-- Session banner (transactions screen) -->
-    <string name="session_expired_message">Your session ended. Sign in again to sync.</string>
-    <plurals name="session_expiring_message">
-        <item quantity="one">Your session ends in %d day. Sign in again to keep syncing.</item>
-        <item quantity="other">Your session ends in %d days. Sign in again to keep syncing.</item>
+    <!-- The notice on Transactions before a session ends -->
+    <plurals name="session_ending">
+        <item quantity="one">You\'ll be signed out in %d day</item>
+        <item quantity="other">You\'ll be signed out in %d days</item>
     </plurals>
+    <string name="session_ending_detail">Sign in again to keep your entries syncing.</string>
     <string name="session_sign_in">Sign in</string>
 
     <!-- Amounts, as TalkBack reads them (%1$s is the grouped number) -->
@@ -54,27 +77,43 @@
     <string name="category_other">Other</string>
     <string name="category_income">Income</string>
 
-    <!-- Transactions -->
+    <!-- Transactions (%1$s is a month's name: "October") -->
     <string name="transactions_title">Transactions</string>
     <string name="action_add">Add</string>
-    <string name="transactions_balance">Balance</string>
-    <string name="transactions_spent">Spent</string>
-    <string name="transactions_income">Income</string>
+    <string name="transactions_left_in">Left in %1$s</string>
+    <string name="transactions_left_spoken">Left in %1$s, %2$s kyat</string>
     <string name="transactions_today">Today</string>
     <string name="transactions_yesterday">Yesterday</string>
-    <string name="transactions_not_synced">Not synced yet</string>
-    <string name="transactions_sync_failed">Couldn\'t sync</string>
     <string name="transactions_delete">Delete</string>
-    <string name="transactions_deleted">Deleted</string>
+    <string name="transactions_deleted">Entry deleted</string>
+    <!-- The deleted entry: its description, then its amount -->
+    <string name="transactions_deleted_detail">%1$s, %2$s</string>
     <string name="transactions_undo">Undo</string>
     <string name="transactions_empty_title">No entries yet</string>
     <string name="transactions_empty_message">Add what you spend and earn. Your entries sync with BudgetWise on the web.</string>
     <string name="transactions_add_first">Add your first expense</string>
+    <string name="transactions_loading">Loading your entries</string>
+    <string name="transactions_refresh_failed">Couldn\'t refresh</string>
     <string name="transactions_unreachable">Couldn\'t reach BudgetWise. Your entries are safe on this phone.</string>
-    <string name="transactions_waiting_for_network">No connection yet. Your entries sync as soon as you\'re online.</string>
-    <string name="transactions_offline">Offline</string>
-    <string name="transactions_offline_description">Offline. Entries sync when you\'re online</string>
-    <string name="transactions_signed_in_offline">Signed in without internet. Your entries sync when you\'re back online.</string>
+    <string name="transactions_refresh_offline">You\'re offline. Your entries are safe on this phone.</string>
+
+    <!-- The month chart (%2$s, or %1$s in spending_same, is last month's name) -->
+    <string name="spending_view">Spending view</string>
+    <string name="spending_total">Total</string>
+    <string name="spending_by_category">By category</string>
+    <string name="spending_less">%1$s Ks less than this time in %2$s</string>
+    <string name="spending_more">%1$s Ks more than this time in %2$s</string>
+    <string name="spending_same">The same as this time in %1$s</string>
+    <string name="spending_so_far">%1$s Ks spent so far this month</string>
+    <string name="spending_nothing_yet">Nothing spent yet this month</string>
+    <string name="spending_chart_spoken">Spent so far in %1$s: %2$s kyat.</string>
+    <string name="spending_chart_compare_spoken">By the same day in %1$s: %2$s kyat.</string>
+    <string name="spending_category_spoken">%1$s, %2$s kyat so far, %3$s kyat by this time in %4$s</string>
+    <string name="spending_category_alone_spoken">%1$s, %2$s kyat so far</string>
+    <string name="spending_other">Other categories</string>
+    <string name="spending_other_spoken">Other categories, %1$d more, %2$s kyat</string>
+    <string name="spending_other_expanded">Expanded</string>
+    <string name="spending_other_collapsed">Collapsed</string>
 
     <!-- Add entry -->
     <string name="manual_title">Add entry</string>
@@ -85,6 +124,7 @@
     <string name="manual_amount">Amount</string>
     <string name="manual_amount_error_missing">Enter an amount</string>
     <string name="manual_amount_error_zero">The amount must be more than 0</string>
+    <string name="manual_income_note">Income is saved under Income.</string>
     <string name="manual_category">Category</string>
     <string name="manual_category_error">Pick a category</string>
     <string name="manual_description">Description</string>
@@ -98,18 +138,34 @@
     <string name="manual_date">Date</string>
     <string name="manual_date_change">Change date</string>
     <string name="manual_date_error_future">The date can\'t be in the future</string>
+    <string name="manual_previous_month">Previous month</string>
+    <string name="manual_next_month">Next month</string>
+    <!-- A day in the date sheet, for TalkBack: "October 23, today" -->
+    <string name="manual_day_today">today</string>
     <string name="manual_save">Save</string>
     <string name="manual_saving">Saving…</string>
-    <string name="manual_save_failed">Couldn\'t save. Try again.</string>
+    <string name="manual_save_failed">Couldn\'t save this entry</string>
+    <string name="manual_save_failed_detail">Nothing was lost. Tap Save to try again.</string>
 
-    <!-- Budgets -->
+    <!-- Budgets (%1$s is a month's name in budgets_spent_in) -->
     <string name="budgets_title">Budgets</string>
-    <string name="budgets_empty">No budgets yet. Set budgets in BudgetWise on the web.</string>
-    <string name="budgets_month_spent">Spent on budgets</string>
+    <string name="budgets_empty_title">No budgets yet</string>
+    <string name="budgets_empty">Set budgets in BudgetWise on the web. They show up here on their own.</string>
+    <string name="budgets_loading">Loading budgets</string>
+    <string name="budgets_spent_in">Spent on budgets in %1$s</string>
     <string name="budgets_spent_of_limit">%1$s of %2$s</string>
     <string name="budgets_of_limit">of %1$s</string>
+    <plurals name="budgets_left_across">
+        <item quantity="one">%1$s left in %2$d budget</item>
+        <item quantity="other">%1$s left across %2$d budgets</item>
+    </plurals>
+    <plurals name="budgets_over_across">
+        <item quantity="one">%1$s over in %2$d budget</item>
+        <item quantity="other">%1$s over across %2$d budgets</item>
+    </plurals>
     <string name="budgets_left">%1$s left</string>
     <string name="budgets_over">%1$s over</string>
+    <string name="budgets_footer">Budgets are set on BudgetWise on the web.</string>
     <string name="budgets_spent_of_limit_spoken">%1$s kyat spent of %2$s kyat</string>
     <string name="budgets_left_spoken">%1$s kyat left</string>
     <string name="budgets_over_spoken">%1$s kyat over budget</string>
@@ -121,11 +177,14 @@
     <string name="settings_section_about">About</string>
     <string name="settings_myanmar_digits">Myanmar digits</string>
     <string name="settings_myanmar_digits_detail">Show amounts as ၅,၀၀၀ Ks</string>
+    <!-- Drawn in the setting's icon slot -->
+    <string name="settings_digits_glyph" translatable="false">123</string>
     <string name="settings_sync_syncing">Syncing…</string>
     <string name="settings_sync_waiting">Waiting to sync</string>
     <string name="settings_sync_synced">Synced</string>
     <string name="settings_sync_offline">Couldn\'t reach BudgetWise</string>
     <string name="settings_sync_needs_sign_in">Sign in again to sync</string>
+    <string name="settings_sync_needs_sign_in_detail">Your session ended.</string>
     <plurals name="settings_sync_rejected">
         <item quantity="one">%d entry couldn\'t sync</item>
         <item quantity="other">%d entries couldn\'t sync</item>
@@ -140,8 +199,10 @@
         <item quantity="other">%d entries waiting to sync</item>
     </plurals>
     <string name="settings_all_synced">Every entry is synced</string>
+    <string name="settings_all_other_synced">Every other entry is synced</string>
     <string name="settings_sync_now">Sync now</string>
     <string name="settings_sign_out">Sign out</string>
-    <string name="settings_sign_out_failed">Couldn\'t sign out. Try again.</string>
+    <string name="settings_sign_out_failed">Couldn\'t sign out</string>
+    <string name="settings_sign_out_failed_detail">Your entries are safe on this phone.</string>
     <string name="settings_version">Version %1$s (%2$d)</string>
 </resources>

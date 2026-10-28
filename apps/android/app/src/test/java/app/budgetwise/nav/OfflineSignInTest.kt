@@ -10,6 +10,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -101,10 +102,10 @@ class OfflineSignInTest {
     fun aKnownAccountSignsInWithoutTheInternetAndLandsOnTransactions() {
         signIn(TestUser.email, PASSWORD)
 
-        waitForText(R.string.transactions_signed_in_offline)
-        compose.onNodeWithText(text(R.string.transactions_signed_in_offline)).assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.nav_settings)).assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.session_expired_message)).assertDoesNotExist()
+        // Transactions with the bottom bar; no notice, since the header's chip says the entries wait.
+        waitForText(R.string.transactions_empty_title)
+        compose.onNodeWithText(text(R.string.nav_budgets)).assertIsDisplayed()
+        compose.onNodeWithContentDescription(text(R.string.chip_sign_in_description)).assertDoesNotExist()
         assertEquals(SessionState.SignedInOffline(TestUser), session.state.value)
     }
 

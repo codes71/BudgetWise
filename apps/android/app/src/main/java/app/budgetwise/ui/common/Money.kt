@@ -41,6 +41,10 @@ fun formatSignedKyat(amount: Long, type: TxType, myanmarDigits: Boolean = false)
     return "$sign${formatKyat(amount, myanmarDigits)}"
 }
 
+/** A net amount (a day's total, a change) with its sign written out: "+841,800", "−4,100", "0". */
+fun signedDigits(amount: Long, myanmarDigits: Boolean = false): String =
+    if (amount > 0) "+${groupDigits(amount, myanmarDigits)}" else groupDigits(amount, myanmarDigits)
+
 fun toMyanmarDigits(text: String): String =
     String(CharArray(text.length) { i -> text[i].let { if (it in '0'..'9') MYANMAR_ZERO + (it - '0') else it } })
 
