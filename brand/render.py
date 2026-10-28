@@ -18,9 +18,9 @@ Sources (edit these, then rerun):
     brand/concepts/*.svg                explored concepts, 108 x 108 dp, full bleed
 
 Outputs:
-    public/logo.png, public/favicon.ico
-    android/{app,asr-demo}/src/main/res/drawable/ic_launcher_{foreground,monochrome}.xml
-    android/{app,asr-demo}/src/main/res/values/ic_launcher_background.xml
+    apps/web/public/logo.png, apps/web/public/favicon.ico
+    apps/android/{app,asr-demo}/src/main/res/drawable/ic_launcher_{foreground,monochrome}.xml
+    apps/android/{app,asr-demo}/src/main/res/values/ic_launcher_background.xml
     brand/concepts/<name>-512.png, <name>-48.png, contact-sheet.png
     brand/previews/launcher-icons.png, brand/previews/web-header.png
 """
@@ -35,6 +35,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BRAND = os.path.join(ROOT, "brand")
+WEB_PUBLIC = os.path.join(ROOT, "apps", "web", "public")
+ANDROID = os.path.join(ROOT, "apps", "android")
 ANDROID_NS = "http://schemas.android.com/apk/res/android"
 
 # Icon layer source -> Android module that ships it.
@@ -159,7 +161,7 @@ def write_android_icons():
     for module, src in ICONS.items():
         text = read(src)
         paths = svg_paths(text)
-        res = os.path.join(ROOT, "android", module, "src", "main", "res")
+        res = os.path.join(ANDROID, module, "src", "main", "res")
         rel = os.path.relpath(src, BRAND)
         write(os.path.join(res, "drawable", "ic_launcher_foreground.xml"), vector_xml(paths, rel, mono=False))
         write(os.path.join(res, "drawable", "ic_launcher_monochrome.xml"), vector_xml(paths, rel, mono=True))
@@ -202,11 +204,11 @@ def favicon_tile(tile_svg, inset=7.0):
 
 def write_web():
     tile = read(os.path.join(BRAND, "logo-mark.svg"))
-    render(tile, 512).save(os.path.join(ROOT, "public", "logo.png"), optimize=True)
+    render(tile, 512).save(os.path.join(WEB_PUBLIC, "logo.png"), optimize=True)
     sizes = [16, 32, 48]
     small = favicon_tile(tile)
     imgs = [render(small, s) for s in sizes]
-    imgs[-1].save(os.path.join(ROOT, "public", "favicon.ico"), format="ICO",
+    imgs[-1].save(os.path.join(WEB_PUBLIC, "favicon.ico"), format="ICO",
                   sizes=[(s, s) for s in sizes], append_images=imgs[:-1])
 
 
@@ -269,7 +271,7 @@ def launcher_preview():
     os.makedirs(out, exist_ok=True)
     rows = []
     for module, label in (("app", "BudgetWise"), ("asr-demo", "BudgetWise Voice Lab")):
-        res = os.path.join(ROOT, "android", module, "src", "main", "res")
+        res = os.path.join(ANDROID, module, "src", "main", "res")
         full = vector_to_svg(res, "foreground")
         mono = vector_to_svg(res, "monochrome", background=False, mono_color="#0E3B2E")
         themed = mono.replace('viewBox="0 0 108 108">', 'viewBox="0 0 108 108"><rect width="108" height="108" fill="#CDEBDD"/>')

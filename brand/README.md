@@ -46,7 +46,7 @@ uv venv /tmp/brand-venv && VIRTUAL_ENV=/tmp/brand-venv uv pip install cairosvg P
 DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib /tmp/brand-venv/bin/python brand/render.py
 ```
 
-It writes `public/logo.png` (512 px), `public/favicon.ico` (16, 32, 48 px, cropped tighter so the b stays
+It writes `apps/web/public/logo.png` (512 px), `apps/web/public/favicon.ico` (16, 32, 48 px, cropped tighter so the b stays
 legible at 16 px), the `ic_launcher_foreground.xml`, `ic_launcher_monochrome.xml` and
 `ic_launcher_background.xml` resources of both Android apps, the concept renders and the previews. Icon
 sources must stay flat: `<path d fill>` elements only, no transforms, strokes, masks or text, because they are
