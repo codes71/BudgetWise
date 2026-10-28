@@ -1,29 +1,30 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import bcrypt from "bcryptjs";
-import { startMongo, stopMongo, clearDb } from "../helpers/db";
+import { clearDb } from "../helpers/db";
 import { req } from "../helpers/request";
 
 let POST: (r: Request, c?: unknown) => Promise<Response>;
-let User: typeof import("@/lib/models/user").default;
+let createUser: typeof import("@/lib/users").createUser;
 let userId: string;
 
+const seedUser = async (email: string, password?: string, fullName?: string) => {
+  const u = await createUser({
+    email,
+    passwordHash: password ? await bcrypt.hash(password, 10) : undefined,
+    fullName,
+  });
+  if (!u) throw new Error("seed user already exists");
+  return u;
+};
+
 beforeAll(async () => {
-  await startMongo();
   POST = (await import("@/app/api/v1/auth/token/route")).POST as typeof POST;
-  User = (await import("@/lib/models/user")).default;
-});
-afterAll(async () => {
-  await stopMongo();
+  ({ createUser } = await import("@/lib/users"));
 });
 beforeEach(async () => {
   await clearDb();
-  const u = await User.create({
-    email: "Alice@Example.com",
-    password: await bcrypt.hash("correct-horse", 10),
-    fullName: "Alice A",
-  });
-  await User.create({ email: "oauth@example.com", fullName: "No Password" });
-  userId = String(u._id);
+  userId = (await seedUser("Alice@Example.com", "correct-horse", "Alice A")).id;
+  await seedUser("oauth@example.com", undefined, "No Password");
   vi.restoreAllMocks();
 });
 
@@ -34,14 +35,10 @@ const login = (body: unknown, ip = freshIp()) =>
 
 describe("POST /api/v1/auth/token", () => {
   it("accepts non-RFC emails that web signup allows (test@localhost)", async () => {
-    const u = await User.create({
-      email: "test@localhost",
-      password: await bcrypt.hash("correct-horse", 10),
-      fullName: "Local",
-    });
+    const u = await seedUser("test@localhost", "correct-horse", "Local");
     const res = await login({ email: "test@localhost", password: "correct-horse" });
     expect(res.status).toBe(200);
-    expect((await res.json()).user.id).toBe(String(u._id));
+    expect((await res.json()).user.id).toBe(u.id);
   });
 
   it("valid credentials 200 with verifiable token", async () => {
@@ -60,30 +57,29 @@ describe("POST /api/v1/auth/token", () => {
     expect((await res.json()).user.id).toBe(userId);
   });
 
-  it("case-variant duplicate accounts: exact case wins, no cross-account login", async () => {
-    const lower = await User.create({
-      email: "bob@example.com",
-      password: await bcrypt.hash("lower-pass", 10),
-      fullName: "Lower",
+  it("logs in an account whose doc id is a copied Mongo ObjectId", async () => {
+    const { testDb } = await import("../helpers/db");
+    const id = "64b0000000000000000000b1";
+    await testDb().collection("users").doc(id).set({
+      email: "Copied@Example.com",
+      emailLower: "copied@example.com",
+      password: await bcrypt.hash("old-pass", 10),
+      fullName: "Copied",
     });
-    const upper = await User.create({
-      email: "BOB@example.com",
-      password: await bcrypt.hash("upper-pass", 10),
-      fullName: "Upper",
-    });
-    const a = await login({ email: "BOB@example.com", password: "upper-pass" });
-    expect(a.status).toBe(200);
-    expect((await a.json()).user.id).toBe(String(upper._id));
-    const b = await login({ email: "bob@example.com", password: "lower-pass" });
-    expect(b.status).toBe(200);
-    expect((await b.json()).user.id).toBe(String(lower._id));
-    // exact case with the other account's password is rejected
-    expect((await login({ email: "BOB@example.com", password: "lower-pass" })).status).toBe(401);
-    // case matching neither: deterministic (oldest variant), other's password rejected
-    const c = await login({ email: "Bob@example.com", password: "lower-pass" });
-    expect(c.status).toBe(200);
-    expect((await c.json()).user.id).toBe(String(lower._id));
-    expect((await login({ email: "Bob@example.com", password: "upper-pass" })).status).toBe(401);
+    const res = await login({ email: "copied@example.com", password: "old-pass" });
+    expect(res.status).toBe(200);
+    expect((await res.json()).user).toEqual({ id, email: "Copied@Example.com", fullName: "Copied" });
+  });
+
+  it("looks the account up with a single query whether or not it exists", async () => {
+    const { testDb } = await import("../helpers/db");
+    const Query = Object.getPrototypeOf(testDb().collection("users").where("emailLower", "==", "x"));
+    const spy = vi.spyOn(Query, "get");
+    await login({ email: "alice@example.com", password: "correct-horse" });
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockClear();
+    await login({ email: "ghost@example.com", password: "whatever" });
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it("wrong password and unknown email both 401 with identical body", async () => {

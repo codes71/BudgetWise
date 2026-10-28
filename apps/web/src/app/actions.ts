@@ -3,8 +3,7 @@
 import { getSpendingSuggestions } from '@/ai/flows/spending-suggestions';
 import { categorizeTransaction } from '@/ai/flows/categorize-transaction';
 import type { Transaction, Budget, UserPayload } from '@/lib/types';
-import dbConnect from '@/lib/db';
-import UserModel from '@/lib/models/user';
+import { createUser, findUserByEmail, getUserById, toPublicUser, updateUserProfile } from '@/lib/users';
 import bcrypt from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
@@ -12,8 +11,6 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/logger';
 import { extractTransactionData } from '@/ai/flows/extract-transaction-data';
-
-import mongoose from 'mongoose';
 
 const secretKey = new TextEncoder().encode(process.env.JWT_SECRET);
 
@@ -40,26 +37,21 @@ export async function signUp(formData: FormData): Promise<{ error: string } | { 
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
-  if (!email || !password) {
+  if (!email?.trim() || !password) {
     return { error: 'Email and password are required.' };
   }
 
-  await dbConnect();
-
-  const existingUser = await UserModel.findOne({ email });
-  if (existingUser) {
-    return { error: 'User with this email already exists.' };
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = new UserModel({
-    email,
-    password: hashedPassword,
-    fullName: email.split('@')[0], // Default full name
-  });
-
   try {
-    await newUser.save();
+    const hashedPassword = await bcrypt.hash(password, 10);
+    // Fails when the email exists in any letter case.
+    const newUser = await createUser({
+      email,
+      passwordHash: hashedPassword,
+      fullName: email.trim().split('@')[0], // Default full name
+    });
+    if (!newUser) {
+      return { error: 'User with this email already exists.' };
+    }
     // Automatically sign in the user after registration
     return await signIn(formData);
   } catch (error) {
@@ -76,9 +68,7 @@ export async function signIn(formData: FormData): Promise<{ error: string } | { 
     return { error: 'Email and password are required.' };
   }
 
-  await dbConnect();
-  
-  const user = await UserModel.findOne({ email });
+  const user = await findUserByEmail(email);
 
   if (!user || !user.password) {
     return { error: 'Invalid email or password.' };
@@ -93,7 +83,7 @@ export async function signIn(formData: FormData): Promise<{ error: string } | { 
   // Create session
   const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
   const userPayload = {
-      userId: (user._id as mongoose.Types.ObjectId).toString(),
+      userId: user.id,
       email: user.email,
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
@@ -153,14 +143,12 @@ export async function updateUser(formData: FormData) {
     const phoneNumber = formData.get('phoneNumber') as string;
     const profilePhotoUrl = formData.get('profilePhotoUrl') as string;
 
-    await dbConnect();
-
     try {
-        const updatedUser = await UserModel.findByIdAndUpdate(userId, {
+        const updatedUser = await updateUserProfile(userId, {
             fullName,
             phoneNumber,
             profilePhotoUrl,
-        }, { new: true });
+        });
 
         if (!updatedUser) {
             return { error: 'User not found' };
@@ -169,19 +157,19 @@ export async function updateUser(formData: FormData) {
         // Re-encrypt the session with the new data
         const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
         const newSession = await encrypt({
-            userId: updatedUser._id,
+            userId: updatedUser.id,
             email: updatedUser.email,
             fullName: updatedUser.fullName,
             phoneNumber: updatedUser.phoneNumber,
             profilePhotoUrl: updatedUser.profilePhotoUrl,
-            createdAt: updatedUser.createdAt.toISOString(),
+            createdAt: updatedUser.createdAt?.toISOString(),
             expires
         });
         const cookieStore = await cookies();
         cookieStore.set('session', newSession, { expires, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
         revalidatePath('/myprofile');
-        return { success: true, user: JSON.parse(JSON.stringify(updatedUser)) };
+        return { success: true, user: toPublicUser(updatedUser) };
 
     } catch (error) {
         logger.error('Error updating user', error as Error);
@@ -268,17 +256,9 @@ export async function getUserDetails() {
       return payload;
     }
 
-    await dbConnect();
-    // Only query the database if it's a regular user with a valid ObjectId
-    if (mongoose.Types.ObjectId.isValid(payload.userId)) {
-      const user = await UserModel.findById(payload.userId).select('-password');
-      if (!user) {
-        return null;
-      }
-      return JSON.parse(JSON.stringify(user));
-    }
-    // This case should ideally not happen for non-guest users, but as a fallback
-    return null;
+    // Null for unknown or malformed ids; the password hash is never returned.
+    const user = await getUserById(payload.userId);
+    return user ? toPublicUser(user) : null;
   } catch (error) {
     logger.error('Error fetching user details', error as Error);
     return null;

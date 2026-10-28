@@ -11,8 +11,9 @@
     "start": "next start",
     "lint": "next lint",
     "seed:categories": "tsx scripts/seedCategories.ts",
-    "backfill:transactions": "tsx scripts/backfillTransactions.ts",
-    "test": "vitest run"
+    "copy:mongo-to-firestore": "tsx scripts/copyMongoToFirestore.ts",
+    "test": "vitest run",
+    "emulator": "tsx scripts/firestoreEmulator.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
@@ -59,7 +60,6 @@
     "jose": "^5.6.3",
     "lodash": "^4.17.21",
     "lucide-react": "^0.475.0",
-    "mongoose": "^8.5.1",
     "next": "15.3.3",
     "next-themes": "^0.3.0",
     "patch-package": "^8.0.0",
@@ -80,6 +80,8 @@
     "@types/node": "^22.20.5",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18",
+    "firebase-tools": "^15.34.1",
+    "mongodb": "^7.7.0",
     "mongodb-memory-server": "^11.3.0",
     "postcss": "^8",
     "vite": "^7.3.7",

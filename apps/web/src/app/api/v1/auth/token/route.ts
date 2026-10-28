@@ -1,11 +1,10 @@
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
-import dbConnect from "@/lib/db";
-import UserModel from "@/lib/models/user";
 import { ApiError, handle, readJson } from "@/lib/mobile/errors";
 import { rateLimit } from "@/lib/mobile/rate-limit";
 import { loginSchema } from "@/lib/mobile/schemas";
 import { signMobileToken } from "@/lib/mobile/token";
+import { findUserByEmail } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
@@ -33,23 +32,15 @@ export const POST = handle(async (req) => {
   await rateLimit(`auth:ip:${clientIp(req)}`, { limit: 30, windowSec: WINDOW_SEC });
   await rateLimit(`auth:email:${emailHash}`, { limit: 10, windowSec: WINDOW_SEC });
 
-  await dbConnect();
-  // Web signup stores the email exactly as typed, so match case-insensitively
-  // to also find legacy mixed-case accounts.
-  // Case-variant duplicates can coexist (case-sensitive unique index), so prefer
-  // the exact-case match, else the oldest variant. One query keeps timing flat.
-  const rows = await UserModel.find({ email })
-    .collation({ locale: "en", strength: 2 })
-    .sort({ _id: 1 })
-    .limit(5)
-    .lean();
-  const user = rows.find((u) => u.email === email) ?? rows[0];
+  // Emails are unique case-insensitively (userEmails), so one lookup on the
+  // lowercased email finds the account; it runs even when there is none.
+  const user = await findUserByEmail(email);
 
   const hash = user?.password || DUMMY_HASH;
   const ok = await bcrypt.compare(password, hash);
   if (!user || !user.password || !ok) throw invalid();
 
-  const id = String(user._id);
+  const id = user.id;
   const { token, expiresAt } = await signMobileToken({ id, email: user.email });
   return Response.json({
     token,
