@@ -7,7 +7,13 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 internal val LightColorScheme = lightColorScheme(
@@ -86,7 +92,7 @@ internal val DarkColorScheme = darkColorScheme(
     inverseOnSurface = InverseOnSurfaceDark,
     error = ErrorDark,
     onError = OnErrorDark,
-    errorContainer = ErrorDeep,
+    errorContainer = ErrorContainerDark,
     onErrorContainer = ErrorPale,
     outline = OutlineDark,
     outlineVariant = OutlineVariantDark,
@@ -112,26 +118,55 @@ internal val DarkColorScheme = darkColorScheme(
     onTertiaryFixedVariant = CoralOnFixedVariant,
 )
 
-// Web --radius is 0.5rem: rounded-sm 4, rounded-md 6, rounded-lg 8.
+// The kit's corners: fields 14, notices 16, cards and grouped rows 18, sheets and dialogs 28.
 internal val BudgetWiseShapes = Shapes(
-    extraSmall = RoundedCornerShape(4.dp),
-    small = RoundedCornerShape(6.dp),
-    medium = RoundedCornerShape(8.dp),
+    extraSmall = RoundedCornerShape(6.dp),
+    small = RoundedCornerShape(14.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(18.dp),
+    extraLarge = RoundedCornerShape(28.dp),
 )
 
+private val LocalBudgetWiseColors = staticCompositionLocalOf { DarkBudgetWiseColors }
+private val LocalBudgetWiseType = staticCompositionLocalOf<BudgetWiseType> { error("BudgetWiseType outside BudgetWiseTheme") }
+private val LocalBudgetWiseFonts = staticCompositionLocalOf<BudgetWiseFonts> { error("BudgetWiseFonts outside BudgetWiseTheme") }
+
+/** The redesign kit's tokens and type sizes, for the composables inside [BudgetWiseTheme]. */
+object BudgetWiseTheme {
+    val colors: BudgetWiseColors
+        @Composable @ReadOnlyComposable get() = LocalBudgetWiseColors.current
+
+    val type: BudgetWiseType
+        @Composable @ReadOnlyComposable get() = LocalBudgetWiseType.current
+
+    val fonts: BudgetWiseFonts
+        @Composable @ReadOnlyComposable get() = LocalBudgetWiseFonts.current
+}
+
 /**
- * The BudgetWise Material 3 theme. Dynamic color is off on purpose: the brand must look the same on
- * every phone, so the schemes never come from the wallpaper.
+ * The BudgetWise theme: the kit's dark tokens by default and its light ones in light mode, following the system.
+ * Dynamic color is off on purpose: the brand must look the same on every phone, so the schemes never come from the
+ * wallpaper. A Burmese UI draws with the bundled Myanmar font and the taller Burmese line heights.
  */
 @Composable
 fun BudgetWiseTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
-        typography = rememberBudgetWiseTypography(),
-        shapes = BudgetWiseShapes,
-        content = content,
-    )
+    val context = LocalContext.current
+    val burmese = LocalConfiguration.current.locales[0].language == "my"
+    val fonts = remember(context) { budgetWiseFonts(context) }
+    val type = remember(fonts, burmese) { budgetWiseType(if (burmese) fonts.myanmar else fonts.latin, burmese) }
+    CompositionLocalProvider(
+        LocalBudgetWiseColors provides if (darkTheme) DarkBudgetWiseColors else LightBudgetWiseColors,
+        LocalBudgetWiseType provides type,
+        LocalBudgetWiseFonts provides fonts,
+    ) {
+        MaterialTheme(
+            colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
+            typography = remember(type) { materialTypography(type) },
+            shapes = BudgetWiseShapes,
+            content = content,
+        )
+    }
 }

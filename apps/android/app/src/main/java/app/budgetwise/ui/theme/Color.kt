@@ -1,5 +1,6 @@
 package app.budgetwise.ui.theme
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 
 // Brand tokens: exact copies of the web theme in src/app/globals.css. Change both together.
@@ -51,6 +52,7 @@ internal val ErrorDark = Color(0xFFFFB4AB)
 internal val OnErrorDark = Color(0xFF690005)
 internal val ErrorPale = Color(0xFFFFDAD6)
 internal val ErrorDeep = Color(0xFF93000A)
+internal val ErrorContainerDark = Color(0xFF4A1C17)
 
 // Light neutrals carry a trace of the sage hue; dark neutrals follow the web's cool grey (hue 220).
 internal val NeutralVariantLight = Color(0xFFDCE8E2)
@@ -68,7 +70,7 @@ internal val SurfaceContainerHighestLight = Color(0xFFDCE6E1)
 internal val NeutralVariantDark = Color(0xFF2A2E33)
 internal val OnNeutralVariantDark = Color(0xFF9CA3AF) // web .dark --muted-foreground
 internal val OutlineDark = Color(0xFF8B929B)
-internal val OutlineVariantDark = Color(0xFF1F2937) // web .dark --border
+internal val OutlineVariantDark = Color(0xFF2F3338) // the redesign's hairline
 internal val InverseSurfaceDark = Color(0xFFE2E5E8)
 internal val InverseOnSurfaceDark = Color(0xFF2B2E32)
 internal val SurfaceBrightDark = Color(0xFF34373B)
@@ -77,3 +79,133 @@ internal val SurfaceContainerLowDark = Color(0xFF1D2023)
 internal val SurfaceContainerDark = Color(0xFF212427)
 internal val SurfaceContainerHighDark = Color(0xFF2B2E32)
 internal val SurfaceContainerHighestDark = Color(0xFF303337)
+
+/**
+ * The redesign kit's tokens, read through [BudgetWiseTheme.colors]. Material 3's scheme carries the same values where
+ * it has a role for them; these name what it has no role for (the hairline, the notice card, the chart marks).
+ */
+@Immutable
+data class BudgetWiseColors(
+    /** The screen behind everything. */
+    val ground: Color,
+    /** Cards, grouped rows and fields. */
+    val surface: Color,
+    /** On top of a surface: bar tracks, skeleton bars, the disabled button, sheets and dialogs. */
+    val raised: Color,
+    /** Dividers and outlines. */
+    val hairline: Color,
+    val fieldBorder: Color,
+    val chipBorder: Color,
+    val navBackground: Color,
+    val navBorder: Color,
+    val ink: Color,
+    val muted: Color,
+    val disabled: Color,
+    /** A future day in the date picker. */
+    val unavailable: Color,
+    /** Sage as text, icons, focus borders and progress. */
+    val accent: Color,
+    /** The primary button and the Add pill. */
+    val sageFill: Color,
+    val onSageFill: Color,
+    val sageContainer: Color,
+    val onSageContainer: Color,
+    /** Spending marks: the chart line and bars, an over-budget bar. */
+    val coral: Color,
+    /** Coral as text: over budget, attention. */
+    val coralText: Color,
+    val coralBorder: Color,
+    val expenseSelected: Color,
+    val onExpenseSelected: Color,
+    /** Offline and waiting. */
+    val blue: Color,
+    val blueBorder: Color,
+    val error: Color,
+    val errorBorder: Color,
+    val deleteReveal: Color,
+    val onDeleteReveal: Color,
+    val notice: Color,
+    val noticeBorder: Color,
+    val chartLastMonth: Color,
+    val chartTick: Color,
+    val otherCategories: Color,
+    val scrim: Color,
+    /** The dark set: picks the dark badge tones. */
+    val isDark: Boolean,
+)
+
+internal val DarkBudgetWiseColors = BudgetWiseColors(
+    ground = BrandBackgroundDark,
+    surface = SurfaceContainerDark,
+    raised = SurfaceContainerHighDark,
+    hairline = OutlineVariantDark,
+    fieldBorder = OutlineVariantDark,
+    chipBorder = OutlineVariantDark,
+    navBackground = SurfaceContainerLowDark,
+    navBorder = NeutralVariantDark,
+    ink = BrandForegroundDark,
+    muted = OnNeutralVariantDark,
+    disabled = OutlineDark,
+    unavailable = Color(0xFF5B626B),
+    accent = BrandPrimary,
+    sageFill = BrandPrimary,
+    onSageFill = BrandForest,
+    sageContainer = SageContainerDark,
+    onSageContainer = SageContainer,
+    coral = CoralLight,
+    coralText = CoralLight,
+    coralBorder = CoralContainerDark,
+    expenseSelected = CoralContainerDark,
+    onExpenseSelected = Color(0xFFF8C3B4),
+    blue = BlueLight,
+    blueBorder = BlueContainerDark,
+    error = ErrorDark,
+    errorBorder = ErrorContainerDark,
+    deleteReveal = Color(0xFF8C1D18),
+    onDeleteReveal = ErrorPale,
+    notice = SurfaceContainerHighDark,
+    noticeBorder = OutlineVariantDark,
+    chartLastMonth = OutlineDark,
+    chartTick = OnNeutralVariantDark,
+    otherCategories = Color(0xFF5B626B),
+    scrim = Color(0x9E0A0B0D),
+    isDark = true,
+)
+
+internal val LightBudgetWiseColors = BudgetWiseColors(
+    ground = BrandBackgroundLight,
+    surface = Color.White,
+    raised = SurfaceContainerLight,
+    hairline = OutlineVariantLight,
+    fieldBorder = NeutralVariantLight,
+    chipBorder = NeutralVariantLight,
+    navBackground = SurfaceContainerLowLight,
+    navBorder = NeutralVariantLight,
+    ink = BrandForeground,
+    muted = OnNeutralVariantLight,
+    disabled = OutlineLight,
+    unavailable = Color(0xFFA3ADA8),
+    accent = SageDeep,
+    sageFill = BrandPrimary,
+    onSageFill = BrandForest,
+    sageContainer = SageContainer,
+    onSageContainer = BrandForest,
+    coral = BrandCoral,
+    coralText = CoralDeep,
+    coralBorder = CoralContainer,
+    expenseSelected = CoralContainer,
+    onExpenseSelected = Color(0xFF93331B),
+    blue = BlueDeep,
+    blueBorder = BlueContainer,
+    error = ErrorLight,
+    errorBorder = ErrorPale,
+    deleteReveal = ErrorLight,
+    onDeleteReveal = Color.White,
+    notice = Color.White,
+    noticeBorder = OutlineVariantLight,
+    chartLastMonth = OutlineLight,
+    chartTick = OnNeutralVariantLight,
+    otherCategories = Color(0xFFA3ADA8),
+    scrim = Color(0x52030712),
+    isDark = false,
+)

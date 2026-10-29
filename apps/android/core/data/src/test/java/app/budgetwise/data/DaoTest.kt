@@ -14,6 +14,7 @@ import app.budgetwise.data.db.claimUnowned
 import app.budgetwise.data.db.toDomain
 import app.budgetwise.data.db.toEntity
 import app.budgetwise.data.model.Budget
+import app.budgetwise.data.model.DailySpend
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.nlu.TxType
@@ -181,5 +182,30 @@ class DaoTest {
 
         db.claimUnowned("u2")
         assertEquals("a second claim finds nothing left", "u1", tx.byClientId("old")!!.ownerId)
+    }
+
+    @Test
+    fun observeDailySpend_sumsTheOwnersExpensesPerDayAndCategory() = runTest {
+        tx.upsert(row("a", date = "2026-10-01", amount = 1_000))
+        tx.upsert(row("b", date = "2026-10-01", amount = 2_500))
+        tx.upsert(row("c", date = "2026-10-01", amount = 400).copy(category = "Transport"))
+        tx.upsert(row("d", date = "2026-09-15", amount = 7_000))
+        // Left out: income, a tombstone, another account, and days outside the range.
+        tx.upsert(row("income", date = "2026-10-01", amount = 850_000).copy(type = TxType.INCOME, category = "Income"))
+        tx.upsert(row("gone", date = "2026-10-01", amount = 9_999, deleted = true))
+        tx.upsert(row("theirs", date = "2026-10-01", amount = 5_000, owner = "u2"))
+        tx.upsert(row("early", date = "2026-08-31", amount = 3_000))
+        tx.upsert(row("late", date = "2026-11-01", amount = 3_000))
+
+        val spend = tx.observeDailySpend("u1", LocalDate.parse("2026-09-01"), LocalDate.parse("2026-10-31")).first()
+
+        assertEquals(
+            setOf(
+                DailySpend(LocalDate.parse("2026-10-01"), "Other", 3_500),
+                DailySpend(LocalDate.parse("2026-10-01"), "Transport", 400),
+                DailySpend(LocalDate.parse("2026-09-15"), "Other", 7_000),
+            ),
+            spend.toSet(),
+        )
     }
 }

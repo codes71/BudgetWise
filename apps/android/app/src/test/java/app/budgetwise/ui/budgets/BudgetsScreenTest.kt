@@ -47,7 +47,7 @@ class BudgetsScreenTest {
         val vm = BudgetsViewModel(budgets, FakeTransactionStore(), FakeSettingsStore(), session, clock)
         val entry = EntryLifecycle().apply { registry.currentState = Lifecycle.State.RESUMED }
         compose.setContent {
-            CompositionLocalProvider(LocalLifecycleOwner provides entry) { BudgetWiseTheme { BudgetsRoute(vm) } }
+            CompositionLocalProvider(LocalLifecycleOwner provides entry) { BudgetWiseTheme { BudgetsRoute(chip = null, onChip = {}, onSettings = {}, viewModel = vm) } }
         }
         compose.waitForIdle()
         val afterFirstOpen = budgets.refreshes

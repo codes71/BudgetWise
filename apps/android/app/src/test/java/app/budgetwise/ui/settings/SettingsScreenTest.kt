@@ -33,6 +33,7 @@ class SettingsScreenTest {
             SettingsScreen(
                 state = state,
                 now = now,
+                onBack = {},
                 onSyncNow = {},
                 onSignOut = { signOuts++ },
                 onMyanmarDigitsChange = {},

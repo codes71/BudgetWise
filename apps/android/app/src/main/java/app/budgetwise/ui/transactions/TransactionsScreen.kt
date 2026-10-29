@@ -1,62 +1,49 @@
 package app.budgetwise.ui.transactions
 
 import androidx.activity.compose.LocalActivity
-import androidx.annotation.DrawableRes
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -64,84 +51,110 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
+import app.budgetwise.data.model.DailySpend
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.nlu.TxType
+import app.budgetwise.ui.common.AppHeader
 import app.budgetwise.ui.common.CategoryBadge
 import app.budgetwise.ui.common.EmptyState
-import app.budgetwise.ui.common.SessionBanner
+import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.NoticeHost
+import app.budgetwise.ui.common.NoticeTone
+import app.budgetwise.ui.common.NoticeVisuals
+import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.SessionNotice
+import app.budgetwise.ui.common.SkeletonBar
+import app.budgetwise.ui.common.SyncChip
 import app.budgetwise.ui.common.categoryLabel
 import app.budgetwise.ui.common.dayLabel
 import app.budgetwise.ui.common.formatKyat
 import app.budgetwise.ui.common.formatSignedKyat
-import app.budgetwise.ui.common.monthLabel
+import app.budgetwise.ui.common.groupDigits
+import app.budgetwise.ui.common.monthName
+import app.budgetwise.ui.common.signedDigits
 import app.budgetwise.ui.common.spokenAmount
-import app.budgetwise.ui.common.spokenKyat
 import app.budgetwise.ui.theme.BudgetWiseTheme
+import app.budgetwise.ui.theme.bold
+import app.budgetwise.ui.theme.forContent
+import app.budgetwise.ui.theme.medium
+import app.budgetwise.ui.theme.semibold
+import app.budgetwise.ui.theme.tabular
 import java.time.Instant
 import java.time.LocalDate
-import java.time.YearMonth
 
 /**
- * The home screen: this month's totals and every entry by day. The shell gives it the session banner (expired or
- * expiring soon) with its sign-in action, and opens `manual` for Add. [signedInOffline] is true right after a sign-in
- * made on the phone without the server: a snackbar says the entries sync once online, then [onSignedInOfflineShown].
+ * The home screen: what is left this month, the month chart, and every entry by day. The shell gives it the header's
+ * [chip] and the session notice (the early warning before a session ends), and opens `manual` for Add.
  */
 @Composable
 fun TransactionsRoute(
+    chip: SyncChip?,
     sessionNotice: SessionNotice?,
-    signedInOffline: Boolean,
-    onSignedInOfflineShown: () -> Unit,
+    onChip: () -> Unit,
+    onSettings: () -> Unit,
     onSignIn: () -> Unit,
     onAddManual: () -> Unit,
     viewModel: TransactionsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
+    val notices = remember { SnackbarHostState() }
 
-    // Told once it has been on screen; a rotation meanwhile shows it again rather than not at all.
-    val offlineSignIn = stringResource(R.string.transactions_signed_in_offline)
-    val offlineSignInShown by rememberUpdatedState(onSignedInOfflineShown)
-    LaunchedEffect(signedInOffline) {
-        if (!signedInOffline) return@LaunchedEffect
-        snackbar.showSnackbar(offlineSignIn, duration = SnackbarDuration.Long)
-        offlineSignInShown()
-    }
-
+    val refreshFailed = stringResource(R.string.transactions_refresh_failed)
     val unreachable = stringResource(R.string.transactions_unreachable)
-    val waiting = stringResource(R.string.transactions_waiting_for_network)
+    val offline = stringResource(R.string.transactions_refresh_offline)
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
-            val message = when (event) {
-                TransactionsEvent.Unreachable -> unreachable
-                TransactionsEvent.WaitingForNetwork -> waiting
-            }
-            snackbar.showSnackbar(message, duration = SnackbarDuration.Short)
+            notices.showSnackbar(
+                when (event) {
+                    TransactionsEvent.Unreachable -> NoticeVisuals(NoticeTone.ATTENTION, Lucide.CloudAlert, refreshFailed, unreachable)
+                    TransactionsEvent.WaitingForNetwork -> NoticeVisuals(NoticeTone.INFO, Lucide.CloudOff, refreshFailed, offline)
+                },
+            )
         }
     }
 
-    // One snackbar per swiped row. A new swipe restarts this effect (the ViewModel has already deleted the row
-    // before it); Undo restores the row, anything else (timeout, swipe away) deletes it.
+    // The early warning, once per visit to the app: the shell keeps this screen's saved state while another tab is
+    // open, so coming back does not show it again.
+    var warned by rememberSaveable { mutableStateOf(false) }
+    val signIn by rememberUpdatedState(onSignIn)
+    val soon = sessionNotice as? SessionNotice.ExpiringSoon
+    val soonTitle = soon?.let { pluralStringResource(R.plurals.session_ending, it.daysLeft, it.daysLeft) }
+    val soonDetail = stringResource(R.string.session_ending_detail)
+    val signInLabel = stringResource(R.string.session_sign_in)
+    LaunchedEffect(soonTitle) {
+        if (soonTitle == null || warned) return@LaunchedEffect
+        warned = true
+        val visuals = NoticeVisuals(NoticeTone.INFO, Lucide.Clock, soonTitle, soonDetail, signInLabel, SnackbarDuration.Long)
+        if (notices.showSnackbar(visuals) == SnackbarResult.ActionPerformed) signIn()
+    }
+
+    // One notice per swiped row. A new swipe restarts this effect (the ViewModel has already deleted the row before
+    // it); Undo restores the row, anything else (timeout, swipe away) deletes it.
     val deleted = stringResource(R.string.transactions_deleted)
     val undo = stringResource(R.string.transactions_undo)
     val pending = state.pendingDelete
+    val pendingDetail = state.pendingDeleteRow?.let {
+        stringResource(R.string.transactions_deleted_detail, it.description, formatKyat(it.amountKyat, state.myanmarDigits))
+    }
     LaunchedEffect(pending) {
         if (pending == null) return@LaunchedEffect
-        snackbar.currentSnackbarData?.dismiss()
-        val result = snackbar.showSnackbar(deleted, actionLabel = undo, duration = SnackbarDuration.Short)
+        notices.currentSnackbarData?.dismiss()
+        val visuals = NoticeVisuals(NoticeTone.NEUTRAL, Lucide.Trash, deleted, pendingDetail, undo, SnackbarDuration.Short)
+        val result = notices.showSnackbar(visuals)
         if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete(pending) else viewModel.commitDelete(pending)
     }
     // Leaving the screen ends the Undo window. A rotation (or another configuration change) does not: the screen
-    // comes back with the same ViewModel and the effect above shows the snackbar again.
+    // comes back with the same ViewModel and the effect above shows the notice again.
     val activity = LocalActivity.current
     DisposableEffect(viewModel) {
         onDispose { if (activity?.isChangingConfigurations != true) viewModel.commitPendingDelete() }
@@ -149,9 +162,10 @@ fun TransactionsRoute(
 
     TransactionsScreen(
         state = state,
-        sessionNotice = sessionNotice,
-        snackbarHostState = snackbar,
-        onSignIn = onSignIn,
+        chip = chip,
+        notices = notices,
+        onChip = onChip,
+        onSettings = onSettings,
         onAddManual = onAddManual,
         onDelete = viewModel::delete,
         onRefresh = viewModel::refresh,
@@ -162,245 +176,206 @@ fun TransactionsRoute(
 @Composable
 fun TransactionsScreen(
     state: TransactionsUiState,
-    sessionNotice: SessionNotice?,
-    snackbarHostState: SnackbarHostState,
-    onSignIn: () -> Unit,
+    chip: SyncChip?,
+    notices: SnackbarHostState,
+    onChip: () -> Unit,
+    onSettings: () -> Unit,
     onAddManual: () -> Unit,
     onDelete: (String) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    val listState = rememberLazyListState()
-    val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
-
-    Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.transactions_title)) },
-                actions = { if (state.offline) OfflineChip(Modifier.padding(end = 12.dp)) },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            // The empty state has its own, larger Add button.
-            if (!state.loading && !state.isEmpty) {
-                val add = stringResource(R.string.action_add)
-                ExtendedFloatingActionButton(
-                    onClick = onAddManual,
-                    expanded = fabExpanded,
-                    // Collapsed (scrolled down), the icon is all there is, so it carries the label.
-                    icon = { Icon(painterResource(R.drawable.ic_add), contentDescription = if (fabExpanded) null else add) },
-                    text = { Text(add, style = MaterialTheme.typography.labelLarge) },
-                )
-            }
-        },
-    ) { padding ->
+    val colors = BudgetWiseTheme.colors
+    Column(modifier.fillMaxSize().background(colors.ground)) {
+        AppHeader(stringResource(R.string.transactions_title), chip, onChip = onChip, onSettings = onSettings)
+        val pull = rememberPullToRefreshState()
+        // The spinner only answers a pull; syncs that run on their own show in the header's chip.
         PullToRefreshBox(
             isRefreshing = state.refreshing,
             onRefresh = onRefresh,
-            modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
+            state = pull,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pull,
+                    isRefreshing = state.refreshing,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    containerColor = colors.raised,
+                    color = colors.accent,
+                )
+            },
         ) {
             LazyColumn(
-                state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 4.dp,
-                    // Room for the FAB over the last row.
-                    bottom = padding.calculateBottomPadding() + 96.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
             ) {
-                if (sessionNotice != null) {
-                    item(key = "session") {
-                        SessionBanner(sessionNotice, onSignIn, Modifier.fillMaxWidth().padding(bottom = 10.dp))
-                    }
-                }
-                if (state.isEmpty) {
-                    item(key = "empty") {
-                        Box(Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
+                when {
+                    state.loading -> item(key = "loading", contentType = "loading") { LoadingSkeleton() }
+                    state.isEmpty -> item(key = "empty") {
+                        Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
                             EmptyState(
-                                icon = R.drawable.ic_receipt_long,
+                                icon = Lucide.Receipt,
                                 title = stringResource(R.string.transactions_empty_title),
                                 message = stringResource(R.string.transactions_empty_message),
+                                modifier = Modifier.padding(bottom = 48.dp),
                                 action = {
-                                    Button(onClick = onAddManual, modifier = Modifier.heightIn(min = 52.dp)) {
-                                        Icon(painterResource(R.drawable.ic_add), contentDescription = null, Modifier.size(20.dp))
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(stringResource(R.string.transactions_add_first), style = MaterialTheme.typography.labelLarge)
-                                    }
+                                    PrimaryButton(stringResource(R.string.transactions_add_first), onAddManual, icon = Lucide.Plus)
                                 },
                             )
                         }
                     }
-                } else if (!state.loading) {
-                    item(key = "summary") {
-                        MonthSummaryCard(state.summary, state.myanmarDigits, Modifier.padding(bottom = 8.dp))
-                    }
-                }
-                state.days.forEach { day ->
-                    item(key = "day-${day.date}", contentType = "day") { DayHeader(day.date, state.today) }
-                    itemsIndexed(
-                        items = day.rows,
-                        // A row brought back by Undo gets a new key: a new item, not the one that was swiped away.
-                        key = { _, row -> "${row.clientId}:${state.restored[row.clientId] ?: 0}" },
-                        contentType = { _, _ -> "row" },
-                    ) { index, row ->
-                        TransactionRow(
-                            row = row,
-                            shape = groupedShape(index, day.rows.size),
-                            myanmarDigits = state.myanmarDigits,
-                            onDelete = onDelete,
-                            // No fade out: a swiped row has already slid off screen.
-                            modifier = Modifier.animateItem(fadeOutSpec = null),
-                        )
+                    else -> {
+                        item(key = "month", contentType = "month") { MonthHead(state) }
+                        days(state, onDelete)
                     }
                 }
             }
+            NoticeHost(notices, Modifier.align(Alignment.BottomCenter))
         }
     }
 }
 
-/** Rows of one day read as one rounded group: large corners at its ends, small ones between rows. */
-private fun groupedShape(index: Int, count: Int, outer: Dp = 16.dp, inner: Dp = 4.dp): Shape {
-    val top = if (index == 0) outer else inner
-    val bottom = if (index == count - 1) outer else inner
+/** "Left in October" with the big number, then the month chart. */
+@Composable
+private fun MonthHead(state: TransactionsUiState) {
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
+    val month = monthName(state.summary.month)
+    val balance = state.summary.balance
+    val spoken = stringResource(R.string.transactions_left_spoken, month, groupDigits(balance))
+    Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 16.dp)) {
+        Column(Modifier.clearAndSetSemantics { contentDescription = spoken }) {
+            Text(stringResource(R.string.transactions_left_in, month), style = type.size15, color = colors.muted)
+            Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = groupDigits(balance, state.myanmarDigits),
+                    style = type.size40.bold.tabular.copy(letterSpacing = if (type.burmese) (-0.01).em else (-0.02).em),
+                    color = if (balance < 0) colors.coralText else colors.ink,
+                    modifier = Modifier.alignByBaseline(),
+                )
+                Text("Ks", style = type.size20.medium, color = colors.muted, modifier = Modifier.alignByBaseline())
+            }
+        }
+        SpendingCard(state.pace, state.categories, state.myanmarDigits, Modifier.padding(top = 12.dp))
+    }
+}
+
+/** Each day: a header with the day's net, and its rows as one rounded group. */
+private fun LazyListScope.days(state: TransactionsUiState, onDelete: (String) -> Unit) {
+    state.days.forEachIndexed { dayIndex, day ->
+        item(key = "day-${day.date}", contentType = "day") {
+            DayHeader(day, state.today, state.myanmarDigits, Modifier.padding(top = if (dayIndex == 0) 0.dp else 8.dp))
+        }
+        itemsIndexed(
+            items = day.rows,
+            // A row brought back by Undo gets a new key: a new item, not the one that was swiped away.
+            key = { _, row -> "${row.clientId}:${state.restored[row.clientId] ?: 0}" },
+            contentType = { _, _ -> "row" },
+        ) { index, row ->
+            TransactionRow(
+                row = row,
+                first = index == 0,
+                last = index == day.rows.lastIndex,
+                myanmarDigits = state.myanmarDigits,
+                onDelete = onDelete,
+                // No fade out: a swiped row has already slid off screen.
+                modifier = Modifier.animateItem(fadeOutSpec = null),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DayHeader(day: DaySection, today: LocalDate, myanmarDigits: Boolean, modifier: Modifier = Modifier) {
+    val colors = BudgetWiseTheme.colors
+    val style = BudgetWiseTheme.type.size14
+    val net = day.rows.sumOf { if (it.type == TxType.EXPENSE) -it.amountKyat else it.amountKyat }
+    Row(
+        modifier = modifier.fillMaxWidth().heightIn(min = 36.dp).padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = dayLabel(day.date, today, myanmarDigits),
+            style = style.semibold,
+            color = colors.muted,
+            modifier = Modifier.weight(1f).semantics { heading() },
+        )
+        Text("${signedDigits(net, myanmarDigits)} Ks", style = style.medium.tabular, color = colors.muted)
+    }
+}
+
+/** Rows of one day read as one rounded group: 18 dp corners at its ends, square between rows. */
+private fun groupedShape(first: Boolean, last: Boolean, outer: Dp = 18.dp): Shape {
+    val top = if (first) outer else 0.dp
+    val bottom = if (last) outer else 0.dp
     return RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
 }
 
-@Composable
-private fun DayHeader(date: LocalDate, today: LocalDate) {
-    Text(
-        text = dayLabel(date, today),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 4.dp, top = 18.dp, bottom = 6.dp).semantics { heading() },
-    )
-}
-
-@Composable
-private fun MonthSummaryCard(summary: MonthSummary, myanmarDigits: Boolean, modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.colorScheme
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = colors.primaryContainer, contentColor = colors.onPrimaryContainer),
-    ) {
-        Column(Modifier.padding(20.dp)) {
-            Text(monthLabel(summary.month), style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.height(12.dp))
-            Column(Modifier.semantics(mergeDescendants = true) {}) {
-                Text(stringResource(R.string.transactions_balance), style = MaterialTheme.typography.bodyMedium)
-                val balance = spokenKyat(summary.balance)
-                Text(
-                    text = formatKyat(summary.balance, myanmarDigits),
-                    style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.semantics { contentDescription = balance },
-                )
-            }
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SummaryFigure(
-                    icon = R.drawable.ic_north_east,
-                    label = stringResource(R.string.transactions_spent),
-                    value = formatKyat(summary.spent, myanmarDigits),
-                    spoken = spokenAmount(summary.spent, TxType.EXPENSE),
-                    modifier = Modifier.weight(1f),
-                )
-                SummaryFigure(
-                    icon = R.drawable.ic_south_west,
-                    label = stringResource(R.string.transactions_income),
-                    value = formatKyat(summary.income, myanmarDigits),
-                    spoken = spokenAmount(summary.income, TxType.INCOME),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SummaryFigure(@DrawableRes icon: Int, label: String, value: String, spoken: String, modifier: Modifier = Modifier) {
-    // A lighter (light theme) or darker (dark theme) well on the card; it only raises the text contrast.
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.45f),
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp).semantics(mergeDescendants = true) {},
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
-            Column {
-                Text(label, style = MaterialTheme.typography.labelMedium)
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.semantics { contentDescription = spoken },
-                )
-            }
-        }
-    }
-}
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionRow(
     row: Transaction,
-    shape: Shape,
+    first: Boolean,
+    last: Boolean,
     myanmarDigits: Boolean,
     onDelete: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = MaterialTheme.colorScheme
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
     val dismissState = rememberSwipeToDismissBoxState()
     val deleteLabel = stringResource(R.string.transactions_delete)
     val spoken = spokenAmount(row.amountKyat, row.type)
     SwipeToDismissBox(
         state = dismissState,
-        modifier = modifier.clip(shape),
+        modifier = modifier.clip(groupedShape(first, last)),
         enableDismissFromStartToEnd = false,
         onDismiss = { onDelete(row.clientId) },
         backgroundContent = {
-            Box(
-                modifier = Modifier.fillMaxSize().background(colors.errorContainer).padding(horizontal = 24.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Icon(painterResource(R.drawable.ic_delete), contentDescription = null, tint = colors.onErrorContainer)
+            // Drawn only while the row moves, so its red never shows at the group's rounded edges.
+            if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                Row(
+                    modifier = Modifier.fillMaxSize().background(colors.deleteReveal).padding(end = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Lucide.Trash, contentDescription = null, tint = colors.onDeleteReveal, modifier = Modifier.size(20.dp))
+                    Text(deleteLabel, style = type.size14.semibold, color = colors.onDeleteReveal)
+                }
             }
         },
     ) {
-        Surface(color = colors.surfaceContainerLow) {
+        Column(Modifier.background(colors.surface)) {
+            if (!first) HorizontalDivider(thickness = 1.dp, color = colors.hairline)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 72.dp)
+                    .heightIn(min = 68.dp)
                     // TalkBack cannot swipe a row; Delete is offered as an action on it instead.
                     .semantics(mergeDescendants = true) {
                         customActions = listOf(CustomAccessibilityAction(deleteLabel) { onDelete(row.clientId); true })
                     }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 // The category name is written next to the badge, so the badge itself stays silent.
                 CategoryBadge(row.category, contentDescription = null)
-                Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    // Burmese descriptions wrap; never cut to one line.
-                    Text(row.description, style = MaterialTheme.typography.bodyLarge, color = colors.onSurface)
-                    SecondaryLine(row)
+                    Text(
+                        text = row.description,
+                        style = type.size16.medium.forContent(row.description),
+                        color = colors.ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val category = categoryLabel(row.category)
+                    Text(category, style = type.size13.forContent(category), color = colors.muted, maxLines = 1)
                 }
-                Spacer(Modifier.width(12.dp))
                 Text(
                     text = formatSignedKyat(row.amountKyat, row.type, myanmarDigits),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (row.type == TxType.EXPENSE) colors.tertiary else colors.primary,
+                    style = type.size16.semibold.tabular,
+                    color = if (row.type == TxType.INCOME) colors.accent else colors.ink,
                     softWrap = false,
                     modifier = Modifier.semantics { contentDescription = spoken },
                 )
@@ -409,84 +384,64 @@ private fun TransactionRow(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** The month head and one day group, as grey blocks of the same size, while Room answers the first time. */
 @Composable
-private fun SecondaryLine(row: Transaction) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        itemVerticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = categoryLabel(row.category),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        when (row.syncState) {
-            SyncState.SYNCED -> Unit
-            SyncState.PENDING -> StatusPill(
-                icon = R.drawable.ic_schedule,
-                text = stringResource(R.string.transactions_not_synced),
-                container = MaterialTheme.colorScheme.surfaceContainerHighest,
-                content = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            SyncState.FAILED -> StatusPill(
-                icon = R.drawable.ic_error,
-                text = stringResource(R.string.transactions_sync_failed),
-                container = MaterialTheme.colorScheme.errorContainer,
-                content = MaterialTheme.colorScheme.error,
-            )
+private fun LoadingSkeleton() {
+    val colors = BudgetWiseTheme.colors
+    val loading = stringResource(R.string.transactions_loading)
+    Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = loading }) {
+        Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp, bottom = 16.dp)) {
+            SkeletonBar(128.dp, 14.dp, color = colors.surface)
+            SkeletonBar(210.dp, 36.dp, Modifier.padding(top = 10.dp), color = colors.surface)
+            SkeletonBar(null, 210.dp, Modifier.padding(top = 16.dp), color = colors.surface)
         }
-    }
-}
-
-/** No internet. Not a button: there is nothing to do about it here, the entries sync on their own once online. */
-@Composable
-private fun OfflineChip(modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.colorScheme
-    val description = stringResource(R.string.transactions_offline_description)
-    Surface(
-        modifier = modifier.clearAndSetSemantics { contentDescription = description },
-        shape = CircleShape,
-        color = Color.Transparent,
-        contentColor = colors.secondary,
-        border = BorderStroke(1.dp, colors.secondaryContainer),
-    ) {
-        Row(Modifier.height(32.dp).padding(start = 10.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(painterResource(R.drawable.ic_cloud_off), contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.transactions_offline), style = MaterialTheme.typography.labelLarge)
+        Row(Modifier.fillMaxWidth().height(36.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            SkeletonBar(64.dp, 12.dp, color = colors.surface)
+            Box(Modifier.weight(1f))
+            SkeletonBar(72.dp, 12.dp, color = colors.surface)
         }
-    }
-}
-
-@Composable
-private fun StatusPill(@DrawableRes icon: Int, text: String, container: Color, content: Color) {
-    Row(
-        modifier = Modifier.clip(CircleShape).background(container).padding(start = 6.dp, end = 8.dp, top = 1.dp, bottom = 1.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(painterResource(icon), contentDescription = null, tint = content, modifier = Modifier.size(14.dp))
-        Spacer(Modifier.width(4.dp))
-        Text(text, style = MaterialTheme.typography.labelSmall, color = content)
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(colors.surface)) {
+            repeat(3) { i ->
+                if (i > 0) HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+                Row(
+                    Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(colors.raised))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SkeletonBar(150.dp, 14.dp)
+                        SkeletonBar(92.dp, 12.dp)
+                    }
+                    SkeletonBar(68.dp, 14.dp)
+                }
+            }
+        }
     }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun TransactionsScreenPreview() {
-    val today = LocalDate.parse("2026-10-21")
-    fun row(description: String, amount: Long, date: LocalDate, type: TxType, category: String, sync: SyncState) =
+    val today = LocalDate.parse("2026-10-23")
+    fun row(description: String, amount: Long, date: LocalDate, type: TxType, category: String) =
         Transaction(
             clientId = description, serverId = null, type = type, amountKyat = amount, category = category,
             description = description, date = date, source = Source.MANUAL, transcript = null,
-            updatedAt = Instant.EPOCH, syncState = sync,
+            updatedAt = Instant.EPOCH, syncState = SyncState.SYNCED,
         )
     val rows = listOf(
-        row("လက်ဖက်ရည်နှင့် မုန့်", 3500, today, TxType.EXPENSE, "Food and Drink Item", SyncState.PENDING),
-        row("Grab to office", 6000, today, TxType.EXPENSE, "Transport", SyncState.SYNCED),
-        row("Salary", 850000, today.minusDays(1), TxType.INCOME, "Other", SyncState.SYNCED),
-        row("City Mart", 42300, today.minusDays(3), TxType.EXPENSE, "Groceries", SyncState.FAILED),
+        row("လက်ဖက်ရည်နှင့် မုန့်ဟင်းခါး", 3500, today, TxType.EXPENSE, "Food and Drink Item"),
+        row("Bus to Sule", 600, today, TxType.EXPENSE, "Transport"),
+        row("October salary", 850000, today.minusDays(1), TxType.INCOME, "Income"),
+        row("Electricity bill", 24500, today.minusDays(2), TxType.EXPENSE, "Utilities"),
+    )
+    val daily = listOf(
+        DailySpend(today.withDayOfMonth(3), "Groceries", 15_400),
+        DailySpend(today.withDayOfMonth(15), "Food and Drink Item", 26_400),
+        DailySpend(today, "Food and Drink Item", 3_500),
+        DailySpend(today.minusMonths(1).withDayOfMonth(8), "Groceries", 22_000),
+        DailySpend(today.minusMonths(1).withDayOfMonth(19), "Health", 24_000),
     )
     BudgetWiseTheme {
         TransactionsScreen(
@@ -494,11 +449,14 @@ private fun TransactionsScreenPreview() {
                 today = today,
                 loading = false,
                 days = groupByDay(rows),
-                summary = monthSummary(rows, YearMonth.from(today)),
+                summary = monthSummary(rows, java.time.YearMonth.from(today)),
+                pace = monthPace(daily, today),
+                categories = categoryBreakdown(daily, today),
             ),
-            sessionNotice = null,
-            snackbarHostState = remember { SnackbarHostState() },
-            onSignIn = {},
+            chip = SyncChip.SYNCED,
+            notices = remember { SnackbarHostState() },
+            onChip = {},
+            onSettings = {},
             onAddManual = {},
             onDelete = {},
             onRefresh = {},

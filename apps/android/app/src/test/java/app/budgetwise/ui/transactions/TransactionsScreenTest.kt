@@ -3,7 +3,6 @@ package app.budgetwise.ui.transactions
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -23,6 +22,8 @@ import app.budgetwise.testing.FakeSettingsStore
 import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTransactionStore
 import app.budgetwise.testing.testTransaction
+import app.budgetwise.ui.common.SessionNotice
+import app.budgetwise.ui.common.SyncChip
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import java.time.Clock
 import java.time.LocalDate
@@ -55,22 +56,22 @@ class TransactionsScreenTest {
     private fun show(
         rows: List<Transaction>,
         onAddManual: () -> Unit = {},
-        signedInOffline: Boolean = false,
-        online: Boolean = true,
-        onSignedInOfflineShown: () -> Unit = {},
+        sessionNotice: SessionNotice? = null,
+        onSignIn: () -> Unit = {},
     ): FakeTransactionStore {
         val store = FakeTransactionStore(rows)
         // The delete outlives the screen in the app; here it runs straight away.
         vm = TransactionsViewModel(
-            store, FakeSyncControls(), FakeSettingsStore(), FakeNetworkStatus(online), clock, CoroutineScope(Dispatchers.Unconfined),
+            store, FakeSyncControls(), FakeSettingsStore(), FakeNetworkStatus(), clock, CoroutineScope(Dispatchers.Unconfined),
         )
         compose.setContent {
             BudgetWiseTheme {
                 TransactionsRoute(
-                    sessionNotice = null,
-                    signedInOffline = signedInOffline,
-                    onSignedInOfflineShown = onSignedInOfflineShown,
-                    onSignIn = {},
+                    chip = SyncChip.SYNCED,
+                    sessionNotice = sessionNotice,
+                    onChip = {},
+                    onSettings = {},
+                    onSignIn = onSignIn,
                     onAddManual = onAddManual,
                     viewModel = vm,
                 )
@@ -80,26 +81,7 @@ class TransactionsScreenTest {
     }
 
     @Test
-    fun anOfflineSignInSaysTheEntriesSyncOnceOnline() {
-        var shown = 0
-        show(listOf(testTransaction("Tea", 1500, today, syncState = SyncState.PENDING)), signedInOffline = true, online = false) {
-            shown++
-        }
-
-        compose.onNodeWithText(text(R.string.transactions_signed_in_offline)).assertIsDisplayed()
-        compose.onNode(hasContentDescription(text(R.string.transactions_offline_description))).assertIsDisplayed()
-        compose.onNodeWithText("Tea").assertIsDisplayed()
-        assertEquals("told only once the snackbar is gone", 0, shown)
-
-        compose.mainClock.advanceTimeBy(15_000)
-        compose.waitForIdle()
-
-        compose.onNodeWithText(text(R.string.transactions_signed_in_offline)).assertDoesNotExist()
-        assertEquals(1, shown)
-    }
-
-    @Test
-    fun transactionsList_showsPendingBadgeForUnsyncedRow() {
+    fun rowsShowTheirCategoryAndNoSyncMarker() {
         show(
             listOf(
                 testTransaction("Tea", 1500, today, syncState = SyncState.PENDING),
@@ -108,13 +90,14 @@ class TransactionsScreenTest {
             ),
         )
 
-        val notSynced = text(R.string.transactions_not_synced)
-        compose.onAllNodesWithText(notSynced).assertCountEquals(1)
-        compose.onNode(hasText("Tea") and hasText(notSynced)).assertIsDisplayed()
-        compose.onNode(hasText("Taxi") and hasText(text(R.string.transactions_sync_failed))).assertIsDisplayed()
-        compose.onNodeWithText("Rice").assertIsDisplayed()
-        // Day headers, and the amount read the way it is meant: "1,500 kyat spent", not "minus 1,500 Ks".
+        // The header's chip is the only sync signal: no row says it is waiting or was refused.
+        compose.onNodeWithText("Not synced", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Couldn't sync", substring = true).assertDoesNotExist()
+        compose.onNode(hasText("Tea") and hasText(text(R.string.category_groceries))).assertIsDisplayed()
+        compose.onNode(hasText("Taxi") and hasText(text(R.string.category_transport))).assertIsDisplayed()
+        // Day headers with the day's net, and the amount read the way it is meant: "1,500 kyat spent".
         compose.onNodeWithText(text(R.string.transactions_today)).assertIsDisplayed()
+        compose.onNodeWithText("−21,500 Ks").assertIsDisplayed()
         compose.onNodeWithText(text(R.string.transactions_yesterday)).assertIsDisplayed()
         compose.onNode(hasText("Tea") and hasContentDescription("1,500 kyat spent")).assertIsDisplayed()
     }
@@ -127,10 +110,10 @@ class TransactionsScreenTest {
         compose.onNodeWithText("Rice").performTouchInput { swipeLeft() }
 
         compose.onNodeWithText(text(R.string.transactions_deleted)).assertIsDisplayed()
-        compose.onNodeWithText("Rice").assertDoesNotExist()
+        compose.onNodeWithText("Rice, 20,000 Ks").assertIsDisplayed()
 
         compose.onNodeWithText(text(R.string.transactions_undo)).performClick()
-        // The click resumes the snackbar's coroutine, which runs when the test clock moves on.
+        // The click resumes the notice's coroutine, which runs when the test clock moves on.
         compose.mainClock.advanceTimeBy(1_000)
 
         compose.onNodeWithText("Rice").assertIsDisplayed()
@@ -141,7 +124,7 @@ class TransactionsScreenTest {
     }
 
     @Test
-    fun swipeDeleteWithoutUndoDeletesWhenTheSnackbarEnds() {
+    fun swipeDeleteWithoutUndoDeletesWhenTheNoticeEnds() {
         val rice = testTransaction("Rice", 20000, today)
         val store = show(listOf(rice))
 
@@ -164,7 +147,7 @@ class TransactionsScreenTest {
         compose.onNodeWithText(text(R.string.transactions_deleted)).assertIsDisplayed()
 
         // A configuration change destroys the activity and the composition; the ViewModel stays, and the new screen
-        // shows the snackbar again for the same row.
+        // shows the notice again for the same row.
         compose.activityRule.scenario.recreate()
 
         assertTrue("a rotation must not end the Undo window", store.deleted.isEmpty())
@@ -172,7 +155,7 @@ class TransactionsScreenTest {
     }
 
     @Test
-    fun monthSummaryShowsSpentIncomeAndBalance() {
+    fun monthHeadShowsWhatIsLeftAndTheSpendingSoFar() {
         show(
             listOf(
                 testTransaction("Rice", 20000, today),
@@ -180,9 +163,45 @@ class TransactionsScreenTest {
             ),
         )
 
-        compose.onNodeWithText("480,000 Ks").assertIsDisplayed()
-        compose.onNodeWithText("20,000 Ks").assertIsDisplayed()
-        compose.onNodeWithText("500,000 Ks").assertIsDisplayed()
+        compose.onNode(hasContentDescription("Left in October, 480,000 kyat")).assertIsDisplayed()
+        // With no September entries there is nothing to compare: the verdict and the chart say what was spent.
+        compose.onNodeWithText("20,000 Ks spent so far this month").assertIsDisplayed()
+        compose.onNode(hasContentDescription("Spent so far in October: 20,000 kyat.")).assertIsDisplayed()
+        // The day's net in its header and the entry itself.
+        compose.onAllNodesWithText("+500,000 Ks")[0].assertIsDisplayed()
+    }
+
+    @Test
+    fun theChartComparesWithLastMonthByTheSameDay() {
+        show(
+            listOf(
+                testTransaction("Rice", 20000, today),
+                testTransaction("Taxi", 6000, today.withDayOfMonth(2), category = "Transport"),
+                testTransaction("Market", 30000, today.minusMonths(1).withDayOfMonth(5)),
+                // After the 21st: not part of "this time in September".
+                testTransaction("Rent", 90000, today.minusMonths(1).withDayOfMonth(28), category = "Housing"),
+            ),
+        )
+
+        compose.onNodeWithText("4,000 Ks less than this time in September").assertIsDisplayed()
+        compose.onNode(hasContentDescription("Spent so far in October: 26,000 kyat. By the same day in September: 30,000 kyat."))
+            .assertIsDisplayed()
+
+        compose.onNodeWithText(text(R.string.spending_by_category)).performClick()
+        compose.onNode(hasContentDescription("Groceries, 20,000 kyat so far, 30,000 kyat by this time in September")).assertIsDisplayed()
+        compose.onNode(hasContentDescription("Transport, 6,000 kyat so far, 0 kyat by this time in September")).assertIsDisplayed()
+    }
+
+    @Test
+    fun aSessionEndingSoonSaysSoOnceWithSignIn() {
+        var signIns = 0
+        show(listOf(testTransaction("Rice", 20000, today)), sessionNotice = SessionNotice.ExpiringSoon(3), onSignIn = { signIns++ })
+
+        compose.onNodeWithText("You'll be signed out in 3 days").assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.session_sign_in)).performClick()
+        compose.mainClock.advanceTimeBy(1_000)
+
+        assertEquals(1, signIns)
     }
 
     @Test

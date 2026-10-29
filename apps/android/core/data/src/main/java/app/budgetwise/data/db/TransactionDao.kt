@@ -3,12 +3,25 @@ package app.budgetwise.data.db
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
+import app.budgetwise.data.model.DailySpend
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TransactionDao {
     @Query("SELECT * FROM tx WHERE ownerId = :owner AND deleted = 0 ORDER BY date DESC, updatedAt DESC")
     fun observeAll(owner: String): Flow<List<TransactionEntity>>
+
+    /**
+     * [owner]'s expenses dated [from] to [to] (both included) summed per day and category, for the spending chart.
+     * Tombstones are left out, as in [observeAll]; ISO dates compare as text.
+     */
+    @Query(
+        "SELECT date, category, SUM(amountKyat) AS amountKyat FROM tx " +
+            "WHERE ownerId = :owner AND deleted = 0 AND type = 'EXPENSE' AND date BETWEEN :from AND :to " +
+            "GROUP BY date, category",
+    )
+    fun observeDailySpend(owner: String, from: LocalDate, to: LocalDate): Flow<List<DailySpend>>
 
     @Upsert
     suspend fun upsert(e: TransactionEntity)

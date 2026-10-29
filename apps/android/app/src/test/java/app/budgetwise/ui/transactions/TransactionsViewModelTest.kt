@@ -56,6 +56,30 @@ class TransactionsViewModelTest {
     private fun TransactionsUiState.visibleIds() = days.flatMap { day -> day.rows.map { it.clientId } }
 
     @Test
+    fun theChartFollowsRoomAndLeavesOutARowWaitingForUndo() = runTest {
+        val rice = testTransaction("rice", 20_000, today)
+        val taxi = testTransaction("taxi", 4_000, today.minusDays(1), category = "Transport")
+        val market = testTransaction("market", 30_000, d("2026-09-05"))
+        val salary = testTransaction("salary", 500_000, today, type = TxType.INCOME, category = "Income")
+        store.rows.value = listOf(rice, taxi, market, salary)
+        val vm = vm()
+
+        assertEquals(24_000L, vm.state.value.pace.spent)
+        assertEquals(30_000L, vm.state.value.pace.lastBySameDay)
+        assertEquals(listOf("Groceries", "Transport"), vm.state.value.categories.top.map { it.category })
+
+        // Swiped away: gone from the chart at once, and the notice can name it.
+        vm.delete(rice.clientId)
+        assertEquals(4_000L, vm.state.value.pace.spent)
+        assertEquals(listOf("Transport"), vm.state.value.categories.top.map { it.category })
+        assertEquals(rice, vm.state.value.pendingDeleteRow)
+
+        vm.undoDelete(rice.clientId)
+        assertEquals(24_000L, vm.state.value.pace.spent)
+        assertNull(vm.state.value.pendingDeleteRow)
+    }
+
+    @Test
     fun groupsRowsByDayNewestFirst() = runTest {
         val tea = testTransaction("tea", 1500, today)
         val rice = testTransaction("rice", 20000, today)

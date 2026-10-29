@@ -7,6 +7,7 @@ import app.budgetwise.data.db.OutboxEntity
 import app.budgetwise.data.db.OutboxOp
 import app.budgetwise.data.db.TransactionEntity
 import app.budgetwise.data.db.toDomain
+import app.budgetwise.data.model.DailySpend
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
@@ -53,6 +54,11 @@ class TransactionRepository @Inject constructor(
 
     fun observe(): Flow<List<Transaction>> = session.activeUserId.flatMapLatest { owner ->
         if (owner == null) flowOf(emptyList()) else tx.observeAll(owner).map { rows -> rows.map { it.toDomain() } }
+    }
+
+    /** The active account's spending from [from] to [to] (both included), per day and category. */
+    fun observeDailySpend(from: LocalDate, to: LocalDate): Flow<List<DailySpend>> = session.activeUserId.flatMapLatest { owner ->
+        if (owner == null) flowOf(emptyList()) else tx.observeDailySpend(owner, from, to)
     }
 
     /** The active account's rows not yet confirmed by the server (queued, rejected, or awaiting delete). */

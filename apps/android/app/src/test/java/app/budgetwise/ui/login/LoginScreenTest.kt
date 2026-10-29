@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.core.app.ApplicationProvider
@@ -13,8 +15,10 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w411dp-h914dp")
 class LoginScreenTest {
     @get:Rule val compose = createComposeRule()
 
@@ -32,6 +36,9 @@ class LoginScreenTest {
         }
     }
 
+    /** The button, not the screen's "Sign in" title. */
+    private fun submit() = compose.onNode(hasText(context.getString(R.string.login_submit)) and hasClickAction())
+
     @Test
     fun signInButtonIsDisabledWhileSigningIn() {
         // TalkBack reads the button's enabled state; a busy button must say it cannot be pressed again.
@@ -45,7 +52,7 @@ class LoginScreenTest {
         show(LoginUiState(email = "aye@example.com", password = "secret", error = LoginError.NeedsInternet))
 
         compose.onNodeWithText(context.getString(R.string.login_error_needs_internet)).assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.login_submit)).assertIsEnabled()
+        submit().assertIsEnabled()
     }
 
     @Test
@@ -60,6 +67,6 @@ class LoginScreenTest {
     fun signInButtonIsEnabledWithBothFieldsFilled() {
         show(LoginUiState(email = "aye@example.com", password = "secret"))
 
-        compose.onNodeWithText(context.getString(R.string.login_submit)).assertIsEnabled()
+        submit().assertIsEnabled()
     }
 }

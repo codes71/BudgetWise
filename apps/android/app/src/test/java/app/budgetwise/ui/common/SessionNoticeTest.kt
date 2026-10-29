@@ -22,7 +22,7 @@ class SessionNoticeTest {
     fun healthyOrSignedOutSessionShowsNothing() {
         assertNull(sessionNoticeFor(signedIn(Duration.ofDays(20), soon = false), now))
         assertNull(sessionNoticeFor(SessionState.SignedOut, now))
-        assertNull("the offline sign-in snackbar says it instead", sessionNoticeFor(SessionState.SignedInOffline(TestUser), now))
+        assertNull("the header's chip says the entries wait", sessionNoticeFor(SessionState.SignedInOffline(TestUser), now))
     }
 
     @Test

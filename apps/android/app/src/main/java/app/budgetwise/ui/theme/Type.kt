@@ -1,112 +1,146 @@
 package app.budgetwise.ui.theme
 
 import android.content.Context
-import android.graphics.Typeface
-import android.graphics.fonts.Font as PlatformFont
-import android.graphics.fonts.FontFamily as PlatformFontFamily
-import android.graphics.fonts.FontStyle as PlatformFontStyle
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.AndroidFont
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontLoadingStrategy
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.googlefonts.Font
+import androidx.compose.ui.text.googlefonts.GoogleFont
+import androidx.compose.ui.text.googlefonts.isAvailableOnDevice
 import androidx.compose.ui.text.style.LineHeightStyle
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import app.budgetwise.R
 
-// Static weights only. Open Sans ships no Medium, so Material's Medium roles use SemiBold here.
-private val Weights = listOf(FontWeight.Normal, FontWeight.SemiBold, FontWeight.Bold)
-private val OpenSansRes = intArrayOf(R.font.open_sans_regular, R.font.open_sans_semibold, R.font.open_sans_bold)
-private val MyanmarRes = intArrayOf(
-    R.font.noto_sans_myanmar_regular,
-    R.font.noto_sans_myanmar_semibold,
-    R.font.noto_sans_myanmar_bold,
+/** The kit's weights: 400, 500, 600 and 700. */
+private val KitWeights = listOf(FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold)
+
+private val SchibstedGrotesk = GoogleFont("Schibsted Grotesk")
+
+private val GoogleFontsProvider = GoogleFont.Provider(
+    providerAuthority = "com.google.android.gms.fonts",
+    providerPackage = "com.google.android.gms",
+    certificates = R.array.com_google_android_gms_fonts_certs,
 )
 
 /**
- * The app font. API 29+: Open Sans for Latin text with Noto Sans Myanmar as a custom fallback, so mixed text such as
- * "Grab ခ ၅၀၀၀" draws both scripts from the bundled fonts. API 26-28 have no custom-fallback API, so everything uses
- * Noto Sans Myanmar, which also covers all of Basic Latin (checked with fontTools); only the Latin look differs.
- * The system font is never relied on for Burmese because Zawgyi-patched or old system fonts mangle Unicode text.
+ * The two families the app draws with. [latin] is Schibsted Grotesk from the Google Fonts provider; until it has
+ * downloaded, and on a phone without the provider, Compose draws the system font instead. [myanmar] is the bundled
+ * Noto Sans Myanmar, which also covers Basic Latin. Burmese never relies on the system font: Zawgyi-patched or old
+ * system fonts mangle Unicode text, so the Burmese UI and Burmese text the user wrote use [myanmar].
  */
-fun budgetWiseFontFamily(context: Context): FontFamily =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        FontFamily(Weights.indices.map { FallbackFont(Weights[it], openSansWithMyanmarFallback(context, it)) })
+@Immutable
+data class BudgetWiseFonts(val latin: FontFamily, val myanmar: FontFamily)
+
+fun budgetWiseFonts(context: Context): BudgetWiseFonts {
+    // Without Play services (or under Robolectric) nothing could answer the request: use the system font outright.
+    val provider = runCatching { GoogleFontsProvider.isAvailableOnDevice(context) }.getOrDefault(false)
+    val latin = if (provider) {
+        FontFamily(KitWeights.map { Font(googleFont = SchibstedGrotesk, fontProvider = GoogleFontsProvider, weight = it) })
     } else {
-        FontFamily(Weights.indices.map { Font(MyanmarRes[it], Weights[it], FontStyle.Normal) })
+        FontFamily.Default
     }
-
-@RequiresApi(Build.VERSION_CODES.Q)
-private fun openSansWithMyanmarFallback(context: Context, i: Int): Typeface {
-    fun family(res: Int) = PlatformFontFamily.Builder(PlatformFont.Builder(context.resources, res).build()).build()
-    return Typeface.CustomFallbackBuilder(family(OpenSansRes[i]))
-        .addCustomFallback(family(MyanmarRes[i]))
-        .setStyle(PlatformFontStyle(Weights[i].weight, PlatformFontStyle.FONT_SLANT_UPRIGHT))
-        .setSystemFallback("sans-serif")
-        .build()
+    return BudgetWiseFonts(latin = latin, myanmar = myanmarFontFamily())
 }
 
-/** Compose has no per-font fallback chain, so a ready-made platform [Typeface] is wrapped as one weight. */
-private class FallbackFont(override val weight: FontWeight, private val typeface: Typeface) :
-    AndroidFont(FontLoadingStrategy.Blocking, Loader, FontVariation.Settings()) {
-    override val style: FontStyle = FontStyle.Normal
+/** No Medium file is bundled; 500 uses the regular one, so a Burmese row title reads as regular weight. */
+internal fun myanmarFontFamily(): FontFamily = FontFamily(
+    Font(R.font.noto_sans_myanmar_regular, FontWeight.Normal),
+    Font(R.font.noto_sans_myanmar_regular, FontWeight.Medium),
+    Font(R.font.noto_sans_myanmar_semibold, FontWeight.SemiBold),
+    Font(R.font.noto_sans_myanmar_bold, FontWeight.Bold),
+)
 
-    private object Loader : AndroidFont.TypefaceLoader {
-        override fun loadBlocking(context: Context, font: AndroidFont): Typeface? = (font as FallbackFont).typeface
-        override suspend fun awaitLoad(context: Context, font: AndroidFont): Typeface? = loadBlocking(context, font)
-    }
-}
+/** Kit size (sp) to line height (sp). Latin uses the kit's English artboards. */
+internal val LatinLineHeights = mapOf(12 to 16, 13 to 18, 14 to 20, 15 to 22, 16 to 24, 20 to 28, 25 to 32, 32 to 40, 40 to 48)
 
-private const val LineHeightRatio = 1.6f
+/**
+ * Burmese stacked marks need at least 1.7x (the kit's Burmese artboards). The 32 and 40 sizes only ever show amounts,
+ * and digits have no stacked marks, so they stay closer to the Latin heights.
+ */
+internal val BurmeseLineHeights = mapOf(12 to 20, 13 to 22, 14 to 24, 15 to 26, 16 to 28, 20 to 34, 25 to 42, 32 to 44, 40 to 52)
 
-// Myanmar stacked marks scale with font size and clip at default heights, so every role uses 1.6x
-// (a multiple of the size) and letter spacing is
-// always zero (spacing breaks Myanmar shaping).
-private fun style(family: FontFamily, weight: FontWeight, size: Float) = TextStyle(
+/**
+ * The kit's type sizes, read through [BudgetWiseTheme.type]; each call site sets its weight. [burmese] is true when the
+ * line heights are the Burmese ones (the phone's language is Burmese).
+ */
+@Immutable
+data class BudgetWiseType(
+    val size12: TextStyle,
+    val size13: TextStyle,
+    val size14: TextStyle,
+    val size15: TextStyle,
+    val size16: TextStyle,
+    val size20: TextStyle,
+    val size25: TextStyle,
+    val size32: TextStyle,
+    val size40: TextStyle,
+    val burmese: Boolean,
+)
+
+// Letter spacing is always zero (spacing breaks Myanmar shaping). Leading is split evenly and the first and last
+// lines are never trimmed, so stacked marks keep their room.
+internal fun kitStyle(family: FontFamily, size: Int, burmese: Boolean) = TextStyle(
     fontFamily = family,
-    fontWeight = weight,
+    fontWeight = FontWeight.Normal,
     fontSize = size.sp,
-    lineHeight = (size * LineHeightRatio).sp,
+    lineHeight = (if (burmese) BurmeseLineHeights else LatinLineHeights).getValue(size).sp,
     letterSpacing = 0.sp,
-    // Explicit styles bypass Material 3's default; split leading evenly and never trim the first or last line.
     lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
 )
 
-/** Material 3 type scale on [family]: every role at 1.6x line height. */
-fun budgetWiseTypography(family: FontFamily): Typography {
-    val regular = FontWeight.Normal
-    val semi = FontWeight.SemiBold
-    return Typography(
-        displayLarge = style(family, FontWeight.Bold, 57f),
-        displayMedium = style(family, FontWeight.Bold, 45f),
-        displaySmall = style(family, FontWeight.Bold, 36f),
-        headlineLarge = style(family, semi, 32f),
-        headlineMedium = style(family, semi, 28f),
-        headlineSmall = style(family, semi, 24f),
-        titleLarge = style(family, semi, 22f),
-        titleMedium = style(family, semi, 16f),
-        titleSmall = style(family, semi, 14f),
-        bodyLarge = style(family, regular, 16f),
-        bodyMedium = style(family, regular, 14f),
-        bodySmall = style(family, regular, 12f),
-        labelLarge = style(family, semi, 14f),
-        labelMedium = style(family, semi, 12f),
-        labelSmall = style(family, semi, 11f),
-    )
+fun budgetWiseType(family: FontFamily, burmese: Boolean): BudgetWiseType {
+    fun s(size: Int) = kitStyle(family, size, burmese)
+    return BudgetWiseType(s(12), s(13), s(14), s(15), s(16), s(20), s(25), s(32), s(40), burmese)
 }
 
+/** Material 3's roles on the kit's sizes, for the Material components the screens still use (dialogs, menus). */
+fun materialTypography(t: BudgetWiseType): Typography = Typography(
+    displayLarge = t.size40.bold,
+    displayMedium = t.size32.bold,
+    displaySmall = t.size25.bold,
+    headlineLarge = t.size32.bold,
+    headlineMedium = t.size25.bold,
+    headlineSmall = t.size20.semibold,
+    titleLarge = t.size20.semibold,
+    titleMedium = t.size16.semibold,
+    titleSmall = t.size14.semibold,
+    bodyLarge = t.size16,
+    bodyMedium = t.size15,
+    bodySmall = t.size13,
+    labelLarge = t.size14.semibold,
+    labelMedium = t.size13.medium,
+    labelSmall = t.size12.medium,
+)
+
+val TextStyle.medium: TextStyle get() = copy(fontWeight = FontWeight.Medium)
+val TextStyle.semibold: TextStyle get() = copy(fontWeight = FontWeight.SemiBold)
+val TextStyle.bold: TextStyle get() = copy(fontWeight = FontWeight.Bold)
+
+/** Digits of equal width, so amounts line up and do not jump as they change. */
+val TextStyle.tabular: TextStyle get() = copy(fontFeatureSettings = "tnum")
+
+/**
+ * True for Burmese letters and marks (Myanmar, Extended-A and Extended-B blocks). Myanmar digits alone do not count:
+ * they have no stacked marks, and any font draws them.
+ */
+fun containsMyanmar(text: CharSequence): Boolean = text.any { c ->
+    (c in '\u1000'..'\u109F' && c !in '\u1040'..'\u1049' && c !in '\u1090'..'\u1099') ||
+        c in '\uAA60'..'\uAA7F' || c in '\uA9E0'..'\uA9FF'
+}
+
+/**
+ * For text the user wrote (a description, a name, a category of their own): when it has Burmese in it, the bundled
+ * Myanmar font and the Burmese line height, also in the English UI. A no-op when the UI is already Burmese.
+ */
 @Composable
-internal fun rememberBudgetWiseTypography(): Typography {
-    val context = LocalContext.current
-    return remember(context) { budgetWiseTypography(budgetWiseFontFamily(context)) }
+fun TextStyle.forContent(text: CharSequence): TextStyle {
+    val type = BudgetWiseTheme.type
+    if (type.burmese || !containsMyanmar(text)) return this
+    val size = fontSize.value.toInt()
+    val lineHeight = BurmeseLineHeights[size]?.sp ?: (fontSize.value * 1.7f).sp
+    return copy(fontFamily = BudgetWiseTheme.fonts.myanmar, lineHeight = lineHeight)
 }

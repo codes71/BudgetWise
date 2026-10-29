@@ -1,50 +1,41 @@
 package app.budgetwise.ui.settings
 
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -52,20 +43,31 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.BuildConfig
 import app.budgetwise.R
-import app.budgetwise.ui.common.SessionBanner
-import app.budgetwise.ui.common.SessionNotice
+import app.budgetwise.ui.common.BackHeader
+import app.budgetwise.ui.common.KitSwitch
+import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.Notice
+import app.budgetwise.ui.common.NoticeTone
+import app.budgetwise.ui.common.PrimaryButton
+import app.budgetwise.ui.common.SecondaryButton
+import app.budgetwise.ui.common.Spinner
 import app.budgetwise.ui.common.relativeTime
 import app.budgetwise.ui.common.rememberTickingNow
 import app.budgetwise.ui.theme.BudgetWiseTheme
+import app.budgetwise.ui.theme.bold
+import app.budgetwise.ui.theme.forContent
+import app.budgetwise.ui.theme.medium
+import app.budgetwise.ui.theme.semibold
 import java.text.BreakIterator
 import java.time.Instant
 
 @Composable
-fun SettingsRoute(onSignIn: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsRoute(onSignIn: () -> Unit, onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     SettingsScreen(
         state = state,
         now = rememberTickingNow(),
+        onBack = onBack,
         onSyncNow = viewModel::syncNow,
         onSignOut = viewModel::signOut,
         onMyanmarDigitsChange = viewModel::setMyanmarDigits,
@@ -74,11 +76,12 @@ fun SettingsRoute(onSignIn: () -> Unit, viewModel: SettingsViewModel = hiltViewM
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Opened from the gear in a tab's header, on top of it: a back arrow and no bottom bar. */
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
     now: Instant,
+    onBack: () -> Unit,
     onSyncNow: () -> Unit,
     onSignOut: () -> Unit,
     onMyanmarDigitsChange: (Boolean) -> Unit,
@@ -86,131 +89,142 @@ fun SettingsScreen(
     version: String,
     modifier: Modifier = Modifier,
 ) {
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.settings_title)) },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = padding.calculateTopPadding() + 4.dp,
-                bottom = padding.calculateBottomPadding() + 24.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            state.account?.let { account ->
-                item(key = "account") { AccountCard(account, state.sessionExpired, onSignIn) }
-            }
-            item(key = "sync-header") { SectionHeader(stringResource(R.string.settings_section_sync)) }
-            item(key = "sync") { SyncCard(state, now, onSyncNow) }
-            item(key = "display-header") { SectionHeader(stringResource(R.string.settings_section_display)) }
-            item(key = "display") { DisplayCard(state.myanmarDigits, onMyanmarDigitsChange) }
-            if (state.account != null) {
-                item(key = "sign-out") { SignOutCard(state.signingOut, state.signOutFailed, onSignOut) }
-            }
-            item(key = "about-header") { SectionHeader(stringResource(R.string.settings_section_about)) }
-            item(key = "version") {
-                SettingsCard {
-                    ListItem(
-                        leadingContent = { ListIcon(R.drawable.ic_info) },
-                        headlineContent = { Text(version) },
-                        colors = transparentListItemColors(),
-                    )
+    val colors = BudgetWiseTheme.colors
+    Column(modifier.fillMaxSize().background(colors.ground)) {
+        BackHeader(stringResource(R.string.settings_title), onBack)
+        Box(Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+            ) {
+                state.account?.let { account -> item(key = "account") { AccountCard(account) } }
+                item(key = "sync") {
+                    Section(stringResource(R.string.settings_section_sync)) { SyncCard(state, now, onSyncNow, onSignIn) }
+                }
+                item(key = "display") {
+                    Section(stringResource(R.string.settings_section_display)) { DisplayCard(state.myanmarDigits, onMyanmarDigitsChange) }
+                }
+                if (state.account != null) {
+                    item(key = "sign-out") { SignOutCard(state.signingOut, onSignOut, Modifier.padding(top = 16.dp)) }
+                }
+                item(key = "about") {
+                    Section(stringResource(R.string.settings_section_about)) {
+                        Card { SettingsRow(Lucide.Info, colors.muted) { Text(version, style = BudgetWiseTheme.type.size15, color = colors.ink) } }
+                    }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun SettingsCard(content: @Composable () -> Unit) {
-    // Large corners, like the cards and grouped rows on the Transactions and Budgets tabs.
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) { content() }
-}
-
-@Composable
-private fun transparentListItemColors() = ListItemDefaults.colors(containerColor = Color.Transparent)
-
-@Composable
-private fun ListIcon(@DrawableRes icon: Int, tint: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
-    Icon(painterResource(icon), contentDescription = null, tint = tint)
-}
-
-@Composable
-private fun SectionHeader(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 4.dp, top = 8.dp),
-    )
-}
-
-@Composable
-private fun AccountCard(account: AccountInfo, expired: Boolean, onSignIn: () -> Unit) {
-    SettingsCard {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = initial(account),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+            if (state.signOutFailed) {
+                Notice(
+                    tone = NoticeTone.ERROR,
+                    icon = Lucide.CircleAlert,
+                    title = stringResource(R.string.settings_sign_out_failed),
+                    detail = stringResource(R.string.settings_sign_out_failed_detail),
+                    actionLabel = stringResource(R.string.action_try_again),
+                    onAction = onSignOut,
+                    floating = true,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
                 )
             }
-            Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                if (account.name.isNotBlank()) {
-                    Text(account.name, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        account.email,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    Text(account.email, style = MaterialTheme.typography.titleMedium)
-                }
-            }
-        }
-        if (expired) {
-            SessionBanner(
-                notice = SessionNotice.Expired,
-                onSignIn = onSignIn,
-                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
-            )
         }
     }
 }
 
-/** First user-perceived character of the name (a Burmese syllable keeps its marks), else of the email. */
-private fun initial(account: AccountInfo): String {
-    val source = account.name.trim().ifEmpty { account.email.trim() }
-    if (source.isEmpty()) return ""
-    val it = BreakIterator.getCharacterInstance().apply { setText(source) }
-    return source.substring(0, it.next()).uppercase()
+@Composable
+private fun Card(content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(BudgetWiseTheme.colors.surface), content = content)
+}
+
+/** A section's muted 36 dp heading, then its card. */
+@Composable
+private fun Section(title: String, content: @Composable () -> Unit) {
+    Column(Modifier.padding(top = 8.dp)) {
+        Box(Modifier.heightIn(min = 36.dp).padding(horizontal = 4.dp), contentAlignment = Alignment.CenterStart) {
+            Text(
+                text = title,
+                style = BudgetWiseTheme.type.size14.semibold,
+                color = BudgetWiseTheme.colors.muted,
+                modifier = Modifier.semantics { heading() },
+            )
+        }
+        content()
+    }
+}
+
+/** A row in a settings card: a 24 dp icon slot, then the row's text. */
+@Composable
+private fun SettingsRow(
+    icon: ImageVector?,
+    tint: Color,
+    modifier: Modifier = Modifier,
+    leading: (@Composable () -> Unit)? = null,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            when {
+                leading != null -> leading()
+                icon != null -> Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+            }
+        }
+        content()
+    }
 }
 
 @Composable
-private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit) {
+private fun AccountCard(account: AccountInfo) {
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(colors.surface)
+            .padding(16.dp)
+            .semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        val initials = initials(account)
+        Box(
+            modifier = Modifier.size(48.dp).clip(CircleShape).background(colors.sageContainer).clearAndSetSemantics { },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(initials, style = type.size16.semibold.forContent(initials), color = colors.onSageContainer)
+        }
+        Column(Modifier.weight(1f)) {
+            if (account.name.isNotBlank()) {
+                Text(account.name, style = type.size16.semibold.forContent(account.name), color = colors.ink)
+                Text(account.email, style = type.size13, color = colors.muted)
+            } else {
+                Text(account.email, style = type.size16.semibold, color = colors.ink)
+            }
+        }
+    }
+}
+
+/**
+ * The first user-perceived character (a Burmese syllable keeps its marks) of the name's first two words, else of the
+ * email: "Aye Chan" is "AC".
+ */
+internal fun initials(account: AccountInfo): String {
+    fun first(word: String): String {
+        val it = BreakIterator.getCharacterInstance().apply { setText(word) }
+        return word.substring(0, it.next())
+    }
+    val words = account.name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    if (words.isEmpty()) return account.email.trim().takeIf { it.isNotEmpty() }?.let(::first)?.uppercase().orEmpty()
+    return words.take(2).joinToString("") { first(it) }.uppercase()
+}
+
+@Composable
+private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit, onSignIn: () -> Unit) {
     val sync = state.sync
-    val colors = MaterialTheme.colorScheme
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
     val headline = when (sync.phase) {
         SyncPhase.SYNCING -> stringResource(R.string.settings_sync_syncing)
         SyncPhase.WAITING -> stringResource(R.string.settings_sync_waiting)
@@ -222,53 +236,65 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
     }
     val at = sync.at?.let { relativeTime(it, now) }
     val supporting = when (sync.phase) {
-        SyncPhase.SYNCED -> at?.let { stringResource(R.string.settings_sync_last_synced, it) }
+        SyncPhase.SYNCED, SyncPhase.SYNCING -> at?.let { stringResource(R.string.settings_sync_last_synced, it) }
         SyncPhase.WAITING ->
             at?.let { stringResource(R.string.settings_sync_last_synced, it) } ?: stringResource(R.string.settings_sync_waiting_detail)
         SyncPhase.OFFLINE -> at?.let { stringResource(R.string.settings_sync_last_tried, it) }
         SyncPhase.REJECTED -> stringResource(R.string.settings_sync_rejected_detail)
-        SyncPhase.SYNCING, SyncPhase.NEEDS_SIGN_IN, SyncPhase.NEVER -> null
+        SyncPhase.NEEDS_SIGN_IN -> stringResource(R.string.settings_sync_needs_sign_in_detail)
+        SyncPhase.NEVER -> null
+    }
+    val (icon, tint) = when (sync.phase) {
+        SyncPhase.SYNCING -> null to colors.accent
+        SyncPhase.WAITING -> Lucide.CloudOff to colors.blue
+        SyncPhase.SYNCED -> Lucide.CloudCheck to colors.accent
+        SyncPhase.OFFLINE -> Lucide.CloudAlert to colors.coralText
+        SyncPhase.NEEDS_SIGN_IN -> Lucide.Lock to colors.coralText
+        SyncPhase.REJECTED -> Lucide.TriangleAlert to colors.error
+        SyncPhase.NEVER -> Lucide.Refresh to colors.muted
     }
 
-    SettingsCard {
-        ListItem(
-            leadingContent = {
-                when (sync.phase) {
-                    SyncPhase.SYNCING -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.5.dp)
-                    SyncPhase.WAITING -> ListIcon(R.drawable.ic_schedule)
-                    SyncPhase.SYNCED -> ListIcon(R.drawable.ic_cloud_done, colors.primary)
-                    SyncPhase.OFFLINE -> ListIcon(R.drawable.ic_cloud_off, colors.tertiary)
-                    SyncPhase.NEEDS_SIGN_IN -> ListIcon(R.drawable.ic_lock_clock, colors.tertiary)
-                    SyncPhase.REJECTED -> ListIcon(R.drawable.ic_sync_problem, colors.error)
-                    SyncPhase.NEVER -> ListIcon(R.drawable.ic_sync)
-                }
-            },
-            headlineContent = { Text(headline, style = MaterialTheme.typography.titleMedium) },
-            supportingContent = supporting?.let { { Text(it) } },
-            colors = transparentListItemColors(),
-        )
-        HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = colors.outlineVariant)
-        ListItem(
-            leadingContent = { ListIcon(R.drawable.ic_receipt_long) },
-            headlineContent = {
-                Text(
-                    if (state.unsyncedCount > 0) {
-                        pluralStringResource(R.plurals.settings_unsynced, state.unsyncedCount, state.unsyncedCount)
-                    } else {
-                        stringResource(R.string.settings_all_synced)
-                    },
-                )
-            },
-            colors = transparentListItemColors(),
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-            horizontalArrangement = Arrangement.End,
+    Card {
+        SettingsRow(
+            icon = icon,
+            tint = tint,
+            modifier = Modifier.heightIn(min = 64.dp).semantics(mergeDescendants = true) {},
+            leading = if (sync.phase == SyncPhase.SYNCING) ({ Spinner(size = 20.dp) }) else null,
         ) {
-            FilledTonalButton(onClick = onSyncNow, enabled = state.canSyncNow) {
-                Icon(painterResource(R.drawable.ic_sync), contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.settings_sync_now), style = MaterialTheme.typography.labelLarge)
+            Column(Modifier.weight(1f)) {
+                Text(headline, style = type.size16.medium, color = colors.ink)
+                if (supporting != null) Text(supporting, style = type.size13, color = colors.muted)
+            }
+        }
+        // Rejected entries count as unsynced too; this line is about every other entry.
+        val waiting = if (sync.phase == SyncPhase.REJECTED) state.unsyncedCount - sync.rejectedCount else state.unsyncedCount
+        SettingsRow(
+            icon = if (waiting > 0) Lucide.Clock else Lucide.Check,
+            tint = if (waiting > 0) colors.blue else colors.accent,
+        ) {
+            Text(
+                text = when {
+                    waiting > 0 -> pluralStringResource(R.plurals.settings_unsynced, waiting, waiting)
+                    sync.phase == SyncPhase.REJECTED -> stringResource(R.string.settings_all_other_synced)
+                    else -> stringResource(R.string.settings_all_synced)
+                },
+                style = type.size15,
+                color = colors.ink,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp)) {
+            if (state.sessionExpired) {
+                PrimaryButton(stringResource(R.string.session_sign_in), onSignIn, Modifier.fillMaxWidth(), height = 44.dp)
+            } else {
+                SecondaryButton(
+                    text = stringResource(R.string.settings_sync_now),
+                    onClick = onSyncNow,
+                    enabled = state.canSyncNow,
+                    icon = Lucide.Refresh,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
@@ -276,45 +302,43 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
 
 @Composable
 private fun DisplayCard(myanmarDigits: Boolean, onChange: (Boolean) -> Unit) {
-    SettingsCard {
-        ListItem(
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
+    Card {
+        SettingsRow(
+            icon = null,
+            tint = colors.muted,
             // The whole row is the switch (one 48 dp target), read as "Myanmar digits, switch, on".
-            modifier = Modifier.toggleable(value = myanmarDigits, role = Role.Switch, onValueChange = onChange),
-            leadingContent = { ListIcon(R.drawable.ic_digits) },
-            headlineContent = { Text(stringResource(R.string.settings_myanmar_digits)) },
-            supportingContent = { Text(stringResource(R.string.settings_myanmar_digits_detail)) },
-            trailingContent = { Switch(checked = myanmarDigits, onCheckedChange = null) },
-            colors = transparentListItemColors(),
-        )
+            modifier = Modifier.heightIn(min = 64.dp).toggleable(value = myanmarDigits, role = Role.Switch, onValueChange = onChange),
+            leading = { Text(stringResource(R.string.settings_digits_glyph), style = type.size12.bold, color = colors.muted, maxLines = 1) },
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_myanmar_digits), style = type.size16.medium, color = colors.ink)
+                val detail = stringResource(R.string.settings_myanmar_digits_detail)
+                Text(detail, style = type.size13.forContent(detail), color = colors.muted)
+            }
+            KitSwitch(checked = myanmarDigits)
+        }
     }
 }
 
 @Composable
-private fun SignOutCard(signingOut: Boolean, failed: Boolean, onSignOut: () -> Unit) {
-    val error = MaterialTheme.colorScheme.error
-    SettingsCard {
-        ListItem(
-            modifier = Modifier.clickable(enabled = !signingOut, onClick = onSignOut),
-            leadingContent = { ListIcon(R.drawable.ic_logout, error) },
-            headlineContent = { Text(stringResource(R.string.settings_sign_out), color = error) },
-            supportingContent = if (failed) {
-                {
-                    Text(
-                        stringResource(R.string.settings_sign_out_failed),
-                        color = error,
-                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                    )
-                }
-            } else {
-                null
-            },
-            trailingContent = if (signingOut) {
-                { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
-            } else {
-                null
-            },
-            colors = transparentListItemColors(),
-        )
+private fun SignOutCard(signingOut: Boolean, onSignOut: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = BudgetWiseTheme.colors
+    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(colors.surface)) {
+        SettingsRow(
+            icon = Lucide.LogOut,
+            tint = colors.coralText,
+            modifier = Modifier.clickable(enabled = !signingOut, role = Role.Button, onClick = onSignOut),
+        ) {
+            Text(
+                stringResource(R.string.settings_sign_out),
+                style = BudgetWiseTheme.type.size16.medium,
+                color = colors.coralText,
+                modifier = Modifier.weight(1f),
+            )
+            if (signingOut) Spinner(size = 20.dp)
+        }
     }
 }
 
@@ -325,16 +349,17 @@ private fun SettingsScreenPreview() {
     BudgetWiseTheme {
         SettingsScreen(
             state = SettingsUiState(
-                account = AccountInfo("Aye Aye", "aye@example.com"),
-                sync = SyncSummary(SyncPhase.SYNCED, now.minusSeconds(300)),
-                unsyncedCount = 2,
+                account = AccountInfo("Aye Chan", "aye.chan@example.com"),
+                sync = SyncSummary(SyncPhase.SYNCED, now.minusSeconds(120)),
+                unsyncedCount = 0,
             ),
             now = now,
+            onBack = {},
             onSyncNow = {},
             onSignOut = {},
             onMyanmarDigitsChange = {},
             onSignIn = {},
-            version = "Version 0.1.0 (1)",
+            version = "Version 1.0 (1)",
         )
     }
 }
