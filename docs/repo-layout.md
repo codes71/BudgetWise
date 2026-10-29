@@ -57,7 +57,17 @@ After the move and path fixes, both feature branches were merged at their final 
   the old `android/` path and was moved by hand; the old-path check below is what caught it. The `profile`
   build type keeps `signingConfig = debug` next to this branch's env-based release signing.
 
-In both merges every file from the branch is byte-identical under `apps/`, except files this branch had already
+Two later branches were cut from chore/monorepo itself (7c3b6c6), so they merged with no path work:
+
+- `feat/android-redesign` at ff7f183 (merge 2e3bdfa): the redesigned Android screens and the month chart,
+  `apps/android` only.
+- `feat/scan-api` at 1279323 (merge ec6806d): `POST /api/v1/scan` for receipt and KPay screenshot reading,
+  `apps/web` and `README.md` only.
+
+Verified after these two merges (2026-10-29): `apps/web` `npm test` passes 141 of 141; `apps/android` unit
+tests pass for :core:data (168) and :app (148).
+
+In the first two merges every file from the branch is byte-identical under `apps/`, except files this branch had already
 edited for the move, which the feature branches did not touch.
 
 Verified on the merged tree (2026-10-29): in `apps/web`, `npm test` (Firestore emulator) passes 109 of 109 and
