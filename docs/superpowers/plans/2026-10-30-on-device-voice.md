@@ -74,8 +74,9 @@ Built on `feat/onboarding-v2` plus this branch. Designs: Paper file "Budget Wise
 - `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`) in the deployed environment; without it there is no fallback.
 - The phone's `cloudParseEnabled` setting defaults on (user, 2026-10-30); its switch is in Settings on `feat/voice-ui`.
 
-- Public host for `freococo.onnx` and `vocab.json` (`-Pbudgetwise.freococoModelBaseUrl`); until then the download
-  fails with "voice model host not configured".
+- Done 2026-10-31 (user chose Hugging Face): `freococo.onnx` and `vocab.json` are public at
+  huggingface.co/thura2/freococo-myanmar-asr-onnx, commit e5041e6, Apache-2.0 with a model card; the app's default
+  host pins that commit. Downloaded copies match the pinned sha256.
 - Memory: on the Mac a 20 s segment peaks near 2 GB; short phrases near 1.5 GB. Measure on the phone, then pick
   `maxSegmentMs`.
 - 64-bit ARM only (`abiFilters`), kept from the Raj build. Cheap 32-bit phones cannot install the app.
@@ -88,8 +89,7 @@ Built on `feat/onboarding-v2` plus this branch. Designs: Paper file "Budget Wise
 2. `:asr`: replace the Raj/llama.cpp engine with the two ONNX engines behind the existing `SpeechToText`
    (returning both transcripts), keep `SpeechSegmenter`, and point `ModelManager` and the download worker at the
    new files with checksums. Drop the llama.cpp submodule and native build.
-3. Model hosting: Omnilingual from its Hugging Face repo at a pinned revision; freococo's ONNX export needs a
-   public home (a Hugging Face repo or a public GitHub release). Both are free.
+3. Model hosting: done. Both models come from Hugging Face at pinned revisions.
 4. Understanding: done (Claude, OpenAI fallback); needs `OPENAI_API_KEY` in the deployed environment.
 5. Voice UI: built on `feat/voice-ui` (see above); not yet tried on a phone.
 6. Licenses screen entries for both models (freococo is Apache-2.0; check Omnilingual's).

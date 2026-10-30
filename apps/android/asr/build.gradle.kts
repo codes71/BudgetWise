@@ -2,12 +2,13 @@ plugins {
     alias(libs.plugins.android.library)
 }
 
-// freococo's ONNX export (freococo.onnx and vocab.json) has no public host yet. Point this at the directory that
-// holds both files with -Pbudgetwise.freococoModelBaseUrl=https://<host>/<dir>/. Until then the .invalid default
-// makes the download fail at once with "voice model host not configured".
+// freococo's ONNX export (freococo.onnx and vocab.json) is published at huggingface.co/thura2/freococo-myanmar-asr-onnx;
+// the default pins its first commit, as Omnilingual is pinned. Another host can be given with
+// -Pbudgetwise.freococoModelBaseUrl=https://<host>/<dir>/ (the directory holding both files). Either way the app
+// checks each file's size and sha256 (VoicePack), so a host can never change what is installed.
 fun baseUrl(raw: String) = if (raw.endsWith("/")) raw else "$raw/"
 val freococoModelBaseUrl = baseUrl(
-    providers.gradleProperty("budgetwise.freococoModelBaseUrl").getOrElse("https://freococo-models.budgetwise.invalid/"),
+    providers.gradleProperty("budgetwise.freococoModelBaseUrl").getOrElse("https://huggingface.co/thura2/freococo-myanmar-asr-onnx/resolve/e5041e673745d9fcd62872710820c22d8ccb9307/"),
 )
 check(freococoModelBaseUrl.startsWith("https://")) {
     "budgetwise.freococoModelBaseUrl must be HTTPS, was $freococoModelBaseUrl"
