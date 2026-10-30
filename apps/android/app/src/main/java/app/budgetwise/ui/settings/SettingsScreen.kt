@@ -45,6 +45,7 @@ import app.budgetwise.R
 import app.budgetwise.asr.ModelState
 import app.budgetwise.asr.VoicePack
 import app.budgetwise.ui.voice.DownloadProgress
+import app.budgetwise.ui.voice.WifiWaitNotice
 import app.budgetwise.ui.voice.rememberAskNotifications
 import app.budgetwise.ui.voice.voiceSize
 import app.budgetwise.currentAppLanguage
@@ -90,6 +91,10 @@ fun SettingsRoute(
             askNotifications()
             viewModel.downloadVoice()
         },
+        onUseMobileData = {
+            askNotifications()
+            viewModel.useMobileDataForVoice()
+        },
         onRemoveVoice = viewModel::removeVoice,
         onCloudParseChange = viewModel::setCloudParse,
         onSignIn = onSignIn,
@@ -108,6 +113,7 @@ fun SettingsScreen(
     onSignOut: () -> Unit,
     onMyanmarDigitsChange: (Boolean) -> Unit,
     onDownloadVoice: () -> Unit,
+    onUseMobileData: () -> Unit,
     onRemoveVoice: () -> Unit,
     onCloudParseChange: (Boolean) -> Unit,
     onSignIn: () -> Unit,
@@ -129,7 +135,7 @@ fun SettingsScreen(
                 }
                 item(key = "voice") {
                     Section(stringResource(R.string.settings_section_voice)) {
-                        VoiceCard(state, onDownloadVoice, onRemoveVoice, onCloudParseChange)
+                        VoiceCard(state, onDownloadVoice, onUseMobileData, onRemoveVoice, onCloudParseChange)
                     }
                 }
                 item(key = "display") {
@@ -333,6 +339,7 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
 private fun VoiceCard(
     state: SettingsUiState,
     onDownload: () -> Unit,
+    onUseMobileData: () -> Unit,
     onRemove: () -> Unit,
     onCloudParseChange: (Boolean) -> Unit,
 ) {
@@ -352,11 +359,8 @@ private fun VoiceCard(
                 Text(stringResource(title), style = type.size16.medium, color = colors.ink)
                 when (voice) {
                     is ModelState.Ready -> Text(stringResource(R.string.settings_voice_on_phone, size), style = type.size13, color = colors.muted)
-                    is ModelState.Downloading -> if (voice.waiting) {
-                        Text(stringResource(R.string.voice_waiting_wifi), style = type.size13, color = colors.muted)
-                    } else {
-                        DownloadProgress(voice.progress, state.myanmarDigits, Modifier.padding(top = 6.dp))
-                    }
+                    // While it waits for Wi-Fi, the notice under the row says so and offers mobile data.
+                    is ModelState.Downloading -> DownloadProgress(voice.progress, state.myanmarDigits, Modifier.padding(top = 6.dp))
                     is ModelState.Failed -> Text(
                         stringResource(if (voice.outOfStorage) R.string.voice_download_no_room else R.string.voice_download_failed, size),
                         style = type.size13,
@@ -371,6 +375,9 @@ private fun VoiceCard(
                 is ModelState.Failed -> TextAction(stringResource(R.string.action_try_again), onDownload)
                 ModelState.Missing -> TextAction(stringResource(R.string.settings_voice_download), onDownload)
             }
+        }
+        if (voice is ModelState.Downloading && voice.waiting) {
+            WifiWaitNotice(state.myanmarDigits, onUseMobileData, Modifier.padding(bottom = 12.dp))
         }
         HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         SettingsRow(
@@ -462,6 +469,7 @@ private fun SettingsScreenPreview() {
             onSignOut = {},
             onMyanmarDigitsChange = {},
             onDownloadVoice = {},
+            onUseMobileData = {},
             onRemoveVoice = {},
             onCloudParseChange = {},
             onSignIn = {},

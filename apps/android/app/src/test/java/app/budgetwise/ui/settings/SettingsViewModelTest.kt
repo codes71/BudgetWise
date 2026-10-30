@@ -115,6 +115,9 @@ class SettingsViewModelTest {
         assertEquals(listOf(false), models.downloads)
         assertTrue(vm.state.value.voice is app.budgetwise.asr.ModelState.Downloading)
 
+        vm.useMobileDataForVoice()
+        assertEquals("then on mobile data, when asked", listOf(false, true), models.downloads)
+
         vm.removeVoice()
         assertEquals(1, models.deletes)
         assertEquals(app.budgetwise.asr.ModelState.Missing, vm.state.value.voice)

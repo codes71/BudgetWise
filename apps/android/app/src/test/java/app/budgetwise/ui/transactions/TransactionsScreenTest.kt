@@ -69,7 +69,7 @@ class TransactionsScreenTest {
         vm = TransactionsViewModel(
             store, FakeSyncControls(), FakeSettingsStore(), FakeNetworkStatus(), clock, CoroutineScope(Dispatchers.Unconfined),
         )
-        val voiceSetup = VoiceSetupViewModel(voice, FakeSettingsStore(), clock)
+        val voiceSetup = VoiceSetupViewModel(voice, FakeSettingsStore(), FakeNetworkStatus(), clock)
         compose.setContent {
             BudgetWiseTheme {
                 TransactionsRoute(

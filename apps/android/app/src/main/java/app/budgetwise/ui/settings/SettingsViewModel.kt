@@ -147,6 +147,9 @@ class SettingsViewModel @Inject constructor(
     /** Downloads voice on Wi-Fi (the download waits for it). */
     fun downloadVoice() = voiceAction { models.ensureDownloaded(allowMetered = false) }
 
+    /** The waiting download goes ahead on mobile data now (about 1.1 GB). */
+    fun useMobileDataForVoice() = voiceAction { models.ensureDownloaded(allowMetered = true) }
+
     /** Stops a download, or removes the downloaded voice; both free the space. */
     fun removeVoice() = voiceAction { models.delete() }
 

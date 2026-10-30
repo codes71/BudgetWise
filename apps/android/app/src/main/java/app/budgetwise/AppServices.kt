@@ -100,6 +100,9 @@ interface BudgetSource {
 /** Whether the phone can reach the internet, for the header's Offline chip. */
 interface NetworkStatus {
     val online: Flow<Boolean>
+
+    /** On Wi-Fi, or another network that does not charge for data: where the voice download runs by default. */
+    val unmetered: Flow<Boolean>
 }
 
 /** Category names for the add form ([CategoryRepository]): the cached server list, else the eight built-ins. */
@@ -179,24 +182,30 @@ class DefaultTransactionStore @Inject constructor(private val repo: TransactionR
  */
 class DefaultNetworkStatus @Inject constructor(@ApplicationContext private val context: Context) : NetworkStatus {
     override val online: Flow<Boolean>
-        get() = callbackFlow {
-            val cm = context.getSystemService(ConnectivityManager::class.java)
-            fun NetworkCapabilities?.online() = this != null &&
-                hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-            trySend(cm.getNetworkCapabilities(cm.activeNetwork).online())
-            val callback = object : ConnectivityManager.NetworkCallback() {
-                override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-                    trySend(capabilities.online())
-                }
+        get() = capabilities().map { it.has(NetworkCapabilities.NET_CAPABILITY_INTERNET) && it.has(NetworkCapabilities.NET_CAPABILITY_VALIDATED) }
+            .distinctUntilChanged()
 
-                override fun onLost(network: Network) {
-                    trySend(false)
-                }
+    override val unmetered: Flow<Boolean>
+        get() = capabilities().map { it.has(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) }.distinctUntilChanged()
+
+    private fun NetworkCapabilities?.has(capability: Int) = this != null && hasCapability(capability)
+
+    /** The default network's capabilities, null while there is none. */
+    private fun capabilities(): Flow<NetworkCapabilities?> = callbackFlow {
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+        trySend(cm.getNetworkCapabilities(cm.activeNetwork))
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                trySend(capabilities)
             }
-            cm.registerDefaultNetworkCallback(callback)
-            awaitClose { cm.unregisterNetworkCallback(callback) }
-        }.distinctUntilChanged()
+
+            override fun onLost(network: Network) {
+                trySend(null)
+            }
+        }
+        cm.registerDefaultNetworkCallback(callback)
+        awaitClose { cm.unregisterNetworkCallback(callback) }
+    }
 }
 
 class DefaultBudgetSource @Inject constructor(private val repo: BudgetRepository) : BudgetSource {

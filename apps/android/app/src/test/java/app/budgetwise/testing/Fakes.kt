@@ -144,8 +144,9 @@ class FakeSyncControls : SyncControls {
     }
 }
 
-class FakeNetworkStatus(online: Boolean = true) : NetworkStatus {
+class FakeNetworkStatus(online: Boolean = true, unmetered: Boolean = true) : NetworkStatus {
     override val online = MutableStateFlow(online)
+    override val unmetered = MutableStateFlow(unmetered)
 }
 
 class FakeSettingsStore : SettingsStore {

@@ -348,4 +348,8 @@
     <string name="setup_voice_size">%1$s တစ်ကြိမ်သာ ဒေါင်းလုဒ်ဆွဲရန်</string>
     <string name="setup_voice_size_detail">Wi-Fi ရမှ ဆွဲပါမည်။ စောင့်နေစဉ် အက်ပ်ကို ဆက်သုံးနိုင်သည်။</string>
     <string name="setup_voice_privacy_detail">ကြားရသည့် စကားလုံးများကိုသာ စာရင်းအဖြစ် ပြောင်းရန် ပို့ပါသည်။</string>
+    <string name="voice_wifi_wait_detail">ဒေတာ ချွေတာရန် Wi-Fi ဖြင့်သာ ဒေါင်းလုဒ်ဆွဲပါမည်။ မိုဘိုင်းဒေတာဖြင့်ဆိုလျှင် %1$s ခန့် ကုန်ပါမည်။</string>
+    <string name="setup_voice_no_wifi_title">Wi-Fi မချိတ်ထားပါ</string>
+    <string name="setup_voice_no_wifi_detail">Wi-Fi ရမှ ဒေါင်းလုဒ်ဆွဲပါမည်။ သို့မဟုတ် မိုဘိုင်းဒေတာဖြင့် ယခုပင် စနိုင်သည် (%1$s ခန့်)။</string>
+    <string name="setup_voice_download_on_wifi">Wi-Fi ရလျှင် ဒေါင်းလုဒ်ဆွဲမည်</string>
 </resources>

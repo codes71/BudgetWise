@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -50,6 +51,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import app.budgetwise.NetworkStatus
 import app.budgetwise.R
 import app.budgetwise.asr.ModelManager
 import app.budgetwise.asr.ModelState
@@ -59,6 +61,7 @@ import app.budgetwise.di.DeviceClock
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.SecondaryButton
+import app.budgetwise.ui.common.TextAction
 import app.budgetwise.ui.common.toMyanmarDigits
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.extraBold
@@ -89,6 +92,8 @@ data class VoiceSetupUiState(
     /** At the speed so far; null until a few seconds of a running download tell. */
     val minutesLeft: Int? = null,
     val myanmarDigits: Boolean = false,
+    /** On Wi-Fi (or another unmetered network) now; the download waits for one unless the user picks mobile data. */
+    val onWifi: Boolean = true,
 ) {
     /** Downloading or done: nothing to offer. */
     val setUp: Boolean get() = model is ModelState.Ready || model is ModelState.Downloading
@@ -108,6 +113,7 @@ sealed interface VoiceSetupEvent {
 class VoiceSetupViewModel @Inject constructor(
     private val models: ModelManager,
     settings: SettingsStore,
+    network: NetworkStatus,
     @DeviceClock private val clock: Clock,
 ) : ViewModel() {
     private val card = MutableStateFlow<VoiceCard?>(null)
@@ -120,8 +126,8 @@ class VoiceSetupViewModel @Inject constructor(
     val events: Flow<VoiceSetupEvent> = _events.receiveAsFlow()
 
     val state: StateFlow<VoiceSetupUiState> =
-        combine(models.state, card, minutesLeft, settings.myanmarDigits) { model, card, minutes, digits ->
-            VoiceSetupUiState(model, card, minutes, digits)
+        combine(models.state, card, minutesLeft, settings.myanmarDigits, network.unmetered) { model, card, minutes, digits, wifi ->
+            VoiceSetupUiState(model, card, minutes, digits, wifi)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VoiceSetupUiState(models.state.value))
 
     init {
@@ -154,7 +160,7 @@ class VoiceSetupViewModel @Inject constructor(
         start(allowMetered = false)
     }
 
-    /** The waiting download goes ahead on mobile data. */
+    /** The download goes ahead on mobile data now (about 1.1 GB of it), instead of waiting for Wi-Fi. */
     fun useMobileData() = start(allowMetered = true)
 
     fun dismiss() {
@@ -335,20 +341,7 @@ private fun DownloadingCard(
         )
         DownloadProgress(progress, state.myanmarDigits, Modifier.padding(top = 4.dp))
         when {
-            downloading?.waiting == true -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.voice_waiting_wifi), style = type.size13, color = colors.muted, modifier = Modifier.weight(1f))
-                Text(
-                    stringResource(R.string.voice_use_mobile_data),
-                    style = type.size13.semibold,
-                    color = colors.accent,
-                    modifier = Modifier
-                        .heightIn(min = 40.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(role = Role.Button, onClick = onUseMobileData)
-                        .padding(horizontal = 6.dp)
-                        .padding(vertical = 10.dp),
-                )
-            }
+            downloading?.waiting == true -> WifiWaitNotice(state.myanmarDigits, onUseMobileData)
             state.minutesLeft != null -> Text(
                 pluralStringResource(R.plurals.voice_minutes_left, state.minutesLeft, state.minutesLeft),
                 style = type.size13,
@@ -363,6 +356,45 @@ private fun DownloadingCard(
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         )
         CardLink(stringResource(R.string.voice_cancel_download), colors.coralText, onCancel)
+    }
+}
+
+/**
+ * The download waits for Wi-Fi: says so, says what mobile data would cost, and offers it. Shown wherever a waiting
+ * download shows (its card, Settings), so a phone with only mobile data is never left wondering.
+ */
+@Composable
+fun WifiWaitNotice(myanmarDigits: Boolean, onUseMobileData: () -> Unit, modifier: Modifier = Modifier) {
+    WifiNotice(
+        title = stringResource(R.string.voice_waiting_wifi),
+        detail = stringResource(R.string.voice_wifi_wait_detail, voiceSize(VoicePack.downloadBytes, myanmarDigits)),
+        onUseMobileData = onUseMobileData,
+        modifier = modifier,
+    )
+}
+
+/**
+ * A Wi-Fi notice in the kit's notice look, with "Use mobile data" under the words rather than beside them, so the
+ * words keep their width inside a card.
+ */
+@Composable
+fun WifiNotice(title: String, detail: String, onUseMobileData: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(colors.notice)
+            .padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Lucide.WifiOff, contentDescription = null, tint = colors.blue, modifier = Modifier.padding(top = 2.dp).size(20.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = type.size15.semibold, color = colors.ink)
+            Text(detail, style = type.size13, color = colors.muted)
+            TextAction(stringResource(R.string.voice_use_mobile_data), onUseMobileData, Modifier.padding(top = 2.dp).offset(x = (-12).dp))
+        }
     }
 }
 

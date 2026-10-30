@@ -2,6 +2,7 @@ package app.budgetwise.ui.voice
 
 import app.budgetwise.asr.ModelState
 import app.budgetwise.testing.FakeModelManager
+import app.budgetwise.testing.FakeNetworkStatus
 import app.budgetwise.testing.FakeSettingsStore
 import app.budgetwise.testing.MainDispatcherRule
 import java.time.Clock
@@ -31,8 +32,10 @@ class VoiceSetupViewModelTest {
 
     private val clock = TestClock(Instant.parse("2026-10-30T03:00:00Z"))
 
+    private val network = FakeNetworkStatus()
+
     private fun TestScope.start(models: FakeModelManager): Pair<VoiceSetupViewModel, MutableList<VoiceSetupEvent>> {
-        val vm = VoiceSetupViewModel(models, FakeSettingsStore(), clock)
+        val vm = VoiceSetupViewModel(models, FakeSettingsStore(), network, clock)
         val events = mutableListOf<VoiceSetupEvent>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events += it } }
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
@@ -62,6 +65,21 @@ class VoiceSetupViewModelTest {
         models.state.value = ModelState.Ready("/voice")
         assertNull(vm.state.value.card)
         assertEquals(listOf<VoiceSetupEvent>(VoiceSetupEvent.OpenVoice), events)
+    }
+
+    @Test
+    fun offWifiTheStateSaysSoAndMobileDataStartsAtOnce() = runTest {
+        network.unmetered.value = false
+        val models = FakeModelManager()
+        val (vm, _) = start(models)
+        assertEquals(false, vm.state.value.onWifi)
+
+        vm.useMobileData()
+
+        assertEquals(listOf(true), models.downloads)
+        assertEquals(ModelState.Downloading(0f, waiting = false), models.state.value)
+        network.unmetered.value = true
+        assertEquals(true, vm.state.value.onWifi)
     }
 
     @Test

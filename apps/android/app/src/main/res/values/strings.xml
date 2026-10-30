@@ -378,4 +378,8 @@
     <string name="setup_voice_size">A one-time download of %1$s</string>
     <string name="setup_voice_size_detail">It waits for Wi-Fi. Keep using the app meanwhile.</string>
     <string name="setup_voice_privacy_detail">Only the words it hears are sent, to turn them into entries.</string>
+    <string name="voice_wifi_wait_detail">Voice downloads on Wi-Fi to save your data. On mobile data it uses about %1$s.</string>
+    <string name="setup_voice_no_wifi_title">You\'re not on Wi-Fi</string>
+    <string name="setup_voice_no_wifi_detail">The download waits for Wi-Fi. Or start it now on mobile data, about %1$s.</string>
+    <string name="setup_voice_download_on_wifi">Download on Wi-Fi</string>
 </resources>

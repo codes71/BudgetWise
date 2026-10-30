@@ -49,6 +49,7 @@ import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
 import app.budgetwise.ui.voice.VoiceSetupUiState
 import app.budgetwise.ui.voice.VoiceSetupViewModel
+import app.budgetwise.ui.voice.WifiNotice
 import app.budgetwise.ui.voice.rememberAskNotifications
 import app.budgetwise.ui.voice.voiceSize
 
@@ -71,13 +72,27 @@ fun SetupVoiceRoute(onDone: () -> Unit, viewModel: VoiceSetupViewModel = hiltVie
             viewModel.download(showProgress = false)
             onDone()
         },
+        onUseMobileData = {
+            askNotifications()
+            viewModel.useMobileData()
+            onDone()
+        },
         onNotNow = onDone,
     )
 }
 
-/** Step 3 of 3, with no way back: an example of what voice does, its size, and that the voice stays on the phone. */
+/**
+ * Step 3 of 3, with no way back: an example of what voice does, its size, and that the voice stays on the phone. Off
+ * Wi-Fi it says the download will wait for Wi-Fi, and offers mobile data now instead.
+ */
 @Composable
-fun SetupVoiceScreen(state: VoiceSetupUiState, onDownload: () -> Unit, onNotNow: () -> Unit, modifier: Modifier = Modifier) {
+fun SetupVoiceScreen(
+    state: VoiceSetupUiState,
+    onDownload: () -> Unit,
+    onUseMobileData: () -> Unit,
+    onNotNow: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val size = voiceSize(VoicePack.downloadBytes, state.myanmarDigits)
@@ -89,7 +104,7 @@ fun SetupVoiceScreen(state: VoiceSetupUiState, onDownload: () -> Unit, onNotNow:
         step = Step(at = 3, of = 3),
         button = {
             PrimaryButton(
-                text = stringResource(R.string.voice_download, size),
+                text = if (state.onWifi) stringResource(R.string.voice_download, size) else stringResource(R.string.setup_voice_download_on_wifi),
                 onClick = onDownload,
                 icon = Lucide.Download,
                 modifier = Modifier.fillMaxWidth(),
@@ -126,6 +141,13 @@ fun SetupVoiceScreen(state: VoiceSetupUiState, onDownload: () -> Unit, onNotNow:
             HorizontalDivider(thickness = 1.dp, color = colors.hairline)
             Fact(Lucide.Smartphone, colors.blue, stringResource(R.string.voice_stays_on_phone), stringResource(R.string.setup_voice_privacy_detail))
             HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        }
+        if (!state.onWifi) {
+            WifiNotice(
+                title = stringResource(R.string.setup_voice_no_wifi_title),
+                detail = stringResource(R.string.setup_voice_no_wifi_detail, size),
+                onUseMobileData = onUseMobileData,
+            )
         }
     }
 }
@@ -168,6 +190,6 @@ private fun NotNowLink(onClick: () -> Unit) {
 @Composable
 private fun SetupVoiceScreenPreview() {
     BudgetWiseTheme {
-        SetupVoiceScreen(state = VoiceSetupUiState(), onDownload = {}, onNotNow = {})
+        SetupVoiceScreen(state = VoiceSetupUiState(), onDownload = {}, onUseMobileData = {}, onNotNow = {})
     }
 }

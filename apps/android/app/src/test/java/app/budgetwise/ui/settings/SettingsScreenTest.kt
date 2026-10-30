@@ -29,6 +29,7 @@ class SettingsScreenTest {
     private var signOuts = 0
     private var languageOpened = 0
     private var voiceDownloads = 0
+    private var mobileData = 0
     private var voiceRemovals = 0
     private val cloudParse = mutableListOf<Boolean>()
 
@@ -42,6 +43,7 @@ class SettingsScreenTest {
                 onSignOut = { signOuts++ },
                 onMyanmarDigitsChange = {},
                 onDownloadVoice = { voiceDownloads++ },
+                onUseMobileData = { mobileData++ },
                 onRemoveVoice = { voiceRemovals++ },
                 onCloudParseChange = { cloudParse += it },
                 onSignIn = {},
@@ -80,6 +82,17 @@ class SettingsScreenTest {
 
         assertEquals(1, voiceRemovals)
         assertEquals("the switch turns it off", listOf(false), cloudParse)
+    }
+
+    @Test
+    fun aDownloadWaitingForWifiSaysSoAndOffersMobileData() {
+        show(signedIn.copy(voice = app.budgetwise.asr.ModelState.Downloading(0f, waiting = true)))
+
+        compose.onNodeWithText(context.getString(R.string.voice_waiting_wifi)).assertIsDisplayed()
+        compose.onNodeWithText("Voice downloads on Wi-Fi to save your data. On mobile data it uses about 1.1 GB.").assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.voice_use_mobile_data)).performClick()
+
+        assertEquals(1, mobileData)
     }
 
     @Test
