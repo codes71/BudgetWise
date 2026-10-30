@@ -11,8 +11,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
- * Mobile REST API (shared contract, base `/api/v1`). `voice/parse` is deferred with voice and is
- * intentionally absent in M1.
+ * Mobile REST API (shared contract, base `/api/v1`).
  *
  * Every call except [login] and [register] takes the `Authorization` value of the account it is made for ([authorization]): with
  * several accounts on the phone, an inactive account pushes its outbox with its own token, never the active one's.
@@ -39,7 +38,20 @@ interface ApiService {
 
     @GET("budgets")
     suspend fun budgets(@Header(AUTHORIZATION) auth: String): BudgetsResponse
+
+    /**
+     * What the phone's speech models heard, as text (never audio), read into entries or a spending question. Nothing
+     * is saved. When Claude fails the server asks OpenAI, so an answer can take up to its 60 s limit.
+     */
+    @SlowCall(readSeconds = 65)
+    @POST("voice/parse")
+    suspend fun parseVoice(@Header(AUTHORIZATION) auth: String, @Body body: VoiceParseBody): VoiceParseResponse
 }
+
+/** A call that may outlast the client's default read timeout; [createOkHttpClient] gives it [readSeconds]. */
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class SlowCall(val readSeconds: Int)
 
 private const val AUTHORIZATION = "Authorization"
 
@@ -67,3 +79,31 @@ data class BudgetDto(val category: String, val limit: Double)
 
 @Serializable
 data class BudgetsResponse(val budgets: List<BudgetDto>)
+
+/** One to three transcripts of the same words, up to 500 characters each. */
+@Serializable
+data class VoiceParseBody(val transcripts: List<String>)
+
+/** `intent` is "add", "question" or "other"; read as strings so a new value does not fail the whole reply. */
+@Serializable
+data class VoiceParseResponse(
+    val intent: String,
+    val heard: String = "",
+    val entries: List<VoiceEntryDto> = emptyList(),
+    val question: VoiceQuestionDto? = null,
+)
+
+/** `amount` is a Double for the same reason as [TransactionDto.amount]. [dateGuessed]: nothing was said about when. */
+@Serializable
+data class VoiceEntryDto(
+    val type: String,
+    val amount: Double,
+    val category: String,
+    val description: String,
+    val date: String,
+    val dateGuessed: Boolean = false,
+)
+
+/** `metric` is "list", "total" or "over_budget"; a null [category] means all spending. */
+@Serializable
+data class VoiceQuestionDto(val metric: String, val category: String? = null, val from: String, val to: String)

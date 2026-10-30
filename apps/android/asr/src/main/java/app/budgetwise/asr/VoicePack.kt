@@ -5,7 +5,10 @@ sealed interface ModelOrigin {
     /** `https://huggingface.co/{repo}/resolve/{revision}/{path}`, always a pinned commit, never `main`. */
     data class HuggingFace(val repo: String, val revision: String) : ModelOrigin
 
-    /** `{BuildConfig.FREOCOCO_MODEL_BASE_URL}{path}`: freococo's ONNX export, set by a Gradle property. */
+    /**
+     * `{BuildConfig.FREOCOCO_MODEL_BASE_URL}{path}`: freococo's ONNX export. By default its Hugging Face repo at a
+     * pinned commit; a Gradle property can point it elsewhere.
+     */
     data object FreococoHost : ModelOrigin
 }
 

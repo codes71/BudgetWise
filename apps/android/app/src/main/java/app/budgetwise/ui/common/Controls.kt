@@ -169,16 +169,22 @@ fun SecondaryButton(
     }
 }
 
-/** A text action in sage: a notice's Undo or Try again, a dialog's buttons. */
+/** A text action in sage: a notice's Undo or Try again, a dialog's buttons. [color] coral for Remove. */
 @Composable
-fun TextAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun TextAction(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    color: Color = BudgetWiseTheme.colors.accent,
+) {
     TextButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.heightIn(min = 40.dp),
         shape = CircleShape,
         contentPadding = PaddingValues(horizontal = 12.dp),
-        colors = ButtonDefaults.textButtonColors(contentColor = BudgetWiseTheme.colors.accent),
+        colors = ButtonDefaults.textButtonColors(contentColor = color),
     ) {
         Text(text, style = BudgetWiseTheme.type.size15.bold)
     }
