@@ -6,10 +6,12 @@ import app.budgetwise.CategorySource
 import app.budgetwise.DefaultAccountActions
 import app.budgetwise.DefaultBudgetSource
 import app.budgetwise.DefaultCategorySource
+import app.budgetwise.DefaultLanguageStore
 import app.budgetwise.DefaultNetworkStatus
 import app.budgetwise.DefaultSessionLoader
 import app.budgetwise.DefaultSyncControls
 import app.budgetwise.DefaultTransactionStore
+import app.budgetwise.LanguageStore
 import app.budgetwise.NetworkStatus
 import app.budgetwise.SessionLoader
 import app.budgetwise.SyncControls
@@ -65,6 +67,9 @@ abstract class AppBindingsModule {
 
     @Binds
     abstract fun networkStatus(impl: DefaultNetworkStatus): NetworkStatus
+
+    @Binds
+    abstract fun languageStore(impl: DefaultLanguageStore): LanguageStore
 }
 
 @Module

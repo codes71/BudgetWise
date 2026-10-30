@@ -63,6 +63,8 @@ import app.budgetwise.ui.common.syncChipFor
 import app.budgetwise.ui.login.LoginRoute
 import app.budgetwise.ui.manual.AddManualRoute
 import app.budgetwise.ui.onboarding.CreateAccountRoute
+import app.budgetwise.ui.onboarding.FirstIncomeRoute
+import app.budgetwise.ui.onboarding.LanguageRoute
 import app.budgetwise.ui.onboarding.WelcomeScreen
 import app.budgetwise.ui.settings.SettingsRoute
 import app.budgetwise.ui.theme.BudgetWiseTheme
@@ -72,9 +74,11 @@ import app.budgetwise.ui.transactions.TransactionsRoute
 import java.time.Instant
 
 object Routes {
+    const val LANGUAGE = "language"
     const val WELCOME = "welcome"
     const val CREATE_ACCOUNT = "create_account"
     const val LOGIN = "login"
+    const val FIRST_INCOME = "first_income"
     const val TRANSACTIONS = "transactions"
     const val MANUAL = "manual"
     const val BUDGETS = "budgets"
@@ -83,15 +87,16 @@ object Routes {
 
 /**
  * Expired stays in the app (local data visible, the header's sync status asks to sign in); only signed out starts at
- * the welcome screen, which offers create account and sign in.
+ * the welcome screen, which offers create account and sign in, or at the language screen before it while the user
+ * has not chosen a language yet ([askLanguage]).
  */
-fun startDestinationFor(session: SessionState): String = when (session) {
+fun startDestinationFor(session: SessionState, askLanguage: Boolean = false): String = when (session) {
     is SessionState.SignedIn, is SessionState.SignedInOffline, SessionState.Expired -> Routes.TRANSACTIONS
-    SessionState.SignedOut -> Routes.WELCOME
+    SessionState.SignedOut -> if (askLanguage) Routes.LANGUAGE else Routes.WELCOME
 }
 
 /** The screens a signed-out user moves between; signing out leaves them where they are. */
-private val SignedOutRoutes = setOf(Routes.WELCOME, Routes.CREATE_ACCOUNT, Routes.LOGIN)
+private val SignedOutRoutes = setOf(Routes.LANGUAGE, Routes.WELCOME, Routes.CREATE_ACCOUNT, Routes.LOGIN)
 
 private data class TopLevel(val route: String, @StringRes val label: Int, val icon: ImageVector)
 
@@ -120,9 +125,10 @@ private fun NavDestination?.isOn(route: String) = this?.hierarchy?.any { it.rout
 fun AppNav(
     session: SessionState,
     modifier: Modifier = Modifier,
+    askLanguage: Boolean = false,
     navController: NavHostController = rememberNavController(),
 ) {
-    val start = remember { startDestinationFor(session) }
+    val start = remember { startDestinationFor(session, askLanguage) }
     val backStack by navController.currentBackStackEntryAsState()
     val destination = backStack?.destination
     val showBottomBar = TopLevels.any { destination.isOn(it.route) }
@@ -170,6 +176,7 @@ fun AppNav(
 
     fun openSignIn() = navController.navigate(Routes.LOGIN) { launchSingleTop = true }
     fun openSettings() = navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
+    fun openLanguage() = navController.navigate(Routes.LANGUAGE) { launchSingleTop = true }
 
     // Sign in opens sign-in; every other chip opens Settings, which says more about sync.
     fun onChip(chip: SyncChip) = if (chip == SyncChip.SIGN_IN) openSignIn() else openSettings()
@@ -214,15 +221,41 @@ fun AppNav(
                     navController.navigate(route) { launchSingleTop = true }
                 }
             }
+            // First launch opens here with nothing behind it and goes on to welcome; from welcome's chip or Settings
+            // it is pushed, and Done goes back.
+            composable(Routes.LANGUAGE) {
+                val pushed = remember { navController.previousBackStackEntry != null }
+                val back = dropUnlessResumed { navController.popBackStack() }
+                LanguageRoute(
+                    onDone = if (pushed) {
+                        back
+                    } else {
+                        dropUnlessResumed {
+                            navController.navigate(Routes.WELCOME) {
+                                popUpTo(Routes.LANGUAGE) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                    onBack = if (pushed) back else null,
+                )
+            }
             composable(Routes.WELCOME) {
                 WelcomeScreen(
-                    onCreateAccount = dropUnlessResumed { navController.navigate(Routes.CREATE_ACCOUNT) { launchSingleTop = true } },
+                    onGetStarted = dropUnlessResumed { navController.navigate(Routes.CREATE_ACCOUNT) { launchSingleTop = true } },
                     onSignIn = dropUnlessResumed { navController.navigate(Routes.LOGIN) { launchSingleTop = true } },
+                    onLanguage = dropUnlessResumed { openLanguage() },
                 )
             }
             composable(Routes.CREATE_ACCOUNT) {
                 CreateAccountRoute(
-                    onCreated = ::enterApp,
+                    // The new account goes on to this month's income, with onboarding off the back stack.
+                    onCreated = {
+                        navController.navigate(Routes.FIRST_INCOME) {
+                            popUpTo(navController.graph.id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
                     onSignIn = dropUnlessResumed { swapTo(Routes.LOGIN) },
                     onBack = dropUnlessResumed { navController.popBackStack() },
                 )
@@ -235,6 +268,9 @@ fun AppNav(
                     onClose = if (canGoBack) close else null,
                     onCreateAccount = dropUnlessResumed { swapTo(Routes.CREATE_ACCOUNT) },
                 )
+            }
+            composable(Routes.FIRST_INCOME) {
+                FirstIncomeRoute(onDone = ::enterApp)
             }
             composable(Routes.TRANSACTIONS) {
                 TransactionsRoute(
@@ -254,7 +290,7 @@ fun AppNav(
             }
             composable(Routes.SETTINGS) {
                 val back = dropUnlessResumed { navController.popBackStack() }
-                SettingsRoute(onSignIn = ::openSignIn, onBack = back)
+                SettingsRoute(onSignIn = ::openSignIn, onLanguage = ::openLanguage, onBack = back)
             }
         }
     }

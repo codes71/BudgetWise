@@ -39,7 +39,6 @@ sealed interface CreateAccountError {
 }
 
 data class CreateAccountUiState(
-    val name: String = "",
     val email: String = "",
     val password: String = "",
     val loading: Boolean = false,
@@ -49,11 +48,11 @@ data class CreateAccountUiState(
     val canSubmit: Boolean get() = email.isNotBlank() && password.isNotEmpty() && !loading && !signedIn
 
     override fun toString() =
-        "CreateAccountUiState(name=$name, email=$email, password=<redacted>, loading=$loading, error=$error, signedIn=$signedIn)"
+        "CreateAccountUiState(email=$email, password=<redacted>, loading=$loading, error=$error, signedIn=$signedIn)"
 }
 
 sealed interface CreateAccountEvent {
-    /** The account exists and is signed in: go to transactions and drop onboarding from the back stack. Fires once. */
+    /** The account exists and is signed in: go on to this month's income, with onboarding off the back stack. Fires once. */
     data object SignedIn : CreateAccountEvent
 }
 
@@ -69,8 +68,6 @@ class CreateAccountViewModel @Inject constructor(private val accounts: AccountAc
 
     private val _events = Channel<CreateAccountEvent>(Channel.BUFFERED)
     val events: Flow<CreateAccountEvent> = _events.receiveAsFlow()
-
-    fun onNameChange(name: String) = _state.update { it.copy(name = name) }
 
     fun onEmailChange(email: String) = _state.update {
         it.copy(email = email, error = it.error.takeUnless { e -> e.isAboutEmail() || e.isNotice() })
@@ -96,7 +93,8 @@ class CreateAccountViewModel @Inject constructor(private val accounts: AccountAc
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
             val r = try {
-                accounts.register(email, s.password, s.name.trim())
+                // No name is asked: the server names the account after the part of the email before "@".
+                accounts.register(email, s.password, fullName = "")
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {

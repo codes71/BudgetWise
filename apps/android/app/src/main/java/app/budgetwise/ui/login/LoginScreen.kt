@@ -96,7 +96,6 @@ fun LoginScreen(
         subtitle = stringResource(if (state.returning) R.string.login_subtitle_returning else R.string.login_subtitle),
         onBack = onClose,
         modifier = modifier,
-        showMark = true,
         button = {
             PrimaryButton(
                 text = stringResource(if (state.loading) R.string.login_signing_in else R.string.login_submit),
@@ -109,7 +108,7 @@ fun LoginScreen(
         footer = {
             AuthFooterLink(
                 stringResource(R.string.login_new_here),
-                stringResource(R.string.welcome_create),
+                stringResource(R.string.login_make_account),
                 onCreateAccount,
                 enabled = !state.loading,
             )

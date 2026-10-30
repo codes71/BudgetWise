@@ -3,6 +3,7 @@ package app.budgetwise.ui.onboarding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.ColumnScope
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.widthIn
@@ -29,22 +31,30 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.budgetwise.R
 import app.budgetwise.ui.common.BackHeader
-import app.budgetwise.ui.common.BrandMark
 import app.budgetwise.ui.common.SageRule
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.bold
+import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
 import app.budgetwise.ui.theme.tracked
 
+/** Where a screen is in first-run setup: [at] of [of]. */
+internal data class Step(val at: Int, val of: Int)
+
 /**
- * Sign in and create account: the back arrow (or room for it), the big title over the sage rule, the subtitle, the
- * [fields], then [button] pinned at the bottom, above the keyboard when it is open. [footer] (the link to the other
- * form) shows only while the keyboard is down, so it never sits where the next field was.
+ * Sign in, create account and this month's income: the back arrow (or room for it), the big title over the sage rule,
+ * the subtitle, the [fields], then [button] pinned at the bottom, above the keyboard when it is open. [step] shows at
+ * the header's right end. [footer] (the link to the other form, or Skip) shows only while the keyboard is down, so it
+ * never sits where the next field was.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -55,7 +65,7 @@ internal fun AuthPage(
     button: @Composable () -> Unit,
     footer: @Composable () -> Unit,
     modifier: Modifier = Modifier,
-    showMark: Boolean = false,
+    step: Step? = null,
     fields: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = BudgetWiseTheme.colors
@@ -67,9 +77,15 @@ internal fun AuthPage(
             .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime)),
     ) {
         if (onBack != null) {
-            BackHeader(title = null, onBack = onBack)
+            BackHeader(title = null, onBack = onBack, trailing = step?.let { { StepIndicator(it) } })
         } else {
-            Spacer(Modifier.windowInsetsPadding(WindowInsets.statusBars).height(64.dp))
+            Row(
+                Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).height(64.dp).padding(start = 24.dp, end = 24.dp, top = 16.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (step != null) StepIndicator(step)
+            }
         }
         Column(
             modifier = Modifier
@@ -79,7 +95,6 @@ internal fun AuthPage(
                 .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
         ) {
             Column(Modifier.widthIn(max = 440.dp).fillMaxWidth()) {
-                if (showMark) BrandMark(Modifier.padding(bottom = 20.dp), size = 40.dp)
                 Text(
                     text = title,
                     style = type.size32.bold.tracked(-0.02f),
@@ -98,6 +113,30 @@ internal fun AuthPage(
             button()
             if (!WindowInsets.isImeVisible) footer() else Spacer(Modifier.height(12.dp))
         }
+    }
+}
+
+/** "Step 1 of 2" after a short bar per step, the done ones in sage. Read as the words alone. */
+@Composable
+private fun StepIndicator(step: Step) {
+    val colors = BudgetWiseTheme.colors
+    val label = stringResource(R.string.onboarding_step, step.at, step.of)
+    Row(
+        modifier = Modifier.clearAndSetSemantics { contentDescription = label },
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            repeat(step.of) { i ->
+                Box(
+                    Modifier
+                        .size(width = 28.dp, height = 4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(if (i < step.at) colors.accent else colors.hairline),
+                )
+            }
+        }
+        Text(label, style = BudgetWiseTheme.type.size13.medium, color = colors.muted)
     }
 }
 

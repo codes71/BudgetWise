@@ -24,7 +24,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -57,7 +56,6 @@ fun CreateAccountRoute(
     }
     CreateAccountScreen(
         state = state,
-        onNameChange = viewModel::onNameChange,
         onEmailChange = viewModel::onEmailChange,
         onPasswordChange = viewModel::onPasswordChange,
         onSubmit = viewModel::submit,
@@ -69,7 +67,6 @@ fun CreateAccountRoute(
 @Composable
 fun CreateAccountScreen(
     state: CreateAccountUiState,
-    onNameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onSubmit: () -> Unit,
@@ -79,7 +76,6 @@ fun CreateAccountScreen(
 ) {
     val colors = BudgetWiseTheme.colors
     val keyboard = LocalSoftwareKeyboardController.current
-    val emailFocus = remember { FocusRequester() }
     val passwordFocus = remember { FocusRequester() }
     var showPassword by rememberSaveable { mutableStateOf(false) }
     val submit = {
@@ -95,6 +91,7 @@ fun CreateAccountScreen(
         subtitle = stringResource(R.string.create_subtitle),
         onBack = onBack,
         modifier = modifier,
+        step = Step(at = 1, of = 2),
         button = {
             PrimaryButton(
                 text = stringResource(if (state.loading) R.string.create_creating else R.string.create_submit),
@@ -109,23 +106,11 @@ fun CreateAccountScreen(
         },
     ) {
         KitTextField(
-            value = state.name,
-            onValueChange = onNameChange,
-            label = stringResource(R.string.create_name),
-            modifier = Modifier.alpha(fieldsAlpha),
-            fieldModifier = Modifier.semantics { contentType = ContentType.PersonFullName },
-            leading = Lucide.User,
-            placeholder = stringResource(R.string.create_name_hint),
-            enabled = editable,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
-            keyboardActions = KeyboardActions(onNext = { emailFocus.requestFocus() }),
-        )
-        KitTextField(
             value = state.email,
             onValueChange = onEmailChange,
             label = stringResource(R.string.login_email),
             modifier = Modifier.alpha(fieldsAlpha),
-            fieldModifier = Modifier.focusRequester(emailFocus).semantics { contentType = ContentType.NewUsername + ContentType.EmailAddress },
+            fieldModifier = Modifier.semantics { contentType = ContentType.NewUsername + ContentType.EmailAddress },
             leading = Lucide.Mail,
             placeholder = stringResource(R.string.login_email_hint),
             error = when (state.error) {
@@ -208,8 +193,7 @@ private fun CreateAccountNotice(error: CreateAccountError?) {
 private fun CreateAccountScreenPreview() {
     BudgetWiseTheme {
         CreateAccountScreen(
-            state = CreateAccountUiState(name = "Aye Chan", email = "aye.chan@example.com", error = CreateAccountError.EmailTaken),
-            onNameChange = {},
+            state = CreateAccountUiState(email = "aye.chan@example.com", error = CreateAccountError.EmailTaken),
             onEmailChange = {},
             onPasswordChange = {},
             onSubmit = {},
