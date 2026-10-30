@@ -89,6 +89,8 @@ class OfflineSignInTest {
             val live by session.state.collectAsState()
             BudgetWiseTheme { AppNav(session = live) }
         }
+        // Signed out, the app opens on the welcome screen.
+        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).performClick()
         val fields = compose.onAllNodes(hasSetTextAction())
         fields[0].performTextInput(email)
         fields[1].performTextInput(password)

@@ -293,4 +293,45 @@ class AuthRepositoryTest {
         assertTrue(h.sync.pendingOps().isEmpty())
         assertFalse(session.state.value is SessionState.SignedIn)
     }
+
+    @Test
+    fun registerCreatesTheAccountAndSignsItInLikeAnOnlineLogin() = runBlocking {
+        auth.logout()
+        h.json(201, tokenFor("u9", "new@c.co"))
+        val r = auth.register("new@c.co", "teashop26", "Aye Chan")
+        assertEquals("u9", (r as RegisterResult.Success).user.id)
+        val sent = h.apiServer.takeRequest()
+        assertEquals("/api/v1/auth/register", sent.path)
+        assertEquals("""{"email":"new@c.co","password":"teashop26","fullName":"Aye Chan"}""", sent.body.readUtf8())
+        assertEquals("new-token-not-a-secret", session.bearer())
+        assertTrue(session.state.value is SessionState.SignedIn)
+        assertTrue("the offline check is saved", session.accountFor("new@c.co")!!.check!!.matches("teashop26"))
+        assertEquals(1, h.work(SyncScheduler.UNIQUE_WORK).size)
+        assertEquals(1, h.work(SyncScheduler.PERIODIC_WORK).size)
+    }
+
+    @Test
+    fun registerWithATakenEmailChangesNothing() = runBlocking {
+        auth.logout()
+        h.json(409, """{"error":{"code":"email_taken","message":"An account with this email already exists"}}""")
+        assertEquals(RegisterResult.EmailTaken, auth.register("a@b.co", "teashop26", "Aye Chan"))
+        assertEquals(SessionState.SignedOut, session.state.value)
+    }
+
+    @Test
+    fun registerOfflineNeedsTheInternet() = runBlocking {
+        auth.logout()
+        h.apiServer.shutdown()
+        assertEquals(RegisterResult.NeedsInternet, auth.register("new@c.co", "teashop26", ""))
+        assertEquals(SessionState.SignedOut, session.state.value)
+    }
+
+    @Test
+    fun registerRateLimitedIsARetryableFailure() = runBlocking {
+        auth.logout()
+        h.json(429, """{"error":{"code":"rate_limited","message":"Too many requests"}}""")
+        val r = auth.register("new@c.co", "teashop26", "")
+        assertEquals("rate_limited", (r as RegisterResult.Failure).code)
+        assertTrue(r.retryable)
+    }
 }

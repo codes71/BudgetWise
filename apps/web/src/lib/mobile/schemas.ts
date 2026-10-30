@@ -12,6 +12,18 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+/** The phone's create account form. The web signup's rules: HTML type="email" and at least 6 characters. */
+export const registerSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1)
+    .max(254)
+    .regex(/^[^\s@]+@[^\s@]+$/),
+  password: z.string().min(6).max(200),
+  fullName: z.string().trim().max(100).optional(),
+});
+
 export const transactionInputSchema = z.object({
   clientId: z.uuid({ version: "v4" }),
   type: z.enum(["expense", "income"]),
@@ -46,5 +58,6 @@ export const scanRequestSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+export type RegisterInput = z.infer<typeof registerSchema>;
 export type TransactionInputParsed = z.infer<typeof transactionInputSchema>;
 export type ScanMediaType = (typeof SCAN_MEDIA_TYPES)[number];

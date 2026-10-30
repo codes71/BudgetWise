@@ -51,13 +51,14 @@ private val NoticeShape = RoundedCornerShape(16.dp)
 /**
  * The one card for every pop-up, snackbar, banner and form alert: [title] says what happened, [detail] (muted) what to
  * do or what is safe, and [actionLabel] is an optional text action at the end. [floating] adds the shadow it has over
- * a list. Shown only when the user's own action could not finish, or to confirm one with Undo; never for what the
- * header's sync chip already says.
+ * a list. A plain confirmation (Entry deleted) has no [icon]. In the dark theme the raised fill alone sets it apart;
+ * the light one adds a hairline. Shown only when the user's own action could not finish, or to confirm one with Undo;
+ * never for what the header's sync status already says.
  */
 @Composable
 fun Notice(
     tone: NoticeTone,
-    icon: ImageVector,
+    icon: ImageVector?,
     title: String,
     modifier: Modifier = Modifier,
     detail: String? = null,
@@ -75,29 +76,29 @@ fun Notice(
             .then(if (floating) Modifier.shadow(12.dp, NoticeShape, ambientColor = Color.Black, spotColor = Color.Black) else Modifier)
             .clip(NoticeShape)
             .background(colors.notice)
-            .border(1.dp, colors.noticeBorder, NoticeShape)
-            .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = if (hasAction) 8.dp else 16.dp)
+            .then(if (colors.isDark) Modifier else Modifier.border(1.dp, colors.noticeBorder, NoticeShape))
+            .padding(start = 18.dp, top = 14.dp, bottom = 14.dp, end = if (hasAction) 8.dp else 18.dp)
             .semantics(mergeDescendants = !hasAction) {
                 liveRegion = if (urgent) LiveRegionMode.Assertive else LiveRegionMode.Polite
             },
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = tone.color(), modifier = Modifier.padding(top = 1.dp).size(20.dp))
+        if (icon != null) Icon(icon, contentDescription = null, tint = tone.color(), modifier = Modifier.size(20.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = type.size15.semibold, color = colors.ink)
             if (detail != null) {
                 Text(detail, style = type.size13.forContent(detail), color = colors.muted)
             }
         }
-        if (hasAction) TextAction(actionLabel!!, onClick = onAction!!, modifier = Modifier.align(Alignment.CenterVertically))
+        if (hasAction) TextAction(actionLabel!!, onClick = onAction!!)
     }
 }
 
 /** A [Notice] shown through a [SnackbarHostState], which keeps its timing, queueing and accessibility durations. */
 class NoticeVisuals(
     val tone: NoticeTone,
-    val icon: ImageVector,
+    val icon: ImageVector?,
     val title: String,
     val detail: String? = null,
     override val actionLabel: String? = null,
@@ -117,7 +118,7 @@ fun NoticeHost(hostState: SnackbarHostState, modifier: Modifier = Modifier) {
         val v = data.visuals as? NoticeVisuals
         Notice(
             tone = v?.tone ?: NoticeTone.NEUTRAL,
-            icon = v?.icon ?: Lucide.Info,
+            icon = if (v != null) v.icon else Lucide.Info,
             title = data.visuals.message,
             detail = v?.detail,
             actionLabel = data.visuals.actionLabel,

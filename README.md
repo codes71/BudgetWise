@@ -149,6 +149,13 @@ npm run build
 npm start
 ```
 
+### Phone API: create account
+`POST /api/v1/auth/register` makes the same account as the web signup and signs it in, so the phone can create an account without the web.
+
+- Body: `{ "email", "password", "fullName"? }`. Password at least 6 characters; the name defaults to the part of the email before `@`.
+- 201 returns `{ token, expiresAt, user: { id, email, fullName } }`, the same token as `POST /api/v1/auth/token`.
+- Errors: 409 `email_taken` (any letter case), 422 `validation_failed`, 429 `rate_limited` after 20 sign-ups per IP per hour.
+
 ### Phone API: scan
 `POST /api/v1/scan` reads a shop receipt, a KBZPay (KPay) payment slip or a screenshot of the KPay history list, and returns the entries in it. Nothing is saved: the phone shows the entries for review, then saves the chosen ones with `POST /api/v1/transactions` (adding `source`, and a new `clientId` for entries that have none).
 

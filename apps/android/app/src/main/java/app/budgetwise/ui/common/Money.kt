@@ -59,6 +59,20 @@ fun asciiDigits(text: String): String = buildString {
 }
 
 /**
+ * What an amount field keeps of [text] as typed: its digits (Myanmar ones made ASCII, grouping commas dropped) without
+ * leading zeros, or null when the field must refuse it and keep what it had (a decimal point, or above [MAX_KYAT]).
+ */
+fun typedKyatDigits(text: String): String? {
+    if ('.' in text) return null
+    val raw = asciiDigits(text)
+    val digits = if (raw.isEmpty()) "" else raw.trimStart('0').ifEmpty { "0" }
+    if (digits.length > MAX_KYAT_DIGITS || (digits.isNotEmpty() && digits.toLong() > MAX_KYAT)) return null
+    return digits
+}
+
+private val MAX_KYAT_DIGITS = MAX_KYAT.toString().length
+
+/**
  * What TalkBack reads for an entry's amount: "5,000 kyat spent" or "5,000 kyat received", never "minus 5,000 Ks".
  * ASCII digits, which every speech engine reads, also when the screen shows Myanmar digits.
  */

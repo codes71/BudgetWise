@@ -28,8 +28,8 @@
     <string name="chip_could_not_sync_description">Some entries couldn\'t sync. Open Settings</string>
 
     <!-- Sign in -->
-    <string name="login_title">Sign in</string>
-    <string name="login_subtitle">Sign in with your BudgetWise account to see and sync your entries.</string>
+    <string name="login_title">Welcome back</string>
+    <string name="login_subtitle">Use the email you signed up with. Your entries come back as soon as you\'re in.</string>
     <string name="login_subtitle_returning">Welcome back. Sign in again to keep your entries in sync.</string>
     <string name="login_email">Email</string>
     <string name="login_email_hint" translatable="false">you@example.com</string>
@@ -99,6 +99,8 @@
 
     <!-- The month chart (%2$s, or %1$s in spending_same, is last month's name) -->
     <string name="spending_view">Spending view</string>
+    <string name="spending_spent">%1$s Ks spent</string>
+    <string name="spending_tick_caption">The tick is %1$s by this day.</string>
     <string name="spending_total">Total</string>
     <string name="spending_by_category">By category</string>
     <string name="spending_less">%1$s Ks less than this time in %2$s</string>
@@ -164,6 +166,7 @@
         <item quantity="other">%1$s over across %2$d budgets</item>
     </plurals>
     <string name="budgets_left">%1$s left</string>
+    <string name="budgets_percent">%1$s%%</string>
     <string name="budgets_over">%1$s over</string>
     <string name="budgets_footer">Budgets are set on BudgetWise on the web.</string>
     <string name="budgets_spent_of_limit_spoken">%1$s kyat spent of %2$s kyat</string>
@@ -174,7 +177,7 @@
     <string name="settings_title">Settings</string>
     <string name="settings_section_sync">Sync</string>
     <string name="settings_section_display">Display</string>
-    <string name="settings_section_about">About</string>
+    <string name="settings_language">Language</string>
     <string name="settings_myanmar_digits">Myanmar digits</string>
     <string name="settings_myanmar_digits_detail">Show amounts as ၅,၀၀၀ Ks</string>
     <!-- Drawn in the setting's icon slot -->
@@ -205,4 +208,56 @@
     <string name="settings_sign_out_failed">Couldn\'t sign out</string>
     <string name="settings_sign_out_failed_detail">Your entries are safe on this phone.</string>
     <string name="settings_version">Version %1$s (%2$d)</string>
+    <!-- First launch: language, welcome, create account, this month's income (%1$s in welcome_headline is
+         welcome_headline_word, drawn in sage). The language screen shows both languages whatever the app's is. -->
+    <string name="language_title_my" translatable="false">ဘာသာစကား ရွေးပါ</string>
+    <string name="language_title_en" translatable="false">Choose your language</string>
+    <string name="language_burmese" translatable="false">မြန်မာ</string>
+    <string name="language_burmese_in_english" translatable="false">Burmese</string>
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_english_in_burmese" translatable="false">အင်္ဂလိပ်</string>
+    <string name="language_later">You can change this later in Settings.</string>
+    <string name="language_continue">Continue</string>
+    <string name="language_done">Done</string>
+    <string name="welcome_headline">Know what\'s left %1$s</string>
+    <!-- A no-break space keeps the sage phrase together on one line. -->
+    <string name="welcome_headline_word">before\u00A0payday</string>
+    <string name="welcome_body">Add what you spend in a few taps and see what is left for the month. Works without internet.</string>
+    <string name="welcome_get_started">Get started</string>
+    <string name="welcome_have_account">I have an account.</string>
+    <!-- The welcome screen's example month: a Burmese tea shop entry in both languages, as people write them. -->
+    <string name="welcome_sample_tea" translatable="false">လက်ဖက်ရည်နှင့် မုန့်ဟင်းခါး</string>
+    <string name="welcome_sample_bus">Bus to Sule</string>
+    <string name="welcome_sample_salary">Salary</string>
+    <string name="onboarding_step">Step %1$d of %2$d</string>
+    <string name="create_title">Make your account</string>
+    <string name="create_subtitle">Your entries are kept in it, so a new phone starts where this one left off. It works on the web too.</string>
+    <string name="create_password_hint">Choose a password</string>
+    <string name="create_password_rule">At least 6 characters</string>
+    <string name="create_error_short_password">Use at least 6 characters</string>
+    <string name="create_error_invalid_email">Enter an email like you@example.com</string>
+    <string name="create_error_email_taken">An account with this email already exists.</string>
+    <string name="create_sign_in_instead">Sign in instead</string>
+    <string name="create_submit">Create account</string>
+    <string name="create_creating">Creating account…</string>
+    <string name="create_error_needs_internet">Connect to the internet to create your account.</string>
+    <string name="create_have_account">Already have an account?</string>
+    <string name="login_new_here">New here?</string>
+    <string name="login_make_account">Make an account</string>
+    <string name="income_title">What comes in this month?</string>
+    <string name="income_subtitle">Salary, shop takings, money from family. BudgetWise takes what you spend away from it.</string>
+    <string name="income_from">From</string>
+    <string name="income_source_salary">Salary</string>
+    <string name="income_source_shop">Shop</string>
+    <string name="income_source_family">Family</string>
+    <string name="income_source_other">Other</string>
+    <!-- %1$s is the amount (drawn in sage), %2$s the month. -->
+    <string name="income_preview">%1$s Ks left in %2$s</string>
+    <string name="income_note">Saved as income for today. You can delete it later.</string>
+    <string name="income_start">Start my month</string>
+    <string name="income_skip">Skip for now</string>
+    <string name="first_expense_title">Add your first expense</string>
+    <string name="first_expense_detail">It comes straight off the number above.</string>
+    <string name="first_expense_type">Type it</string>
+    <string name="first_expense_type_detail">Amount and category, in a few seconds</string>
 </resources>

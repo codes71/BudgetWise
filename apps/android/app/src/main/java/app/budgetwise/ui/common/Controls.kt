@@ -47,20 +47,27 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.budgetwise.ui.theme.BudgetWiseColors
 import app.budgetwise.ui.theme.BudgetWiseTheme
+import app.budgetwise.ui.theme.bold
+import app.budgetwise.ui.theme.forContent
 import app.budgetwise.ui.theme.semibold
+import app.budgetwise.ui.theme.tracked
 
 /** The kit's spinner: a ring in [track] with a quarter arc in [color] going round. Decorative; say "busy" in text. */
 @Composable
@@ -125,11 +132,14 @@ fun PrimaryButton(
                 Spacer(Modifier.width(8.dp))
             }
         }
-        Text(text, style = BudgetWiseTheme.type.size16.semibold)
+        Text(text, style = BudgetWiseTheme.type.size17.semibold)
     }
 }
 
-/** The secondary pill: a hairline outline with sage text, 44 dp. */
+/**
+ * The secondary pill: an outline with [contentColor] text, 48 dp (56 beside a primary button). Sage by default, as for
+ * Sync now; the welcome screen's second choice is in ink.
+ */
 @Composable
 fun SecondaryButton(
     text: String,
@@ -137,21 +147,25 @@ fun SecondaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     icon: ImageVector? = null,
+    height: Dp = 48.dp,
+    contentColor: Color = BudgetWiseTheme.colors.accent,
 ) {
     val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(44.dp),
+        modifier = modifier.height(height),
         shape = CircleShape,
-        border = BorderStroke(1.dp, colors.hairline),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.accent, disabledContentColor = colors.disabled),
+        border = BorderStroke(1.dp, colors.outline),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = contentColor, disabledContentColor = colors.disabled),
     ) {
         if (icon != null) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
         }
-        Text(text, style = BudgetWiseTheme.type.size15.semibold)
+        // Ink text is the quiet choice next to a primary button; sage text is an action on its own.
+        Text(text, style = if (contentColor == colors.accent) type.size15.semibold else type.size16)
     }
 }
 
@@ -166,7 +180,7 @@ fun TextAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
         contentPadding = PaddingValues(horizontal = 12.dp),
         colors = ButtonDefaults.textButtonColors(contentColor = BudgetWiseTheme.colors.accent),
     ) {
-        Text(text, style = BudgetWiseTheme.type.size14.semibold)
+        Text(text, style = BudgetWiseTheme.type.size15.bold)
     }
 }
 
@@ -207,50 +221,56 @@ fun SkeletonBar(width: Dp?, height: Dp, modifier: Modifier = Modifier, color: Co
     )
 }
 
-/** A field's error, under it: the alert icon and the message, read out when it appears. */
+/** A field's error, under it, read out when it appears. [action] is an optional link after it (Sign in instead). */
 @Composable
-fun FieldError(message: String, modifier: Modifier = Modifier) {
+fun FieldError(message: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
     val colors = BudgetWiseTheme.colors
     Row(
-        modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        modifier = modifier.semantics(mergeDescendants = action == null) { liveRegion = LiveRegionMode.Polite },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(Lucide.CircleAlert, contentDescription = null, tint = colors.error, modifier = Modifier.size(16.dp))
-        Text(message, style = BudgetWiseTheme.type.size13, color = colors.error)
+        Text(message, style = BudgetWiseTheme.type.size13, color = colors.error, modifier = Modifier.weight(1f, fill = false))
+        action?.invoke()
     }
-}
-
-/** A field's label, above it: sage while the field has focus, the error color when it has an error. */
-@Composable
-fun FieldLabel(text: String, focused: Boolean, error: Boolean, modifier: Modifier = Modifier) {
-    val colors = BudgetWiseTheme.colors
-    Text(
-        text = text,
-        style = BudgetWiseTheme.type.size13,
-        color = when {
-            error -> colors.error
-            focused -> colors.accent
-            else -> colors.muted
-        },
-        modifier = modifier,
-    )
-}
-
-/** The field box: the surface with a 1.5 dp hairline, 2 dp sage while focused, 2 dp error color on an error. */
-fun Modifier.fieldBox(colors: BudgetWiseColors, focused: Boolean, error: Boolean): Modifier {
-    val shape = RoundedCornerShape(14.dp)
-    val border = when {
-        error -> BorderStroke(2.dp, colors.error)
-        focused -> BorderStroke(2.dp, colors.accent)
-        else -> BorderStroke(1.5.dp, colors.fieldBorder)
-    }
-    return clip(shape).background(colors.surface).border(border, shape)
 }
 
 /**
- * The kit's text field: [label] above, the box, and [error] under it. [leading] is a muted 20 dp icon; [trailing]
- * sits at the end (the password eye). The field grows to [maxLines] lines.
+ * The kit's small label over a section or a field: 12 semibold muted, uppercase and widely tracked in English. Burmese
+ * has no letter case and tracking breaks it, so there it is the same text in bold.
+ */
+@Composable
+fun SectionLabel(text: String, modifier: Modifier = Modifier, color: Color = BudgetWiseTheme.colors.muted) {
+    val type = BudgetWiseTheme.type
+    val locale = LocalConfiguration.current.locales[0]
+    Text(
+        text = if (type.burmese) text else text.uppercase(locale),
+        style = if (type.burmese) type.size12.bold else type.size12.semibold.tracked(0.08f),
+        color = color,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.semantics { contentDescription = text },
+    )
+}
+
+/** A field's label, above it. It stays muted; the field's outline shows focus and errors. */
+@Composable
+fun FieldLabel(text: String, modifier: Modifier = Modifier) = SectionLabel(text, modifier)
+
+/** The field box: the surface with no outline at rest, 1 dp sage while focused, 1 dp error color on an error. */
+fun Modifier.fieldBox(colors: BudgetWiseColors, focused: Boolean, error: Boolean, shape: Shape = RoundedCornerShape(16.dp)): Modifier {
+    val base = clip(shape).background(colors.surface)
+    return when {
+        error -> base.border(1.dp, colors.error, shape)
+        focused -> base.border(1.dp, colors.accent, shape)
+        else -> base
+    }
+}
+
+/**
+ * The kit's text field: [label] above, the box, and [error] under it. [leading] is a muted 18 dp icon; [trailing]
+ * sits at the end (the password eye). The field grows to [maxLines] lines. [below] shows under the box when there is
+ * no error (a hint or a counter).
  */
 @Composable
 fun KitTextField(
@@ -264,6 +284,7 @@ fun KitTextField(
     placeholder: String? = null,
     error: String? = null,
     hasError: Boolean = error != null,
+    errorAction: (@Composable () -> Unit)? = null,
     enabled: Boolean = true,
     singleLine: Boolean = true,
     maxLines: Int = 1,
@@ -277,61 +298,78 @@ fun KitTextField(
     val colors = BudgetWiseTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        FieldLabel(label, focused = focused, error = hasError)
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = fieldModifier.fillMaxWidth(),
-            enabled = enabled,
-            textStyle = textStyle.copy(color = colors.ink),
-            keyboardOptions = keyboardOptions,
-            keyboardActions = keyboardActions,
-            singleLine = singleLine,
-            maxLines = if (singleLine) 1 else maxLines,
-            visualTransformation = visualTransformation,
-            interactionSource = interaction,
-            cursorBrush = SolidColor(colors.accent),
-            decorationBox = { inner ->
-                Row(
-                    modifier = Modifier
-                        .heightIn(min = minHeight)
-                        .fieldBox(colors, focused, hasError)
-                        // A trailing button (48 dp) fills the 56 dp box with 4 dp to spare above and below.
-                        .padding(
-                            start = 16.dp,
-                            end = if (trailing != null) 4.dp else 16.dp,
-                            top = if (trailing != null) 4.dp else 8.dp,
-                            bottom = if (trailing != null) 4.dp else 8.dp,
-                        ),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    if (leading != null) Icon(leading, contentDescription = null, tint = colors.muted, modifier = Modifier.size(20.dp))
-                    Box(Modifier.weight(1f)) {
-                        if (value.isEmpty() && placeholder != null) {
-                            Text(placeholder, style = textStyle, color = colors.muted, maxLines = 1)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        FieldLabel(label)
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = fieldModifier.fillMaxWidth(),
+                enabled = enabled,
+                textStyle = textStyle.forContent(value).copy(color = colors.ink),
+                keyboardOptions = keyboardOptions,
+                keyboardActions = keyboardActions,
+                singleLine = singleLine,
+                maxLines = if (singleLine) 1 else maxLines,
+                visualTransformation = visualTransformation,
+                interactionSource = interaction,
+                cursorBrush = SolidColor(colors.accent),
+                decorationBox = { inner ->
+                    Row(
+                        modifier = Modifier
+                            .heightIn(min = minHeight)
+                            .fieldBox(colors, focused, hasError)
+                            // A trailing button (48 dp) fills the 56 dp box with 4 dp to spare above and below.
+                            .padding(
+                                start = 18.dp,
+                                end = if (trailing != null) 4.dp else 18.dp,
+                                top = if (trailing != null) 4.dp else 8.dp,
+                                bottom = if (trailing != null) 4.dp else 8.dp,
+                            ),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        if (leading != null) Icon(leading, contentDescription = null, tint = colors.muted, modifier = Modifier.size(18.dp))
+                        Box(Modifier.weight(1f)) {
+                            if (value.isEmpty() && placeholder != null) {
+                                Text(placeholder, style = textStyle.forContent(placeholder), color = colors.muted, maxLines = 1)
+                            }
+                            inner()
                         }
-                        inner()
+                        trailing?.invoke(this)
                     }
-                    trailing?.invoke(this)
-                }
-            },
-        )
-        if (error != null) FieldError(error)
-        below?.invoke()
+                },
+            )
+            if (error != null) FieldError(error, action = errorAction) else below?.invoke()
+        }
     }
 }
 
-/** The tab look of a two-way switch (the spending view): a 36 dp outlined pill with the chosen tab filled. */
+/** A hint under a field (At least 6 characters): muted 13. */
 @Composable
-fun SegmentedPill(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+fun FieldHint(text: String, modifier: Modifier = Modifier) {
+    Text(text, style = BudgetWiseTheme.type.size13, color = BudgetWiseTheme.colors.muted, modifier = modifier)
+}
+
+/** The short sage rule under a big title or amount: the redesign's signature mark. Decorative. */
+@Composable
+fun SageRule(modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .size(width = 48.dp, height = 2.dp)
+            .clip(RoundedCornerShape(1.dp))
+            .background(BudgetWiseTheme.colors.accent),
+    )
+}
+
+/** The look of a two-way switch (the spending view, expense or income): a filled track with the chosen tab filled. */
+@Composable
+fun SegmentedPill(modifier: Modifier = Modifier, padding: Dp = 3.dp, content: @Composable RowScope.() -> Unit) {
     Row(
         modifier = modifier
-            .height(36.dp)
             .clip(CircleShape)
-            .border(1.dp, BudgetWiseTheme.colors.hairline, CircleShape)
-            .padding(2.dp),
+            .background(BudgetWiseTheme.colors.segmentTrack)
+            .padding(padding),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
     )

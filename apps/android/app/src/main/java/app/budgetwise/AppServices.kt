@@ -14,6 +14,7 @@ import app.budgetwise.data.repo.AuthRepository
 import app.budgetwise.data.repo.BudgetRepository
 import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.LoginResult
+import app.budgetwise.data.repo.RegisterResult
 import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.repo.TransactionRepository
 import app.budgetwise.data.sync.SyncEngine
@@ -41,6 +42,9 @@ import kotlinx.coroutines.withContext
 interface AccountActions {
     /** Online, or offline for an account used on this phone before. */
     suspend fun login(email: String, password: String): LoginResult
+
+    /** Creates the account on the server and signs it in; online only. */
+    suspend fun register(email: String, password: String, fullName: String): RegisterResult
 
     /** Never asks: entries not uploaded yet keep uploading in the background. */
     suspend fun logout()
@@ -107,6 +111,9 @@ interface CategorySource {
  */
 class DefaultAccountActions @Inject constructor(private val auth: AuthRepository) : AccountActions {
     override suspend fun login(email: String, password: String) = withContext(NonCancellable) { auth.login(email, password) }
+
+    override suspend fun register(email: String, password: String, fullName: String) =
+        withContext(NonCancellable) { auth.register(email, password, fullName) }
 
     override suspend fun logout() = withContext(NonCancellable) { auth.logout() }
 }

@@ -19,6 +19,7 @@ import app.budgetwise.data.net.ApiResult
 import app.budgetwise.data.prefs.SettingsStore
 import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.LoginResult
+import app.budgetwise.data.repo.RegisterResult
 import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
@@ -60,9 +61,18 @@ class FakeTokenStore(var accounts: SavedAccounts = SavedAccounts.EMPTY) : TokenS
 
 data class LoginCall(val email: String, val password: String)
 
+data class RegisterCall(val email: String, val password: String, val fullName: String)
+
 class FakeAccountActions : AccountActions {
     val logins = mutableListOf<LoginCall>()
+    val registers = mutableListOf<RegisterCall>()
     var logouts = 0
+
+    /** May throw, like AuthRepository on a Keystore or Room failure. */
+    var onRegister: (RegisterCall) -> RegisterResult = { error("no register result set") }
+
+    /** When set, register suspends here, so a test can look at the loading state. */
+    var registerGate: CompletableDeferred<Unit>? = null
 
     /** May throw, like AuthRepository on a Keystore or Room failure. */
     var onLogin: (LoginCall) -> LoginResult = { error("no login result set") }
@@ -78,6 +88,13 @@ class FakeAccountActions : AccountActions {
         logins += call
         loginGate?.await()
         return onLogin(call)
+    }
+
+    override suspend fun register(email: String, password: String, fullName: String): RegisterResult {
+        val call = RegisterCall(email, password, fullName)
+        registers += call
+        registerGate?.await()
+        return onRegister(call)
     }
 
     override suspend fun logout() {

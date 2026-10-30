@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -96,9 +97,10 @@ class TransactionsScreenTest {
         compose.onNode(hasText("Tea") and hasText(text(R.string.category_groceries))).assertIsDisplayed()
         compose.onNode(hasText("Taxi") and hasText(text(R.string.category_transport))).assertIsDisplayed()
         // Day headers with the day's net, and the amount read the way it is meant: "1,500 kyat spent".
-        compose.onNodeWithText(text(R.string.transactions_today)).assertIsDisplayed()
+        // The day header is drawn in capitals and read as written.
+        compose.onNodeWithContentDescription(text(R.string.transactions_today)).assertIsDisplayed()
         compose.onNodeWithText("−21,500 Ks").assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.transactions_yesterday)).assertIsDisplayed()
+        compose.onNodeWithContentDescription(text(R.string.transactions_yesterday)).assertIsDisplayed()
         compose.onNode(hasText("Tea") and hasContentDescription("1,500 kyat spent")).assertIsDisplayed()
     }
 
@@ -213,5 +215,31 @@ class TransactionsScreenTest {
         compose.onNodeWithText(text(R.string.transactions_add_first)).performClick()
 
         assertEquals(1, opened)
+    }
+
+    @Test
+    fun anIncomeAloneOffersTheFirstExpenseInsteadOfTheChart() {
+        var opened = 0
+        show(listOf(testTransaction("Salary", 850000, today, type = TxType.INCOME, category = "Income")), onAddManual = { opened++ })
+
+        compose.onNode(hasContentDescription("Left in October, 850,000 kyat")).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.spending_by_category)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.first_expense_type)).performClick()
+
+        assertEquals(1, opened)
+    }
+
+    @Test
+    fun theFirstExpenseRowGoesOnceThereIsAnExpense() {
+        show(
+            listOf(
+                testTransaction("Salary", 850000, today.withDayOfMonth(1), type = TxType.INCOME, category = "Income"),
+                // Last month's: any expense, in any month, means the user has added one.
+                testTransaction("Rice", 20000, today.minusMonths(1)),
+            ),
+        )
+
+        compose.onNodeWithText(text(R.string.first_expense_title)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.spending_by_category)).assertIsDisplayed()
     }
 }

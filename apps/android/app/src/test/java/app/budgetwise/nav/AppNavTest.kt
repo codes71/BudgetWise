@@ -26,6 +26,7 @@ import androidx.work.Configuration
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
 import app.budgetwise.HiltTestActivity
+import app.budgetwise.LanguageStore
 import app.budgetwise.R
 import app.budgetwise.data.auth.AuthBindingsModule
 import app.budgetwise.data.auth.SessionManager
@@ -67,6 +68,8 @@ class AppNavTest {
     @BindValue @JvmField val tokenStore: TokenStore = FakeTokenStore(StoredSession("", Instant.EPOCH, TestUser))
 
     @Inject lateinit var session: SessionManager
+
+    @Inject lateinit var language: LanguageStore
 
     @Before
     fun setUp() {
@@ -126,11 +129,81 @@ class AppNavTest {
     }
 
     @Test
-    fun signedOutStartsAtSignInWithoutTheBottomBar() {
+    fun signedOutStartsAtTheWelcomeScreenWithoutTheBottomBar() {
         showApp(SessionState.SignedOut)
 
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
+        compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.nav_transactions)).assertDoesNotExist()
+        // Both ways in: the link opens sign-in, and its back arrow returns to the welcome screen.
+        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).performClick()
+        compose.onNodeWithText(text(R.string.login_title)).assertIsDisplayed()
+        compose.onNodeWithContentDescription(text(R.string.action_back)).performClick()
+        compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).assertIsDisplayed()
+    }
+
+    @Test
+    fun firstLaunchAsksForTheLanguageBeforeWelcome() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme { AppNav(session = SessionState.SignedOut, askLanguage = true, navController = nav) }
+        }
+
+        // Both languages, each in its own script, and no way back from the first screen.
+        compose.onNodeWithText(text(R.string.language_title_en)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.language_title_my)).assertIsDisplayed()
+        compose.onNodeWithContentDescription(text(R.string.action_back)).assertDoesNotExist()
+
+        compose.onNode(hasText(text(R.string.language_continue)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).assertIsDisplayed()
+        assertEquals(listOf(Routes.WELCOME), compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } })
+        assertTrue("the next start goes straight to welcome", language.chosen)
+    }
+
+    @Test
+    fun theWelcomeLanguageChipOpensTheLanguageScreenAndDoneComesBack() {
+        showApp(SessionState.SignedOut)
+
+        compose.onNodeWithContentDescription("${text(R.string.settings_language)}, ${text(R.string.language_english)}").performClick()
+        compose.onNodeWithText(text(R.string.language_title_en)).assertIsDisplayed()
+        compose.onNode(hasText(text(R.string.language_done)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).assertIsDisplayed()
+    }
+
+    @Test
+    fun skippingTheIncomeStepOpensTheAppWithNothingBehindIt() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme { AppNav(session = SessionState.SignedInOffline(TestUser), navController = nav) }
+        }
+        // Where a new account lands: onboarding is already off the back stack.
+        compose.runOnIdle {
+            nav.navigate(Routes.FIRST_INCOME) { popUpTo(nav.graph.id) { inclusive = true } }
+        }
+
+        compose.onNodeWithText(text(R.string.income_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.nav_budgets)).assertDoesNotExist()
+        compose.onNode(hasText(text(R.string.income_skip)) and hasClickAction()).performClick()
+
+        compose.onNodeWithText(text(R.string.nav_budgets)).assertIsDisplayed()
+        assertEquals(listOf(Routes.TRANSACTIONS), compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } })
+    }
+
+    @Test
+    fun signInAndCreateAccountSwapWithoutStackingUp() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme { AppNav(session = SessionState.SignedOut, navController = nav) }
+        }
+
+        compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_make_account)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).performClick()
+        val stack = compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } }
+        assertEquals(listOf(Routes.WELCOME, Routes.CREATE_ACCOUNT, Routes.LOGIN), stack)
     }
 
     @Test
@@ -141,8 +214,8 @@ class AppNavTest {
             BudgetWiseTheme { AppNav(session = SessionState.SignedOut, navController = nav) }
         }
 
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
-        assertEquals(Routes.LOGIN, compose.runOnIdle { nav.currentDestination?.route })
+        compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).assertIsDisplayed()
+        assertEquals(Routes.WELCOME, compose.runOnIdle { nav.currentDestination?.route })
     }
 
     @Test

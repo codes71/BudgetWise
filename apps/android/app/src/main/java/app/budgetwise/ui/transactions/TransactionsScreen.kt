@@ -2,6 +2,8 @@ package app.budgetwise.ui.transactions
 
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -42,10 +44,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
@@ -53,9 +55,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
@@ -72,6 +72,8 @@ import app.budgetwise.ui.common.NoticeHost
 import app.budgetwise.ui.common.NoticeTone
 import app.budgetwise.ui.common.NoticeVisuals
 import app.budgetwise.ui.common.PrimaryButton
+import app.budgetwise.ui.common.SageRule
+import app.budgetwise.ui.common.SectionLabel
 import app.budgetwise.ui.common.SessionNotice
 import app.budgetwise.ui.common.SkeletonBar
 import app.budgetwise.ui.common.SyncChip
@@ -84,11 +86,11 @@ import app.budgetwise.ui.common.monthName
 import app.budgetwise.ui.common.signedDigits
 import app.budgetwise.ui.common.spokenAmount
 import app.budgetwise.ui.theme.BudgetWiseTheme
-import app.budgetwise.ui.theme.bold
+import app.budgetwise.ui.theme.extraBold
 import app.budgetwise.ui.theme.forContent
 import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
-import app.budgetwise.ui.theme.tabular
+import app.budgetwise.ui.theme.tracked
 import java.time.Instant
 import java.time.LocalDate
 
@@ -149,7 +151,7 @@ fun TransactionsRoute(
     LaunchedEffect(pending) {
         if (pending == null) return@LaunchedEffect
         notices.currentSnackbarData?.dismiss()
-        val visuals = NoticeVisuals(NoticeTone.NEUTRAL, Lucide.Trash, deleted, pendingDetail, undo, SnackbarDuration.Short)
+        val visuals = NoticeVisuals(NoticeTone.NEUTRAL, null, deleted, pendingDetail, undo, SnackbarDuration.Short)
         val result = notices.showSnackbar(visuals)
         if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete(pending) else viewModel.commitDelete(pending)
     }
@@ -207,7 +209,7 @@ fun TransactionsScreen(
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp),
             ) {
                 when {
                     state.loading -> item(key = "loading", contentType = "loading") { LoadingSkeleton() }
@@ -225,7 +227,7 @@ fun TransactionsScreen(
                         }
                     }
                     else -> {
-                        item(key = "month", contentType = "month") { MonthHead(state) }
+                        item(key = "month", contentType = "month") { MonthHead(state, onAddManual) }
                         days(state, onDelete)
                     }
                 }
@@ -235,36 +237,92 @@ fun TransactionsScreen(
     }
 }
 
-/** "Left in October" with the big number, then the month chart. */
+/**
+ * "Left in October" with the big number and the sage rule, then the month's spending; before the first expense, the
+ * way to add it instead of an empty chart.
+ */
 @Composable
-private fun MonthHead(state: TransactionsUiState) {
+private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val month = monthName(state.summary.month)
     val balance = state.summary.balance
     val spoken = stringResource(R.string.transactions_left_spoken, month, groupDigits(balance))
-    Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 16.dp)) {
+    val figure = groupDigits(balance, state.myanmarDigits)
+    Column(Modifier.padding(top = 20.dp, bottom = 30.dp)) {
         Column(Modifier.clearAndSetSemantics { contentDescription = spoken }) {
-            Text(stringResource(R.string.transactions_left_in, month), style = type.size15, color = colors.muted)
-            Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            SectionLabel(stringResource(R.string.transactions_left_in, month))
+            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = groupDigits(balance, state.myanmarDigits),
-                    style = type.size40.bold.tabular.copy(letterSpacing = if (type.burmese) (-0.01).em else (-0.02).em),
+                    text = figure,
+                    // Seven figures and a sign still fit a phone's width at 44.
+                    style = (if (figure.length > 8) type.size44 else type.size60).extraBold.tracked(-0.035f),
                     color = if (balance < 0) colors.coralText else colors.ink,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier.alignByBaseline(),
                 )
-                Text("Ks", style = type.size20.medium, color = colors.muted, modifier = Modifier.alignByBaseline())
+                Text("Ks", style = type.size24.medium, color = colors.muted, modifier = Modifier.alignByBaseline())
             }
         }
-        SpendingCard(state.pace, state.categories, state.myanmarDigits, Modifier.padding(top = 12.dp))
+        SageRule(Modifier.padding(top = 16.dp))
+        if (state.noExpensesYet) {
+            FirstExpense(onAddManual, Modifier.padding(top = 28.dp))
+        } else {
+            SpendingCard(state.pace, state.categories, state.myanmarDigits, Modifier.padding(top = 28.dp))
+        }
     }
 }
 
-/** Each day: a header with the day's net, and its rows as one rounded group. */
+/** "Add your first expense": what it does to the number above, and one row that opens the add form. */
+@Composable
+private fun FirstExpense(onAddManual: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
+    Column(modifier.fillMaxWidth()) {
+        Text(
+            stringResource(R.string.first_expense_title),
+            style = type.size16.semibold,
+            color = colors.ink,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(
+            stringResource(R.string.first_expense_detail),
+            style = type.size14,
+            color = colors.muted,
+            modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 68.dp)
+                .clickable(role = Role.Button, onClick = onAddManual)
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(
+                Modifier.size(38.dp).clip(CircleShape).background(colors.badgeFill).border(1.dp, colors.hairline, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Lucide.Pencil, contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.first_expense_type), style = type.size16.medium, color = colors.ink)
+                val detail = stringResource(R.string.first_expense_type_detail)
+                Text(detail, style = type.size13, color = colors.muted)
+            }
+            Icon(Lucide.ChevronRight, contentDescription = null, tint = colors.muted, modifier = Modifier.size(20.dp))
+        }
+        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+    }
+}
+
+/** Each day: a header with the day's net over a hairline, then its rows divided by hairlines. */
 private fun LazyListScope.days(state: TransactionsUiState, onDelete: (String) -> Unit) {
     state.days.forEachIndexed { dayIndex, day ->
         item(key = "day-${day.date}", contentType = "day") {
-            DayHeader(day, state.today, state.myanmarDigits, Modifier.padding(top = if (dayIndex == 0) 0.dp else 8.dp))
+            DayHeader(day, state.today, state.myanmarDigits, Modifier.padding(top = if (dayIndex == 0) 0.dp else 18.dp))
         }
         itemsIndexed(
             items = day.rows,
@@ -274,7 +332,6 @@ private fun LazyListScope.days(state: TransactionsUiState, onDelete: (String) ->
         ) { index, row ->
             TransactionRow(
                 row = row,
-                first = index == 0,
                 last = index == day.rows.lastIndex,
                 myanmarDigits = state.myanmarDigits,
                 onDelete = onDelete,
@@ -288,34 +345,26 @@ private fun LazyListScope.days(state: TransactionsUiState, onDelete: (String) ->
 @Composable
 private fun DayHeader(day: DaySection, today: LocalDate, myanmarDigits: Boolean, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
-    val style = BudgetWiseTheme.type.size14
     val net = day.rows.sumOf { if (it.type == TxType.EXPENSE) -it.amountKyat else it.amountKyat }
-    Row(
-        modifier = modifier.fillMaxWidth().heightIn(min = 36.dp).padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = dayLabel(day.date, today, myanmarDigits),
-            style = style.semibold,
-            color = colors.muted,
-            modifier = Modifier.weight(1f).semantics { heading() },
-        )
-        Text("${signedDigits(net, myanmarDigits)} Ks", style = style.medium.tabular, color = colors.muted)
+    Column(modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SectionLabel(
+                text = dayLabel(day.date, today, myanmarDigits),
+                modifier = Modifier.weight(1f).semantics { heading() },
+            )
+            Text("${signedDigits(net, myanmarDigits)} Ks", style = BudgetWiseTheme.type.size13.medium, color = colors.muted)
+        }
+        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
     }
-}
-
-/** Rows of one day read as one rounded group: 18 dp corners at its ends, square between rows. */
-private fun groupedShape(first: Boolean, last: Boolean, outer: Dp = 18.dp): Shape {
-    val top = if (first) outer else 0.dp
-    val bottom = if (last) outer else 0.dp
-    return RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionRow(
     row: Transaction,
-    first: Boolean,
     last: Boolean,
     myanmarDigits: Boolean,
     onDelete: (String) -> Unit,
@@ -328,14 +377,14 @@ private fun TransactionRow(
     val spoken = spokenAmount(row.amountKyat, row.type)
     SwipeToDismissBox(
         state = dismissState,
-        modifier = modifier.clip(groupedShape(first, last)),
+        modifier = modifier,
         enableDismissFromStartToEnd = false,
         onDismiss = { onDelete(row.clientId) },
         backgroundContent = {
-            // Drawn only while the row moves, so its red never shows at the group's rounded edges.
+            // Drawn only while the row moves.
             if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
                 Row(
-                    modifier = Modifier.fillMaxSize().background(colors.deleteReveal).padding(end = 24.dp),
+                    modifier = Modifier.fillMaxSize().background(colors.deleteReveal).padding(end = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -345,19 +394,18 @@ private fun TransactionRow(
             }
         },
     ) {
-        Column(Modifier.background(colors.surface)) {
-            if (!first) HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        Column(Modifier.background(colors.ground)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 68.dp)
+                    .heightIn(min = 64.dp)
                     // TalkBack cannot swipe a row; Delete is offered as an action on it instead.
                     .semantics(mergeDescendants = true) {
                         customActions = listOf(CustomAccessibilityAction(deleteLabel) { onDelete(row.clientId); true })
                     }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 // The category name is written next to the badge, so the badge itself stays silent.
                 CategoryBadge(row.category, contentDescription = null)
@@ -374,12 +422,13 @@ private fun TransactionRow(
                 }
                 Text(
                     text = formatSignedKyat(row.amountKyat, row.type, myanmarDigits),
-                    style = type.size16.semibold.tabular,
+                    style = type.size16.semibold,
                     color = if (row.type == TxType.INCOME) colors.accent else colors.ink,
                     softWrap = false,
                     modifier = Modifier.semantics { contentDescription = spoken },
                 )
             }
+            if (!last) HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         }
     }
 }
@@ -390,31 +439,31 @@ private fun LoadingSkeleton() {
     val colors = BudgetWiseTheme.colors
     val loading = stringResource(R.string.transactions_loading)
     Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = loading }) {
-        Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp, bottom = 16.dp)) {
-            SkeletonBar(128.dp, 14.dp, color = colors.surface)
-            SkeletonBar(210.dp, 36.dp, Modifier.padding(top = 10.dp), color = colors.surface)
-            SkeletonBar(null, 210.dp, Modifier.padding(top = 16.dp), color = colors.surface)
+        Column(Modifier.padding(top = 20.dp, bottom = 30.dp)) {
+            SkeletonBar(128.dp, 12.dp, color = colors.surface)
+            SkeletonBar(220.dp, 52.dp, Modifier.padding(top = 12.dp), color = colors.surface)
+            SkeletonBar(160.dp, 16.dp, Modifier.padding(top = 44.dp), color = colors.surface)
+            SkeletonBar(null, 140.dp, Modifier.padding(top = 16.dp), color = colors.surface)
         }
-        Row(Modifier.fillMaxWidth().height(36.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             SkeletonBar(64.dp, 12.dp, color = colors.surface)
             Box(Modifier.weight(1f))
             SkeletonBar(72.dp, 12.dp, color = colors.surface)
         }
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(colors.surface)) {
-            repeat(3) { i ->
-                if (i > 0) HorizontalDivider(thickness = 1.dp, color = colors.hairline)
-                Row(
-                    Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(colors.raised))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SkeletonBar(150.dp, 14.dp)
-                        SkeletonBar(92.dp, 12.dp)
-                    }
-                    SkeletonBar(68.dp, 14.dp)
+        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        repeat(3) { i ->
+            if (i > 0) HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+            Row(
+                Modifier.fillMaxWidth().height(64.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Box(Modifier.size(38.dp).clip(CircleShape).background(colors.surface))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SkeletonBar(150.dp, 14.dp, color = colors.surface)
+                    SkeletonBar(92.dp, 12.dp, color = colors.surface)
                 }
+                SkeletonBar(68.dp, 14.dp, color = colors.surface)
             }
         }
     }

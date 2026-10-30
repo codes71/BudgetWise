@@ -17,15 +17,18 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class FontFamilyTest {
     @Test
-    fun theMyanmarFamilyHasTheKitsFourWeightsFromTheBundledFiles() {
+    fun theMyanmarFamilyHasTheKitsWeightsFromTheBundledFiles() {
         val family = myanmarFontFamily()
         assertTrue(family is FontListFontFamily)
         val fonts = (family as FontListFontFamily).fonts
-        assertEquals(listOf(FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold), fonts.map { it.weight })
-        fonts.forEach { assertEquals(FontStyle.Normal, it.style) }
-        // Never the system font for Burmese: every weight is a bundled Noto Sans Myanmar file.
         assertEquals(
-            listOf(R.font.noto_sans_myanmar_regular, R.font.noto_sans_myanmar_regular, R.font.noto_sans_myanmar_semibold, R.font.noto_sans_myanmar_bold),
+            listOf(FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold, FontWeight.ExtraBold),
+            fonts.map { it.weight },
+        )
+        fonts.forEach { assertEquals(FontStyle.Normal, it.style) }
+        // Never the system font for Burmese: every weight is a bundled Padauk file (it comes in 400 and 700).
+        assertEquals(
+            listOf(R.font.padauk_regular, R.font.padauk_regular, R.font.padauk_bold, R.font.padauk_bold, R.font.padauk_bold),
             fonts.map { (it as ResourceFont).resId },
         )
     }

@@ -27,6 +27,7 @@ class SettingsScreenTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val now = Instant.parse("2026-10-21T10:00:00Z")
     private var signOuts = 0
+    private var languageOpened = 0
 
     private fun show(state: SettingsUiState) = compose.setContent {
         BudgetWiseTheme {
@@ -38,6 +39,7 @@ class SettingsScreenTest {
                 onSignOut = { signOuts++ },
                 onMyanmarDigitsChange = {},
                 onSignIn = {},
+                onLanguage = { languageOpened++ },
                 version = "Version 0.1.0 (1)",
             )
         }
@@ -50,11 +52,10 @@ class SettingsScreenTest {
     )
 
     @Test
-    fun theVersionSitsUnderAboutAndThereIsNoServerRow() {
+    fun theVersionIsTheLastRowAndThereIsNoServerRow() {
         show(signedIn)
 
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Version 0.1.0 (1)"))
-        compose.onNodeWithText(context.getString(R.string.settings_section_about)).assertIsDisplayed()
         compose.onNodeWithText("Version 0.1.0 (1)").assertIsDisplayed()
         compose.onNodeWithText("Server", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Developer", substring = true).assertDoesNotExist()
@@ -71,5 +72,18 @@ class SettingsScreenTest {
 
         assertEquals(1, signOuts)
         compose.onNodeWithText(context.getString(R.string.action_cancel)).assertDoesNotExist()
+    }
+
+    @Test
+    fun theLanguageRowNamesTheLanguageAndOpensThePicker() {
+        show(signedIn)
+
+        val row = context.getString(R.string.settings_language)
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText(row))
+        // The language is named in its own script.
+        compose.onNodeWithText(context.getString(R.string.language_english)).assertIsDisplayed()
+        compose.onNodeWithText(row).performClick()
+
+        assertEquals(1, languageOpened)
     }
 }

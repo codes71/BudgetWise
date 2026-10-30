@@ -6,12 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,7 +29,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
@@ -66,6 +62,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -82,6 +79,7 @@ import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
 import app.budgetwise.ui.common.PrimaryButton
+import app.budgetwise.ui.common.SegmentedPill
 import app.budgetwise.ui.common.TextAction
 import app.budgetwise.ui.common.categoryColors
 import app.budgetwise.ui.common.categoryIcon
@@ -92,11 +90,11 @@ import app.budgetwise.ui.common.groupDigits
 import app.budgetwise.ui.common.localizedDate
 import app.budgetwise.ui.common.toMyanmarDigits
 import app.budgetwise.ui.theme.BudgetWiseTheme
-import app.budgetwise.ui.theme.bold
 import app.budgetwise.ui.theme.forContent
+import app.budgetwise.ui.theme.extraBold
 import app.budgetwise.ui.theme.medium
+import app.budgetwise.ui.theme.tracked
 import app.budgetwise.ui.theme.semibold
-import app.budgetwise.ui.theme.tabular
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle as DateTextStyle
@@ -171,8 +169,8 @@ fun AddManualScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .alpha(if (state.saving) 0.5f else 1f)
-                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
+                    .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 TypeSelector(state.type, editable, onTypeChange)
                 AmountField(state, editable, onAmountChange, amountFocus, onNext = { descriptionFocus.requestFocus() })
@@ -195,16 +193,13 @@ fun AddManualScreen(
                 )
             }
         }
-        Column(Modifier.fillMaxWidth().background(colors.ground)) {
-            HorizontalDivider(thickness = 1.dp, color = colors.hairline)
-            PrimaryButton(
-                text = stringResource(if (state.saving) R.string.manual_saving else R.string.manual_save),
-                onClick = onSave,
-                enabled = state.canSave,
-                busy = state.saving,
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
-            )
-        }
+        PrimaryButton(
+            text = stringResource(if (state.saving) R.string.manual_saving else R.string.manual_save),
+            onClick = onSave,
+            enabled = state.canSave,
+            busy = state.saving,
+            modifier = Modifier.fillMaxWidth().background(colors.ground).padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 24.dp),
+        )
     }
 
     if (pickingDate) {
@@ -221,21 +216,12 @@ fun AddManualScreen(
     }
 }
 
-/** Expense or income, as two halves of one pill. Expense selects in coral, income in the Income badge's green. */
+/** Expense or income, as two halves of one filled pill. Expense selects in coral, income in the Income badge's green. */
 @Composable
 private fun TypeSelector(type: TxType, enabled: Boolean, onTypeChange: (TxType) -> Unit) {
     val colors = BudgetWiseTheme.colors
     val income = categoryColors(CategoryRepository.INCOME)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .clip(CircleShape)
-            .background(if (colors.isDark) Color.Transparent else colors.surface)
-            .border(1.dp, colors.chipBorder, CircleShape)
-            .padding(3.dp)
-            .selectableGroup(),
-    ) {
+    SegmentedPill(Modifier.fillMaxWidth().selectableGroup(), padding = 4.dp) {
         listOf(
             Triple(TxType.EXPENSE, R.string.manual_expense, Lucide.ArrowUpRightBold),
             Triple(TxType.INCOME, R.string.manual_income, Lucide.ArrowDownLeftBold),
@@ -249,7 +235,7 @@ private fun TypeSelector(type: TxType, enabled: Boolean, onTypeChange: (TxType) 
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight()
+                    .height(44.dp)
                     .clip(CircleShape)
                     .background(container)
                     .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = { onTypeChange(option) }),
@@ -259,7 +245,7 @@ private fun TypeSelector(type: TxType, enabled: Boolean, onTypeChange: (TxType) 
                 Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
                 Text(
                     stringResource(label),
-                    style = if (selected) BudgetWiseTheme.type.size15.semibold else BudgetWiseTheme.type.size15.medium,
+                    style = if (selected) BudgetWiseTheme.type.size16.semibold else BudgetWiseTheme.type.size16.medium,
                     color = content,
                 )
             }
@@ -276,7 +262,7 @@ private fun AmountField(
     onNext: () -> Unit,
 ) {
     val type = BudgetWiseTheme.type
-    val big = type.size32.bold.tabular
+    val big = type.size44.extraBold.tracked(-0.035f)
     val transformation = remember(state.myanmarDigits) { KyatGroupingTransformation(state.myanmarDigits) }
     KitTextField(
         value = state.amountDigits,
@@ -293,10 +279,10 @@ private fun AmountField(
             )
         },
         enabled = enabled,
-        minHeight = 76.dp,
+        minHeight = 84.dp,
         textStyle = big,
         trailing = {
-            Text("Ks", style = type.size20.medium, color = BudgetWiseTheme.colors.muted, modifier = Modifier.padding(end = 14.dp))
+            Text("Ks", style = type.size22.medium, color = BudgetWiseTheme.colors.muted, modifier = Modifier.padding(end = 18.dp))
         },
         visualTransformation = transformation,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
@@ -316,44 +302,48 @@ private fun AmountField(
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** The categories in two columns of 46 dp pills; the chosen one fills sage. */
 @Composable
 private fun CategoryPicker(state: AddManualUiState, enabled: Boolean, onCategoryChange: (String) -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val error = state.categoryError != null
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        FieldLabel(stringResource(R.string.manual_category), focused = false, error = error)
-        FlowRow(
-            modifier = Modifier.selectableGroup(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            state.categories.forEach { name ->
-                val selected = name == state.category
-                val label = categoryLabel(name)
-                Row(
-                    modifier = Modifier
-                        .heightIn(min = 40.dp)
-                        .clip(CircleShape)
-                        .background(if (selected) colors.sageContainer else Color.Transparent)
-                        .border(1.dp, if (selected) colors.accent else colors.chipBorder, CircleShape)
-                        .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = { onCategoryChange(name) })
-                        .padding(start = 12.dp, end = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = if (selected) Lucide.CheckBold else categoryIcon(name),
-                        contentDescription = null,
-                        tint = if (selected) colors.onSageContainer else categoryColors(name).content,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Text(
-                        label,
-                        style = type.size14.medium.forContent(label),
-                        color = if (selected) colors.onSageContainer else colors.ink,
-                    )
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        FieldLabel(stringResource(R.string.manual_category))
+        Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            state.categories.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    pair.forEach { name ->
+                        val selected = name == state.category
+                        val label = categoryLabel(name)
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
+                                .clip(CircleShape)
+                                .background(if (selected) colors.sageContainer else Color.Transparent)
+                                .border(1.dp, if (selected) colors.accent else if (error) colors.error else colors.chipBorder, CircleShape)
+                                .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = { onCategoryChange(name) })
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = categoryIcon(name),
+                                contentDescription = null,
+                                tint = if (selected) colors.onSageContainer else categoryColors(name).content,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Text(
+                                label,
+                                style = (if (selected) type.size15.semibold else type.size15.medium).forContent(label),
+                                color = if (selected) colors.onSageContainer else colors.ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
@@ -383,7 +373,6 @@ private fun DescriptionField(
         fieldModifier = Modifier.focusRequester(focus),
         leading = Lucide.Lines,
         placeholder = stringResource(R.string.manual_description_hint),
-        hasError = error != null,
         enabled = enabled,
         // Burmese descriptions wrap onto a few lines instead of scrolling sideways.
         singleLine = false,
@@ -391,20 +380,19 @@ private fun DescriptionField(
         textStyle = BudgetWiseTheme.type.size16.forContent(state.description),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
-        below = {
-            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (error != null) FieldError(error, Modifier.weight(1f)) else Spacer(Modifier.weight(1f))
-                // Formatted like amounts: the Myanmar-digits setting decides, not the phone's locale.
-                Text(
-                    stringResource(
-                        R.string.manual_description_count,
-                        groupDigits(state.descriptionLength.toLong(), state.myanmarDigits),
-                        groupDigits(max.toLong(), state.myanmarDigits),
-                    ),
-                    style = if (error != null) BudgetWiseTheme.type.size12.semibold.tabular else BudgetWiseTheme.type.size12.tabular,
-                    color = if (state.descriptionError == DescriptionError.TOO_LONG) colors.error else colors.muted,
-                )
-            }
+        error = error,
+        // The count sits inside the box, at its end. Formatted like amounts: the Myanmar-digits setting decides.
+        trailing = {
+            Text(
+                stringResource(
+                    R.string.manual_description_count,
+                    groupDigits(state.descriptionLength.toLong(), state.myanmarDigits),
+                    groupDigits(max.toLong(), state.myanmarDigits),
+                ),
+                style = if (error != null) BudgetWiseTheme.type.size12.semibold else BudgetWiseTheme.type.size12,
+                color = if (state.descriptionError == DescriptionError.TOO_LONG) colors.error else colors.muted,
+                modifier = Modifier.padding(end = 14.dp),
+            )
         },
     )
 }
@@ -420,24 +408,24 @@ private fun DateField(state: AddManualUiState, enabled: Boolean, onClick: () -> 
     } else {
         localizedDate(state.date, if (state.date.year == state.today.year) "EEEEdMMMM" else "EEEEdMMMMy", state.myanmarDigits)
     }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val dateLabel = stringResource(R.string.manual_date)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        FieldLabel(dateLabel, Modifier.clearAndSetSemantics { })
         // Drawn like the text fields above, but it opens the date sheet. TalkBack hears "double tap to change date".
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 64.dp)
+                .heightIn(min = 56.dp)
                 .fieldBox(colors, focused = false, error = error)
                 .clickable(enabled = enabled, onClickLabel = changeLabel, role = Role.Button, onClick = onClick)
-                .padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+                .semantics(mergeDescendants = true) { contentDescription = "$dateLabel, $dateText" }
+                .padding(horizontal = 18.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(Lucide.Calendar, contentDescription = null, tint = colors.muted, modifier = Modifier.size(20.dp))
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.manual_date), style = type.size12, color = if (error) colors.error else colors.muted)
-                Text(dateText, style = type.size16, color = colors.ink)
-            }
-            Icon(Lucide.ChevronDown, contentDescription = null, tint = colors.muted, modifier = Modifier.size(20.dp))
+            Icon(Lucide.Calendar, contentDescription = null, tint = colors.muted, modifier = Modifier.size(18.dp))
+            Text(dateText, style = type.size16, color = colors.ink, modifier = Modifier.weight(1f))
+            Icon(Lucide.ChevronDown, contentDescription = null, tint = colors.muted, modifier = Modifier.size(18.dp))
         }
         if (error) FieldError(stringResource(R.string.manual_date_error_future))
     }
@@ -522,7 +510,7 @@ private fun DateSheet(date: LocalDate, today: LocalDate, myanmarDigits: Boolean,
                                 ) {
                                     Text(
                                         groupDigits(day.dayOfMonth.toLong(), myanmarDigits),
-                                        style = if (selected) type.size15.semibold.tabular else type.size15.tabular,
+                                        style = if (selected) type.size15.semibold else type.size15,
                                         color = when {
                                             selected -> colors.onSageFill
                                             future -> colors.unavailable
