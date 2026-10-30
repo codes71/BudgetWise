@@ -50,11 +50,29 @@ Committed and opened as a pull request into `chore/monorepo`; not merged or depl
   for them are in `OnnxEngines.kt` and `asr/host/README.md`; ONNX Runtime telemetry is off. Device steps:
   `asr/src/androidTest/README.md`. The CI task list (now with `:asr`) passes locally.
 
+## Voice UI (branch `feat/voice-ui`, worktree `BudgetWise-voice-ui`)
+
+Built on `feat/onboarding-v2` plus this branch. Designs: Paper file "Budget Wise", page "Redesign: full app", row
+"Voice" (VO1 to VO14), approved by the user on 2026-10-30, with onboarding getting a voice step (user, 2026-10-30).
+
+- Entry points: "Say it" on Add entry and on the first-day home. Before the models are on the phone it opens the setup
+  card (1.1 GB, waits for Wi-Fi, "Use mobile data" while waiting), then the progress card; voice opens when the
+  download finishes with the card open. The worker posts "Voice is ready" (Android 13+ asks for notifications first).
+- Onboarding is now three steps: create account, first income, then "Say what you spend" (Download or Not now). A
+  phone that already has voice skips the step.
+- `ui/voice`: listening (20 s limit, level rings), working (on the phone, then the server), problem cards (no amount,
+  nothing heard, no internet, server failure, signed out, microphone denied or busy, voice turned off), check what you
+  said (edit sheet per entry, saved with source `voice` and what was heard), and answers worked out on the phone from
+  Room (total, list, over budget for the month).
+- Settings has a Voice section: Download, Cancel or Remove, and the "Understand what I say" switch (`cloudParseEnabled`).
+- `:feature:voice` is the microphone (`AudioRecordMicrophone`, audio in memory only). `POST /voice/parse` gets a 65 s
+  read timeout (`@SlowCall`), since the server may try OpenAI after Claude.
+- No "Scan a receipt" button yet: the phone has no scan screen.
+
 ## Still open
 
 - `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`) in the deployed environment; without it there is no fallback.
-- The phone's `cloudParseEnabled` setting now defaults on (user, 2026-10-30). People still need a switch for it in
-  Settings; that comes later with the voice UI.
+- The phone's `cloudParseEnabled` setting defaults on (user, 2026-10-30); its switch is in Settings on `feat/voice-ui`.
 
 - Public host for `freococo.onnx` and `vocab.json` (`-Pbudgetwise.freococoModelBaseUrl`); until then the download
   fails with "voice model host not configured".
@@ -73,5 +91,5 @@ Committed and opened as a pull request into `chore/monorepo`; not merged or depl
 3. Model hosting: Omnilingual from its Hugging Face repo at a pinned revision; freococo's ONNX export needs a
    public home (a Hugging Face repo or a public GitHub release). Both are free.
 4. Understanding: done (Claude, OpenAI fallback); needs `OPENAI_API_KEY` in the deployed environment.
-5. `:feature:voice`: download button and progress, mic button, review screen for entries, answers for questions.
+5. Voice UI: built on `feat/voice-ui` (see above); not yet tried on a phone.
 6. Licenses screen entries for both models (freococo is Apache-2.0; check Omnilingual's).
