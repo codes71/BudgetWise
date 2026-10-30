@@ -12,24 +12,19 @@ import androidx.work.workDataOf
 import app.budgetwise.asr.download.ModelDownloadWorker
 import app.budgetwise.asr.download.ModelStore
 import app.budgetwise.asr.download.StorageCheck
-import app.budgetwise.asr.engine.ModelFiles
+import app.budgetwise.asr.engine.VoiceFiles
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class DefaultModelManager(
     context: Context,
     private val workManager: WorkManager,
@@ -38,88 +33,64 @@ class DefaultModelManager(
 ) : ModelManager {
 
     private val context = context.applicationContext
-    private val prefs = this.context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    private val _activeVariant = MutableStateFlow(
-        prefs.getString(KEY_ACTIVE, null)?.let { name -> RajVariant.entries.firstOrNull { it.name == name } },
-    )
-    override val activeVariant: StateFlow<RajVariant?> = _activeVariant.asStateFlow()
+    /** A failure raised by this class itself (no work exists to carry it). */
+    private val localFailure = MutableStateFlow<String?>(null)
 
-    /** Failures raised by this class itself (no work exists to carry them), keyed by variant. */
-    private val localFailure = MutableStateFlow<Pair<RajVariant, String>?>(null)
-
-    private val _state = MutableStateFlow(
-        _activeVariant.value?.let { if (filesFor(it) != null) ModelState.Ready(dirOf(it)) else ModelState.Missing }
-            ?: ModelState.Missing,
-    )
+    private val _state = MutableStateFlow(if (files() != null) ModelState.Ready(dir()) else ModelState.Missing)
     override val state: StateFlow<ModelState> = _state.asStateFlow()
 
     init {
         scope.launch {
-            combine(
-                _activeVariant.flatMapLatest { v ->
-                    if (v == null) flowOf(null)
-                    else workManager.getWorkInfosForUniqueWorkFlow(ModelDownloadWorker.uniqueName(v)).map { v to it }
-                },
-                localFailure,
-            ) { work, local ->
-                val (v, infos) = work ?: return@combine ModelState.Missing
-                if (local != null && local.first == v) ModelState.Failed(local.second) else stateFor(v, infos)
+            combine(workManager.getWorkInfosForUniqueWorkFlow(ModelDownloadWorker.UNIQUE_NAME), localFailure) { infos, local ->
+                if (local != null) ModelState.Failed(local) else stateFor(infos)
             }.onEach { _state.value = it }.collect {}
         }
     }
 
-    override suspend fun ensureDownloaded(variant: RajVariant, allowMetered: Boolean) {
-        setActive(variant)
-        if (filesFor(variant) != null) return
-        val remaining = (variant.downloadBytes - withContext(Dispatchers.IO) { ModelStore.bytesOnDisk(context, variant) })
-            .coerceAtLeast(0L)
+    override suspend fun ensureDownloaded(allowMetered: Boolean) {
+        localFailure.value = null
+        if (files() != null) return
+        val remaining = withContext(Dispatchers.IO) {
+            ModelStore.deleteStale(context)
+            VoicePack.downloadBytes - ModelStore.bytesOnDisk(context)
+        }.coerceAtLeast(0L)
         if (!storage.hasRoomFor(remaining)) {
-            localFailure.value = variant to "Not enough free storage to download ${variant.displayName}"
+            localFailure.value = "Not enough free storage to download the ${VoicePack.DISPLAY_NAME}"
             return
         }
-        localFailure.value = null
         val network = if (allowMetered) NetworkType.CONNECTED else NetworkType.UNMETERED
         val request = OneTimeWorkRequestBuilder<ModelDownloadWorker>()
-            .setInputData(workDataOf(ModelDownloadWorker.KEY_VARIANT to variant.name))
+            .setInputData(workDataOf(ModelDownloadWorker.KEY_PACK to VoicePack.VERSION))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(network).build())
             .build()
-        val name = ModelDownloadWorker.uniqueName(variant)
+        val name = ModelDownloadWorker.UNIQUE_NAME
         val pending = workManager.getWorkInfosForUniqueWorkFlow(name).first().lastOrNull { !it.state.isFinished }
         val policy = policyFor(pending?.state, pending?.constraints?.requiredNetworkType, network)
         workManager.enqueueUniqueWork(name, policy, request)
     }
 
-    override suspend fun delete(variant: RajVariant) {
-        workManager.cancelUniqueWork(ModelDownloadWorker.uniqueName(variant)).await()
-        withContext(Dispatchers.IO) { ModelStore.variantRoot(context, variant).deleteRecursively() }
-        if (localFailure.value?.first == variant) localFailure.value = null
-        if (_activeVariant.value == variant) _state.value = ModelState.Missing
-    }
-
-    override fun filesFor(variant: RajVariant): ModelFiles? = ModelStore.verified(context, variant)
-
-    private fun setActive(variant: RajVariant) {
-        prefs.edit().putString(KEY_ACTIVE, variant.name).apply()
+    override suspend fun delete() {
+        workManager.cancelUniqueWork(ModelDownloadWorker.UNIQUE_NAME).await()
+        withContext(Dispatchers.IO) { ModelStore.packRoot(context).deleteRecursively() }
         localFailure.value = null
-        _activeVariant.value = variant
+        _state.value = ModelState.Missing
     }
 
-    private fun dirOf(v: RajVariant) = ModelStore.dir(context, v).path
+    override fun files(): VoiceFiles? = ModelStore.verified(context)
 
-    private fun stateFor(v: RajVariant, infos: List<WorkInfo>): ModelState {
-        if (filesFor(v) != null) return ModelState.Ready(dirOf(v))
+    private fun dir() = ModelStore.dir(context).path
+
+    private fun stateFor(infos: List<WorkInfo>): ModelState {
+        if (files() != null) return ModelState.Ready(dir())
         val mapped = mapWork(infos)
-        // Finished records are stale once the variant's files were deleted.
+        // Finished records are stale once the pack's files were deleted.
         val finished = mapped is ModelState.Failed || infos.lastOrNull()?.state?.isFinished == true
-        if (finished && !ModelStore.variantRoot(context, v).exists()) return ModelState.Missing
+        if (finished && !ModelStore.packRoot(context).exists()) return ModelState.Missing
         return mapped
     }
 
     companion object {
-        private const val PREFS = "raj_model_manager"
-        private const val KEY_ACTIVE = "active_variant"
-
         /**
          * Waiting work keeps its network constraint, so a request with a different network type replaces it
          * (for example Wi-Fi only work waiting on a phone that left Wi-Fi). Replacing is cheap because the

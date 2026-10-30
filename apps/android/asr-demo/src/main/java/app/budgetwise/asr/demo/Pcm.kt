@@ -12,14 +12,24 @@ internal object Pcm {
 
     fun rtf(audioMs: Long, decodeMs: Long): Double = if (audioMs <= 0L) 0.0 else decodeMs.toDouble() / audioMs
 
-    fun metricsLine(r: AsrResult): String = String.format(
-        Locale.US,
-        "audio %.1f s, decode %.1f s, RTF %.2f, %s",
-        r.audioMs / 1000.0,
-        r.decodeMs / 1000.0,
-        rtf(r.audioMs, r.decodeMs),
-        r.modelId,
-    ) + if (r.truncatedSegments > 0) ", truncated ${r.truncatedSegments}" else ""
+    /** The whole call on the first line, then one line per model with its own decode time and id. */
+    fun metricsLine(r: AsrResult): String {
+        val total = String.format(
+            Locale.US,
+            "audio %.1f s, decode %.1f s, RTF %.2f",
+            r.audioMs / 1000.0,
+            r.decodeMs / 1000.0,
+            rtf(r.audioMs, r.decodeMs),
+        )
+        val models = r.transcripts.map {
+            String.format(Locale.US, "%s %.1f s, %s", it.model.displayName, it.decodeMs / 1000.0, it.modelId)
+        }
+        return (listOf(total) + models).joinToString("\n")
+    }
+
+    /** Each model's text on its own labelled line; [empty] stands in for a model that heard nothing. */
+    fun transcriptText(r: AsrResult, empty: String): String =
+        r.transcripts.joinToString("\n") { "${it.model.displayName}: ${it.text.trim().ifEmpty { empty }}" }
 }
 
 internal object MicErrors {

@@ -27,7 +27,7 @@ jobs:
       run:
         working-directory: apps/android
     steps:
-      # No submodules: without llama.cpp, settings.gradle.kts leaves out :asr and :asr-demo, which need the NDK.
+      # No submodules or NDK: :asr runs ONNX Runtime from Maven.
       - uses: actions/checkout@v7
 
       - uses: actions/setup-java@v6
@@ -48,9 +48,12 @@ jobs:
           :app:testDebugUnitTest
           :nlu:test
           :feature:voice:testDebugUnitTest
+          :asr:testDebugUnitTest
+          :asr-demo:testDebugUnitTest
           :app:assembleDebug
           :app:lintDebug
           :core:data:lintDebug
+          :asr:lintDebug
 
       - name: Upload test and lint reports
         if: failure()

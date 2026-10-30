@@ -1,6 +1,0 @@
-<|im_start|>system
-<|im_end|>
-<|im_start|>user
-<__media__><|im_end|>
-<|im_start|>assistant
-language Burmese<asr_text>
