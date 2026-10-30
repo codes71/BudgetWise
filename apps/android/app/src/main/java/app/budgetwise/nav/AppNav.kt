@@ -262,8 +262,11 @@ fun AppNav(
                     onLanguage = dropUnlessResumed { openLanguage() },
                 )
             }
+            // With the voice step onboarding is three steps; a phone without the memory for voice skips it.
+            val steps = if (shell.voiceSupported) 3 else 2
             composable(Routes.CREATE_ACCOUNT) {
                 CreateAccountRoute(
+                    steps = steps,
                     // The new account goes on to this month's income, with onboarding off the back stack.
                     onCreated = {
                         navController.navigate(Routes.FIRST_INCOME) {
@@ -287,6 +290,7 @@ fun AppNav(
             // Onboarding goes on to voice with nothing behind it; voice's step goes on to the app.
             composable(Routes.FIRST_INCOME) {
                 FirstIncomeRoute(
+                    steps = steps,
                     onDone = {
                         navController.navigate(Routes.SETUP_VOICE) {
                             popUpTo(navController.graph.id) { inclusive = true }

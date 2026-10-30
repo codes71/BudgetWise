@@ -352,4 +352,7 @@
     <string name="setup_voice_no_wifi_title">Wi-Fi မချိတ်ထားပါ</string>
     <string name="setup_voice_no_wifi_detail">Wi-Fi ရမှ ဒေါင်းလုဒ်ဆွဲပါမည်။ သို့မဟုတ် မိုဘိုင်းဒေတာဖြင့် ယခုပင် စနိုင်သည် (%1$s ခန့်)။</string>
     <string name="setup_voice_download_on_wifi">Wi-Fi ရလျှင် ဒေါင်းလုဒ်ဆွဲမည်</string>
+    <string name="voice_unsupported_title">ဤဖုန်းတွင် အသံဖြင့် ထည့်၍ မရပါ</string>
+    <string name="voice_unsupported_body">အသံကို ဖုန်းထဲမှာပင် နားလည်အောင် လုပ်ရသဖြင့် မှတ်ဉာဏ် (RAM) အနည်းဆုံး %1$d GB လိုသည်။ ဤဖုန်းတွင် ထိုထက်နည်းသဖြင့် အသံကို ပိတ်ထားသည်။ စာရင်းအားလုံးကို ရိုက်ထည့်နိုင်ပါသည်။</string>
+    <string name="settings_voice_unsupported_detail">အသံအတွက် မှတ်ဉာဏ် (RAM) အနည်းဆုံး %1$d GB လိုပြီး ဤဖုန်းတွင် ထိုထက်နည်းသည်။</string>
 </resources>

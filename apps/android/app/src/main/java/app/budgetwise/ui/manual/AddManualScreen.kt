@@ -134,7 +134,8 @@ fun AddManualScreen(
     onDescriptionChange: (String) -> Unit,
     onDateChange: (LocalDate) -> Unit,
     onSave: () -> Unit,
-    onSayIt: () -> Unit,
+    /** Null on a phone without the memory for voice: no Say it. */
+    onSayIt: (() -> Unit)?,
     modifier: Modifier = Modifier,
     focusAmount: Boolean = true,
 ) {
@@ -180,16 +181,18 @@ fun AddManualScreen(
                 // Say it sits with the type: both choose how the entry is made, before the fields.
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     TypeSelector(state.type, editable, onTypeChange)
-                    SecondaryButton(
-                        text = stringResource(R.string.voice_say_it),
-                        onClick = {
-                            keyboard?.hide()
-                            onSayIt()
-                        },
-                        enabled = editable,
-                        icon = Lucide.Mic,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    if (onSayIt != null) {
+                        SecondaryButton(
+                            text = stringResource(R.string.voice_say_it),
+                            onClick = {
+                                keyboard?.hide()
+                                onSayIt()
+                            },
+                            enabled = editable,
+                            icon = Lucide.Mic,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
                 AmountField(state, editable, onAmountChange, amountFocus, onNext = { descriptionFocus.requestFocus() })
                 // Income always goes under "Income" (AddManualUiState.savedCategory), so only an expense asks.

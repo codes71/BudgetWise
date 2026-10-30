@@ -96,6 +96,15 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun aPhoneWithoutTheMemoryForVoiceOnlySaysWhy() {
+        show(signedIn.copy(voiceSupported = false))
+
+        compose.onNodeWithText(context.getString(R.string.voice_unsupported_title)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.settings_voice_download)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.settings_cloud_parse)).assertDoesNotExist()
+    }
+
+    @Test
     fun voiceNotOnThePhoneOffersTheDownload() {
         show(signedIn)
 

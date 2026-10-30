@@ -28,6 +28,9 @@ import androidx.work.testing.WorkManagerTestInitHelper
 import app.budgetwise.HiltTestActivity
 import app.budgetwise.LanguageStore
 import app.budgetwise.R
+import app.budgetwise.VoiceAvailability
+import app.budgetwise.di.VoiceAvailabilityModule
+import app.budgetwise.testing.FakeVoiceAvailability
 import app.budgetwise.data.auth.AuthBindingsModule
 import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.auth.SessionState
@@ -57,7 +60,7 @@ import org.robolectric.annotation.Config
 
 /** The shell with the real Hilt graph (sign-in uses `hiltViewModel()`); only the Keystore token store is faked. */
 @HiltAndroidTest
-@UninstallModules(AuthBindingsModule::class)
+@UninstallModules(AuthBindingsModule::class, VoiceAvailabilityModule::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(application = HiltTestApplication::class, qualifiers = "w411dp-h914dp")
 class AppNavTest {
@@ -66,6 +69,9 @@ class AppNavTest {
 
     /** What an expired token leaves behind: no token, the user identity kept (see SessionManager.onUnauthorized). */
     @BindValue @JvmField val tokenStore: TokenStore = FakeTokenStore(StoredSession("", Instant.EPOCH, TestUser))
+
+    /** A phone with the memory for voice, so onboarding has its voice step (Robolectric reports no memory). */
+    @BindValue @JvmField val voice: VoiceAvailability = FakeVoiceAvailability(supported = true)
 
     @Inject lateinit var session: SessionManager
 

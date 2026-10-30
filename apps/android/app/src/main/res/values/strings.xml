@@ -382,4 +382,7 @@
     <string name="setup_voice_no_wifi_title">You\'re not on Wi-Fi</string>
     <string name="setup_voice_no_wifi_detail">The download waits for Wi-Fi. Or start it now on mobile data, about %1$s.</string>
     <string name="setup_voice_download_on_wifi">Download on Wi-Fi</string>
+    <string name="voice_unsupported_title">Voice isn\'t available on this phone</string>
+    <string name="voice_unsupported_body">Voice works out what you say on the phone itself, which needs at least %1$d GB of memory. This phone has less, so voice is off. You can still type every entry.</string>
+    <string name="settings_voice_unsupported_detail">Voice needs at least %1$d GB of memory, more than this phone has.</string>
 </resources>

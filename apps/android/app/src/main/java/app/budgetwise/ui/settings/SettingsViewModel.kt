@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.budgetwise.AccountActions
 import app.budgetwise.SyncControls
+import app.budgetwise.VoiceAvailability
 import app.budgetwise.asr.ModelManager
 import app.budgetwise.asr.ModelState
 import app.budgetwise.data.auth.SessionManager
@@ -44,6 +45,8 @@ data class SettingsUiState(
     val voice: ModelState = ModelState.Missing,
     /** "Understand what I say": voice may send the words it hears (SettingsStore, default on). */
     val cloudParse: Boolean = true,
+    /** The phone has the memory for voice; without it the section only says why voice is off. */
+    val voiceSupported: Boolean = true,
 ) {
     val canSyncNow: Boolean get() = account != null && !sessionExpired && sync.phase != SyncPhase.SYNCING
 }
@@ -73,7 +76,10 @@ class SettingsViewModel @Inject constructor(
     private val sync: SyncControls,
     private val settings: SettingsStore,
     private val models: ModelManager,
+    availability: VoiceAvailability,
 ) : ViewModel() {
+    private val voiceSupported = availability.supported
+
     private data class SignOut(val running: Boolean = false, val failed: Boolean = false)
 
     private val signOut = MutableStateFlow(SignOut())
@@ -117,6 +123,7 @@ class SettingsViewModel @Inject constructor(
             myanmarDigits = l.myanmarDigits,
             voice = l.voice,
             cloudParse = l.cloudParse,
+            voiceSupported = voiceSupported,
         )
     }
 

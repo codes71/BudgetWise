@@ -190,7 +190,8 @@ fun TransactionsScreen(
     onChip: () -> Unit,
     onSettings: () -> Unit,
     onAddManual: () -> Unit,
-    onSayIt: () -> Unit,
+    /** Null on a phone without the memory for voice: the first-day home offers typing only. */
+    onSayIt: (() -> Unit)?,
     onDelete: (String) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
@@ -250,7 +251,7 @@ fun TransactionsScreen(
  * way to add it instead of an empty chart.
  */
 @Composable
-private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit, onSayIt: () -> Unit) {
+private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit, onSayIt: (() -> Unit)?) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val month = monthName(state.summary.month)
@@ -284,7 +285,7 @@ private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit, onSay
 
 /** "Add your first expense": what it does to the number above, then two ways: type it (the add form) or say it. */
 @Composable
-private fun FirstExpense(onAddManual: () -> Unit, onSayIt: () -> Unit, modifier: Modifier = Modifier) {
+private fun FirstExpense(onAddManual: () -> Unit, onSayIt: (() -> Unit)?, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     Column(modifier.fillMaxWidth()) {
@@ -302,8 +303,10 @@ private fun FirstExpense(onAddManual: () -> Unit, onSayIt: () -> Unit, modifier:
         )
         WayRow(Lucide.Pencil, stringResource(R.string.first_expense_type), stringResource(R.string.first_expense_type_detail), onAddManual)
         HorizontalDivider(thickness = 1.dp, color = colors.hairline)
-        WayRow(Lucide.Mic, stringResource(R.string.voice_say_it), stringResource(R.string.first_expense_say_detail), onSayIt)
-        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        if (onSayIt != null) {
+            WayRow(Lucide.Mic, stringResource(R.string.voice_say_it), stringResource(R.string.first_expense_say_detail), onSayIt)
+            HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        }
     }
 }
 

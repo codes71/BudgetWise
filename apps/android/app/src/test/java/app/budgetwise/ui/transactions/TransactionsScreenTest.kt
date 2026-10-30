@@ -23,6 +23,7 @@ import app.budgetwise.testing.FakeNetworkStatus
 import app.budgetwise.testing.FakeSettingsStore
 import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTransactionStore
+import app.budgetwise.testing.FakeVoiceAvailability
 import app.budgetwise.testing.testTransaction
 import app.budgetwise.ui.voice.VoiceSetupViewModel
 import app.budgetwise.ui.common.SessionNotice
@@ -63,13 +64,14 @@ class TransactionsScreenTest {
         onSignIn: () -> Unit = {},
         voice: FakeModelManager = FakeModelManager(),
         onOpenVoice: () -> Unit = {},
+        voiceSupported: Boolean = true,
     ): FakeTransactionStore {
         val store = FakeTransactionStore(rows)
         // The delete outlives the screen in the app; here it runs straight away.
         vm = TransactionsViewModel(
             store, FakeSyncControls(), FakeSettingsStore(), FakeNetworkStatus(), clock, CoroutineScope(Dispatchers.Unconfined),
         )
-        val voiceSetup = VoiceSetupViewModel(voice, FakeSettingsStore(), FakeNetworkStatus(), clock)
+        val voiceSetup = VoiceSetupViewModel(voice, FakeSettingsStore(), FakeNetworkStatus(), FakeVoiceAvailability(voiceSupported), clock)
         compose.setContent {
             BudgetWiseTheme {
                 TransactionsRoute(
@@ -246,6 +248,15 @@ class TransactionsScreenTest {
         compose.onNodeWithText(text(R.string.voice_say_it)).performClick()
 
         compose.runOnIdle { assertEquals(1, opened) }
+    }
+
+    @Test
+    fun aPhoneWithoutTheMemoryForVoiceOffersTypingOnly() {
+        val income = listOf(testTransaction("Salary", 850000, today, type = TxType.INCOME, category = "Income"))
+        show(income, voiceSupported = false)
+
+        compose.onNodeWithText(text(R.string.first_expense_type)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.voice_say_it)).assertDoesNotExist()
     }
 
     @Test

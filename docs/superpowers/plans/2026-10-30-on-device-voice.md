@@ -68,6 +68,10 @@ Built on `feat/onboarding-v2` plus this branch. Designs: Paper file "Budget Wise
 - `:feature:voice` is the microphone (`AudioRecordMicrophone`, audio in memory only). `POST /voice/parse` gets a 65 s
   read timeout (`@SlowCall`), since the server may try OpenAI after Claude.
 - No "Scan a receipt" button yet: the phone has no scan screen.
+- Low-memory phones (user, 2026-10-31): voice is off where Android reports under 3.3 GB of total memory (advertised
+  3 GB phones) or the phone calls itself low-RAM (`VoiceRequirements`). Nothing offers voice there: no Say it, no
+  download, two onboarding steps. Where the voice step would be, a small notice says why; Settings says the same.
+  Cloud speech recognition was ruled out: OpenAI's best model got 4 of 14 amounts (rerun 2026-10-31).
 
 ## Device gate (Xiaomi 14, Snapdragon 8 Gen 3, 12 GB; 2026-10-31)
 

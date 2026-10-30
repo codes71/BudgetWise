@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.budgetwise.NetworkStatus
 import app.budgetwise.SyncControls
+import app.budgetwise.VoiceAvailability
 import app.budgetwise.data.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -20,9 +21,14 @@ data class SyncSignals(
     val unsynced: Int = 0,
 )
 
-/** The shell's own state: the sync signals both tabs' headers show. It lives as long as the activity. */
+/**
+ * The shell's own state: the sync signals both tabs' headers show, and whether this phone runs voice (onboarding's
+ * length depends on it). It lives as long as the activity.
+ */
 @HiltViewModel
-class ShellViewModel @Inject constructor(sync: SyncControls, network: NetworkStatus) : ViewModel() {
+class ShellViewModel @Inject constructor(sync: SyncControls, network: NetworkStatus, voice: VoiceAvailability) : ViewModel() {
+    val voiceSupported: Boolean = voice.supported
+
     val signals: StateFlow<SyncSignals> =
         combine(network.online, sync.status, sync.queued, sync.unsyncedCount) { online, status, queued, unsynced ->
             SyncSignals(online, status, queued, unsynced)

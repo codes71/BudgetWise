@@ -52,10 +52,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.budgetwise.NetworkStatus
+import app.budgetwise.VoiceAvailability
 import app.budgetwise.R
 import app.budgetwise.asr.ModelManager
 import app.budgetwise.asr.ModelState
 import app.budgetwise.asr.VoicePack
+import app.budgetwise.asr.VoiceRequirements
 import app.budgetwise.data.prefs.SettingsStore
 import app.budgetwise.di.DeviceClock
 import app.budgetwise.ui.common.Lucide
@@ -94,6 +96,8 @@ data class VoiceSetupUiState(
     val myanmarDigits: Boolean = false,
     /** On Wi-Fi (or another unmetered network) now; the download waits for one unless the user picks mobile data. */
     val onWifi: Boolean = true,
+    /** The phone has the memory for voice ([VoiceAvailability]); without it voice is off and nothing offers it. */
+    val supported: Boolean = true,
 ) {
     /** Downloading or done: nothing to offer. */
     val setUp: Boolean get() = model is ModelState.Ready || model is ModelState.Downloading
@@ -114,8 +118,11 @@ class VoiceSetupViewModel @Inject constructor(
     private val models: ModelManager,
     settings: SettingsStore,
     network: NetworkStatus,
+    availability: VoiceAvailability,
     @DeviceClock private val clock: Clock,
 ) : ViewModel() {
+    private val supported = availability.supported
+
     private val card = MutableStateFlow<VoiceCard?>(null)
     private val minutesLeft = MutableStateFlow<Int?>(null)
 
@@ -127,8 +134,8 @@ class VoiceSetupViewModel @Inject constructor(
 
     val state: StateFlow<VoiceSetupUiState> =
         combine(models.state, card, minutesLeft, settings.myanmarDigits, network.unmetered) { model, card, minutes, digits, wifi ->
-            VoiceSetupUiState(model, card, minutes, digits, wifi)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VoiceSetupUiState(models.state.value))
+            VoiceSetupUiState(model, card, minutes, digits, wifi, supported)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VoiceSetupUiState(models.state.value, supported = supported))
 
     init {
         viewModelScope.launch {
@@ -147,6 +154,7 @@ class VoiceSetupViewModel @Inject constructor(
     }
 
     fun onSayIt() {
+        if (!supported) return
         when (models.state.value) {
             is ModelState.Ready -> _events.trySend(VoiceSetupEvent.OpenVoice)
             is ModelState.Downloading -> card.value = VoiceCard.DOWNLOADING
@@ -156,6 +164,7 @@ class VoiceSetupViewModel @Inject constructor(
 
     /** Starts (or resumes) the download on Wi-Fi; [showProgress] opens its card. */
     fun download(showProgress: Boolean = true) {
+        if (!supported) return
         if (showProgress) card.value = VoiceCard.DOWNLOADING
         start(allowMetered = false)
     }
@@ -182,6 +191,7 @@ class VoiceSetupViewModel @Inject constructor(
     }
 
     private fun start(allowMetered: Boolean) {
+        if (!supported) return
         viewModelScope.launch {
             try {
                 models.ensureDownloaded(allowMetered)
@@ -215,11 +225,12 @@ class VoiceSetupViewModel @Inject constructor(
 }
 
 /**
- * Hosts the setup and download cards for a screen that offers Say it, and returns what Say it does. [onOpenVoice]
- * opens the listening screen once voice is on the phone.
+ * Hosts the setup and download cards for a screen that offers Say it, and returns what Say it does: null on a phone
+ * without the memory for voice, where the screen shows no Say it at all. [onOpenVoice] opens the listening screen once
+ * voice is on the phone.
  */
 @Composable
-fun rememberSayIt(onOpenVoice: () -> Unit, viewModel: VoiceSetupViewModel = hiltViewModel()): () -> Unit {
+fun rememberSayIt(onOpenVoice: () -> Unit, viewModel: VoiceSetupViewModel = hiltViewModel()): (() -> Unit)? {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val open by rememberUpdatedState(onOpenVoice)
     LaunchedEffect(viewModel) {
@@ -236,7 +247,41 @@ fun rememberSayIt(onOpenVoice: () -> Unit, viewModel: VoiceSetupViewModel = hilt
         onDismiss = viewModel::dismiss,
         onCancelDownload = viewModel::cancelDownload,
     )
-    return viewModel::onSayIt
+    return if (state.supported) viewModel::onSayIt else null
+}
+
+/**
+ * The small notice a phone without the memory for voice gets once, where onboarding would offer voice: why it is off,
+ * and that typing still works. It offers nothing else.
+ */
+@Composable
+fun VoiceUnsupportedDialog(onDismiss: () -> Unit) {
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
+            VoiceDialogCard {
+                Icon(Lucide.MicOff, contentDescription = null, tint = colors.muted, modifier = Modifier.size(26.dp))
+                Text(
+                    stringResource(R.string.voice_unsupported_title),
+                    style = type.size22.extraBold.tracked(-0.02f),
+                    color = colors.ink,
+                    modifier = Modifier.padding(top = 8.dp).semantics { heading() },
+                )
+                Text(
+                    stringResource(R.string.voice_unsupported_body, VoiceRequirements.ADVERTISED_GB),
+                    style = type.size14,
+                    color = colors.muted,
+                )
+                PrimaryButton(
+                    text = stringResource(R.string.action_ok),
+                    onClick = onDismiss,
+                    height = 50.dp,
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                )
+            }
+        }
+    }
 }
 
 /**

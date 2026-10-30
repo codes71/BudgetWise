@@ -11,6 +11,7 @@ import app.budgetwise.testing.FakeModelManager
 import app.budgetwise.testing.FakeSettingsStore
 import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTokenStore
+import app.budgetwise.testing.FakeVoiceAvailability
 import app.budgetwise.testing.MainDispatcherRule
 import app.budgetwise.testing.TestUser
 import java.time.Clock
@@ -43,7 +44,7 @@ class SettingsViewModelTest {
         SessionManager(FakeTokenStore(StoredSession("tok", now.plus(expiresIn), TestUser)), Clock.fixed(now, ZoneOffset.UTC))
             .also { runBlocking { it.load() } }
 
-    private fun TestScope.vm(session: SessionManager = session()) = SettingsViewModel(accounts, session, sync, settings, models).also { vm ->
+    private fun TestScope.vm(session: SessionManager = session()) = SettingsViewModel(accounts, session, sync, settings, models, FakeVoiceAvailability()).also { vm ->
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
     }
 

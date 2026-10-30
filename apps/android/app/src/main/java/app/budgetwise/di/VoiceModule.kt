@@ -3,8 +3,10 @@ package app.budgetwise.di
 import android.content.Context
 import androidx.work.WorkManager
 import app.budgetwise.DefaultOnDeviceSpeech
+import app.budgetwise.DefaultVoiceAvailability
 import app.budgetwise.DefaultVoiceParser
 import app.budgetwise.OnDeviceSpeech
+import app.budgetwise.VoiceAvailability
 import app.budgetwise.VoiceParser
 import app.budgetwise.asr.DefaultModelManager
 import app.budgetwise.asr.MemoryGuard
@@ -50,4 +52,12 @@ abstract class VoiceBindingsModule {
 
     @Binds
     abstract fun onDeviceSpeech(impl: DefaultOnDeviceSpeech): OnDeviceSpeech
+}
+
+/** Its own module, so a test can replace the phone's memory check without the rest of voice. */
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class VoiceAvailabilityModule {
+    @Binds
+    abstract fun voiceAvailability(impl: DefaultVoiceAvailability): VoiceAvailability
 }
