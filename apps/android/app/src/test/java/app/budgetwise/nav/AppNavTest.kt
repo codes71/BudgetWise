@@ -126,11 +126,32 @@ class AppNavTest {
     }
 
     @Test
-    fun signedOutStartsAtSignInWithoutTheBottomBar() {
+    fun signedOutStartsAtTheWelcomeScreenWithoutTheBottomBar() {
         showApp(SessionState.SignedOut)
 
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
+        compose.onNode(hasText(text(R.string.welcome_create)) and hasClickAction()).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.nav_transactions)).assertDoesNotExist()
+        // Both ways in: the second opens sign-in, and its back arrow returns to the welcome screen.
+        compose.onNode(hasText(text(R.string.welcome_sign_in)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
+        compose.onNodeWithContentDescription(text(R.string.action_back)).performClick()
+        compose.onNode(hasText(text(R.string.welcome_create)) and hasClickAction()).assertIsDisplayed()
+    }
+
+    @Test
+    fun signInAndCreateAccountSwapWithoutStackingUp() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme { AppNav(session = SessionState.SignedOut, navController = nav) }
+        }
+
+        compose.onNode(hasText(text(R.string.welcome_create)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.welcome_create)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).performClick()
+        val stack = compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } }
+        assertEquals(listOf(Routes.WELCOME, Routes.CREATE_ACCOUNT, Routes.LOGIN), stack)
     }
 
     @Test
@@ -141,8 +162,8 @@ class AppNavTest {
             BudgetWiseTheme { AppNav(session = SessionState.SignedOut, navController = nav) }
         }
 
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
-        assertEquals(Routes.LOGIN, compose.runOnIdle { nav.currentDestination?.route })
+        compose.onNode(hasText(text(R.string.welcome_create)) and hasClickAction()).assertIsDisplayed()
+        assertEquals(Routes.WELCOME, compose.runOnIdle { nav.currentDestination?.route })
     }
 
     @Test

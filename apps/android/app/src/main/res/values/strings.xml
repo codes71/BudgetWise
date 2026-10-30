@@ -99,6 +99,8 @@
 
     <!-- The month chart (%2$s, or %1$s in spending_same, is last month's name) -->
     <string name="spending_view">Spending view</string>
+    <string name="spending_spent">%1$s Ks spent</string>
+    <string name="spending_tick_caption">The tick is %1$s by this day.</string>
     <string name="spending_total">Total</string>
     <string name="spending_by_category">By category</string>
     <string name="spending_less">%1$s Ks less than this time in %2$s</string>
@@ -164,6 +166,7 @@
         <item quantity="other">%1$s over across %2$d budgets</item>
     </plurals>
     <string name="budgets_left">%1$s left</string>
+    <string name="budgets_percent">%1$s%%</string>
     <string name="budgets_over">%1$s over</string>
     <string name="budgets_footer">Budgets are set on BudgetWise on the web.</string>
     <string name="budgets_spent_of_limit_spoken">%1$s kyat spent of %2$s kyat</string>
@@ -174,7 +177,6 @@
     <string name="settings_title">Settings</string>
     <string name="settings_section_sync">Sync</string>
     <string name="settings_section_display">Display</string>
-    <string name="settings_section_about">About</string>
     <string name="settings_myanmar_digits">Myanmar digits</string>
     <string name="settings_myanmar_digits_detail">Show amounts as ၅,၀၀၀ Ks</string>
     <!-- Drawn in the setting's icon slot -->
@@ -205,4 +207,25 @@
     <string name="settings_sign_out_failed">Couldn\'t sign out</string>
     <string name="settings_sign_out_failed_detail">Your entries are safe on this phone.</string>
     <string name="settings_version">Version %1$s (%2$d)</string>
+    <!-- First launch and create account (%1$s in welcome_headline is welcome_headline_word, drawn in sage) -->
+    <string name="welcome_headline">See where your %1$s goes each month</string>
+    <string name="welcome_headline_word">kyat</string>
+    <string name="welcome_body">Add what you spend and earn in a few taps. It works offline and syncs with BudgetWise on the web.</string>
+    <string name="welcome_create">Create account</string>
+    <string name="welcome_sign_in">I already have an account</string>
+    <string name="create_title">Create your account</string>
+    <string name="create_subtitle">Use your email. The same account works on the web.</string>
+    <string name="create_name">Name</string>
+    <string name="create_name_hint">Your name</string>
+    <string name="create_password_hint">Choose a password</string>
+    <string name="create_password_rule">At least 6 characters</string>
+    <string name="create_error_short_password">Use at least 6 characters</string>
+    <string name="create_error_invalid_email">Enter an email like you@example.com</string>
+    <string name="create_error_email_taken">An account with this email already exists.</string>
+    <string name="create_sign_in_instead">Sign in instead</string>
+    <string name="create_submit">Create account</string>
+    <string name="create_creating">Creating account…</string>
+    <string name="create_error_needs_internet">Connect to the internet to create your account.</string>
+    <string name="create_have_account">Already have an account?</string>
+    <string name="login_new_here">New to BudgetWise?</string>
 </resources>

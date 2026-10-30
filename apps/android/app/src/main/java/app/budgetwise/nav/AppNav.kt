@@ -19,9 +19,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -36,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -61,6 +62,8 @@ import app.budgetwise.ui.common.sessionNoticeFor
 import app.budgetwise.ui.common.syncChipFor
 import app.budgetwise.ui.login.LoginRoute
 import app.budgetwise.ui.manual.AddManualRoute
+import app.budgetwise.ui.onboarding.CreateAccountRoute
+import app.budgetwise.ui.onboarding.WelcomeScreen
 import app.budgetwise.ui.settings.SettingsRoute
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.medium
@@ -69,6 +72,8 @@ import app.budgetwise.ui.transactions.TransactionsRoute
 import java.time.Instant
 
 object Routes {
+    const val WELCOME = "welcome"
+    const val CREATE_ACCOUNT = "create_account"
     const val LOGIN = "login"
     const val TRANSACTIONS = "transactions"
     const val MANUAL = "manual"
@@ -76,11 +81,17 @@ object Routes {
     const val SETTINGS = "settings"
 }
 
-/** Expired stays in the app (local data visible, the header's chip asks to sign in); only signed out starts at sign-in. */
+/**
+ * Expired stays in the app (local data visible, the header's sync status asks to sign in); only signed out starts at
+ * the welcome screen, which offers create account and sign in.
+ */
 fun startDestinationFor(session: SessionState): String = when (session) {
     is SessionState.SignedIn, is SessionState.SignedInOffline, SessionState.Expired -> Routes.TRANSACTIONS
-    SessionState.SignedOut -> Routes.LOGIN
+    SessionState.SignedOut -> Routes.WELCOME
 }
+
+/** The screens a signed-out user moves between; signing out leaves them where they are. */
+private val SignedOutRoutes = setOf(Routes.WELCOME, Routes.CREATE_ACCOUNT, Routes.LOGIN)
 
 private data class TopLevel(val route: String, @StringRes val label: Int, val icon: ImageVector)
 
@@ -135,7 +146,7 @@ fun AppNav(
         when (session) {
             // Signing out (Settings) ends at sign-in with nothing behind it, whichever screen the user was on.
             SessionState.SignedOut -> {
-                if (navController.currentDestination?.route != Routes.LOGIN) {
+                if (navController.currentDestination?.route !in SignedOutRoutes) {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(navController.graph.id) { inclusive = true }
                         launchSingleTop = true
@@ -191,17 +202,38 @@ fun AppNav(
             enterTransition = { fadeIn(tween(220)) },
             exitTransition = { fadeOut(tween(150)) },
         ) {
+            fun enterApp() = navController.navigate(Routes.TRANSACTIONS) {
+                popUpTo(navController.graph.id) { inclusive = true }
+                launchSingleTop = true
+            }
+            // Sign in and create account link to each other; going back and forth pops instead of stacking up.
+            fun swapTo(route: String) {
+                if (navController.previousBackStackEntry?.destination?.route == route) {
+                    navController.popBackStack()
+                } else {
+                    navController.navigate(route) { launchSingleTop = true }
+                }
+            }
+            composable(Routes.WELCOME) {
+                WelcomeScreen(
+                    onCreateAccount = dropUnlessResumed { navController.navigate(Routes.CREATE_ACCOUNT) { launchSingleTop = true } },
+                    onSignIn = dropUnlessResumed { navController.navigate(Routes.LOGIN) { launchSingleTop = true } },
+                )
+            }
+            composable(Routes.CREATE_ACCOUNT) {
+                CreateAccountRoute(
+                    onCreated = ::enterApp,
+                    onSignIn = dropUnlessResumed { swapTo(Routes.LOGIN) },
+                    onBack = dropUnlessResumed { navController.popBackStack() },
+                )
+            }
             composable(Routes.LOGIN) {
                 val canGoBack = remember { navController.previousBackStackEntry != null }
                 val close = dropUnlessResumed { navController.popBackStack() }
                 LoginRoute(
-                    onSignedIn = {
-                        navController.navigate(Routes.TRANSACTIONS) {
-                            popUpTo(navController.graph.id) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
+                    onSignedIn = ::enterApp,
                     onClose = if (canGoBack) close else null,
+                    onCreateAccount = dropUnlessResumed { swapTo(Routes.CREATE_ACCOUNT) },
                 )
             }
             composable(Routes.TRANSACTIONS) {
@@ -228,7 +260,10 @@ fun AppNav(
     }
 }
 
-/** Transactions, the sage Add pill, Budgets. No floating button anywhere: Add always lives here. */
+/**
+ * Transactions, the sage Add pill, Budgets, on the ground under a hairline. No floating button anywhere: Add always
+ * lives here.
+ */
 @Composable
 private fun BottomBar(destination: NavDestination?, onTab: (String) -> Unit, onAdd: () -> Unit) {
     val colors = BudgetWiseTheme.colors
@@ -238,13 +273,13 @@ private fun BottomBar(destination: NavDestination?, onTab: (String) -> Unit, onA
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars)
-                .heightIn(min = 79.dp)
-                .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 10.dp),
+                .heightIn(min = 83.dp)
+                .padding(start = 20.dp, end = 20.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Tab(TopLevels[0], destination.isOn(TopLevels[0].route), onTab, Modifier.weight(1f))
-            AddPill(onAdd, Modifier.weight(1f).padding(horizontal = 6.dp))
-            Tab(TopLevels[1], destination.isOn(TopLevels[1].route), onTab, Modifier.weight(1f))
+            Tab(TopLevels[0], destination.isOn(TopLevels[0].route), onTab, Modifier.width(100.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { AddPill(onAdd) }
+            Tab(TopLevels[1], destination.isOn(TopLevels[1].route), onTab, Modifier.width(100.dp))
         }
     }
 }
@@ -253,29 +288,21 @@ private fun BottomBar(destination: NavDestination?, onTab: (String) -> Unit, onA
 private fun Tab(item: TopLevel, selected: Boolean, onTab: (String) -> Unit, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
+    val tint = if (selected) colors.accent else colors.muted
+    // The selected tab is sage, icon and label; no pill behind it.
     Column(
-        modifier = modifier.selectable(selected = selected, role = Role.Tab, onClick = { onTab(item.route) }),
+        modifier = modifier
+            .heightIn(min = 56.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .selectable(selected = selected, role = Role.Tab, onClick = { onTab(item.route) }),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(if (type.burmese) 2.dp else 4.dp),
+        verticalArrangement = Arrangement.spacedBy(if (type.burmese) 0.dp else 4.dp, Alignment.CenterVertically),
     ) {
-        Box(
-            Modifier
-                .size(width = 56.dp, height = 30.dp)
-                .clip(CircleShape)
-                .background(if (selected) colors.sageContainer else Color.Transparent),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                item.icon,
-                contentDescription = null,
-                tint = if (selected) colors.onSageContainer else colors.muted,
-                modifier = Modifier.size(20.dp),
-            )
-        }
+        Icon(item.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
         Text(
             text = stringResource(item.label),
             style = if (selected) type.size12.semibold else type.size12.medium,
-            color = if (selected) colors.ink else colors.muted,
+            color = tint,
             maxLines = 1,
         )
     }
@@ -286,7 +313,7 @@ private fun AddPill(onAdd: () -> Unit, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
     Row(
         modifier = modifier
-            .height(52.dp)
+            .size(width = 116.dp, height = 52.dp)
             .clip(CircleShape)
             .background(colors.sageFill)
             .clickable(role = Role.Button, onClick = onAdd),
@@ -294,6 +321,6 @@ private fun AddPill(onAdd: () -> Unit, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Lucide.PlusBold, contentDescription = null, tint = colors.onSageFill, modifier = Modifier.size(20.dp))
-        Text(stringResource(R.string.action_add), style = BudgetWiseTheme.type.size16.semibold, color = colors.onSageFill, maxLines = 1)
+        Text(stringResource(R.string.action_add), style = BudgetWiseTheme.type.size17.semibold, color = colors.onSageFill, maxLines = 1)
     }
 }

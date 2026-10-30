@@ -2,6 +2,7 @@ package app.budgetwise.data.repo
 
 import app.budgetwise.data.auth.PasswordCheck
 import app.budgetwise.data.auth.SessionManager
+import app.budgetwise.data.auth.SignInGrant
 import app.budgetwise.data.auth.UserInfo
 import app.budgetwise.data.auth.toGrant
 import app.budgetwise.data.db.BudgetWiseDb
@@ -10,6 +11,7 @@ import app.budgetwise.data.net.ApiResult
 import app.budgetwise.data.net.ApiService
 import app.budgetwise.data.net.LoginBody
 import app.budgetwise.data.net.NETWORK_ERROR_CODE
+import app.budgetwise.data.net.RegisterBody
 import app.budgetwise.data.net.safeApi
 import app.budgetwise.data.sync.SyncScheduler
 import javax.inject.Inject
@@ -33,6 +35,19 @@ sealed interface LoginResult {
     data object NeedsInternet : LoginResult
 
     data class Failure(val code: String, val message: String, val retryable: Boolean) : LoginResult
+}
+
+sealed interface RegisterResult {
+    /** The account exists and is signed in on this phone, as after an online [AuthRepository.login]. */
+    data class Success(val user: UserInfo) : RegisterResult
+
+    /** 409: an account with this email exists already (in any letter case). Nothing changed. */
+    data object EmailTaken : RegisterResult
+
+    /** The server could not be reached. A new account needs the internet: there is nothing on the phone to check. */
+    data object NeedsInternet : RegisterResult
+
+    data class Failure(val code: String, val message: String, val retryable: Boolean) : RegisterResult
 }
 
 /**
@@ -73,6 +88,29 @@ class AuthRepository @Inject constructor(
                 return if (r.code == NETWORK_ERROR_CODE) signInOffline(email, password) else LoginResult.Failure(r.code, r.msg, r.retryable)
         }
         val grant = token.toGrant() ?: return LoginResult.Failure("bad_response", "Unexpected server response", retryable = false)
+        return LoginResult.Success(signInOnline(grant, password))
+    }
+
+    /**
+     * Creates the account on the server and signs it in exactly like an online [login]. Only online: a 409 is
+     * [RegisterResult.EmailTaken], no connection is [RegisterResult.NeedsInternet].
+     */
+    suspend fun register(email: String, password: String, fullName: String): RegisterResult {
+        val token = when (val r = safeApi { api.register(RegisterBody(email, password, fullName)) }) {
+            is ApiResult.Ok -> r.v
+            is ApiResult.Unauthorized -> return RegisterResult.Failure("http_401", r.msg, retryable = false)
+            is ApiResult.Failure -> return when {
+                r.code == "email_taken" || r.code == "http_409" -> RegisterResult.EmailTaken
+                r.code == NETWORK_ERROR_CODE -> RegisterResult.NeedsInternet
+                else -> RegisterResult.Failure(r.code, r.msg, r.retryable)
+            }
+        }
+        val grant = token.toGrant() ?: return RegisterResult.Failure("bad_response", "Unexpected server response", retryable = false)
+        return RegisterResult.Success(signInOnline(grant, password))
+    }
+
+    /** Saves the session and a fresh offline password check, then schedules a full pull and the periodic sync. */
+    private suspend fun signInOnline(grant: SignInGrant, password: String): UserInfo {
         val check = withContext(Dispatchers.Default) { PasswordCheck.create(password) }
         return mutex.withLock {
             // Rows saved before several accounts, when no session was saved: the first account online takes them.
@@ -80,7 +118,7 @@ class AuthRepository @Inject constructor(
             session.signIn(grant.token, grant.expiresAt, grant.user, check)
             syncScheduler.enqueue(fullPull = true)
             syncScheduler.periodic()
-            LoginResult.Success(grant.user)
+            grant.user
         }
     }
 

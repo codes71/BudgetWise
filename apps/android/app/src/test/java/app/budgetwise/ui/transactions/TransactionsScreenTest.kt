@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -96,9 +97,10 @@ class TransactionsScreenTest {
         compose.onNode(hasText("Tea") and hasText(text(R.string.category_groceries))).assertIsDisplayed()
         compose.onNode(hasText("Taxi") and hasText(text(R.string.category_transport))).assertIsDisplayed()
         // Day headers with the day's net, and the amount read the way it is meant: "1,500 kyat spent".
-        compose.onNodeWithText(text(R.string.transactions_today)).assertIsDisplayed()
+        // The day header is drawn in capitals and read as written.
+        compose.onNodeWithContentDescription(text(R.string.transactions_today)).assertIsDisplayed()
         compose.onNodeWithText("−21,500 Ks").assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.transactions_yesterday)).assertIsDisplayed()
+        compose.onNodeWithContentDescription(text(R.string.transactions_yesterday)).assertIsDisplayed()
         compose.onNode(hasText("Tea") and hasContentDescription("1,500 kyat spent")).assertIsDisplayed()
     }
 

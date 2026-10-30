@@ -94,6 +94,8 @@
 
     <!-- The month chart -->
     <string name="spending_view">သုံးငွေ ကြည့်ပုံ</string>
+    <string name="spending_spent">%1$s Ks သုံးထားသည်</string>
+    <string name="spending_tick_caption">မျဉ်းတိုသည် %1$sလ ဤရက်အထိ ဖြစ်သည်</string>
     <string name="spending_total">စုစုပေါင်း</string>
     <string name="spending_by_category">အမျိုးအစားအလိုက်</string>
     <string name="spending_less">%2$sလ ဤအချိန်ထက် %1$s Ks နည်းသည်</string>
@@ -155,6 +157,7 @@
         <item quantity="other">ဘတ်ဂျက် %2$d ခုတွင် %1$s ကျော်သွားပြီ</item>
     </plurals>
     <string name="budgets_left">%1$s ကျန်သည်</string>
+    <string name="budgets_percent">%1$s%%</string>
     <string name="budgets_over">%1$s ကျော်သွားပြီ</string>
     <string name="budgets_footer">ဘတ်ဂျက်များကို ဝဘ်ပေါ်ရှိ BudgetWise တွင် သတ်မှတ်ပါသည်။</string>
     <string name="budgets_spent_of_limit_spoken">%2$s ကျပ်ထဲမှ %1$s ကျပ် သုံးထားသည်</string>
@@ -165,7 +168,6 @@
     <string name="settings_title">ဆက်တင်</string>
     <string name="settings_section_sync">စင့်ခ်</string>
     <string name="settings_section_display">ပြသမှု</string>
-    <string name="settings_section_about">အက်ပ်အကြောင်း</string>
     <string name="settings_myanmar_digits">မြန်မာ ဂဏန်း</string>
     <string name="settings_myanmar_digits_detail">ပမာဏများကို ၅,၀၀၀ Ks ဟု ပြမည်</string>
     <string name="settings_sync_syncing">စင့်ခ်လုပ်နေသည်…</string>
@@ -192,4 +194,25 @@
     <string name="settings_sign_out_failed">အကောင့်မှ ထွက်၍ မရပါ</string>
     <string name="settings_sign_out_failed_detail">စာရင်းများ ဤဖုန်းထဲတွင် ရှိနေပါသည်။</string>
     <string name="settings_version">ဗားရှင်း %1$s (%2$d)</string>
+    <!-- First launch and create account -->
+    <string name="welcome_headline">လစဉ် %1$sကို တစ်နေရာတည်းတွင် ကြည့်ပါ</string>
+    <string name="welcome_headline_word">သုံးငွေ</string>
+    <string name="welcome_body">သုံးငွေနှင့် ဝင်ငွေများကို ထည့်ပါ။ ဝဘ်ပေါ်ရှိ BudgetWise နှင့် စင့်ခ်ဖြစ်ပါမည်။</string>
+    <string name="welcome_create">အကောင့်ဖွင့်မည်</string>
+    <string name="welcome_sign_in">အကောင့်ဝင်ရန်</string>
+    <string name="create_title">အကောင့်ဖွင့်ရန်</string>
+    <string name="create_subtitle">အီးမေးလ်ဖြင့် ဖွင့်ပါ။ ဤအကောင့်ကို ဝဘ်တွင်လည်း သုံးနိုင်သည်။</string>
+    <string name="create_name">အမည်</string>
+    <string name="create_name_hint">သင့်အမည်</string>
+    <string name="create_password_hint">စကားဝှက် ရွေးပါ</string>
+    <string name="create_password_rule">အနည်းဆုံး စာလုံး ၆ လုံး</string>
+    <string name="create_error_short_password">အနည်းဆုံး စာလုံး ၆ လုံး သုံးပါ</string>
+    <string name="create_error_invalid_email">you@example.com ကဲ့သို့ အီးမေးလ် ထည့်ပါ</string>
+    <string name="create_error_email_taken">ဤအီးမေးလ်ဖြင့် အကောင့် ရှိပြီးသား ဖြစ်သည်။</string>
+    <string name="create_sign_in_instead">ဝင်မည်</string>
+    <string name="create_submit">အကောင့်ဖွင့်မည်</string>
+    <string name="create_creating">အကောင့်ဖွင့်နေသည်…</string>
+    <string name="create_error_needs_internet">အကောင့်ဖွင့်ရန် အင်တာနက် ချိတ်ဆက်ပါ။</string>
+    <string name="create_have_account">အကောင့် ရှိပြီးသားလား။</string>
+    <string name="login_new_here">BudgetWise ကို အသစ်သုံးမလား။</string>
 </resources>

@@ -2,6 +2,7 @@ package app.budgetwise.ui.common
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -99,26 +100,30 @@ fun categoryColors(category: String): BadgeColors {
 fun categoryIcon(category: String): ImageVector = builtInCategoryStyle(category)?.icon ?: Lucide.Tag
 
 /**
- * A round badge with the category's icon. [contentDescription] is null where the category name is written next to
- * the badge (every list row and card), so TalkBack does not read it twice.
+ * A round outlined badge with the category's icon in its color. [contentDescription] is null where the category name is
+ * written next to the badge (every list row and card), so TalkBack does not read it twice.
  */
 @Composable
 fun CategoryBadge(
     category: String,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    size: Dp = 40.dp,
+    size: Dp = 38.dp,
 ) {
-    val colors = categoryColors(category)
+    val colors = BudgetWiseTheme.colors
     Box(
-        modifier = modifier.size(size).clip(CircleShape).background(colors.container),
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(colors.badgeFill)
+            .border(1.dp, colors.hairline, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = categoryIcon(category),
             contentDescription = contentDescription,
-            tint = colors.content,
-            modifier = Modifier.size(size * 0.5f),
+            tint = categoryColors(category).content,
+            modifier = Modifier.size(18.dp),
         )
     }
 }

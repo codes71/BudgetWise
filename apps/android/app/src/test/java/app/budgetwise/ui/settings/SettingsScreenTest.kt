@@ -50,11 +50,10 @@ class SettingsScreenTest {
     )
 
     @Test
-    fun theVersionSitsUnderAboutAndThereIsNoServerRow() {
+    fun theVersionIsTheLastRowAndThereIsNoServerRow() {
         show(signedIn)
 
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Version 0.1.0 (1)"))
-        compose.onNodeWithText(context.getString(R.string.settings_section_about)).assertIsDisplayed()
         compose.onNodeWithText("Version 0.1.0 (1)").assertIsDisplayed()
         compose.onNodeWithText("Server", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Developer", substring = true).assertDoesNotExist()

@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -50,6 +49,7 @@ import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
 import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.SecondaryButton
+import app.budgetwise.ui.common.SectionLabel
 import app.budgetwise.ui.common.Spinner
 import app.budgetwise.ui.common.relativeTime
 import app.budgetwise.ui.common.rememberTickingNow
@@ -95,7 +95,7 @@ fun SettingsScreen(
         Box(Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
             ) {
                 state.account?.let { account -> item(key = "account") { AccountCard(account) } }
                 item(key = "sync") {
@@ -105,11 +105,12 @@ fun SettingsScreen(
                     Section(stringResource(R.string.settings_section_display)) { DisplayCard(state.myanmarDigits, onMyanmarDigitsChange) }
                 }
                 if (state.account != null) {
-                    item(key = "sign-out") { SignOutCard(state.signingOut, onSignOut, Modifier.padding(top = 16.dp)) }
+                    item(key = "sign-out") { SignOutCard(state.signingOut, onSignOut) }
                 }
                 item(key = "about") {
-                    Section(stringResource(R.string.settings_section_about)) {
-                        Card { SettingsRow(Lucide.Info, colors.muted) { Text(version, style = BudgetWiseTheme.type.size15, color = colors.ink) } }
+                    Column {
+                        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+                        SettingsRow(Lucide.Info, colors.muted) { Text(version, style = BudgetWiseTheme.type.size15, color = colors.muted) }
                     }
                 }
             }
@@ -129,23 +130,18 @@ fun SettingsScreen(
     }
 }
 
+/** A section's rows, straight on the ground. */
 @Composable
 private fun Card(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(BudgetWiseTheme.colors.surface), content = content)
+    Column(Modifier.fillMaxWidth(), content = content)
 }
 
-/** A section's muted 36 dp heading, then its card. */
+/** A section's small caps heading over a hairline, then its rows. */
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
-    Column(Modifier.padding(top = 8.dp)) {
-        Box(Modifier.heightIn(min = 36.dp).padding(horizontal = 4.dp), contentAlignment = Alignment.CenterStart) {
-            Text(
-                text = title,
-                style = BudgetWiseTheme.type.size14.semibold,
-                color = BudgetWiseTheme.colors.muted,
-                modifier = Modifier.semantics { heading() },
-            )
-        }
+    Column(Modifier.padding(top = 20.dp)) {
+        SectionLabel(title, Modifier.padding(bottom = 10.dp).semantics { heading() })
+        HorizontalDivider(thickness = 1.dp, color = BudgetWiseTheme.colors.hairline)
         content()
     }
 }
@@ -160,7 +156,7 @@ private fun SettingsRow(
     content: @Composable RowScope.() -> Unit,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -181,26 +177,24 @@ private fun AccountCard(account: AccountInfo) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(colors.surface)
-            .padding(16.dp)
+            .padding(top = 8.dp, bottom = 4.dp)
             .semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         val initials = initials(account)
         Box(
-            modifier = Modifier.size(48.dp).clip(CircleShape).background(colors.sageContainer).clearAndSetSemantics { },
+            modifier = Modifier.size(52.dp).clip(CircleShape).background(colors.sageContainer).clearAndSetSemantics { },
             contentAlignment = Alignment.Center,
         ) {
-            Text(initials, style = type.size16.semibold.forContent(initials), color = colors.onSageContainer)
+            Text(initials, style = type.size18.semibold.forContent(initials), color = colors.onSageContainer)
         }
         Column(Modifier.weight(1f)) {
             if (account.name.isNotBlank()) {
-                Text(account.name, style = type.size16.semibold.forContent(account.name), color = colors.ink)
+                Text(account.name, style = type.size18.semibold.forContent(account.name), color = colors.ink)
                 Text(account.email, style = type.size13, color = colors.muted)
             } else {
-                Text(account.email, style = type.size16.semibold, color = colors.ink)
+                Text(account.email, style = type.size18.semibold, color = colors.ink)
             }
         }
     }
@@ -266,6 +260,7 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
                 if (supporting != null) Text(supporting, style = type.size13, color = colors.muted)
             }
         }
+        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         // Rejected entries count as unsynced too; this line is about every other entry.
         val waiting = if (sync.phase == SyncPhase.REJECTED) state.unsyncedCount - sync.rejectedCount else state.unsyncedCount
         SettingsRow(
@@ -283,10 +278,9 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
                 modifier = Modifier.weight(1f),
             )
         }
-        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
-        Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp)) {
+        Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp)) {
             if (state.sessionExpired) {
-                PrimaryButton(stringResource(R.string.session_sign_in), onSignIn, Modifier.fillMaxWidth(), height = 44.dp)
+                PrimaryButton(stringResource(R.string.session_sign_in), onSignIn, Modifier.fillMaxWidth(), height = 48.dp)
             } else {
                 SecondaryButton(
                     text = stringResource(R.string.settings_sync_now),
@@ -325,7 +319,8 @@ private fun DisplayCard(myanmarDigits: Boolean, onChange: (Boolean) -> Unit) {
 @Composable
 private fun SignOutCard(signingOut: Boolean, onSignOut: () -> Unit, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
-    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(colors.surface)) {
+    Column(modifier.fillMaxWidth()) {
+        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         SettingsRow(
             icon = Lucide.LogOut,
             tint = colors.coralText,

@@ -118,6 +118,9 @@ object Lucide {
     /** Description. */
     val Lines by lazy { lucide("Lines", "M15 18H3", "M17 6H3", "M21 12H3") }
 
+    /** Name (create account). */
+    val User by lazy { lucide("User", "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2", "M8 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0Z") }
+
     /** Email. */
     val Mail by lazy { lucide("Mail", "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-16a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2Z", "m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7") }
 

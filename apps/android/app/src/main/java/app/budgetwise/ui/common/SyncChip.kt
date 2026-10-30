@@ -1,6 +1,5 @@
 package app.budgetwise.ui.common
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -57,17 +56,18 @@ fun syncChipFor(session: SessionState, online: Boolean, status: SyncStatus, queu
 }
 
 /**
- * The header's chip: a 32 dp outlined pill with an icon and one word. Sign in opens sign-in; every other variant opens
- * Settings, which says more (which entries were refused, when it last synced).
+ * The header's sync status: an icon and one word, no outline. Quiet grey while all is well; blue, coral or the error
+ * color only when something needs a look. Sign in opens sign-in; every other variant opens Settings, which says more
+ * (which entries were refused, when it last synced).
  */
 @Composable
 fun SyncChipView(chip: SyncChip, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
-    val (content: Color, border: Color) = when (chip) {
-        SyncChip.SYNCED, SyncChip.SYNCING -> colors.muted to colors.chipBorder
-        SyncChip.OFFLINE -> colors.blue to colors.blueBorder
-        SyncChip.NOT_SYNCED, SyncChip.SIGN_IN -> colors.coralText to colors.coralBorder
-        SyncChip.COULD_NOT_SYNC -> colors.error to colors.errorBorder
+    val content: Color = when (chip) {
+        SyncChip.SYNCED, SyncChip.SYNCING -> colors.muted
+        SyncChip.OFFLINE -> colors.blue
+        SyncChip.NOT_SYNCED, SyncChip.SIGN_IN -> colors.coralText
+        SyncChip.COULD_NOT_SYNC -> colors.error
     }
     val label = stringResource(
         when (chip) {
@@ -91,21 +91,20 @@ fun SyncChipView(chip: SyncChip, onClick: () -> Unit, modifier: Modifier = Modif
     )
     Row(
         modifier = modifier
-            .height(32.dp)
+            .height(48.dp)
             .clip(CircleShape)
-            .border(1.dp, border, CircleShape)
             .clickable(onClick = onClick)
             .clearAndSetSemantics {
                 contentDescription = spoken
                 role = Role.Button
                 onClick { onClick(); true }
             }
-            .padding(start = 10.dp, end = 12.dp),
+            .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         when (chip) {
-            SyncChip.SYNCING -> Spinner(size = 14.dp)
+            SyncChip.SYNCING -> Spinner(size = 16.dp, color = colors.muted)
             else -> Icon(
                 imageVector = when (chip) {
                     SyncChip.SYNCED -> Lucide.CloudCheck

@@ -14,12 +14,16 @@ import retrofit2.http.Query
  * Mobile REST API (shared contract, base `/api/v1`). `voice/parse` is deferred with voice and is
  * intentionally absent in M1.
  *
- * Every call except [login] takes the `Authorization` value of the account it is made for ([authorization]): with
+ * Every call except [login] and [register] takes the `Authorization` value of the account it is made for ([authorization]): with
  * several accounts on the phone, an inactive account pushes its outbox with its own token, never the active one's.
  */
 interface ApiService {
     @POST("auth/token")
     suspend fun login(@Body body: LoginBody): TokenResponse
+
+    /** Creates the account (as the web signup does) and signs it in: the same reply as [login]. 409 email_taken. */
+    @POST("auth/register")
+    suspend fun register(@Body body: RegisterBody): TokenResponse
 
     @GET("categories")
     suspend fun categories(@Header(AUTHORIZATION) auth: String): CategoriesResponse
@@ -44,6 +48,9 @@ fun authorization(token: String): String = "Bearer $token"
 
 @Serializable
 data class LoginBody(val email: String, val password: String)
+
+@Serializable
+data class RegisterBody(val email: String, val password: String, val fullName: String)
 
 @Serializable
 data class UserDto(val id: String, val email: String, val fullName: String? = null)
