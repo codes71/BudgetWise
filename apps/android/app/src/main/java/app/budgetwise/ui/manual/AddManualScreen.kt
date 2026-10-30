@@ -102,9 +102,17 @@ import java.time.YearMonth
 import java.time.format.TextStyle as DateTextStyle
 import java.time.temporal.WeekFields
 
-/** [onDone] closes the form: after a save, or when the user closes it. [onOpenVoice] opens voice entry. */
+/**
+ * [onDone] closes the form: after a save, or when the user closes it. [onOpenVoice] opens voice entry, [onOpenScan]
+ * receipt scanning.
+ */
 @Composable
-fun AddManualRoute(onDone: () -> Unit, onOpenVoice: () -> Unit, viewModel: AddManualViewModel = hiltViewModel()) {
+fun AddManualRoute(
+    onDone: () -> Unit,
+    onOpenVoice: () -> Unit,
+    onOpenScan: () -> Unit,
+    viewModel: AddManualViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sayIt = rememberSayIt(onOpenVoice, explainIfUnsupported = true)
     val done by rememberUpdatedState(onDone)
@@ -121,6 +129,7 @@ fun AddManualRoute(onDone: () -> Unit, onOpenVoice: () -> Unit, viewModel: AddMa
         onDateChange = viewModel::onDateChange,
         onSave = viewModel::save,
         onSayIt = sayIt,
+        onScan = onOpenScan,
     )
 }
 
@@ -134,8 +143,9 @@ fun AddManualScreen(
     onDescriptionChange: (String) -> Unit,
     onDateChange: (LocalDate) -> Unit,
     onSave: () -> Unit,
-    /** Null on a phone without the memory for voice: no Say it. */
+    /** Null on a phone without the memory for voice: no Say it, and Scan takes the whole row. */
     onSayIt: (() -> Unit)?,
+    onScan: () -> Unit,
     modifier: Modifier = Modifier,
     focusAmount: Boolean = true,
 ) {
@@ -178,20 +188,32 @@ fun AddManualScreen(
                     .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                // Say it sits with the type: both choose how the entry is made, before the fields.
+                // Scan and Say it sit with the type: all three choose how the entry is made, before the fields.
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     TypeSelector(state.type, editable, onTypeChange)
-                    if (onSayIt != null) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         SecondaryButton(
-                            text = stringResource(R.string.voice_say_it),
+                            text = stringResource(if (onSayIt != null) R.string.scan_short else R.string.scan_entry),
                             onClick = {
                                 keyboard?.hide()
-                                onSayIt()
+                                onScan()
                             },
                             enabled = editable,
-                            icon = Lucide.Mic,
-                            modifier = Modifier.fillMaxWidth(),
+                            icon = Lucide.Camera,
+                            modifier = Modifier.weight(1f),
                         )
+                        if (onSayIt != null) {
+                            SecondaryButton(
+                                text = stringResource(R.string.voice_say_it),
+                                onClick = {
+                                    keyboard?.hide()
+                                    onSayIt()
+                                },
+                                enabled = editable,
+                                icon = Lucide.Mic,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
                 AmountField(state, editable, onAmountChange, amountFocus, onNext = { descriptionFocus.requestFocus() })
@@ -574,6 +596,7 @@ private fun AddManualScreenPreview() {
             onDateChange = {},
             onSave = {},
             onSayIt = {},
+            onScan = {},
             focusAmount = false,
         )
     }

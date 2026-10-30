@@ -64,6 +64,8 @@ class TransactionsScreenTest {
         onSignIn: () -> Unit = {},
         voice: FakeModelManager = FakeModelManager(),
         onOpenVoice: () -> Unit = {},
+        onOpenScan: () -> Unit = {},
+        scanAdded: ScanAdded? = null,
         voiceSupported: Boolean = true,
     ): FakeTransactionStore {
         val store = FakeTransactionStore(rows)
@@ -82,6 +84,9 @@ class TransactionsScreenTest {
                     onSignIn = onSignIn,
                     onAddManual = onAddManual,
                     onOpenVoice = onOpenVoice,
+                    onOpenScan = onOpenScan,
+                    scanAdded = scanAdded,
+                    onScanAddedShown = {},
                     viewModel = vm,
                     voiceSetup = voiceSetup,
                 )
@@ -291,5 +296,39 @@ class TransactionsScreenTest {
 
         compose.onNodeWithText(text(R.string.first_expense_title)).assertDoesNotExist()
         compose.onNodeWithText(text(R.string.spending_by_category)).assertIsDisplayed()
+    }
+
+    @Test
+    fun theFirstDayOffersToScanAReceipt() {
+        var scans = 0
+        show(listOf(testTransaction("Salary", 850000, today, type = TxType.INCOME, category = "Income")), onOpenScan = { scans++ })
+
+        compose.onNodeWithText(text(R.string.scan_entry)).performClick()
+
+        assertEquals(1, scans)
+    }
+
+    @Test
+    fun undoOnAddedDeletesWhatTheScanSaved() {
+        val rows = listOf(
+            testTransaction("City Mart, Groceries", 13400, today, clientId = "a"),
+            testTransaction("City Mart, Other", 1550, today, clientId = "b"),
+        )
+        val store = show(rows, scanAdded = ScanAdded(listOf("a", "b"), "City Mart"))
+
+        compose.onNodeWithText("Added 2 entries").assertIsDisplayed()
+        compose.onNodeWithText("From your City Mart receipt").assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.transactions_undo)).performClick()
+        compose.mainClock.advanceTimeBy(1_000)
+
+        assertEquals(listOf("a", "b"), store.deleted)
+    }
+
+    @Test
+    fun withoutVoiceTheFirstDayStillOffersScanning() {
+        show(listOf(testTransaction("Salary", 850000, today, type = TxType.INCOME, category = "Income")), voiceSupported = false)
+
+        compose.onNodeWithText(text(R.string.scan_entry)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.voice_say_it)).assertDoesNotExist()
     }
 }

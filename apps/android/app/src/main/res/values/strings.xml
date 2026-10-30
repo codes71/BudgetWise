@@ -382,6 +382,60 @@
     <string name="setup_voice_no_wifi_title">You\'re not on Wi-Fi</string>
     <string name="setup_voice_no_wifi_detail">The download waits for Wi-Fi. Or start it now on mobile data, about %1$s.</string>
     <string name="setup_voice_download_on_wifi">Download on Wi-Fi</string>
+    <!-- Receipt scanning: camera, reading, problems, and Check the receipt. -->
+    <string name="scan_entry">Scan a receipt</string>
+    <!-- The add form's half-width button, beside Say it. -->
+    <string name="scan_short">Scan</string>
+    <string name="first_expense_scan_detail">Shop receipts and KPay slips</string>
+    <string name="scan_hint">Fit the whole receipt in the frame</string>
+    <string name="scan_choose_photo">Choose a photo</string>
+    <string name="scan_take_photo">Take the photo</string>
+    <string name="scan_camera_off_title">BudgetWise can\'t use the camera</string>
+    <string name="scan_camera_off_detail">Allow the camera to photograph a receipt, or choose a photo you already have.</string>
+    <string name="scan_allow_camera">Allow camera</string>
+    <string name="scan_reading_title">Reading the receipt</string>
+    <string name="scan_reading_detail">Finding the shop, date and items</string>
+    <string name="scan_unreadable_title">Couldn\'t read the receipt</string>
+    <string name="scan_unreadable_detail">Try again with the whole receipt flat and in good light, or enter it yourself.</string>
+    <string name="scan_enter_yourself">Enter it yourself</string>
+    <string name="scan_offline_detail">Reading a receipt needs the internet. Your photo is kept, so you can try again when you\'re online.</string>
+    <string name="scan_too_many_title">Too many scans</string>
+    <string name="scan_too_many_detail">You can read 20 photos an hour. Try again later, or enter it yourself.</string>
+    <string name="scan_sign_in_title">Sign in again to read receipts</string>
+    <string name="scan_title_receipt">Check the receipt</string>
+    <string name="scan_title_payment">Check the payment</string>
+    <string name="scan_title_history">Check the payments</string>
+    <string name="scan_scanned">Scanned</string>
+    <string name="scan_no_date">Today. No date on the receipt</string>
+    <string name="scan_total">Total</string>
+    <string name="scan_split">Split by category</string>
+    <plurals name="scan_items">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <string name="scan_split_note">Tap a category to change it. Each one becomes its own entry.</string>
+    <string name="scan_history_note">Tap a payment to leave it out.</string>
+    <string name="scan_short_title">Items are %1$s Ks short</string>
+    <string name="scan_short_detail">The receipt total is %1$s Ks.</string>
+    <string name="scan_short_add">Add as Other</string>
+    <string name="scan_as_one">Add as one entry instead</string>
+    <plurals name="scan_add">
+        <item quantity="one">Add %d entry</item>
+        <item quantity="other">Add %d entries</item>
+    </plurals>
+    <plurals name="scan_move_title">
+        <item quantity="one">Move %d item to</item>
+        <item quantity="other">Move %d items to</item>
+    </plurals>
+    <string name="scan_move_title_none">Move to</string>
+    <!-- A receipt line's description: the shop, then the category. -->
+    <string name="scan_entry_description">%1$s, %2$s</string>
+    <plurals name="scan_added">
+        <item quantity="one">Added %d entry</item>
+        <item quantity="other">Added %d entries</item>
+    </plurals>
+    <string name="scan_added_from">From your %1$s receipt</string>
+    <string name="scan_added_from_photo">From your photo</string>
     <string name="voice_unsupported_title">Voice isn\'t available on this phone</string>
     <string name="voice_unsupported_body">Voice works out what you say on the phone itself, which needs at least %1$d GB of memory. This phone has less, so voice is off. You can still type every entry.</string>
     <string name="settings_voice_unsupported_detail">Voice needs at least %1$d GB of memory, more than this phone has.</string>

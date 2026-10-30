@@ -52,10 +52,15 @@ fun createOkHttpClient(logging: NetLogging): OkHttpClient =
         }
         .build()
 
-/** Gives an [ApiService] method marked [SlowCall] its longer read timeout. */
+/** Gives an [ApiService] method marked [SlowCall] its longer timeouts. */
 private val SlowCalls = Interceptor { chain ->
     val slow = chain.request().tag(Invocation::class.java)?.method()?.getAnnotation(SlowCall::class.java)
-    val next = if (slow == null) chain else chain.withReadTimeout(slow.readSeconds, TimeUnit.SECONDS)
+    val next = when {
+        slow == null -> chain
+        slow.writeSeconds > 0 ->
+            chain.withReadTimeout(slow.readSeconds, TimeUnit.SECONDS).withWriteTimeout(slow.writeSeconds, TimeUnit.SECONDS)
+        else -> chain.withReadTimeout(slow.readSeconds, TimeUnit.SECONDS)
+    }
     next.proceed(chain.request())
 }
 
