@@ -1,0 +1,15 @@
+load_backend: loaded CPU backend from /data/local/tmp/raj/bin/libggml-cpu-android_armv8.2_2.so
+build: 0 (unknown) with Android (13624864) clang version 19.0.1 for x86_64-apple-darwin
+llama_model_loader: loaded meta data with 32 key-value pairs and 311 tensors from /data/local/tmp/raj/models/Raj-0.6B-Q8_0.gguf (version GGUF V3 (latest))
+llama_context: n_ctx = 4096
+clip_model_loader: model name:   Raj-0.6B
+mtmd_cli_context: audio input is supported
+encoding audio slice...
+audio slice encoded in 1210 ms
+decoding audio batch 1/1, n_tokens_batch = 128
+audio decoded (128 tokens) in 640 ms
+language None<asr_text>Rolan Domingo သည် ၂ E M ၁၆ နိုင်ငံအဖြစ် ကမ္ဘာလှည့်ခရီးသွားများကို ပစ်ခတ်ခဲ့ပါသည်။
+common_perf_print: eval time = 2900.00 ms / 60 runs
+BENCH_WALL_NS=6120000000
+BENCH_VMHWM_KB=912384
+BENCH_EXIT=0

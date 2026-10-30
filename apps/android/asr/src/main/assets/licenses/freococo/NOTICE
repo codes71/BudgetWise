@@ -1,0 +1,9 @@
+freococo/myanmar_asr
+Burmese (Myanmar) speech recognition, a 23.8M-parameter Conformer CTC model trained from scratch.
+https://huggingface.co/freococo/myanmar_asr (revision e40d48e354f6ee1b8e15e4fc513cfba7d624e80a)
+License: Apache License 2.0, as declared by the model card (LICENSE).
+
+Modification notice: BudgetWise converted the published weights to one ONNX file (freococo.onnx) with
+apps/android/asr/host/export/freococo_onnx.py. The log-mel front end and CMVN statistics are folded into the
+graph and the graph returns the argmax syllable ids. The weights are unchanged. vocab.json is the
+published file, unmodified. No endorsement by the author is implied.

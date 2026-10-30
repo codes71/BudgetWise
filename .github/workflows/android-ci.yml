@@ -1,0 +1,67 @@
+name: Android CI
+
+on:
+  pull_request:
+    paths:
+      - "apps/android/**"
+      - ".github/workflows/android-ci.yml"
+  push:
+    branches: [master]
+    paths:
+      - "apps/android/**"
+      - ".github/workflows/android-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      # No submodules or NDK: :asr runs ONNX Runtime from Maven.
+      - uses: actions/checkout@v7
+
+      # 21: Robolectric runs the unit tests on Android SDK 36, which it supports only on Java 21 or newer.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v4.0.4
+
+      # Caches Gradle and validates the wrapper jar.
+      - uses: gradle/actions/setup-gradle@v6
+
+      # JVM unit tests only (Robolectric included); instrumented tests need a device and never run here.
+      - name: Unit tests, debug build and lint
+        run: >-
+          ./gradlew --continue
+          :core:data:testDebugUnitTest
+          :app:testDebugUnitTest
+          :nlu:test
+          :feature:voice:testDebugUnitTest
+          :asr:testDebugUnitTest
+          :asr-demo:testDebugUnitTest
+          :app:assembleDebug
+          :app:lintDebug
+          :core:data:lintDebug
+          :asr:lintDebug
+
+      - name: Upload test and lint reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-reports
+          path: |
+            apps/android/*/build/reports/
+            apps/android/core/*/build/reports/
+          retention-days: 7
