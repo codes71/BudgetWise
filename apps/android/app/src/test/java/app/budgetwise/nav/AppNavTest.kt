@@ -171,7 +171,7 @@ class AppNavTest {
     }
 
     @Test
-    fun skippingTheIncomeStepOpensTheAppWithNothingBehindIt() {
+    fun skippingTheIncomeAndVoiceStepsOpensTheAppWithNothingBehindIt() {
         lateinit var nav: NavHostController
         compose.setContent {
             nav = rememberNavController()
@@ -185,6 +185,11 @@ class AppNavTest {
         compose.onNodeWithText(text(R.string.income_title)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.nav_budgets)).assertDoesNotExist()
         compose.onNode(hasText(text(R.string.income_skip)) and hasClickAction()).performClick()
+
+        // The last step offers voice, with no way back to the income step.
+        compose.onNodeWithText(text(R.string.setup_voice_title)).assertIsDisplayed()
+        assertEquals(listOf(Routes.SETUP_VOICE), compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } })
+        compose.onNode(hasText(text(R.string.voice_not_now)) and hasClickAction()).performClick()
 
         compose.onNodeWithText(text(R.string.nav_budgets)).assertIsDisplayed()
         assertEquals(listOf(Routes.TRANSACTIONS), compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } })

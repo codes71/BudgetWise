@@ -28,6 +28,9 @@ class SettingsScreenTest {
     private val now = Instant.parse("2026-10-21T10:00:00Z")
     private var signOuts = 0
     private var languageOpened = 0
+    private var voiceDownloads = 0
+    private var voiceRemovals = 0
+    private val cloudParse = mutableListOf<Boolean>()
 
     private fun show(state: SettingsUiState) = compose.setContent {
         BudgetWiseTheme {
@@ -38,6 +41,9 @@ class SettingsScreenTest {
                 onSyncNow = {},
                 onSignOut = { signOuts++ },
                 onMyanmarDigitsChange = {},
+                onDownloadVoice = { voiceDownloads++ },
+                onRemoveVoice = { voiceRemovals++ },
+                onCloudParseChange = { cloudParse += it },
                 onSignIn = {},
                 onLanguage = { languageOpened++ },
                 version = "Version 0.1.0 (1)",
@@ -61,6 +67,29 @@ class SettingsScreenTest {
         compose.onNodeWithText("Developer", substring = true).assertDoesNotExist()
         // The sync button and its state stay.
         compose.onNodeWithText(context.getString(R.string.settings_sync_now)).assertExists()
+    }
+
+    @Test
+    fun theVoiceSectionShowsWhatIsOnThePhoneAndTheSwitch() {
+        show(signedIn.copy(voice = app.budgetwise.asr.ModelState.Ready("/voice"), cloudParse = true))
+
+        compose.onNodeWithText(context.getString(R.string.settings_voice_ready)).assertIsDisplayed()
+        compose.onNodeWithText("1.1 GB on this phone").assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.settings_voice_remove)).performClick()
+        compose.onNodeWithText(context.getString(R.string.settings_cloud_parse)).performClick()
+
+        assertEquals(1, voiceRemovals)
+        assertEquals("the switch turns it off", listOf(false), cloudParse)
+    }
+
+    @Test
+    fun voiceNotOnThePhoneOffersTheDownload() {
+        show(signedIn)
+
+        compose.onNodeWithText(context.getString(R.string.settings_voice_missing)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.settings_voice_download)).performClick()
+
+        assertEquals(1, voiceDownloads)
     }
 
     @Test

@@ -18,11 +18,13 @@ import app.budgetwise.R
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.nlu.TxType
+import app.budgetwise.testing.FakeModelManager
 import app.budgetwise.testing.FakeNetworkStatus
 import app.budgetwise.testing.FakeSettingsStore
 import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTransactionStore
 import app.budgetwise.testing.testTransaction
+import app.budgetwise.ui.voice.VoiceSetupViewModel
 import app.budgetwise.ui.common.SessionNotice
 import app.budgetwise.ui.common.SyncChip
 import app.budgetwise.ui.theme.BudgetWiseTheme
@@ -59,12 +61,15 @@ class TransactionsScreenTest {
         onAddManual: () -> Unit = {},
         sessionNotice: SessionNotice? = null,
         onSignIn: () -> Unit = {},
+        voice: FakeModelManager = FakeModelManager(),
+        onOpenVoice: () -> Unit = {},
     ): FakeTransactionStore {
         val store = FakeTransactionStore(rows)
         // The delete outlives the screen in the app; here it runs straight away.
         vm = TransactionsViewModel(
             store, FakeSyncControls(), FakeSettingsStore(), FakeNetworkStatus(), clock, CoroutineScope(Dispatchers.Unconfined),
         )
+        val voiceSetup = VoiceSetupViewModel(voice, FakeSettingsStore(), clock)
         compose.setContent {
             BudgetWiseTheme {
                 TransactionsRoute(
@@ -74,7 +79,9 @@ class TransactionsScreenTest {
                     onSettings = {},
                     onSignIn = onSignIn,
                     onAddManual = onAddManual,
+                    onOpenVoice = onOpenVoice,
                     viewModel = vm,
+                    voiceSetup = voiceSetup,
                 )
             }
         }
@@ -227,6 +234,38 @@ class TransactionsScreenTest {
         compose.onNodeWithText(text(R.string.first_expense_type)).performClick()
 
         assertEquals(1, opened)
+    }
+
+    @Test
+    fun theFirstDayOffersSayItWhichOpensVoiceOnceItIsOnThePhone() {
+        val income = listOf(testTransaction("Salary", 850000, today, type = TxType.INCOME, category = "Income"))
+        var opened = 0
+        show(income, voice = FakeModelManager(app.budgetwise.asr.ModelState.Ready("/voice")), onOpenVoice = { opened++ })
+
+        compose.onNodeWithText(text(R.string.first_expense_say_detail)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.voice_say_it)).performClick()
+
+        compose.runOnIdle { assertEquals(1, opened) }
+    }
+
+    @Test
+    fun sayItBeforeTheDownloadOffersItAndShowsItsProgress() {
+        val income = listOf(testTransaction("Salary", 850000, today, type = TxType.INCOME, category = "Income"))
+        val voice = FakeModelManager()
+        var opened = 0
+        show(income, voice = voice, onOpenVoice = { opened++ })
+
+        compose.onNodeWithText(text(R.string.voice_say_it)).performClick()
+        compose.onNodeWithText(text(R.string.voice_setup_title)).assertIsDisplayed()
+        compose.onNodeWithText("Download 1.1 GB").performClick()
+
+        compose.onNodeWithText(text(R.string.voice_downloading_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.voice_waiting_wifi)).assertIsDisplayed()
+        compose.runOnIdle { assertEquals("on Wi-Fi only", listOf(false), voice.downloads) }
+        // Finished while the card is open: voice opens.
+        voice.state.value = app.budgetwise.asr.ModelState.Ready("/voice")
+        compose.runOnIdle { assertEquals(1, opened) }
+        compose.onNodeWithText(text(R.string.voice_downloading_title)).assertDoesNotExist()
     }
 
     @Test

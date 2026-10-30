@@ -91,7 +91,7 @@ fun CreateAccountScreen(
         subtitle = stringResource(R.string.create_subtitle),
         onBack = onBack,
         modifier = modifier,
-        step = Step(at = 1, of = 2),
+        step = Step(at = 1, of = 3),
         button = {
             PrimaryButton(
                 text = stringResource(if (state.loading) R.string.create_creating else R.string.create_submit),

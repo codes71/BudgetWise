@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.budgetwise.AccountActions
 import app.budgetwise.SyncControls
+import app.budgetwise.asr.ModelManager
+import app.budgetwise.asr.ModelState
 import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.auth.SessionState
 import app.budgetwise.data.auth.UserInfo
@@ -38,6 +40,10 @@ data class SettingsUiState(
     val signOutFailed: Boolean = false,
     /** Amounts in Myanmar digits (SettingsStore, default off). */
     val myanmarDigits: Boolean = false,
+    /** The voice models on this phone. */
+    val voice: ModelState = ModelState.Missing,
+    /** "Understand what I say": voice may send the words it hears (SettingsStore, default on). */
+    val cloudParse: Boolean = true,
 ) {
     val canSyncNow: Boolean get() = account != null && !sessionExpired && sync.phase != SyncPhase.SYNCING
 }
@@ -66,15 +72,23 @@ class SettingsViewModel @Inject constructor(
     private val session: SessionManager,
     private val sync: SyncControls,
     private val settings: SettingsStore,
+    private val models: ModelManager,
 ) : ViewModel() {
     private data class SignOut(val running: Boolean = false, val failed: Boolean = false)
 
     private val signOut = MutableStateFlow(SignOut())
 
-    /** The sign-out flow and the display settings, combined so the main combine stays at five sources. */
-    private data class Local(val out: SignOut, val myanmarDigits: Boolean)
+    /** The sign-out flow, the display and voice settings, combined so the main combine stays at five sources. */
+    private data class Local(
+        val out: SignOut,
+        val myanmarDigits: Boolean,
+        val voice: ModelState = ModelState.Missing,
+        val cloudParse: Boolean = true,
+    )
 
-    private val local = combine(signOut, settings.myanmarDigits) { out, digits -> Local(out, digits) }
+    private val local = combine(signOut, settings.myanmarDigits, models.state, settings.cloudParseEnabled) { out, digits, voice, cloud ->
+        Local(out, digits, voice, cloud)
+    }
 
     val state: StateFlow<SettingsUiState> =
         combine(session.state, sync.status, sync.queued, sync.unsyncedCount, local) { s, status, queued, unsynced, l ->
@@ -82,7 +96,7 @@ class SettingsViewModel @Inject constructor(
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
-            uiState(session.state.value, sync.status.value, queued = false, unsynced = 0, l = Local(SignOut(), false)),
+            uiState(session.state.value, sync.status.value, queued = false, unsynced = 0, l = Local(SignOut(), false, models.state.value)),
         )
 
     private fun uiState(s: SessionState, status: SyncStatus, queued: Boolean, unsynced: Int, l: Local): SettingsUiState {
@@ -101,6 +115,8 @@ class SettingsViewModel @Inject constructor(
             signingOut = l.out.running,
             signOutFailed = l.out.failed,
             myanmarDigits = l.myanmarDigits,
+            voice = l.voice,
+            cloudParse = l.cloudParse,
         )
     }
 
@@ -124,6 +140,26 @@ class SettingsViewModel @Inject constructor(
             } catch (_: Exception) {
                 // A Room or Keystore failure: say so, and let the user try again.
                 SignOut(failed = true)
+            }
+        }
+    }
+
+    /** Downloads voice on Wi-Fi (the download waits for it). */
+    fun downloadVoice() = voiceAction { models.ensureDownloaded(allowMetered = false) }
+
+    /** Stops a download, or removes the downloaded voice; both free the space. */
+    fun removeVoice() = voiceAction { models.delete() }
+
+    fun setCloudParse(on: Boolean) = voiceAction { settings.setCloudParseEnabled(on) }
+
+    private fun voiceAction(action: suspend () -> Unit) {
+        viewModelScope.launch {
+            try {
+                action()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // WorkManager, the file system or DataStore failed; the rows keep showing what is true.
             }
         }
     }

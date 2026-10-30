@@ -65,12 +65,14 @@ import app.budgetwise.ui.manual.AddManualRoute
 import app.budgetwise.ui.onboarding.CreateAccountRoute
 import app.budgetwise.ui.onboarding.FirstIncomeRoute
 import app.budgetwise.ui.onboarding.LanguageRoute
+import app.budgetwise.ui.onboarding.SetupVoiceRoute
 import app.budgetwise.ui.onboarding.WelcomeScreen
 import app.budgetwise.ui.settings.SettingsRoute
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
 import app.budgetwise.ui.transactions.TransactionsRoute
+import app.budgetwise.ui.voice.VoiceRoute
 import java.time.Instant
 
 object Routes {
@@ -79,8 +81,10 @@ object Routes {
     const val CREATE_ACCOUNT = "create_account"
     const val LOGIN = "login"
     const val FIRST_INCOME = "first_income"
+    const val SETUP_VOICE = "setup_voice"
     const val TRANSACTIONS = "transactions"
     const val MANUAL = "manual"
+    const val VOICE = "voice"
     const val BUDGETS = "budgets"
     const val SETTINGS = "settings"
 }
@@ -112,6 +116,16 @@ private val TopLevels = listOf(
  */
 internal fun NavController.closeManual() {
     if (currentDestination?.route == Routes.MANUAL) popBackStack()
+}
+
+/**
+ * Closes voice after its entries are saved, and the add form under it when voice was opened from there: the entries
+ * are in, so the user lands where they started. Like [closeManual], safe to call twice.
+ */
+internal fun NavController.closeVoiceSaved() {
+    if (currentDestination?.route != Routes.VOICE) return
+    val fromManual = previousBackStackEntry?.destination?.route == Routes.MANUAL
+    popBackStack(if (fromManual) Routes.MANUAL else Routes.VOICE, inclusive = true)
 }
 
 private fun NavDestination?.isOn(route: String) = this?.hierarchy?.any { it.route == route } == true
@@ -177,6 +191,7 @@ fun AppNav(
     fun openSignIn() = navController.navigate(Routes.LOGIN) { launchSingleTop = true }
     fun openSettings() = navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
     fun openLanguage() = navController.navigate(Routes.LANGUAGE) { launchSingleTop = true }
+    fun openVoice() = navController.navigate(Routes.VOICE) { launchSingleTop = true }
 
     // Sign in opens sign-in; every other chip opens Settings, which says more about sync.
     fun onChip(chip: SyncChip) = if (chip == SyncChip.SIGN_IN) openSignIn() else openSettings()
@@ -269,8 +284,19 @@ fun AppNav(
                     onCreateAccount = dropUnlessResumed { swapTo(Routes.CREATE_ACCOUNT) },
                 )
             }
+            // Onboarding goes on to voice with nothing behind it; voice's step goes on to the app.
             composable(Routes.FIRST_INCOME) {
-                FirstIncomeRoute(onDone = ::enterApp)
+                FirstIncomeRoute(
+                    onDone = {
+                        navController.navigate(Routes.SETUP_VOICE) {
+                            popUpTo(navController.graph.id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
+            composable(Routes.SETUP_VOICE) {
+                SetupVoiceRoute(onDone = ::enterApp)
             }
             composable(Routes.TRANSACTIONS) {
                 TransactionsRoute(
@@ -280,10 +306,28 @@ fun AppNav(
                     onSettings = ::openSettings,
                     onSignIn = ::openSignIn,
                     onAddManual = { navController.navigate(Routes.MANUAL) { launchSingleTop = true } },
+                    onOpenVoice = ::openVoice,
                 )
             }
             composable(Routes.MANUAL) {
-                AddManualRoute(onDone = navController::closeManual)
+                AddManualRoute(onDone = navController::closeManual, onOpenVoice = ::openVoice)
+            }
+            composable(Routes.VOICE) {
+                VoiceRoute(
+                    onClose = dropUnlessResumed { navController.popBackStack() },
+                    // Back to the add form when voice came from it, else the form in voice's place.
+                    onTypeInstead = dropUnlessResumed {
+                        if (navController.previousBackStackEntry?.destination?.route == Routes.MANUAL) {
+                            navController.popBackStack()
+                        } else {
+                            navController.navigate(Routes.MANUAL) {
+                                popUpTo(Routes.VOICE) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                    onSaved = navController::closeVoiceSaved,
+                )
             }
             composable(Routes.BUDGETS) {
                 BudgetsRoute(chip = chip, onChip = { chip?.let(::onChip) }, onSettings = ::openSettings)

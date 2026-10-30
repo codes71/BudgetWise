@@ -6,6 +6,9 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import app.budgetwise.asr.AsrResult
+import app.budgetwise.asr.OnnxSpeechToText
+import app.budgetwise.asr.SpeechToText
 import app.budgetwise.data.model.Budget
 import app.budgetwise.data.model.DailySpend
 import app.budgetwise.data.model.Transaction
@@ -17,6 +20,8 @@ import app.budgetwise.data.repo.LoginResult
 import app.budgetwise.data.repo.RegisterResult
 import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.repo.TransactionRepository
+import app.budgetwise.data.repo.VoiceParse
+import app.budgetwise.data.repo.VoiceRepository
 import app.budgetwise.data.sync.SyncEngine
 import app.budgetwise.data.sync.SyncScheduler
 import app.budgetwise.data.sync.SyncStatus
@@ -103,6 +108,17 @@ interface CategorySource {
 
     /** Fetches the server list for next time; a failure keeps the cache. */
     suspend fun refresh()
+}
+
+/** Reads what the phone heard (text only) into entries or a spending question, on the server ([VoiceRepository]). */
+fun interface VoiceParser {
+    suspend fun parse(transcripts: List<String>): ApiResult<VoiceParse>
+}
+
+/** On-device speech recognition ([OnnxSpeechToText]): every speech model's transcript of the same audio. */
+interface OnDeviceSpeech : SpeechToText {
+    /** Loads the models ahead of the first transcription; does nothing while voice is not downloaded. */
+    suspend fun warmUp()
 }
 
 /**
@@ -195,4 +211,14 @@ class DefaultCategorySource @Inject constructor(private val repo: CategoryReposi
     override suspend fun refresh() {
         repo.refresh()
     }
+}
+
+class DefaultVoiceParser @Inject constructor(private val repo: VoiceRepository) : VoiceParser {
+    override suspend fun parse(transcripts: List<String>): ApiResult<VoiceParse> = repo.parse(transcripts)
+}
+
+class DefaultOnDeviceSpeech @Inject constructor(private val stt: OnnxSpeechToText) : OnDeviceSpeech {
+    override suspend fun transcribe(audio: FloatArray): AsrResult = stt.transcribe(audio)
+
+    override suspend fun warmUp() = stt.warmUp()
 }

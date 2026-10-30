@@ -4,8 +4,16 @@ import app.budgetwise.AccountActions
 import app.budgetwise.BudgetSource
 import app.budgetwise.CategorySource
 import app.budgetwise.NetworkStatus
+import app.budgetwise.OnDeviceSpeech
 import app.budgetwise.SyncControls
 import app.budgetwise.TransactionStore
+import app.budgetwise.VoiceParser
+import app.budgetwise.asr.AsrResult
+import app.budgetwise.asr.ModelManager
+import app.budgetwise.asr.ModelState
+import app.budgetwise.asr.Transcript
+import app.budgetwise.asr.VoiceModel
+import app.budgetwise.asr.engine.VoiceFiles
 import app.budgetwise.data.auth.SavedAccounts
 import app.budgetwise.data.auth.StoredSession
 import app.budgetwise.data.auth.TokenStore
@@ -21,9 +29,14 @@ import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.LoginResult
 import app.budgetwise.data.repo.RegisterResult
 import app.budgetwise.data.repo.NewTransaction
+import app.budgetwise.data.repo.VoiceParse
 import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
 import app.budgetwise.nlu.TxType
+import app.budgetwise.voice.MicUnavailableException
+import app.budgetwise.voice.Microphone
+import app.budgetwise.voice.Recording
+import app.budgetwise.voice.RecordingEnd
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -229,6 +242,84 @@ class FakeCategorySource(names: List<String> = CategoryRepository.BUILT_IN) : Ca
     override suspend fun refresh() {
         refreshes++
         refreshFailure?.let { throw it }
+    }
+}
+
+/** The voice models: [ensureDownloaded] starts a download (waiting for Wi-Fi unless metered is allowed). */
+class FakeModelManager(initial: ModelState = ModelState.Missing) : ModelManager {
+    override val state = MutableStateFlow(initial)
+
+    /** allowMetered of each [ensureDownloaded] call. */
+    val downloads = mutableListOf<Boolean>()
+    var deletes = 0
+
+    override suspend fun ensureDownloaded(allowMetered: Boolean) {
+        downloads += allowMetered
+        if (state.value !is ModelState.Ready) state.value = ModelState.Downloading(0f, waiting = !allowMetered)
+    }
+
+    override suspend fun delete() {
+        deletes++
+        state.value = ModelState.Missing
+    }
+
+    override fun files(): VoiceFiles? = null
+}
+
+/** One capture: [stop] hands back [audio] (the same array, so a test sees it zeroed). */
+class FakeRecording(val audio: FloatArray = FloatArray(16_000) { 0.25f }) : Recording {
+    override val level = MutableStateFlow(0f)
+    override val ended = MutableStateFlow<RecordingEnd?>(null)
+    var stopped = false
+    var cancelled = false
+
+    override fun stop(): FloatArray {
+        stopped = true
+        return audio
+    }
+
+    override fun cancel() {
+        cancelled = true
+    }
+}
+
+class FakeMicrophone : Microphone {
+    /** When set, [start] throws it (another app holds the microphone). */
+    var failure: MicUnavailableException? = null
+    val recordings = mutableListOf<FakeRecording>()
+
+    override fun start(): Recording {
+        failure?.let { throw it }
+        return FakeRecording().also { recordings += it }
+    }
+}
+
+/** On-device recognition that hears [texts], one per model. */
+class FakeSpeech(var texts: List<String> = listOf("ကော်ဖီ သုံးထောင်", "ကော်ဖီ ၃၀၀၀")) : OnDeviceSpeech {
+    var failure: Exception? = null
+    var warmUps = 0
+
+    /** A copy of each audio it was given. */
+    val heard = mutableListOf<FloatArray>()
+
+    override suspend fun warmUp() {
+        warmUps++
+    }
+
+    override suspend fun transcribe(audio: FloatArray): AsrResult {
+        failure?.let { throw it }
+        heard += audio.copyOf()
+        return AsrResult(VoiceModel.entries.zip(texts) { model, text -> Transcript(model, model.id, text, 1) }, audioMs = 1_000, decodeMs = 10)
+    }
+}
+
+class FakeVoiceParser : VoiceParser {
+    val calls = mutableListOf<List<String>>()
+    var reply: ApiResult<VoiceParse> = ApiResult.Ok(VoiceParse.Other(""))
+
+    override suspend fun parse(transcripts: List<String>): ApiResult<VoiceParse> {
+        calls += transcripts
+        return reply
     }
 }
 

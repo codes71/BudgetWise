@@ -79,7 +79,7 @@ fun FirstIncomeRoute(onDone: () -> Unit, viewModel: FirstIncomeViewModel = hiltV
 }
 
 /**
- * Step 2 of 2, with no way back (the account exists): the amount, where it comes from, and what the month will show.
+ * Step 2 of 3, with no way back (the account exists): the amount, where it comes from, and what the month will show.
  * Skip goes on without saving anything.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -101,7 +101,7 @@ fun FirstIncomeScreen(
         subtitle = stringResource(R.string.income_subtitle),
         onBack = null,
         modifier = modifier,
-        step = Step(at = 2, of = 2),
+        step = Step(at = 2, of = 3),
         button = {
             PrimaryButton(
                 text = stringResource(R.string.income_start),

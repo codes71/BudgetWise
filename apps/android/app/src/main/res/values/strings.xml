@@ -260,4 +260,122 @@
     <string name="first_expense_detail">It comes straight off the number above.</string>
     <string name="first_expense_type">Type it</string>
     <string name="first_expense_type_detail">Amount and category, in a few seconds</string>
+
+    <!-- Voice entry -->
+    <string name="voice_say_it">Say it</string>
+    <string name="first_expense_say_detail">In Burmese or English, like “coffee 3,000”</string>
+    <string name="voice_setup_title">Set up voice</string>
+    <string name="voice_setup_body">Say what you spent in Burmese or English. Voice needs a one-time download of %1$s, so Wi-Fi is best.</string>
+    <string name="voice_privacy">Your voice never leaves this phone. Only the words it hears are sent, to turn them into entries.</string>
+    <string name="voice_download">Download %1$s</string>
+    <string name="voice_not_now">Not now</string>
+    <string name="voice_download_failed">The download stopped. Try again.</string>
+    <string name="voice_download_no_room">There isn\'t enough space. Free up %1$s and try again.</string>
+    <string name="voice_downloading_title">Downloading voice</string>
+    <string name="voice_downloaded_of">%1$s of %2$s</string>
+    <plurals name="voice_minutes_left">
+        <item quantity="one">About %d minute left</item>
+        <item quantity="other">About %d minutes left</item>
+    </plurals>
+    <string name="voice_waiting_wifi">Waiting for Wi-Fi</string>
+    <string name="voice_use_mobile_data">Use mobile data</string>
+    <string name="voice_download_note">Keep using the app. A notification tells you when voice is ready.</string>
+    <string name="voice_keep_using">Keep using the app</string>
+    <string name="voice_cancel_download">Cancel download</string>
+    <string name="voice_listening">Listening</string>
+    <string name="voice_stopped">Stopped</string>
+    <string name="voice_prompt">Say what you spent, or ask about it.</string>
+    <string name="voice_for_example">For example</string>
+    <string name="voice_example_1" translatable="false">“ကော်ဖီ သုံးထောင်”</string>
+    <string name="voice_example_2" translatable="false">“မနေ့က တက္ကစီ ငါးထောင်”</string>
+    <string name="voice_example_3" translatable="false">“ဒီအပတ် ဘယ်လောက် သုံးလဲ”</string>
+    <string name="voice_example_1_gloss">Coffee, 3,000</string>
+    <string name="voice_example_2_gloss">Taxi yesterday, 5,000</string>
+    <string name="voice_example_3_gloss">Spent this week?</string>
+    <string name="voice_done">Done</string>
+    <string name="voice_stays_on_phone">Your voice stays on this phone</string>
+    <string name="voice_working_title">Working it out</string>
+    <string name="voice_working_listening_back">Writing down what you said</string>
+    <string name="voice_working_understanding">Turning your words into entries</string>
+    <string name="voice_no_amount_title">No amount heard</string>
+    <string name="voice_no_amount_body">We heard “%1$s” but no price. Try again and say the amount too.</string>
+    <string name="voice_nothing_title">Didn\'t catch that</string>
+    <string name="voice_nothing_body">Nothing was heard. Hold the phone a little closer and try again.</string>
+    <string name="voice_say_again">Say it again</string>
+    <string name="voice_type_instead">Type it instead</string>
+    <string name="voice_offline_title">No internet connection</string>
+    <string name="voice_offline_body">Understanding what you said needs the internet. What you said is kept, so you can try again when you\'re online.</string>
+    <string name="voice_type_yourself">Type it yourself</string>
+    <string name="voice_failed_title">Couldn\'t work that out</string>
+    <string name="voice_failed_body">BudgetWise couldn\'t reach the service that understands speech. What you said is kept.</string>
+    <string name="voice_signed_out_title">Sign in to use voice</string>
+    <string name="voice_signed_out_body">Your session ended. Sign in again from Settings, or type the entry.</string>
+    <string name="voice_listen_failed_title">Couldn\'t listen back</string>
+    <string name="voice_listen_failed_body">Something went wrong on this phone. Try again.</string>
+    <string name="voice_mic_title">Allow the microphone</string>
+    <string name="voice_mic_body">Voice needs the microphone to hear you. Nothing is recorded or kept.</string>
+    <string name="voice_open_settings">Open settings</string>
+    <string name="voice_allow">Allow</string>
+    <string name="voice_mic_busy_title">The microphone is busy</string>
+    <string name="voice_mic_busy_body">Another app may be using it. Close that app and try again.</string>
+    <string name="voice_off_title">Voice is turned off</string>
+    <string name="voice_off_body">Voice sends the words it hears, never your voice, to work out the entries. You turned this off in Settings.</string>
+    <string name="voice_turn_on">Turn it on</string>
+    <string name="voice_review_title">Check what you said</string>
+    <string name="voice_we_heard">We heard</string>
+    <string name="voice_total">Total</string>
+    <string name="voice_total_received">Received</string>
+    <plurals name="voice_entries_count">
+        <item quantity="one">%d entry</item>
+        <item quantity="other">%d entries</item>
+    </plurals>
+    <plurals name="voice_add_entries">
+        <item quantity="one">Add %d entry</item>
+        <item quantity="other">Add %d entries</item>
+    </plurals>
+    <plurals name="voice_no_day_said">
+        <item quantity="one">No day was said, so it is set to today, %1$s. Tap it to change it.</item>
+        <item quantity="other">No day was said, so these are set to today, %1$s. Tap an entry to change it.</item>
+    </plurals>
+    <string name="voice_save_failed_detail">Nothing was lost. Tap Add to try again.</string>
+    <string name="voice_edit_title">Change entry</string>
+    <string name="voice_remove_entry">Remove this entry</string>
+    <string name="voice_you_asked">You asked</string>
+    <string name="voice_this_week">This week</string>
+    <string name="voice_this_month">This month</string>
+    <string name="voice_your_spending">Your spending</string>
+    <string name="voice_spent_range">Spent, %1$s to %2$s</string>
+    <string name="voice_spent_on">Spent, %1$s</string>
+    <string name="voice_today_lower">today</string>
+    <string name="voice_by_category">By category</string>
+    <string name="voice_these_entries">Entries</string>
+    <string name="voice_ask_again">Ask something else</string>
+    <string name="voice_see_entries">See these entries</string>
+    <string name="voice_see_categories">See by category</string>
+    <string name="voice_nothing_spent">Nothing was spent in this time.</string>
+    <string name="voice_budgets_label">Budgets, %1$s</string>
+    <plurals name="voice_over_count">
+        <item quantity="one">Over in %d category</item>
+        <item quantity="other">Over in %d categories</item>
+    </plurals>
+    <string name="voice_within_budgets">Within every budget</string>
+    <string name="voice_of_limit">of %1$s</string>
+    <string name="voice_no_budgets">No budgets yet.</string>
+    <string name="settings_section_voice">Voice</string>
+    <string name="settings_voice_ready">Voice is ready</string>
+    <string name="settings_voice_on_phone">%1$s on this phone</string>
+    <string name="settings_voice_remove">Remove</string>
+    <string name="settings_voice_missing">Voice isn\'t set up</string>
+    <string name="settings_voice_missing_detail">A one-time download of %1$s</string>
+    <string name="settings_voice_download">Download</string>
+    <string name="settings_voice_failed">Voice download stopped</string>
+    <string name="settings_cloud_parse">Understand what I say</string>
+    <string name="settings_cloud_parse_detail">Sends the words, never your voice. Voice needs this.</string>
+    <string name="setup_voice_title">Say what you spend</string>
+    <string name="setup_voice_subtitle">Tell BudgetWise “coffee 3,000” in Burmese or English, and it writes the entry for you.</string>
+    <string name="setup_voice_example_becomes">becomes %1$s</string>
+    <string name="setup_voice_example_result">%1$s, %2$s</string>
+    <string name="setup_voice_size">A one-time download of %1$s</string>
+    <string name="setup_voice_size_detail">It waits for Wi-Fi. Keep using the app meanwhile.</string>
+    <string name="setup_voice_privacy_detail">Only the words it hears are sent, to turn them into entries.</string>
 </resources>

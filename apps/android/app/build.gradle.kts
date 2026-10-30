@@ -105,6 +105,9 @@ android {
 
 dependencies {
     implementation(project(":core:data"))
+    // Voice entry: on-device speech recognition and the microphone.
+    implementation(project(":asr"))
+    implementation(project(":feature:voice"))
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
