@@ -53,8 +53,8 @@ Committed and opened as a pull request into `chore/monorepo`; not merged or depl
 ## Still open
 
 - `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`) in the deployed environment; without it there is no fallback.
-- The phone's `cloudParseEnabled` setting (default off) predates the online-only decision; the voice UI must not
-  depend on it, or it should default on.
+- The phone's `cloudParseEnabled` setting now defaults on (user, 2026-10-30). People still need a switch for it in
+  Settings; that comes later with the voice UI.
 
 - Public host for `freococo.onnx` and `vocab.json` (`-Pbudgetwise.freococoModelBaseUrl`); until then the download
   fails with "voice model host not configured".

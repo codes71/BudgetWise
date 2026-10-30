@@ -123,7 +123,7 @@ class FakeSettingsStore : SettingsStore {
     var writeFailure: Exception? = null
 
     override val autoSaveHighConfidence = MutableStateFlow(false)
-    override val cloudParseEnabled = MutableStateFlow(false)
+    override val cloudParseEnabled = MutableStateFlow(true)
     override val myanmarDigits = MutableStateFlow(false)
     val lastPulled = mutableMapOf<String, MutableStateFlow<Instant?>>()
 
