@@ -5,7 +5,7 @@ sealed interface ModelState {
 
     data class Downloading(val progress: Float) : ModelState
 
-    /** [path] is the variant directory holding the model and mmproj GGUF files. */
+    /** [path] is the pack directory holding every model file. */
     data class Ready(val path: String) : ModelState
 
     data class Failed(val reason: String) : ModelState

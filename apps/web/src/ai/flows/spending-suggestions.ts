@@ -9,7 +9,7 @@
  */
 
 import * as z from 'zod/v4';
-import { generateStructured } from '@/ai/claude';
+import { generateStructured } from '@/ai/generate';
 
 const SpendingSuggestionsInputSchema = z.object({
   historicalData: z
@@ -34,6 +34,8 @@ export async function getSpendingSuggestions(input: SpendingSuggestionsInput): P
   return generateStructured({
     schema: SpendingSuggestionsOutputSchema,
     effort: 'medium',
+    // Claude takes about 20 s here; the default 25 s would send slow days to OpenAI.
+    timeoutMs: 90_000,
     content: `You are a savvy personal finance advisor. Your goal is to provide highly specific, actionable, and data-driven advice to help a user cut spending.
 
 Analyze the user's historical spending data provided below. Compare it against their stated budget goals.

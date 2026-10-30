@@ -22,10 +22,10 @@ class SettingsStoreTest {
     )
 
     @Test
-    fun defaultsAreOff() = runTest(UnconfinedTestDispatcher()) {
+    fun defaultsAreOffExceptCloudParse() = runTest(UnconfinedTestDispatcher()) {
         val s = store()
         assertFalse(s.autoSaveHighConfidence.first())
-        assertFalse(s.cloudParseEnabled.first())
+        assertTrue("voice has no offline mode", s.cloudParseEnabled.first())
         assertFalse(s.myanmarDigits.first())
         assertNull(s.lastPulledAt("u1").first())
     }
@@ -34,12 +34,12 @@ class SettingsStoreTest {
     fun flagsAndPerAccountCursorsRoundTrip() = runTest(UnconfinedTestDispatcher()) {
         val s = store()
         s.setAutoSaveHighConfidence(true)
-        s.setCloudParseEnabled(true)
+        s.setCloudParseEnabled(false)
         s.setMyanmarDigits(true)
         val at = Instant.parse("2026-10-21T06:00:00.123Z")
         s.setLastPulledAt("u1", at)
         assertTrue(s.autoSaveHighConfidence.first())
-        assertTrue(s.cloudParseEnabled.first())
+        assertFalse(s.cloudParseEnabled.first())
         assertTrue(s.myanmarDigits.first())
         assertEquals(at, s.lastPulledAt("u1").first())
         assertNull("each account has its own cursor", s.lastPulledAt("u2").first())

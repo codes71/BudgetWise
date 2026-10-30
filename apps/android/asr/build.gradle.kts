@@ -2,54 +2,33 @@ plugins {
     alias(libs.plugins.android.library)
 }
 
-// Short SHA of the pinned llama.cpp checkout, reported in AsrResult.modelId.
-if (!file("third_party/llama.cpp/.git").exists()) {
-    throw GradleException(
-        "third_party/llama.cpp is not initialized. Run: git submodule update --init apps/android/asr/third_party/llama.cpp",
-    )
+// freococo's ONNX export (freococo.onnx and vocab.json) has no public host yet. Point this at the directory that
+// holds both files with -Pbudgetwise.freococoModelBaseUrl=https://<host>/<dir>/. Until then the .invalid default
+// makes the download fail at once with "voice model host not configured".
+fun baseUrl(raw: String) = if (raw.endsWith("/")) raw else "$raw/"
+val freococoModelBaseUrl = baseUrl(
+    providers.gradleProperty("budgetwise.freococoModelBaseUrl").getOrElse("https://freococo-models.budgetwise.invalid/"),
+)
+check(freococoModelBaseUrl.startsWith("https://")) {
+    "budgetwise.freococoModelBaseUrl must be HTTPS, was $freococoModelBaseUrl"
 }
-val llamaCppSha = providers.exec {
-    commandLine("git", "-C", file("third_party/llama.cpp").path, "rev-parse", "--short=7", "HEAD")
-}.standardOutput.asText.map { it.trim() }
 
 android {
     namespace = "app.budgetwise.asr"
     compileSdk = 37
-    ndkVersion = "29.0.13113456"
 
     defaultConfig {
         minSdk = 26
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
-        buildConfigField("String", "LLAMA_CPP_SHA", "\"${llamaCppSha.get()}\"")
+        // Reported in Transcript.modelId, so a transcript names the runtime that produced it.
+        buildConfigField("String", "ONNXRUNTIME_VERSION", "\"${libs.versions.onnxruntime.get()}\"")
+        buildConfigField("String", "FREOCOCO_MODEL_BASE_URL", "\"$freococoModelBaseUrl\"")
 
+        // onnxruntime-android ships four ABIs; the test APK only needs the phones' arm64 one.
         ndk {
             abiFilters += "arm64-v8a"
-        }
-        externalNativeBuild {
-            cmake {
-                arguments += "-DCMAKE_BUILD_TYPE=Release"
-                arguments += "-DBUILD_SHARED_LIBS=ON"
-                arguments += "-DLLAMA_BUILD_COMMON=OFF"
-                arguments += "-DLLAMA_BUILD_MTMD=ON"
-                arguments += "-DLLAMA_BUILD_TOOLS=OFF"
-                arguments += "-DLLAMA_BUILD_APP=OFF"
-                arguments += "-DLLAMA_OPENSSL=OFF"
-
-                arguments += "-DGGML_NATIVE=OFF"
-                arguments += "-DGGML_BACKEND_DL=ON"
-                arguments += "-DGGML_CPU_ALL_VARIANTS=ON"
-                arguments += "-DGGML_CPU_KLEIDIAI=ON"
-                arguments += "-DGGML_LLAMAFILE=OFF"
-            }
-        }
-    }
-
-    externalNativeBuild {
-        cmake {
-            path("src/main/cpp/CMakeLists.txt")
-            version = "3.31.6"
         }
     }
 
@@ -65,16 +44,10 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
-
-    packaging {
-        // llama.cpp loads its CPU backend variants from nativeLibraryDir at runtime.
-        jniLibs {
-            useLegacyPackaging = true
-        }
-    }
 }
 
 dependencies {
+    implementation(libs.onnxruntime.android)
     implementation(libs.android.vad.webrtc)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.coroutines.core)

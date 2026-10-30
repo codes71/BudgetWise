@@ -48,7 +48,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // llama.cpp target (see :asr); WS3 may extend.
+        // 64-bit ARM only, the ABI the on-device speech models were tested on (see :asr).
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -100,13 +100,6 @@ android {
     buildFeatures {
         buildConfig = true
         compose = true
-    }
-
-    packaging {
-        // llama.cpp loads its CPU backend variants from nativeLibraryDir at runtime (contract amendment 8).
-        jniLibs {
-            useLegacyPackaging = true
-        }
     }
 }
 

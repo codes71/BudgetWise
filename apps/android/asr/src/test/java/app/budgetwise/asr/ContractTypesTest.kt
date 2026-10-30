@@ -1,7 +1,9 @@
 package app.budgetwise.asr
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ContractTypesTest {
@@ -18,16 +20,36 @@ class ContractTypesTest {
     fun modelStateWhenIsExhaustive() {
         assertEquals("missing", describe(ModelState.Missing))
         assertEquals("downloading 0.5", describe(ModelState.Downloading(0.5f)))
-        assertEquals("ready /models/raj", describe(ModelState.Ready("/models/raj")))
+        assertEquals("ready /models/voice/v1", describe(ModelState.Ready("/models/voice/v1")))
         assertEquals("failed no space", describe(ModelState.Failed("no space")))
     }
 
     @Test
     fun asrResultEquality() {
-        val a = AsrResult(text = "abc", modelId = "raj-0.6b", audioMs = 4000, decodeMs = 5200)
+        val a = AsrResult(
+            transcripts = listOf(Transcript(VoiceModel.FREOCOCO, "freococo", "abc", 300)),
+            audioMs = 4000,
+            decodeMs = 5200,
+        )
         assertEquals(a, a.copy())
         assertEquals(a.hashCode(), a.copy().hashCode())
-        assertNotEquals(a, a.copy(text = "abd"))
+        assertNotEquals(a, a.copy(transcripts = listOf(a.transcripts.single().copy(text = "abd"))))
+    }
+
+    @Test
+    fun asrResultTextLookupAndEmptiness() {
+        val heard = AsrResult(
+            transcripts = listOf(
+                Transcript(VoiceModel.FREOCOCO, "f", "", 0),
+                Transcript(VoiceModel.OMNILINGUAL, "o", "abc", 0),
+            ),
+            audioMs = 1000,
+            decodeMs = 10,
+        )
+        assertEquals("abc", heard.textOf(VoiceModel.OMNILINGUAL))
+        assertEquals("", heard.textOf(VoiceModel.FREOCOCO))
+        assertFalse(heard.isEmpty)
+        assertTrue(heard.copy(transcripts = heard.transcripts.map { it.copy(text = "") }).isEmpty)
     }
 
     @Test
@@ -40,7 +62,14 @@ class ContractTypesTest {
     }
 
     @Test
-    fun rajVariantsPresent() {
-        assertEquals(listOf("RAJ_0_6B", "RAJ_1_7B"), RajVariant.values().map { it.name })
+    fun voiceModelsRunFreococoThenOmnilingual() {
+        assertEquals(listOf("FREOCOCO", "OMNILINGUAL"), VoiceModel.entries.map { it.name })
+    }
+
+    @Test
+    fun voicePackPinsEveryFile() {
+        assertEquals(1_109_890_746L, VoicePack.downloadBytes)
+        assertEquals(VoicePack.files.size, VoicePack.files.map { it.name }.toSet().size)
+        for (f in VoicePack.files) assertEquals(f.path, 64, f.sha256.length)
     }
 }

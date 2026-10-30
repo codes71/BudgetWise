@@ -1,7 +1,6 @@
 package app.budgetwise.asr.download
 
 import app.budgetwise.asr.ModelFile
-import app.budgetwise.asr.RajVariant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -15,6 +14,9 @@ import kotlin.coroutines.coroutineContext
 sealed class DownloadException(msg: String) : Exception(msg) {
     class HashMismatch(val file: String) : DownloadException(file)
     class Http(val code: Int) : DownloadException("http $code")
+
+    /** The build has no download host for [file] (see `budgetwise.freococoModelBaseUrl`). */
+    class NotConfigured(val file: String) : DownloadException("no download host configured for $file")
 }
 
 class ModelDownloader(private val client: OkHttpClient, private val source: ModelSource) {
@@ -23,7 +25,7 @@ class ModelDownloader(private val client: OkHttpClient, private val source: Mode
      * Downloads [f] to `dest.path + ".part"`, resuming from any existing partial, and renames to [dest]
      * only after size and sha256 both match. [onBytes] receives the total bytes on disk so far.
      */
-    suspend fun fetch(v: RajVariant, f: ModelFile, dest: File, onBytes: (Long) -> Unit) =
+    suspend fun fetch(f: ModelFile, dest: File, onBytes: (Long) -> Unit) =
         withContext(Dispatchers.IO) {
             val part = File(dest.path + ".part")
             dest.parentFile?.mkdirs()
@@ -33,7 +35,7 @@ class ModelDownloader(private val client: OkHttpClient, private val source: Mode
             var have = if (part.exists()) hashExisting(part, digest) else 0L
 
             if (have < f.bytes) {
-                val request = Request.Builder().url(source.urlFor(v, f)).apply {
+                val request = Request.Builder().url(source.urlFor(f)).apply {
                     if (have > 0) header("Range", "bytes=$have-")
                 }.build()
                 client.newCall(request).execute().use { response ->

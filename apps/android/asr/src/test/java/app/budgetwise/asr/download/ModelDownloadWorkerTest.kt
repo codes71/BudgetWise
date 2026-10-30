@@ -5,7 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.work.ListenableWorker
 import androidx.work.testing.TestListenableWorkerBuilder
 import androidx.work.workDataOf
-import app.budgetwise.asr.RajVariant
+import app.budgetwise.asr.VoicePack
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -24,7 +24,6 @@ import java.io.IOException
 @Config(sdk = [34])
 class ModelDownloadWorkerTest {
     private lateinit var context: Context
-    private val v = RajVariant.RAJ_0_6B
     private val saved = ModelDownloadWorker.fetcher
 
     @Before
@@ -35,12 +34,12 @@ class ModelDownloadWorkerTest {
     @After
     fun tearDown() {
         ModelDownloadWorker.fetcher = saved
-        ModelStore.variantRoot(context, v).deleteRecursively()
+        ModelStore.modelsRoot(context).deleteRecursively()
     }
 
-    private fun run(attempt: Int = 0): ListenableWorker.Result = runBlocking {
+    private fun run(attempt: Int = 0, pack: String = VoicePack.VERSION): ListenableWorker.Result = runBlocking {
         TestListenableWorkerBuilder<ModelDownloadWorker>(context)
-            .setInputData(workDataOf(ModelDownloadWorker.KEY_VARIANT to v.name))
+            .setInputData(workDataOf(ModelDownloadWorker.KEY_PACK to pack))
             .setRunAttemptCount(attempt)
             .build()
             .doWork()
@@ -52,33 +51,64 @@ class ModelDownloadWorkerTest {
     }
 
     @Test
-    fun downloadsBothFilesThenWritesMarkerLast() {
+    fun downloadsEveryFileThenWritesMarkerLast() {
         val order = mutableListOf<String>()
-        ModelDownloadWorker.fetcher = { _, f, dest, _ ->
+        ModelDownloadWorker.fetcher = { f, dest, _ ->
+            assertNull("marker before the last file", ModelStore.verified(context))
             writeSized(dest, f.bytes)
             order += dest.name
         }
         assertEquals(ListenableWorker.Result.success(), run())
-        assertEquals(listOf("Raj-0.6B-Q8_0.gguf", "mmproj-Raj-0.6B-Q8_0.gguf"), order)
-        assertNotNull(ModelStore.verified(context, v))
+        assertEquals(listOf("freococo.onnx", "vocab.json", "model.int8.onnx", "tokens.txt"), order)
+        assertNotNull(ModelStore.verified(context))
+    }
+
+    @Test
+    fun completedFilesAreNotFetchedAgain() {
+        val dir = ModelStore.dir(context)
+        writeSized(ModelStore.fileFor(dir, VoicePack.FREOCOCO_MODEL), VoicePack.FREOCOCO_MODEL.bytes)
+        val fetched = mutableListOf<String>()
+        ModelDownloadWorker.fetcher = { f, dest, _ ->
+            writeSized(dest, f.bytes)
+            fetched += f.name
+        }
+        assertEquals(ListenableWorker.Result.success(), run())
+        assertEquals(listOf("vocab.json", "model.int8.onnx", "tokens.txt"), fetched)
+    }
+
+    @Test
+    fun unknownPackFailsWithoutFetching() {
+        var fetched = 0
+        ModelDownloadWorker.fetcher = { _, _, _ -> fetched++ }
+        val result = run(pack = "RAJ_0_6B")
+        assertTrue(result is ListenableWorker.Result.Failure)
+        assertEquals(0, fetched)
+    }
+
+    @Test
+    fun unconfiguredHostFailsAtOnce() {
+        ModelDownloadWorker.fetcher = { f, _, _ -> throw DownloadException.NotConfigured(f.path) }
+        val result = run()
+        assertTrue(result is ListenableWorker.Result.Failure)
+        assertTrue(result.outputData().getString(ModelDownloadWorker.KEY_REASON)!!.contains("not configured"))
     }
 
     @Test
     fun hashMismatchFailsWithoutMarker() {
-        ModelDownloadWorker.fetcher = { _, f, _, _ -> throw DownloadException.HashMismatch(f.path) }
+        ModelDownloadWorker.fetcher = { f, _, _ -> throw DownloadException.HashMismatch(f.path) }
         val result = run()
         assertTrue(result is ListenableWorker.Result.Failure)
         assertTrue(result.outputData().getString(ModelDownloadWorker.KEY_REASON)!!.contains("hash"))
-        assertNull(ModelStore.verified(context, v))
+        assertNull(ModelStore.verified(context))
     }
 
     @Test
     fun http5xxAndIoRetryButHttp4xxFails() {
-        ModelDownloadWorker.fetcher = { _, _, _, _ -> throw DownloadException.Http(503) }
+        ModelDownloadWorker.fetcher = { _, _, _ -> throw DownloadException.Http(503) }
         assertEquals(ListenableWorker.Result.retry(), run())
-        ModelDownloadWorker.fetcher = { _, _, _, _ -> throw IOException("reset") }
+        ModelDownloadWorker.fetcher = { _, _, _ -> throw IOException("reset") }
         assertEquals(ListenableWorker.Result.retry(), run())
-        ModelDownloadWorker.fetcher = { _, _, _, _ -> throw DownloadException.Http(404) }
+        ModelDownloadWorker.fetcher = { _, _, _ -> throw DownloadException.Http(404) }
         assertTrue(run() is ListenableWorker.Result.Failure)
     }
 

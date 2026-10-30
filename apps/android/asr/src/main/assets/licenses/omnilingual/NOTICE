@@ -1,0 +1,10 @@
+Omnilingual ASR CTC 1B (int8)
+Copyright 2025 (c) Meta Platforms, Inc. and affiliates.
+https://github.com/facebookresearch/omnilingual-asr
+Licensed under the Apache License, Version 2.0 (LICENSE is the model's license file; APACHE-2.0.txt is the
+license text).
+
+The app downloads the int8 ONNX export published by the sherpa-onnx project, unmodified:
+https://huggingface.co/csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-1B-ctc-int8-2025-11-12
+(revision 17db76eab583b0b868ffb0df104ab879145087e5, files model.int8.onnx and tokens.txt).
+No endorsement by Meta or the sherpa-onnx project is implied.

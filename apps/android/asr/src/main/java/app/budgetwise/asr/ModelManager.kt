@@ -1,22 +1,21 @@
 package app.budgetwise.asr
 
-import app.budgetwise.asr.engine.ModelFiles
+import app.budgetwise.asr.engine.VoiceFiles
 import kotlinx.coroutines.flow.StateFlow
 
+/** Downloads and verifies the [VoicePack]. */
 interface ModelManager {
-    /** State of [activeVariant]. */
     val state: StateFlow<ModelState>
-    val activeVariant: StateFlow<RajVariant?>
 
     /**
-     * Makes [variant] active and starts a background download unless it is already verified.
-     * Returns without waiting; progress is reported through [state].
+     * Starts a background download of the pack unless it is already verified. Returns without waiting;
+     * progress is reported through [state].
      */
-    suspend fun ensureDownloaded(variant: RajVariant, allowMetered: Boolean = false)
+    suspend fun ensureDownloaded(allowMetered: Boolean = false)
 
-    /** Cancels any download of [variant] and deletes its files. Other variants are untouched. */
-    suspend fun delete(variant: RajVariant)
+    /** Cancels any download and deletes the pack's files. */
+    suspend fun delete()
 
-    /** Non-null only when the files for [variant] are fully downloaded and verified. */
-    fun filesFor(variant: RajVariant): ModelFiles?
+    /** Non-null only when every file of the pack is fully downloaded and verified. */
+    fun files(): VoiceFiles?
 }

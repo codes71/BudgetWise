@@ -1,39 +1,61 @@
 # :asr host tools (Mac)
 
-CPU-only host build of the `:asr` native code: `raj_text` (prompt and transcript cleanup), `raj_engine`
-(Raj through llama.cpp + libmtmd, the code the Android JNI wraps) and the `raj-host` CLI. llama.cpp comes
-from the `third_party/llama.cpp` submodule with the Android option set, minus Metal, BLAS and llamafile.
+- `export/freococo_onnx.py` exports freococo/myanmar_asr to `freococo.onnx` (16 kHz audio in, syllable ids out).
+- `onnx/ort_reference.py` runs both ONNX models with Python onnxruntime, with the same session settings and the
+  same pre- and post-processing as the phone (`engine/OnnxEngines.kt`, `engine/CtcDecoding.kt`). It writes the
+  device test goldens and the JVM decode fixtures, and can measure peak memory.
+- `spike/` is the October Raj bake-off (scripts, results and the CER/SER scorer in `run_spike.py`), kept as evidence.
 
-Build and run the native tests (from the repo root):
+## Environment
 
-```
-BIN=~/Library/Android/sdk/cmake/3.31.6/bin
-$BIN/cmake -S apps/android/asr/host -B apps/android/asr/host/build -DCMAKE_BUILD_TYPE=Release
-$BIN/cmake --build apps/android/asr/host/build -j
-$BIN/ctest --test-dir apps/android/asr/host/build --output-on-failure
-```
-
-`raj_engine` needs the Raj files under `~/.cache/budgetwise-eval` (or `RAJ_MODEL`, `RAJ_MMPROJ`, `RAJ_WAV`) and
-is skipped without them.
-
-Transcribe a clips file. Rows follow the `spike/run_spike.py` schema plus `n_audio_tokens`, `model_id` and
-`llama_cpp_sha`, with no summary line. Two fields differ from the Task 1 server rows:
-- `predicted_n` excludes the end-of-generation token (llama-server counts it, so it is 1 higher).
-- `language` is `""` in auto mode where the Task 1 golden has `"None"`: the label comes from `raj_strip_asr_prefix`,
-  which follows upstream Qwen3-ASR parsing and treats `none` as no language.
+onnxruntime must be the version in `apps/android/gradle/libs.versions.toml`. Use a separate venv; do not upgrade
+the shared `~/.cache/budgetwise-eval/venv-asr`:
 
 ```
-C=~/.cache/budgetwise-eval
-apps/android/asr/host/build/raj-host --model $C/raj-0.6b/gguf/Raj-0.6B-Q8_0.gguf \
-  --mmproj $C/raj-0.6b/gguf/mmproj-Raj-0.6B-Q8_0.gguf \
-  --clips $C/clips/clips.jsonl --threads 4 --out raj-host-auto.jsonl
+cd ~/.cache/budgetwise-eval
+uv venv --python 3.12 venv-ort-1.31.1
+VIRTUAL_ENV=$PWD/venv-ort-1.31.1 uv pip install "onnxruntime==1.31.1" "numpy<3" soundfile
 ```
 
-Options: `--forced Burmese` (default auto, as in production), `--max-new-tokens 512`, `--model-id ID`
-(default the model file name), `--verbose` (llama.cpp info logs).
+## Regenerating goldens and fixtures
 
-Parity with llama-server (needs the build above):
+From `apps/android/asr` (defaults: the eval cache models and `my-voice/audio/wav/r*.wav`):
 
 ```
-~/.cache/budgetwise-eval/venv/bin/python -m pytest apps/android/asr/host/tests/parity_test.py
+PY=~/.cache/budgetwise-eval/venv-ort-1.31.1/bin/python
+W=~/.cache/budgetwise-eval/my-voice/audio/wav
+$PY -I host/onnx/ort_reference.py transcribe --out src/androidTest/assets/voice/goldens.json
+$PY -I host/onnx/ort_reference.py fixtures --out src/test/resources/voice/decode-fixtures.json \
+    $W/r01.wav $W/r02.wav $W/r10.wav $W/r16.wav
 ```
+
+## Why these session settings
+
+The int8 Omnilingual model quantizes activations on the fly, so any rounding difference flips int8 values and
+changes the transcript. Measured on the Mac (M5 Pro, onnxruntime 1.31.1), Omnilingual only; freococo gave the
+PyTorch transcript at every setting on all 48 clips.
+
+| Setting (KleidiAI off) | user clips: same as 1 thread | FLEURS: same as 1 thread | FLEURS CER | FLEURS SER |
+|---|---|---|---|---|
+| no optimization, 2 threads (shipped) | 18 / 18 | 30 / 30 | 7.9 % | 17.8 % |
+| no optimization, 4 threads | 7 / 18 | 13 / 30 | 8.1 % | 18.4 % |
+| all optimizations, 2 threads | 17 / 18 | 28 / 30 | 8.2 % | 18.0 % |
+| all optimizations, 4 threads | 11 / 18 | 17 / 30 | 8.1 % | 17.9 % |
+
+- KleidiAI on (the Mac's SME kernels, which a Snapdragon 8 Gen 3 lacks) changed 8 to 12 of the 18 user transcripts
+  against the same setting with KleidiAI off, so both the Mac and the phone turn it off and run MLAS's NEON kernels.
+- On FLEURS every setting is within noise of sherpa-onnx 1.13.8 (CER 8.1 %, SER 18.3 %). The shipped setting is
+  the only one where 1 and 2 threads agreed on all 48 clips, which is what lets the Mac stand in for the phone.
+- On the user's clips the shipped setting matches the sherpa-onnx transcripts the bake-off was scored on for 8 of
+  18 clips, 3.0 % of characters apart; most differences are one or two characters, but the quiet clip r16 loses
+  its last word. With all optimizations, 4 threads and KleidiAI on, r16 loses most of its words.
+- Weight prepacking, the memory arena and memory patterns are off; that changed none of the 18 transcripts.
+
+Peak RSS on the Mac for Omnilingual alone (Python adds about 50 MB), shipped settings:
+
+| | after load | after a 7 s clip | after a 20 s clip |
+|---|---|---|---|
+| prepacking off (shipped) | 1.26 GB | 1.49 GB | 1.99 GB |
+| prepacking on | 1.58 GB | 1.80 GB | 2.13 GB |
+
+freococo adds about 0.15 GB. Long segments are the risk for the old 1.6 GB limit: `SpeechSegmenter` allows 20 s.

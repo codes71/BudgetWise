@@ -5,7 +5,7 @@ import androidx.work.WorkManager
 import app.budgetwise.asr.DefaultModelManager
 import app.budgetwise.asr.MemoryGuard
 import app.budgetwise.asr.ModelManager
-import app.budgetwise.asr.RajSpeechToText
+import app.budgetwise.asr.OnnxSpeechToText
 
 /**
  * Owns the model manager and the speech engine so they survive activity recreation
@@ -14,11 +14,11 @@ import app.budgetwise.asr.RajSpeechToText
 class DemoApp : Application() {
     val modelManager: ModelManager by lazy { DefaultModelManager(this, WorkManager.getInstance(this)) }
 
-    private var stt: RajSpeechToText? = null
+    private var stt: OnnxSpeechToText? = null
     private var guard: MemoryGuard? = null
 
     @Synchronized
-    fun speech(): RajSpeechToText = stt ?: RajSpeechToText.create(this, modelManager).also {
+    fun speech(): OnnxSpeechToText = stt ?: OnnxSpeechToText.create(modelManager).also {
         stt = it
         guard = MemoryGuard(it).also { g -> registerComponentCallbacks(g) }
     }
