@@ -30,11 +30,6 @@ export const transactionBatchSchema = z.object({
   transactions: z.array(transactionInputSchema).min(1).max(50),
 });
 
-export const voiceParseSchema = z.object({
-  transcript: z.string().min(1).max(2000),
-  categories: z.array(z.string().max(60)).max(50).optional(),
-});
-
 export const updatedSinceSchema = z.iso.datetime();
 
 export const SCAN_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -43,6 +38,16 @@ export const SCAN_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as con
 export const scanRequestSchema = z.object({
   image: z.string().min(1),
   mediaType: z.enum(SCAN_MEDIA_TYPES),
+});
+
+// Transcripts of one utterance from different on-device speech models. Blanks are dropped; at least one must remain.
+export const voiceParseRequestSchema = z.object({
+  transcripts: z
+    .array(z.string().trim().max(500))
+    .min(1)
+    .max(3)
+    .transform((list) => list.filter((t) => t.length > 0))
+    .pipe(z.array(z.string()).min(1)),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

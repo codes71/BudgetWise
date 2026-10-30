@@ -15,7 +15,7 @@ export const imageTooLarge = () => new ApiError(413, "image_too_large", "Image m
 export const OTHER = "Other";
 export const INCOME = "Income";
 // The most one batch save accepts.
-const MAX_ENTRIES = 50;
+export const MAX_ENTRIES = 50;
 const MAX_TEXT = 100;
 const MIN_DATE = "2000-01-01";
 
@@ -54,7 +54,7 @@ export function kpayClientId(reference: string): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
-const categoryKey = (name: string) => name.normalize("NFC").trim().toLowerCase();
+export const categoryKey = (name: string) => name.normalize("NFC").trim().toLowerCase();
 
 /** The categories an expense may use: the user's, without "Income", plus "Other". */
 export function expenseCategories(names: string[]): string[] {
@@ -67,25 +67,25 @@ export function expenseCategories(names: string[]): string[] {
   return [...byKey.values()];
 }
 
-function text(value: string | undefined): string | undefined {
+export function text(value: string | undefined, max = MAX_TEXT): string | undefined {
   if (value === undefined) return undefined;
   const chars = Array.from(value.normalize("NFC").replace(/\s+/g, " ").trim());
-  return chars.slice(0, MAX_TEXT).join("").trim() || undefined;
+  return chars.slice(0, max).join("").trim() || undefined;
 }
 
-function kyat(value: number | undefined): number | undefined {
+export function kyat(value: number | undefined): number | undefined {
   if (value === undefined || !Number.isFinite(value)) return undefined;
   const n = Math.round(Math.abs(value));
   return isWholeKyat(n) ? n : undefined;
 }
 
-function addDays(date: string, days: number): string {
+export function addDays(date: string, days: number): string {
   const [y, m, d] = date.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
 // A real calendar date (the save rule), not before 2000 and not after tomorrow in Yangon.
-function validDate(value: string, today: string): string | undefined {
+export function validDate(value: string, today: string): string | undefined {
   const s = value.trim();
   if (!transactionInputSchema.shape.date.safeParse(s).success) return undefined;
   return s >= MIN_DATE && s <= addDays(today, 1) ? s : undefined;

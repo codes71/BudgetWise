@@ -3,7 +3,7 @@ import {
   loginSchema,
   transactionInputSchema,
   transactionBatchSchema,
-  voiceParseSchema,
+  voiceParseRequestSchema,
   updatedSinceSchema,
 } from "@/lib/mobile/schemas";
 
@@ -48,12 +48,12 @@ test("batch bounds 1..50", () => {
   expect(transactionBatchSchema.safeParse(mk(0)).success).toBe(false);
 });
 
-test("login, voiceParse, updatedSince", () => {
+test("login, voiceParseRequest, updatedSince", () => {
   expect(loginSchema.safeParse({ email: "a@b.co", password: "x" }).success).toBe(true);
   expect(loginSchema.safeParse({ email: "  ", password: "x" }).success).toBe(false);
-  expect(voiceParseSchema.safeParse({ transcript: "hi", categories: ["Food"] }).success).toBe(true);
-  expect(voiceParseSchema.safeParse({ transcript: "" }).success).toBe(false);
-  expect(voiceParseSchema.safeParse({ transcript: "hi", categories: Array(51).fill("a") }).success).toBe(false);
+  expect(voiceParseRequestSchema.safeParse({ transcripts: ["hi", " "] }).data).toEqual({ transcripts: ["hi"] });
+  expect(voiceParseRequestSchema.safeParse({ transcripts: [" ", ""] }).success).toBe(false);
+  expect(voiceParseRequestSchema.safeParse({ transcripts: Array(4).fill("hi") }).success).toBe(false);
   expect(updatedSinceSchema.safeParse("2026-10-19T00:00:00.000Z").success).toBe(true);
   expect(updatedSinceSchema.safeParse("yesterday").success).toBe(false);
 });

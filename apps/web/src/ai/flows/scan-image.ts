@@ -1,7 +1,7 @@
 import * as z from 'zod/v4';
-import { generateStructured } from '@/ai/claude';
+import { generateStructured } from '@/ai/generate';
 
-// What Claude returns. Kept loose (plain numbers and strings) so one odd value
+// What the model returns. Kept loose (plain numbers and strings) so one odd value
 // does not fail the whole parse; src/lib/mobile/scan.ts validates every field.
 const ScanItemSchema = z.object({
   name: z.string(),
@@ -67,7 +67,7 @@ export async function scanImage({
     schema: ScanOutputSchema,
     effort: 'low',
     content: [
-      { type: 'image', source: { type: 'base64', media_type: mediaType, data } },
+      { type: 'image', mediaType, data },
       { type: 'text', text: scanPrompt(categories, today) },
     ],
   });

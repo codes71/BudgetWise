@@ -1,5 +1,6 @@
 import * as z from 'zod/v4';
-import { generateStructured } from '@/ai/claude';
+import { generateStructured } from '@/ai/generate';
+import type { ImageType } from '@/ai/structured';
 
 const ExtractTransactionInputSchema = z.object({
   image: z.string().describe('Base64 data URL of the UPI screenshot'),
@@ -40,10 +41,7 @@ export async function extractTransactionData(
     schema: ExtractTransactionOutputSchema,
     effort: 'low',
     content: [
-      {
-        type: 'image',
-        source: { type: 'base64', media_type: mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data },
-      },
+      { type: 'image', mediaType: mediaType as ImageType, data },
       { type: 'text', text: promptText },
     ],
   });
