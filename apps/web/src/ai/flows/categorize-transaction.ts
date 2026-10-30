@@ -9,7 +9,7 @@
  */
 
 import * as z from 'zod/v4';
-import { generateStructured } from '@/ai/claude';
+import { generateStructured } from '@/ai/generate';
 
 const CategorizeTransactionInputSchema = z.object({
   description: z.string().describe('The transaction description, e.g., "Starbucks Coffee"'),

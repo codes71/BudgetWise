@@ -19,16 +19,9 @@ dependencyResolutionManagement {
 
 rootProject.name = "budgetwise-android"
 
-// The on-device ASR modules need the NDK, CMake and the llama.cpp submodule. Without the submodule (CI, a
-// fresh clone) they are left out so the app and its tests still build; voice work is paused, not removed.
-if (settingsDir.resolve("asr/third_party/llama.cpp/.git").exists()) {
-    include(":asr")
-    include(":asr-demo")
-} else {
-    logger.lifecycle(
-        "Skipping :asr and :asr-demo: run `git submodule update --init apps/android/asr/third_party/llama.cpp` to build them.",
-    )
-}
+// On-device speech recognition (ONNX Runtime from Maven) and its manual device harness. No NDK or submodule needed.
+include(":asr")
+include(":asr-demo")
 include(":nlu")
 include(":app")
 include(":core:data")

@@ -27,12 +27,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-/** User settings and the pull cursors. Every flag defaults to off. */
+/** User settings and the pull cursors. Every flag defaults to off, except cloud parse. */
 interface SettingsStore : PullCursorStore {
     /** Save a parsed transaction without asking when the parser is confident. Default false. */
     val autoSaveHighConfidence: Flow<Boolean>
 
-    /** Allow sending text (never audio) to the cloud parser. Default false. */
+    /** Allow sending text (never audio) to the cloud parser. Default true: voice has no offline mode. */
     val cloudParseEnabled: Flow<Boolean>
 
     /** Show amounts with Myanmar digits. Default false. */
@@ -48,7 +48,7 @@ class DataStoreSettingsStore @Inject constructor(
     private val store: DataStore<Preferences>,
 ) : SettingsStore {
     override val autoSaveHighConfidence: Flow<Boolean> = store.data.map { it[AUTO_SAVE] ?: false }
-    override val cloudParseEnabled: Flow<Boolean> = store.data.map { it[CLOUD_PARSE] ?: false }
+    override val cloudParseEnabled: Flow<Boolean> = store.data.map { it[CLOUD_PARSE] ?: true }
     override val myanmarDigits: Flow<Boolean> = store.data.map { it[MYANMAR_DIGITS] ?: false }
 
     override fun lastPulledAt(owner: String): Flow<Instant?> =

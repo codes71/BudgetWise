@@ -1,6 +1,8 @@
 package app.budgetwise.asr.demo
 
 import app.budgetwise.asr.AsrResult
+import app.budgetwise.asr.Transcript
+import app.budgetwise.asr.VoiceModel
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -59,16 +61,26 @@ class PcmTest {
         assertEquals(2.0, Pcm.rtf(1000, 2000), 1e-9)
     }
 
+    private val result = AsrResult(
+        transcripts = listOf(
+            Transcript(VoiceModel.FREOCOCO, "freococo-id", "ကော် ဖီ", 300),
+            Transcript(VoiceModel.OMNILINGUAL, "omni-id", "", 3700),
+        ),
+        audioMs = 3200,
+        decodeMs = 4100,
+    )
+
     @Test
     fun metricsLineFormat() {
-        val r = AsrResult("x", "raj-0.6b-q8_0@92b89ba+llama.cpp@fb34fc2", 3200, 4100)
-        assertEquals("audio 3.2 s, decode 4.1 s, RTF 1.28, raj-0.6b-q8_0@92b89ba+llama.cpp@fb34fc2", Pcm.metricsLine(r))
+        assertEquals(
+            "audio 3.2 s, decode 4.1 s, RTF 1.28\nfreococo 0.3 s, freococo-id\nOmnilingual 3.7 s, omni-id",
+            Pcm.metricsLine(result),
+        )
     }
 
     @Test
-    fun metricsLineAppendsTruncatedCountOnlyWhenPositive() {
-        val r = AsrResult("x", "id", 3200, 4100, truncatedSegments = 2)
-        assertEquals("audio 3.2 s, decode 4.1 s, RTF 1.28, id, truncated 2", Pcm.metricsLine(r))
+    fun transcriptTextLabelsEachModelAndMarksEmptyOnes() {
+        assertEquals("freococo: ကော် ဖီ\nOmnilingual: -", Pcm.transcriptText(result, "-"))
     }
 
     @Test

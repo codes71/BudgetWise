@@ -12,11 +12,10 @@ object AsrLicenses {
     private class Source(val component: String, val license: String, val dir: String, val files: List<String>)
 
     private val SOURCES = listOf(
-        Source("Raj-0.6B", "Apache-2.0", "raj-0.6b", listOf("NOTICE", "LICENSE", "UPSTREAM-LICENSE.txt")),
-        Source("Raj-1.7B", "Apache-2.0", "raj-1.7b", listOf("NOTICE", "LICENSE", "UPSTREAM-LICENSE.txt")),
-        Source("llama.cpp", "MIT", "llama.cpp", listOf("LICENSE")),
-        // KleidiAI micro-kernels are compiled into every ggml CPU variant (GGML_CPU_KLEIDIAI=ON).
-        Source("KleidiAI", "Apache-2.0", "kleidiai", listOf("NOTICE", "LICENSE")),
+        Source("freococo/myanmar_asr", "Apache-2.0", "freococo", listOf("NOTICE", "LICENSE")),
+        Source("Omnilingual ASR CTC 1B", "Apache-2.0", "omnilingual", listOf("NOTICE", "LICENSE", "APACHE-2.0.txt")),
+        // The notices cover what is compiled into libonnxruntime.so, KleidiAI included.
+        Source("ONNX Runtime", "MIT", "onnxruntime", listOf("NOTICE", "LICENSE", "ThirdPartyNotices.txt")),
         Source("android-vad", "MIT", "android-vad", listOf("LICENSE")),
         // WebRTC VAD C sources are compiled into android-vad's native library; its license is separate.
         Source("WebRTC VAD", "BSD-3-Clause", "webrtc-vad", listOf("LICENSE")),

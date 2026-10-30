@@ -15,6 +15,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -52,26 +53,25 @@ class DefaultModelManagerTest {
             Configuration.Builder().setMinimumLoggingLevel(android.util.Log.DEBUG).build(),
         )
         workManager = WorkManager.getInstance(context)
-        ModelDownloadWorker.fetcher = { _, _, _, _ -> fetchCalls++ }
+        ModelDownloadWorker.fetcher = { _, _, _ -> fetchCalls++ }
     }
 
     @After
     fun tearDown() {
         ModelDownloadWorker.fetcher = savedFetcher
-        context.noBackupFilesDir.resolve("models").deleteRecursively()
-        context.getSharedPreferences("raj_model_manager", Context.MODE_PRIVATE).edit().clear().commit()
+        ModelStore.modelsRoot(context).deleteRecursively()
     }
 
     private fun manager() = DefaultModelManager(context, workManager, storage)
 
-    /** Writes both files with the right sizes (sparse) and a marker, as a finished download would. */
-    private fun installVerified(v: RajVariant): File {
-        val dir = ModelStore.dir(context, v)
+    /** Writes every file with the right size (sparse) and a marker, as a finished download would. */
+    private fun installVerified(): File {
+        val dir = ModelStore.dir(context)
         dir.mkdirs()
-        for (f in listOf(v.model, v.mmproj)) {
+        for (f in VoicePack.files) {
             java.io.RandomAccessFile(ModelStore.fileFor(dir, f), "rw").use { it.setLength(f.bytes) }
         }
-        ModelStore.writeMarker(dir, v)
+        ModelStore.writeMarker(dir)
         return dir
     }
 
@@ -84,133 +84,109 @@ class DefaultModelManagerTest {
         throw AssertionError("condition not met in ${timeoutMs}ms")
     }
 
-    private fun workInfos(v: RajVariant) =
-        workManager.getWorkInfosForUniqueWork(ModelDownloadWorker.uniqueName(v)).get()
+    private fun workInfos() = workManager.getWorkInfosForUniqueWork(ModelDownloadWorker.UNIQUE_NAME).get()
 
     @Test
     fun missingWhenNoFiles() {
         val m = manager()
         assertEquals(ModelState.Missing, m.state.value)
-        assertNull(m.activeVariant.value)
-        assertNull(m.filesFor(RajVariant.RAJ_0_6B))
+        assertNull(m.files())
     }
 
     @Test
     fun readyAfterVerifiedMarkerPresent() = runBlocking<Unit> {
-        val v = RajVariant.RAJ_0_6B
-        val dir = installVerified(v)
+        val dir = installVerified()
         val m = manager()
-        m.ensureDownloaded(v)
+        m.ensureDownloaded()
         val ready = awaitValue { m.state.value as? ModelState.Ready }
         assertEquals(dir.path, ready.path)
-        assertNotNull(m.filesFor(v))
-        assertTrue(workInfos(v).isEmpty())
-        // Restart: active variant persists and state is Ready immediately.
-        val again = manager()
-        assertEquals(v, again.activeVariant.value)
-        assertEquals(ModelState.Ready(dir.path), again.state.value)
+        val files = m.files()!!
+        assertEquals(File(dir, "model.int8.onnx"), files.omnilingualModel)
+        assertEquals(File(dir, "vocab.json"), files.freococoVocab)
+        assertTrue(workInfos().isEmpty())
+        // Restart: state is Ready immediately.
+        assertEquals(ModelState.Ready(dir.path), manager().state.value)
     }
 
     @Test
     fun missingFileIsNotVerified() {
-        val v = RajVariant.RAJ_0_6B
-        val dir = installVerified(v)
-        ModelStore.fileFor(dir, v.mmproj).delete()
-        assertNull(manager().filesFor(v))
+        val dir = installVerified()
+        ModelStore.fileFor(dir, VoicePack.OMNILINGUAL_TOKENS).delete()
+        assertNull(manager().files())
     }
 
     @Test
     fun truncatedFileIsNotVerified() {
-        val v = RajVariant.RAJ_0_6B
-        val dir = installVerified(v)
-        java.io.RandomAccessFile(ModelStore.fileFor(dir, v.model), "rw").use { it.setLength(v.model.bytes - 1) }
-        assertNull(manager().filesFor(v))
+        val dir = installVerified()
+        java.io.RandomAccessFile(ModelStore.fileFor(dir, VoicePack.FREOCOCO_MODEL), "rw")
+            .use { it.setLength(VoicePack.FREOCOCO_MODEL.bytes - 1) }
+        assertNull(manager().files())
     }
 
     @Test
     fun markerWithMismatchedShaIsNotVerified() {
-        val v = RajVariant.RAJ_0_6B
-        val dir = installVerified(v)
+        val dir = installVerified()
         val marker = File(dir, ModelStore.MARKER)
-        marker.writeText(marker.readText().replace(v.model.sha256, "0".repeat(64)))
-        assertNull(manager().filesFor(v))
+        marker.writeText(marker.readText().replace(VoicePack.OMNILINGUAL_MODEL.sha256, "0".repeat(64)))
+        assertNull(manager().files())
     }
 
     @Test
     fun corruptMarkerIsNotVerifiedAndDoesNotCrash() {
-        val v = RajVariant.RAJ_0_6B
-        val dir = installVerified(v)
+        val dir = installVerified()
         File(dir, ModelStore.MARKER).writeText("{not json")
         val m = manager()
-        assertNull(m.filesFor(v))
+        assertNull(m.files())
         File(dir, ModelStore.MARKER).writeText("")
-        assertNull(m.filesFor(v))
+        assertNull(m.files())
     }
 
-    /** Runs a download for [v] that fails with a hash mismatch and waits for the manager to show Failed. */
-    private suspend fun failDownload(m: DefaultModelManager, v: RajVariant) {
-        ModelDownloadWorker.fetcher = { _, f, _, _ -> throw app.budgetwise.asr.download.DownloadException.HashMismatch(f.path) }
-        m.ensureDownloaded(v)
-        WorkManagerTestInitHelper.getTestDriver(context)!!.setAllConstraintsMet(workInfos(v).single().id)
-        awaitValue { m.state.value as? ModelState.Failed }
-    }
-
-    @Test
-    fun deletingOtherVariantKeepsFailedState() = runBlocking<Unit> {
-        val a = RajVariant.RAJ_0_6B
-        val b = RajVariant.RAJ_1_7B
-        installVerified(b)
-        val m = manager()
-        failDownload(m, a)
-        m.delete(b)
-        Thread.sleep(300)
-        assertTrue(m.state.value is ModelState.Failed)
+    /** Runs a download that fails with a hash mismatch and waits for the manager to show Failed. */
+    private suspend fun failDownload(m: DefaultModelManager): ModelState.Failed {
+        ModelDownloadWorker.fetcher = { f, _, _ -> throw app.budgetwise.asr.download.DownloadException.HashMismatch(f.path) }
+        m.ensureDownloaded()
+        WorkManagerTestInitHelper.getTestDriver(context)!!.setAllConstraintsMet(workInfos().single().id)
+        return awaitValue { m.state.value as? ModelState.Failed }
     }
 
     @Test
     fun restartRestoresFailedStateFromWork() = runBlocking<Unit> {
-        val a = RajVariant.RAJ_0_6B
-        failDownload(manager(), a)
+        assertTrue(failDownload(manager()).reason.contains("hash"))
         val again = manager()
-        val s = awaitValue { again.state.value as? ModelState.Failed }
+        awaitValue<ModelState> { again.state.value as? ModelState.Failed }
     }
 
     @Test
     fun restartRestoresDownloadingStateFromWork() = runBlocking<Unit> {
-        val a = RajVariant.RAJ_0_6B
-        manager().ensureDownloaded(a)
+        manager().ensureDownloaded()
         val again = manager()
-        val s = awaitValue { again.state.value as? ModelState.Downloading }
+        awaitValue<ModelState> { again.state.value as? ModelState.Downloading }
     }
 
     @Test
     fun enqueuesUniqueWorkUnmeteredByDefault() = runBlocking<Unit> {
-        val v = RajVariant.RAJ_0_6B
         val m = manager()
-        m.ensureDownloaded(v)
-        m.ensureDownloaded(v)
-        val infos = workInfos(v)
+        m.ensureDownloaded()
+        m.ensureDownloaded()
+        val infos = workInfos()
         assertEquals(1, infos.size)
         assertEquals(NetworkType.UNMETERED, infos[0].constraints.requiredNetworkType)
-        assertEquals(v, m.activeVariant.value)
-        val downloading = awaitValue { m.state.value as? ModelState.Downloading }
+        awaitValue<ModelState> { m.state.value as? ModelState.Downloading }
     }
 
     @Test
     fun allowMeteredUsesConnected() = runBlocking<Unit> {
-        val v = RajVariant.RAJ_1_7B
-        manager().ensureDownloaded(v, allowMetered = true)
-        assertEquals(NetworkType.CONNECTED, workInfos(v).single().constraints.requiredNetworkType)
+        manager().ensureDownloaded(allowMetered = true)
+        assertEquals(NetworkType.CONNECTED, workInfos().single().constraints.requiredNetworkType)
     }
 
     @Test
     fun allowMeteredUpgradesPendingUnmeteredWork() = runBlocking<Unit> {
-        val v = RajVariant.RAJ_0_6B
         val m = manager()
-        m.ensureDownloaded(v)
-        assertEquals(NetworkType.UNMETERED, workInfos(v).single().constraints.requiredNetworkType)
-        m.ensureDownloaded(v, allowMetered = true)
-        val live = workInfos(v).filter { !it.state.isFinished }
+        m.ensureDownloaded()
+        assertEquals(NetworkType.UNMETERED, workInfos().single().constraints.requiredNetworkType)
+        m.ensureDownloaded(allowMetered = true)
+        val live = workInfos().filter { !it.state.isFinished }
         assertEquals(1, live.size)
         assertEquals(NetworkType.CONNECTED, live.single().constraints.requiredNetworkType)
     }
@@ -230,64 +206,77 @@ class DefaultModelManagerTest {
 
     @Test
     fun replacingWorkKeepsPartFile() = runBlocking<Unit> {
-        val v = RajVariant.RAJ_0_6B
-        val dir = ModelStore.dir(context, v)
+        val dir = ModelStore.dir(context)
         dir.mkdirs()
-        val part = File(ModelStore.fileFor(dir, v.model).path + ".part").apply { writeBytes(ByteArray(1024)) }
+        val part = File(ModelStore.fileFor(dir, VoicePack.OMNILINGUAL_MODEL).path + ".part").apply { writeBytes(ByteArray(1024)) }
         val m = manager()
-        m.ensureDownloaded(v)
-        m.ensureDownloaded(v, allowMetered = true)
+        m.ensureDownloaded()
+        m.ensureDownloaded(allowMetered = true)
         assertTrue(part.exists())
         assertEquals(1024L, part.length())
     }
 
     @Test
     fun storageCheckSubtractsBytesAlreadyOnDisk() = runBlocking<Unit> {
-        val v = RajVariant.RAJ_0_6B
-        val dir = ModelStore.dir(context, v)
+        val dir = ModelStore.dir(context)
         dir.mkdirs()
-        // Model file is complete but unmarked; mmproj is half downloaded.
-        java.io.RandomAccessFile(ModelStore.fileFor(dir, v.model), "rw").use { it.setLength(v.model.bytes) }
-        java.io.RandomAccessFile(File(ModelStore.fileFor(dir, v.mmproj).path + ".part"), "rw")
+        // freococo is complete but unmarked; Omnilingual is partly downloaded.
+        for (f in listOf(VoicePack.FREOCOCO_MODEL, VoicePack.FREOCOCO_VOCAB)) {
+            java.io.RandomAccessFile(ModelStore.fileFor(dir, f), "rw").use { it.setLength(f.bytes) }
+        }
+        java.io.RandomAccessFile(File(ModelStore.fileFor(dir, VoicePack.OMNILINGUAL_MODEL).path + ".part"), "rw")
             .use { it.setLength(1_000_000) }
-        manager().ensureDownloaded(v)
-        assertEquals(listOf(v.mmproj.bytes - 1_000_000), requestedRoom)
+        manager().ensureDownloaded()
+        val missing = VoicePack.OMNILINGUAL_MODEL.bytes - 1_000_000 + VoicePack.OMNILINGUAL_TOKENS.bytes
+        assertEquals(listOf(missing), requestedRoom)
     }
 
     @Test
     fun storageCheckAsksForFullSizeWhenNothingOnDisk() = runBlocking<Unit> {
-        val v = RajVariant.RAJ_1_7B
-        manager().ensureDownloaded(v)
-        assertEquals(listOf(v.downloadBytes), requestedRoom)
+        manager().ensureDownloaded()
+        assertEquals(listOf(VoicePack.downloadBytes), requestedRoom)
+    }
+
+    @Test
+    fun staleModelsAreDeletedBeforeTheStorageCheck() = runBlocking<Unit> {
+        val root = ModelStore.modelsRoot(context)
+        val raj = File(root, "RAJ_0_6B/92b89bafb8b48fe47857665ca834390b7303c7d8").apply { mkdirs() }
+        File(raj, "Raj-0.6B-Q8_0.gguf").writeBytes(ByteArray(10))
+        val oldPack = File(ModelStore.packRoot(context), "v0").apply { mkdirs() }
+        val current = ModelStore.dir(context).apply { mkdirs() }
+        val part = File(ModelStore.fileFor(current, VoicePack.OMNILINGUAL_MODEL).path + ".part").apply { writeBytes(ByteArray(10)) }
+        manager().ensureDownloaded()
+        assertFalse(File(root, "RAJ_0_6B").exists())
+        assertFalse(oldPack.exists())
+        assertTrue(part.exists())
     }
 
     @Test
     fun insufficientStorageFailsBeforeNetwork() = runBlocking<Unit> {
         roomForDownload = false
-        val v = RajVariant.RAJ_1_7B
         val m = manager()
-        m.ensureDownloaded(v)
+        m.ensureDownloaded()
         val failed = awaitValue { m.state.value as? ModelState.Failed }
         assertTrue(failed.reason.contains("storage", ignoreCase = true))
-        assertTrue(workInfos(v).isEmpty())
+        assertTrue(workInfos().isEmpty())
         assertEquals(0, fetchCalls)
     }
 
     @Test
     fun progressMapsToDownloadingFraction() = runBlocking<Unit> {
-        val v = RajVariant.RAJ_0_6B
         val gate = CompletableDeferred<Unit>()
-        ModelDownloadWorker.fetcher = { variant, file, _, onBytes ->
-            if (file == variant.model) {
+        ModelDownloadWorker.fetcher = { file, _, onBytes ->
+            if (file == VoicePack.OMNILINGUAL_MODEL) {
                 onBytes(file.bytes / 2)
                 gate.await()
             }
         }
         val m = manager()
-        m.ensureDownloaded(v)
-        val id = workInfos(v).single().id
+        m.ensureDownloaded()
+        val id = workInfos().single().id
         WorkManagerTestInitHelper.getTestDriver(context)!!.setAllConstraintsMet(id)
-        val expected = (v.model.bytes / 2).toFloat() / v.downloadBytes
+        val before = VoicePack.FREOCOCO_MODEL.bytes + VoicePack.FREOCOCO_VOCAB.bytes
+        val expected = (before + VoicePack.OMNILINGUAL_MODEL.bytes / 2).toFloat() / VoicePack.downloadBytes
         val downloading = awaitValue(10_000) {
             (m.state.value as? ModelState.Downloading)?.takeIf { it.progress > 0f }
         }
@@ -296,30 +285,23 @@ class DefaultModelManagerTest {
     }
 
     @Test
-    fun deleteRemovesDirAndReturnsMissing() = runBlocking<Unit> {
-        val v = RajVariant.RAJ_0_6B
-        installVerified(v)
+    fun deleteRemovesFilesAndReturnsMissing() = runBlocking<Unit> {
+        installVerified()
         val m = manager()
-        m.ensureDownloaded(v)
+        m.ensureDownloaded()
         awaitValue { m.state.value as? ModelState.Ready }
-        m.delete(v)
+        m.delete()
         assertEquals(ModelState.Missing, m.state.value)
-        assertNull(m.filesFor(v))
-        assertTrue(!ModelStore.variantRoot(context, v).exists())
+        assertNull(m.files())
+        assertFalse(ModelStore.packRoot(context).exists())
     }
 
     @Test
-    fun switchingVariantKeepsOtherFiles() = runBlocking<Unit> {
-        val small = RajVariant.RAJ_0_6B
-        val big = RajVariant.RAJ_1_7B
-        installVerified(small)
-        installVerified(big)
+    fun deleteAfterFailureReturnsMissing() = runBlocking<Unit> {
         val m = manager()
-        m.ensureDownloaded(small)
-        m.ensureDownloaded(big)
-        assertEquals(big, m.activeVariant.value)
-        m.delete(big)
-        assertNull(m.filesFor(big))
-        assertNotNull(m.filesFor(small))
+        failDownload(m)
+        m.delete()
+        Thread.sleep(300)
+        assertEquals(ModelState.Missing, m.state.value)
     }
 }

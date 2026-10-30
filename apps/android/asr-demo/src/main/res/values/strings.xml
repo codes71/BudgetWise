@@ -6,20 +6,21 @@
     <string name="model_downloading">Downloading %1$d%%</string>
     <string name="model_ready">Ready</string>
     <string name="model_failed">Failed: %1$s</string>
-    <string name="download_button">Download Raj 0.6B (847 MB)</string>
+    <string name="download_button">Download voice models (1.1 GB)</string>
     <string name="allow_metered">Allow mobile data</string>
-    <string name="delete_button">Delete model</string>
+    <string name="delete_button">Delete models</string>
     <string name="licenses_button">Licenses</string>
     <string name="status_idle">Hold to talk</string>
     <string name="status_listening">Listening</string>
     <string name="status_transcribing">Transcribing</string>
-    <string name="status_not_ready">Not ready: download the model first</string>
+    <string name="status_not_ready">Not ready: download the models first</string>
     <string name="status_mic_denied">Microphone permission is needed. Press again to allow.</string>
     <string name="talk_button">Hold to talk</string>
     <string name="status_too_short">Hold the button while you speak</string>
     <string name="no_speech">(no speech detected)</string>
+    <string name="model_heard_nothing">(nothing)</string>
     <string name="history_title">History</string>
     <string name="error_line">Error: %1$s</string>
-    <string name="header_line">%1$s | %2$.1f GB RAM | %3$d threads</string>
+    <string name="header_line">%1$s | %2$.1f GB RAM | %3$d cores</string>
     <string name="close">Close</string>
 </resources>

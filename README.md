@@ -97,7 +97,10 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 
 JWT_SECRET=at-least-32-characters-long (web sessions and the mobile API under /api/v1)
 ANTHROPIC_API_KEY=your-anthropic-api-key (optional, only for the AI features)
+OPENAI_API_KEY=your-openai-api-key (optional, the fallback when Claude is down)
+# OPENAI_MODEL=gpt-6.1-sol (optional, the fallback model)
 ```
+- AI features (scan, voice, categories, spending tips) ask Claude first. When Claude fails (down, overloaded, no answer within 25 s, not configured, or an answer in the wrong shape), the same request goes to OpenAI if `OPENAI_API_KEY` is set. A refusal is final and is not sent to OpenAI. Requests to OpenAI are sent with `store: false`. Code: `apps/web/src/ai/generate.ts`.
 - The server picks credentials in this order: `FIRESTORE_EMULATOR_HOST`, then the three `FIREBASE_*` fields, then `GOOGLE_APPLICATION_CREDENTIALS`. With none of them set it fails with a clear error; it never falls back to a local gcloud login.
 - `FIREBASE_PRIVATE_KEY` may contain literal `\n` sequences; they are turned into newlines.
 - Firestore needs no indexes or rules files for this app: the server uses only single-field queries, and the admin SDK is not subject to security rules.
@@ -161,7 +164,7 @@ npm start
 
 - Auth: `Authorization: Bearer <token>` from `POST /api/v1/auth/token`. 20 scans per user per hour.
 - Body: `{ "image": "<base64>", "mediaType": "image/jpeg" | "image/png" | "image/webp" }`. Plain base64 without a `data:` prefix (line breaks are ignored), at most 3 MB decoded, which keeps the request under Vercel's 4.5 MB body limit. The phone shrinks photos first (2000 px on the long edge, JPEG quality 90).
-- Errors, in the usual `{ "error": { "code", "message" } }` shape: 401 `unauthorized`, 413 `image_too_large`, 422 `validation_failed` (missing field or another media type) or `invalid_image` (not base64, or the bytes are not the declared type), 429 `rate_limited` with `Retry-After`, 502 `scan_failed` when Claude cannot read it.
+- Errors, in the usual `{ "error": { "code", "message" } }` shape: 401 `unauthorized`, 413 `image_too_large`, 422 `validation_failed` (missing field or another media type) or `invalid_image` (not base64, or the bytes are not the declared type), 429 `rate_limited` with `Retry-After`, 502 `scan_failed` when neither Claude nor the OpenAI fallback can read it.
 - `kind` is `receipt`, `payment`, `history` or `unknown` (no entries). A receipt gives one expense per category, with its line items in `items`; a slip gives one entry; a history screenshot gives one entry per transaction (received is income, paid or sent is expense).
 - Amounts are whole kyat. Categories are the user's own, else `Other`; income is always `Income`. Entries whose amount cannot be read are left out, not guessed.
 - Dates: a receipt or slip with no readable date gets today's date in Myanmar and `"dateGuessed": true`, so the review screen can point it out. A history row without a readable date is left out.
@@ -178,8 +181,26 @@ npm start
 }
 ```
 
+### Phone API: voice
+`POST /api/v1/voice/parse` turns what the phone's on-device speech models heard into entries to review, or a question about the user's spending. Nothing is saved or answered here: the phone saves the chosen entries with `POST /api/v1/transactions` and answers questions from its own data. No audio is sent.
+
+- Auth: `Authorization: Bearer <token>`. 60 requests per user per hour, counted only for valid requests.
+- Body: `{ "transcripts": ["...", "..."] }`, 1 to 3 transcripts of the same utterance from different speech models (each at most 500 characters after trimming, at least one non-empty). The AI compares them, since each model makes different mistakes.
+- Errors: 401 `unauthorized`, 422 `validation_failed`, 429 `rate_limited` with `Retry-After`, 502 `parse_failed` when neither Claude nor the OpenAI fallback answers usefully.
+- Response: `intent` is `add`, `question` or `other`; `heard` is what the AI understood, in Burmese. `add` carries `entries` shaped like the scan route's (whole kyat, the user's categories else `Other`, income is `Income`, `dateGuessed: true` with today's date when no date was said, no `items`, `reference` or `clientId`). An `add` with no valid entry becomes `other`.
+- `question` is `{ "metric": "list" | "total" | "over_budget", "category": string | null, "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }` with `entries: []`. A question with an impossible period (not a real date, `from` after `to`, before 2000, after tomorrow) or an unknown category is dropped and the intent becomes `other`.
+
+```json
+{
+  "intent": "add",
+  "heard": "ဒီနေ့ ကော်ဖီ သုံးထောင်",
+  "entries": [{ "type": "expense", "amount": 3000, "category": "Food", "description": "ကော်ဖီ", "date": "2026-10-30" }],
+  "question": null
+}
+```
+
 ### Deployment
-- **Vercel**: Push to GitHub and connect to Vercel; it auto-detects Next.js. Set `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` and `JWT_SECRET` (plus `ANTHROPIC_API_KEY` for AI features) in the Vercel dashboard.
+- **Vercel**: Push to GitHub and connect to Vercel; it auto-detects Next.js. Set `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` and `JWT_SECRET` (plus `ANTHROPIC_API_KEY` for AI features, and `OPENAI_API_KEY` for the fallback) in the Vercel dashboard.
 - Ensure Genkit is built: `npm run genkit:build` before deploy.
 
 ## 🤝 Contributing

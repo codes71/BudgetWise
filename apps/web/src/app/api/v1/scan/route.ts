@@ -15,7 +15,7 @@ import {
 import { scanRequestSchema } from "@/lib/mobile/schemas";
 
 export const dynamic = "force-dynamic";
-// Reading one image takes Claude a few seconds; leave room for a slow call.
+// Reading one image takes a few seconds; the 60 s also covers a Claude timeout followed by the OpenAI fallback.
 export const maxDuration = 60;
 
 // Returns the entries found in a receipt, KPay slip or KPay history screenshot.
@@ -26,7 +26,7 @@ export const POST = handle(async (req) => {
   const { image, mediaType } = scanRequestSchema.parse(await readJson(req));
   const data = decodeImage(image, mediaType);
 
-  // Counted only for valid images, since each one is a paid Claude call.
+  // Counted only for valid images, since each one is a paid AI call.
   await rateLimit(`scan:user:${userId}`, { limit: 20, windowSec: 60 * 60 });
 
   const categories = expenseCategories(await getCategoriesForUser(userId));

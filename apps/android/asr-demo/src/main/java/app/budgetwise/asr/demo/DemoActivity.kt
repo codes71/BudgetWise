@@ -20,19 +20,17 @@ import app.budgetwise.asr.AsrException
 import app.budgetwise.asr.AsrLicenses
 import app.budgetwise.asr.DeviceProfile
 import app.budgetwise.asr.ModelState
-import app.budgetwise.asr.RajVariant
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Hold the button, speak Burmese, read what Raj heard. Audio stays in memory only. */
+/** Hold the button, speak Burmese, read what each speech model heard. Audio stays in memory only. */
 class DemoActivity : ComponentActivity() {
 
     private enum class Phase { IDLE, LISTENING, TRANSCRIBING }
 
     private val app get() = application as DemoApp
-    private val variant = RajVariant.RAJ_0_6B
 
     private lateinit var header: TextView
     private lateinit var modelStateView: TextView
@@ -87,7 +85,7 @@ class DemoActivity : ComponentActivity() {
             R.string.header_line,
             device.socModel.ifBlank { "unknown SoC" },
             device.totalRamBytes / 1e9,
-            device.threads(),
+            device.coreMaxKhz.size,
         )
 
         downloadButton.setOnClickListener { onDownloadClicked() }
@@ -99,7 +97,7 @@ class DemoActivity : ComponentActivity() {
         deleteButton.setOnClickListener {
             lifecycleScope.launch {
                 try {
-                    app.modelManager.delete(variant)
+                    app.modelManager.delete()
                     // Unmaps the deleted files now instead of on the next call.
                     app.speech().release()
                 } catch (e: CancellationException) {
@@ -183,7 +181,7 @@ class DemoActivity : ComponentActivity() {
         val allowMetered = meteredCheck.isChecked
         lifecycleScope.launch {
             try {
-                app.modelManager.ensureDownloaded(variant, allowMetered)
+                app.modelManager.ensureDownloaded(allowMetered)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -249,7 +247,11 @@ class DemoActivity : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 val result = stt.transcribe(audio)
-                val text = result.text.trim().ifEmpty { getString(R.string.no_speech) }
+                val text = if (result.isEmpty) {
+                    getString(R.string.no_speech)
+                } else {
+                    Pcm.transcriptText(result, getString(R.string.model_heard_nothing))
+                }
                 showTranscript(text, Pcm.metricsLine(result))
             } catch (e: CancellationException) {
                 throw e

@@ -44,6 +44,30 @@ export interface ScanResultDto {
   entries: ScanEntryDto[];
 }
 
+export interface VoiceEntryDto {
+  type: "expense" | "income";
+  amount: number;
+  category: string;
+  description: string;
+  date: string;
+  /** Set when nothing said when it happened and `date` is today in Yangon. */
+  dateGuessed?: true;
+}
+
+export interface VoiceQuestionDto {
+  metric: "list" | "total" | "over_budget";
+  category: string | null;
+  from: string;
+  to: string;
+}
+
+export interface VoiceParseDto {
+  intent: "add" | "question" | "other";
+  heard: string;
+  entries: VoiceEntryDto[];
+  question: VoiceQuestionDto | null;
+}
+
 export interface LeanTransaction {
   _id: unknown;
   date: string;
