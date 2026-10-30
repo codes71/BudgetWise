@@ -44,6 +44,7 @@ import app.budgetwise.BuildConfig
 import app.budgetwise.R
 import app.budgetwise.asr.ModelState
 import app.budgetwise.asr.VoicePack
+import app.budgetwise.asr.VoiceRequirements
 import app.budgetwise.ui.voice.DownloadProgress
 import app.budgetwise.ui.voice.WifiWaitNotice
 import app.budgetwise.ui.voice.rememberAskNotifications
@@ -347,6 +348,21 @@ private fun VoiceCard(
     val type = BudgetWiseTheme.type
     val size = voiceSize(VoicePack.downloadBytes, state.myanmarDigits)
     val voice = state.voice
+    if (!state.voiceSupported) {
+        Card {
+            SettingsRow(icon = Lucide.MicOff, tint = colors.muted, modifier = Modifier.heightIn(min = 64.dp).semantics(mergeDescendants = true) {}) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.voice_unsupported_title), style = type.size16.medium, color = colors.ink)
+                    Text(
+                        stringResource(R.string.settings_voice_unsupported_detail, VoiceRequirements.ADVERTISED_GB),
+                        style = type.size13,
+                        color = colors.muted,
+                    )
+                }
+            }
+        }
+        return
+    }
     Card {
         SettingsRow(icon = Lucide.Mic, tint = if (voice is ModelState.Ready) colors.accent else colors.muted, modifier = Modifier.heightIn(min = 64.dp)) {
             Column(Modifier.weight(1f)) {

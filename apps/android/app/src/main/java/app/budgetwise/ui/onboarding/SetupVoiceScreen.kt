@@ -1,11 +1,13 @@
 package app.budgetwise.ui.onboarding
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -49,6 +51,7 @@ import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
 import app.budgetwise.ui.voice.VoiceSetupUiState
 import app.budgetwise.ui.voice.VoiceSetupViewModel
+import app.budgetwise.ui.voice.VoiceUnsupportedDialog
 import app.budgetwise.ui.voice.WifiNotice
 import app.budgetwise.ui.voice.rememberAskNotifications
 import app.budgetwise.ui.voice.voiceSize
@@ -56,12 +59,16 @@ import app.budgetwise.ui.voice.voiceSize
 /**
  * The last onboarding step: offer voice. Download starts the 1.1 GB download (it waits for Wi-Fi) and goes on to the
  * app at once; Not now goes on without it. A phone that already has voice, or is downloading it (another account set
- * it up), skips the step.
+ * it up), skips the step. A phone without the memory for voice gets a small notice saying so instead, and goes on.
  */
 @Composable
 fun SetupVoiceRoute(onDone: () -> Unit, viewModel: VoiceSetupViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val done by rememberUpdatedState(onDone)
+    if (!state.supported) {
+        Box(Modifier.fillMaxSize().background(BudgetWiseTheme.colors.ground)) { VoiceUnsupportedDialog(onDismiss = onDone) }
+        return
+    }
     val alreadySetUp = remember { state.setUp }
     LaunchedEffect(alreadySetUp) { if (alreadySetUp) done() }
     val askNotifications = rememberAskNotifications()

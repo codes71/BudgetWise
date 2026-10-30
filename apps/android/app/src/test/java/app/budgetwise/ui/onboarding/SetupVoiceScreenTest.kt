@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.budgetwise.R
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.voice.VoiceSetupUiState
+import app.budgetwise.ui.voice.VoiceUnsupportedDialog
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -52,5 +53,16 @@ class SetupVoiceScreenTest {
         compose.onNodeWithText(context.getString(R.string.voice_use_mobile_data)).performClick()
         assertEquals(1, mobileData)
         assertEquals(0, downloads)
+    }
+
+    @Test
+    fun aPhoneWithoutTheMemorySeesOnlyWhyAndGoesOn() {
+        var dismissed = 0
+        compose.setContent { BudgetWiseTheme { VoiceUnsupportedDialog(onDismiss = { dismissed++ }) } }
+
+        compose.onNodeWithText(context.getString(R.string.voice_unsupported_title)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.action_ok)).performClick()
+
+        assertEquals(1, dismissed)
     }
 }

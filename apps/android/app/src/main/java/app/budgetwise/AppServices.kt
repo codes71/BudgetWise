@@ -9,6 +9,7 @@ import androidx.work.WorkManager
 import app.budgetwise.asr.AsrResult
 import app.budgetwise.asr.OnnxSpeechToText
 import app.budgetwise.asr.SpeechToText
+import app.budgetwise.asr.VoiceRequirements
 import app.budgetwise.data.model.Budget
 import app.budgetwise.data.model.DailySpend
 import app.budgetwise.data.model.Transaction
@@ -123,6 +124,14 @@ fun interface ReceiptScanner {
 
 fun interface VoiceParser {
     suspend fun parse(transcripts: List<String>): ApiResult<VoiceParse>
+}
+
+/**
+ * Whether this phone has the memory to run voice ([VoiceRequirements]). Where it does not, voice is off: no Say it,
+ * no download offer, and Settings and onboarding say why.
+ */
+interface VoiceAvailability {
+    val supported: Boolean
 }
 
 /** On-device speech recognition ([OnnxSpeechToText]): every speech model's transcript of the same audio. */
@@ -241,4 +250,9 @@ class DefaultOnDeviceSpeech @Inject constructor(private val stt: OnnxSpeechToTex
     override suspend fun transcribe(audio: FloatArray): AsrResult = stt.transcribe(audio)
 
     override suspend fun warmUp() = stt.warmUp()
+}
+
+/** Read once per process: a phone's memory does not change while the app runs. */
+class DefaultVoiceAvailability @Inject constructor(@ApplicationContext context: Context) : VoiceAvailability {
+    override val supported: Boolean by lazy { VoiceRequirements.supported(context) }
 }

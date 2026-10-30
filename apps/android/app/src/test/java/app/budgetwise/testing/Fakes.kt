@@ -7,6 +7,7 @@ import app.budgetwise.NetworkStatus
 import app.budgetwise.OnDeviceSpeech
 import app.budgetwise.SyncControls
 import app.budgetwise.TransactionStore
+import app.budgetwise.VoiceAvailability
 import app.budgetwise.VoiceParser
 import app.budgetwise.asr.AsrResult
 import app.budgetwise.asr.ModelManager
@@ -266,6 +267,8 @@ class FakeModelManager(initial: ModelState = ModelState.Missing) : ModelManager 
 
     override fun files(): VoiceFiles? = null
 }
+
+class FakeVoiceAvailability(override val supported: Boolean = true) : VoiceAvailability
 
 /** One capture: [stop] hands back [audio] (the same array, so a test sees it zeroed). */
 class FakeRecording(val audio: FloatArray = FloatArray(16_000) { 0.25f }) : Recording {

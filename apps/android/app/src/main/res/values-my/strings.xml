@@ -400,4 +400,7 @@
     </plurals>
     <string name="scan_added_from">%1$s ဘောက်ချာမှ</string>
     <string name="scan_added_from_photo">ဓာတ်ပုံမှ</string>
+    <string name="voice_unsupported_title">ဤဖုန်းတွင် အသံဖြင့် ထည့်၍ မရပါ</string>
+    <string name="voice_unsupported_body">အသံကို ဖုန်းထဲမှာပင် နားလည်အောင် လုပ်ရသဖြင့် မှတ်ဉာဏ် (RAM) အနည်းဆုံး %1$d GB လိုသည်။ ဤဖုန်းတွင် ထိုထက်နည်းသဖြင့် အသံကို ပိတ်ထားသည်။ စာရင်းအားလုံးကို ရိုက်ထည့်နိုင်ပါသည်။</string>
+    <string name="settings_voice_unsupported_detail">အသံအတွက် မှတ်ဉာဏ် (RAM) အနည်းဆုံး %1$d GB လိုပြီး ဤဖုန်းတွင် ထိုထက်နည်းသည်။</string>
 </resources>

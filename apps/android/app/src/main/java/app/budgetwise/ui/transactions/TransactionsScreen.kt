@@ -211,7 +211,8 @@ fun TransactionsScreen(
     onChip: () -> Unit,
     onSettings: () -> Unit,
     onAddManual: () -> Unit,
-    onSayIt: () -> Unit,
+    /** Null on a phone without the memory for voice: the first-day home offers typing and scanning only. */
+    onSayIt: (() -> Unit)?,
     onScan: () -> Unit,
     onDelete: (String) -> Unit,
     onRefresh: () -> Unit,
@@ -272,7 +273,7 @@ fun TransactionsScreen(
  * way to add it instead of an empty chart.
  */
 @Composable
-private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit, onSayIt: () -> Unit, onScan: () -> Unit) {
+private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit, onSayIt: (() -> Unit)?, onScan: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val month = monthName(state.summary.month)
@@ -306,7 +307,7 @@ private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit, onSay
 
 /** "Add your first expense": what it does to the number above, then the ways in: type it, scan a receipt, or say it. */
 @Composable
-private fun FirstExpense(onAddManual: () -> Unit, onSayIt: () -> Unit, onScan: () -> Unit, modifier: Modifier = Modifier) {
+private fun FirstExpense(onAddManual: () -> Unit, onSayIt: (() -> Unit)?, onScan: () -> Unit, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     Column(modifier.fillMaxWidth()) {
@@ -326,8 +327,10 @@ private fun FirstExpense(onAddManual: () -> Unit, onSayIt: () -> Unit, onScan: (
         HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         WayRow(Lucide.Camera, stringResource(R.string.scan_entry), stringResource(R.string.first_expense_scan_detail), onScan)
         HorizontalDivider(thickness = 1.dp, color = colors.hairline)
-        WayRow(Lucide.Mic, stringResource(R.string.voice_say_it), stringResource(R.string.first_expense_say_detail), onSayIt)
-        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        if (onSayIt != null) {
+            WayRow(Lucide.Mic, stringResource(R.string.voice_say_it), stringResource(R.string.first_expense_say_detail), onSayIt)
+            HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        }
     }
 }
 

@@ -143,7 +143,8 @@ fun AddManualScreen(
     onDescriptionChange: (String) -> Unit,
     onDateChange: (LocalDate) -> Unit,
     onSave: () -> Unit,
-    onSayIt: () -> Unit,
+    /** Null on a phone without the memory for voice: no Say it, and Scan takes the whole row. */
+    onSayIt: (() -> Unit)?,
     onScan: () -> Unit,
     modifier: Modifier = Modifier,
     focusAmount: Boolean = true,
@@ -190,9 +191,9 @@ fun AddManualScreen(
                 // Scan and Say it sit with the type: all three choose how the entry is made, before the fields.
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     TypeSelector(state.type, editable, onTypeChange)
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         SecondaryButton(
-                            text = stringResource(R.string.scan_short),
+                            text = stringResource(if (onSayIt != null) R.string.scan_short else R.string.scan_entry),
                             onClick = {
                                 keyboard?.hide()
                                 onScan()
@@ -201,16 +202,18 @@ fun AddManualScreen(
                             icon = Lucide.Camera,
                             modifier = Modifier.weight(1f),
                         )
-                        SecondaryButton(
-                            text = stringResource(R.string.voice_say_it),
-                            onClick = {
-                                keyboard?.hide()
-                                onSayIt()
-                            },
-                            enabled = editable,
-                            icon = Lucide.Mic,
-                            modifier = Modifier.weight(1f),
-                        )
+                        if (onSayIt != null) {
+                            SecondaryButton(
+                                text = stringResource(R.string.voice_say_it),
+                                onClick = {
+                                    keyboard?.hide()
+                                    onSayIt()
+                                },
+                                enabled = editable,
+                                icon = Lucide.Mic,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
                 AmountField(state, editable, onAmountChange, amountFocus, onNext = { descriptionFocus.requestFocus() })

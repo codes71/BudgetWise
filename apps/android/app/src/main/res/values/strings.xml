@@ -436,4 +436,7 @@
     </plurals>
     <string name="scan_added_from">From your %1$s receipt</string>
     <string name="scan_added_from_photo">From your photo</string>
+    <string name="voice_unsupported_title">Voice isn\'t available on this phone</string>
+    <string name="voice_unsupported_body">Voice works out what you say on the phone itself, which needs at least %1$d GB of memory. This phone has less, so voice is off. You can still type every entry.</string>
+    <string name="settings_voice_unsupported_detail">Voice needs at least %1$d GB of memory, more than this phone has.</string>
 </resources>

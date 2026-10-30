@@ -4,6 +4,7 @@ import app.budgetwise.asr.ModelState
 import app.budgetwise.testing.FakeModelManager
 import app.budgetwise.testing.FakeNetworkStatus
 import app.budgetwise.testing.FakeSettingsStore
+import app.budgetwise.testing.FakeVoiceAvailability
 import app.budgetwise.testing.MainDispatcherRule
 import java.time.Clock
 import java.time.Instant
@@ -34,8 +35,11 @@ class VoiceSetupViewModelTest {
 
     private val network = FakeNetworkStatus()
 
-    private fun TestScope.start(models: FakeModelManager): Pair<VoiceSetupViewModel, MutableList<VoiceSetupEvent>> {
-        val vm = VoiceSetupViewModel(models, FakeSettingsStore(), network, clock)
+    private fun TestScope.start(
+        models: FakeModelManager,
+        supported: Boolean = true,
+    ): Pair<VoiceSetupViewModel, MutableList<VoiceSetupEvent>> {
+        val vm = VoiceSetupViewModel(models, FakeSettingsStore(), network, FakeVoiceAvailability(supported), clock)
         val events = mutableListOf<VoiceSetupEvent>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events += it } }
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
@@ -80,6 +84,21 @@ class VoiceSetupViewModelTest {
         assertEquals(ModelState.Downloading(0f, waiting = false), models.state.value)
         network.unmetered.value = true
         assertEquals(true, vm.state.value.onWifi)
+    }
+
+    @Test
+    fun withoutTheMemoryVoiceIsOffAndNothingStartsTheDownload() = runTest {
+        val models = FakeModelManager()
+        val (vm, events) = start(models, supported = false)
+        assertEquals(false, vm.state.value.supported)
+
+        vm.onSayIt()
+        vm.download(showProgress = false)
+        vm.useMobileData()
+
+        assertNull(vm.state.value.card)
+        assertEquals(emptyList<Boolean>(), models.downloads)
+        assertEquals(emptyList<VoiceSetupEvent>(), events)
     }
 
     @Test
