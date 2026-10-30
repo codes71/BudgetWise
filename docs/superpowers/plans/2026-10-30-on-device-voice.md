@@ -69,6 +69,20 @@ Built on `feat/onboarding-v2` plus this branch. Designs: Paper file "Budget Wise
   read timeout (`@SlowCall`), since the server may try OpenAI after Claude.
 - No "Scan a receipt" button yet: the phone has no scan screen.
 
+## Device gate (Xiaomi 14, Snapdragon 8 Gen 3, 12 GB; 2026-10-31)
+
+Run with `asr/src/androidTest` (README there), the shipped ONNX Runtime 1.31.1 and settings:
+
+- Parity: on all 18 of the user's recordings, both models' transcripts are character-identical to the Mac goldens.
+  Plain ONNX Runtime stays for Omnilingual; sherpa-onnx is not needed.
+- Full path (VAD, both models): load 3.3 to 4.2 s, p50 RTF 0.61 (about 2.5 s for a 4 to 7 s phrase), peak VmHWM
+  1.55 GB.
+- A 20 s recording (the listening limit): 17.6 s to transcribe (RTF 0.88), peak 1.76 GB.
+- ONNX Runtime's telemetry provider is removed from the merged manifest.
+- A 4 GB emulator (arm64, 16 KB pages, Mac CPU so its speed means nothing): peak 1.39 GB for short phrases and
+  1.69 GB for 20 s; Android killed only background apps, never the test. The emulator image would not go below
+  4 GB, so 3 GB phones are untested.
+
 ## Still open
 
 - `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`) in the deployed environment; without it there is no fallback.
@@ -77,15 +91,13 @@ Built on `feat/onboarding-v2` plus this branch. Designs: Paper file "Budget Wise
 - Done 2026-10-31 (user chose Hugging Face): `freococo.onnx` and `vocab.json` are public at
   huggingface.co/thura2/freococo-myanmar-asr-onnx, commit e5041e6, Apache-2.0 with a model card; the app's default
   host pins that commit. Downloaded copies match the pinned sha256.
-- Memory: on the Mac a 20 s segment peaks near 2 GB; short phrases near 1.5 GB. Measure on the phone, then pick
-  `maxSegmentMs`.
+- Memory: measured on the phone (above): 1.55 GB for short phrases, 1.76 GB for 20 s. 4 GB (emulator) works; 3 GB
+  phones and a real low-end CPU are untested.
 - 64-bit ARM only (`abiFilters`), kept from the Raj build. Cheap 32-bit phones cannot install the app.
 
 ## Work, in order
 
-1. Device gate: run both models on the Mi 14 from files on disk, with the runtime the app will ship. Check
-   transcripts against the Mac on the user's 18 clips, latency, and peak memory (the Raj limit was 1.6 GB).
-   Decide plain ONNX Runtime for both versus sherpa-onnx for Omnilingual from this result.
+1. Device gate: done on the Mi 14 (see above). Plain ONNX Runtime for both models.
 2. `:asr`: replace the Raj/llama.cpp engine with the two ONNX engines behind the existing `SpeechToText`
    (returning both transcripts), keep `SpeechSegmenter`, and point `ModelManager` and the download worker at the
    new files with checksums. Drop the llama.cpp submodule and native build.
