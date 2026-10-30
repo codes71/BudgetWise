@@ -85,7 +85,8 @@ Run with `asr/src/androidTest` (README there), the shipped ONNX Runtime 1.31.1 a
 
 ## Still open
 
-- `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`) in the deployed environment; without it there is no fallback.
+- `OPENAI_API_KEY` was added in Vercel by the user (2026-10-31). It applies from the next deployment of each
+  environment; production gets it when `chore/monorepo` is merged and deployed.
 - The phone's `cloudParseEnabled` setting defaults on (user, 2026-10-30); its switch is in Settings on `feat/voice-ui`.
 
 - Done 2026-10-31 (user chose Hugging Face): `freococo.onnx` and `vocab.json` are public at
@@ -102,6 +103,6 @@ Run with `asr/src/androidTest` (README there), the shipped ONNX Runtime 1.31.1 a
    (returning both transcripts), keep `SpeechSegmenter`, and point `ModelManager` and the download worker at the
    new files with checksums. Drop the llama.cpp submodule and native build.
 3. Model hosting: done. Both models come from Hugging Face at pinned revisions.
-4. Understanding: done (Claude, OpenAI fallback); needs `OPENAI_API_KEY` in the deployed environment.
+4. Understanding: done (Claude, OpenAI fallback); `OPENAI_API_KEY` is set in Vercel.
 5. Voice UI: built on `feat/voice-ui` (see above); not yet tried on a phone.
 6. Licenses screen entries for both models (freococo is Apache-2.0; check Omnilingual's).
