@@ -3,6 +3,7 @@ package app.budgetwise.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.budgetwise.AccountActions
+import app.budgetwise.NetworkStatus
 import app.budgetwise.SyncControls
 import app.budgetwise.VoiceAvailability
 import app.budgetwise.asr.ModelManager
@@ -47,6 +48,8 @@ data class SettingsUiState(
     val cloudParse: Boolean = true,
     /** The phone has the memory for voice; without it the section only says why voice is off. */
     val voiceSupported: Boolean = true,
+    /** On Wi-Fi now: a download held for Wi-Fi only needs the mobile data offer when this is false. */
+    val onWifi: Boolean = true,
 ) {
     val canSyncNow: Boolean get() = account != null && !sessionExpired && sync.phase != SyncPhase.SYNCING
 }
@@ -77,6 +80,7 @@ class SettingsViewModel @Inject constructor(
     private val settings: SettingsStore,
     private val models: ModelManager,
     availability: VoiceAvailability,
+    network: NetworkStatus,
 ) : ViewModel() {
     private val voiceSupported = availability.supported
 
@@ -90,11 +94,13 @@ class SettingsViewModel @Inject constructor(
         val myanmarDigits: Boolean,
         val voice: ModelState = ModelState.Missing,
         val cloudParse: Boolean = true,
+        val onWifi: Boolean = true,
     )
 
-    private val local = combine(signOut, settings.myanmarDigits, models.state, settings.cloudParseEnabled) { out, digits, voice, cloud ->
-        Local(out, digits, voice, cloud)
-    }
+    private val local =
+        combine(signOut, settings.myanmarDigits, models.state, settings.cloudParseEnabled, network.unmetered) { out, digits, voice, cloud, wifi ->
+            Local(out, digits, voice, cloud, wifi)
+        }
 
     val state: StateFlow<SettingsUiState> =
         combine(session.state, sync.status, sync.queued, sync.unsyncedCount, local) { s, status, queued, unsynced, l ->
@@ -124,6 +130,7 @@ class SettingsViewModel @Inject constructor(
             voice = l.voice,
             cloudParse = l.cloudParse,
             voiceSupported = voiceSupported,
+            onWifi = l.onWifi,
         )
     }
 

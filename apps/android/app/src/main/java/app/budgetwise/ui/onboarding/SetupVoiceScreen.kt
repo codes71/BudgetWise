@@ -68,6 +68,7 @@ fun SetupVoiceRoute(onDone: () -> Unit, viewModel: VoiceSetupViewModel = hiltVie
     if (!state.supported) {
         Box(Modifier.fillMaxSize().background(BudgetWiseTheme.colors.ground)) {
             VoiceUnsupportedDialog(
+                myanmarDigits = state.myanmarDigits,
                 onDismiss = {
                     // Shown here, so Add entry does not show it again.
                     viewModel.noticeSeen()

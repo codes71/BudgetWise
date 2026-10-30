@@ -125,10 +125,11 @@ class ModelDownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
         manager.notify(READY_NOTIFICATION_ID, notification)
     }
 
+    /** Creates the channel, or renames it after the app's language changed; otherwise no call (progress ticks often). */
     private fun channel(manager: NotificationManager, id: String, name: Int, importance: Int) {
-        if (Build.VERSION.SDK_INT >= 26) {
-            // Created again each time, which also renames it when the app's language changed.
-            manager.createNotificationChannel(NotificationChannel(id, applicationContext.getString(name), importance))
+        val label = applicationContext.getString(name)
+        if (manager.getNotificationChannel(id)?.name?.toString() != label) {
+            manager.createNotificationChannel(NotificationChannel(id, label, importance))
         }
     }
 

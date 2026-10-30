@@ -262,8 +262,8 @@ fun AppNav(
                     onLanguage = dropUnlessResumed { openLanguage() },
                 )
             }
-            // With the voice step onboarding is three steps; a phone without the memory for voice skips it.
-            val steps = if (shell.voiceSupported) 3 else 2
+            // With the voice step onboarding is three steps; without it (no memory for voice, or voice already here) two.
+            val steps = if (shell.voiceStep) 3 else 2
             composable(Routes.CREATE_ACCOUNT) {
                 CreateAccountRoute(
                     steps = steps,

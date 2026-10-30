@@ -50,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import app.budgetwise.R
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.data.repo.CategoryRepository
+import app.budgetwise.data.repo.TransactionRepository
+import app.budgetwise.data.text.BurmeseTextNormalizer
 import app.budgetwise.data.repo.VoiceEntry
 import app.budgetwise.data.repo.VoiceMetric
 import app.budgetwise.data.repo.VoiceQuestion
@@ -102,7 +104,7 @@ internal fun ReviewScreen(state: VoiceUiState, review: ReviewState, actions: Voi
         footer = {
             MicLink(stringResource(R.string.voice_say_again), actions.onSayAgain, enabled = !review.saving)
             PrimaryButton(
-                text = pluralStringResource(R.plurals.voice_add_entries, count, count),
+                text = pluralStringResource(R.plurals.voice_add_entries, count, groupDigits(count.toLong(), state.myanmarDigits)),
                 onClick = actions.onSave,
                 enabled = count > 0,
                 busy = review.saving,
@@ -123,7 +125,10 @@ internal fun ReviewScreen(state: VoiceUiState, review: ReviewState, actions: Voi
             spoken = stringResource(R.string.kyat_amount, groupDigits(review.totalKyat)),
             modifier = Modifier.padding(top = 4.dp),
         )
-        SectionLabel(pluralStringResource(R.plurals.voice_entries_count, count, count), Modifier.padding(top = 28.dp, bottom = 10.dp))
+        SectionLabel(
+            pluralStringResource(R.plurals.voice_entries_count, count, groupDigits(count.toLong(), state.myanmarDigits)),
+            Modifier.padding(top = 28.dp, bottom = 10.dp),
+        )
         HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         review.entries.forEachIndexed { index, entry ->
             EntryRow(entry, state, enabled = !review.saving, onClick = { editing = index })
@@ -225,7 +230,10 @@ private fun EntrySheet(
     var pickingDate by rememberSaveable { mutableStateOf(false) }
     val amount = digits.toLongOrNull()?.takeIf { it > 0 }
     val filed = if (kind == TxType.INCOME) CategoryRepository.INCOME else category
-    val canSave = amount != null && filed != null && description.isNotBlank()
+    // The add form's limit, counted on the text as it will be stored (Zawgyi converted, normalized).
+    val max = TransactionRepository.MAX_DESCRIPTION
+    val tooLong = BurmeseTextNormalizer.prepare(description).length > max
+    val canSave = amount != null && filed != null && description.isNotBlank() && !tooLong
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -274,6 +282,7 @@ private fun EntrySheet(
                 onValueChange = { description = it },
                 label = stringResource(R.string.manual_description),
                 textStyle = type.size16.forContent(description),
+                error = if (tooLong) pluralStringResource(R.plurals.manual_description_error_too_long, max, max) else null,
             )
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 FieldLabel(stringResource(R.string.manual_date))
@@ -389,7 +398,11 @@ internal fun AnswerScreen(state: VoiceUiState, phase: VoicePhase.Answer, actions
             SectionLabel(stringResource(R.string.voice_budgets_label, monthName(YearMonth.from(answer.to))), Modifier.padding(top = 24.dp))
             val over = answer.overCount
             Text(
-                if (over > 0) pluralStringResource(R.plurals.voice_over_count, over, over) else stringResource(R.string.voice_within_budgets),
+                if (over > 0) {
+                    pluralStringResource(R.plurals.voice_over_count, over, groupDigits(over.toLong(), state.myanmarDigits))
+                } else {
+                    stringResource(R.string.voice_within_budgets)
+                },
                 style = type.size26.extraBold.tracked(-0.02f),
                 color = if (over > 0) colors.coralText else colors.ink,
                 modifier = Modifier.padding(top = 6.dp),

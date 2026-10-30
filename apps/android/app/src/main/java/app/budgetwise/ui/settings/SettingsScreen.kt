@@ -47,6 +47,7 @@ import app.budgetwise.asr.VoicePack
 import app.budgetwise.asr.VoiceRequirements
 import app.budgetwise.ui.voice.DownloadProgress
 import app.budgetwise.ui.voice.WifiWaitNotice
+import app.budgetwise.ui.voice.waitsForWifi
 import app.budgetwise.ui.voice.rememberAskNotifications
 import app.budgetwise.ui.voice.voiceSize
 import app.budgetwise.currentAppLanguage
@@ -60,6 +61,7 @@ import app.budgetwise.ui.common.SecondaryButton
 import app.budgetwise.ui.common.SectionLabel
 import app.budgetwise.ui.common.Spinner
 import app.budgetwise.ui.common.TextAction
+import app.budgetwise.ui.common.groupDigits
 import app.budgetwise.ui.common.relativeTime
 import app.budgetwise.ui.common.rememberTickingNow
 import app.budgetwise.ui.onboarding.ownName
@@ -354,7 +356,10 @@ private fun VoiceCard(
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.voice_unsupported_title), style = type.size16.medium, color = colors.ink)
                     Text(
-                        stringResource(R.string.settings_voice_unsupported_detail, VoiceRequirements.ADVERTISED_GB),
+                        stringResource(
+                            R.string.settings_voice_unsupported_detail,
+                            groupDigits(VoiceRequirements.ADVERTISED_GB.toLong(), state.myanmarDigits),
+                        ),
                         style = type.size13,
                         color = colors.muted,
                     )
@@ -392,7 +397,7 @@ private fun VoiceCard(
                 ModelState.Missing -> TextAction(stringResource(R.string.settings_voice_download), onDownload)
             }
         }
-        if (voice is ModelState.Downloading && voice.waiting) {
+        if (voice is ModelState.Downloading && waitsForWifi(voice, state.onWifi)) {
             WifiWaitNotice(state.myanmarDigits, onUseMobileData, Modifier.padding(bottom = 12.dp))
         }
         HorizontalDivider(thickness = 1.dp, color = colors.hairline)

@@ -274,8 +274,8 @@
     <string name="voice_downloading_title">Downloading voice</string>
     <string name="voice_downloaded_of">%1$s of %2$s</string>
     <plurals name="voice_minutes_left">
-        <item quantity="one">About %d minute left</item>
-        <item quantity="other">About %d minutes left</item>
+        <item quantity="one">About %1$s minute left</item>
+        <item quantity="other">About %1$s minutes left</item>
     </plurals>
     <string name="voice_waiting_wifi">Waiting for Wi-Fi</string>
     <string name="voice_use_mobile_data">Use mobile data</string>
@@ -326,12 +326,12 @@
     <string name="voice_total">Total</string>
     <string name="voice_total_received">Received</string>
     <plurals name="voice_entries_count">
-        <item quantity="one">%d entry</item>
-        <item quantity="other">%d entries</item>
+        <item quantity="one">%1$s entry</item>
+        <item quantity="other">%1$s entries</item>
     </plurals>
     <plurals name="voice_add_entries">
-        <item quantity="one">Add %d entry</item>
-        <item quantity="other">Add %d entries</item>
+        <item quantity="one">Add %1$s entry</item>
+        <item quantity="other">Add %1$s entries</item>
     </plurals>
     <plurals name="voice_no_day_said">
         <item quantity="one">No day was said, so it is set to today, %1$s. Tap it to change it.</item>
@@ -355,8 +355,8 @@
     <string name="voice_nothing_spent">Nothing was spent in this time.</string>
     <string name="voice_budgets_label">Budgets, %1$s</string>
     <plurals name="voice_over_count">
-        <item quantity="one">Over in %d category</item>
-        <item quantity="other">Over in %d categories</item>
+        <item quantity="one">Over in %1$s category</item>
+        <item quantity="other">Over in %1$s categories</item>
     </plurals>
     <string name="voice_within_budgets">Within every budget</string>
     <string name="voice_of_limit">of %1$s</string>
@@ -383,6 +383,6 @@
     <string name="setup_voice_no_wifi_detail">The download waits for Wi-Fi. Or start it now on mobile data, about %1$s.</string>
     <string name="setup_voice_download_on_wifi">Download on Wi-Fi</string>
     <string name="voice_unsupported_title">Voice isn\'t available on this phone</string>
-    <string name="voice_unsupported_body">Voice works out what you say on the phone itself, which needs at least %1$d GB of memory. This phone has less, so voice is off. You can still type every entry.</string>
-    <string name="settings_voice_unsupported_detail">Voice needs at least %1$d GB of memory, more than this phone has.</string>
+    <string name="voice_unsupported_body">Voice works out what you say on the phone itself, which needs at least %1$s GB of memory. This phone has less, so voice is off. You can still type every entry.</string>
+    <string name="settings_voice_unsupported_detail">Voice needs at least %1$s GB of memory, more than this phone has.</string>
 </resources>

@@ -86,7 +86,7 @@ class SettingsScreenTest {
 
     @Test
     fun aDownloadWaitingForWifiSaysSoAndOffersMobileData() {
-        show(signedIn.copy(voice = app.budgetwise.asr.ModelState.Downloading(0f, waiting = true)))
+        show(signedIn.copy(voice = app.budgetwise.asr.ModelState.Downloading(0f, waiting = true, wifiOnly = true), onWifi = false))
 
         compose.onNodeWithText(context.getString(R.string.voice_waiting_wifi)).assertIsDisplayed()
         compose.onNodeWithText("Voice downloads on Wi-Fi to save your data. On mobile data it uses about 1.1 GB.").assertIsDisplayed()
@@ -102,6 +102,12 @@ class SettingsScreenTest {
         compose.onNodeWithText(context.getString(R.string.voice_unsupported_title)).assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.settings_voice_download)).assertDoesNotExist()
         compose.onNodeWithText(context.getString(R.string.settings_cloud_parse)).assertDoesNotExist()
+    }
+
+    @Test
+    fun aRetryOnWifiOrADownloadAllowedOnMobileDataGetsNoWifiNotice() {
+        show(signedIn.copy(voice = app.budgetwise.asr.ModelState.Downloading(0.3f, waiting = true, wifiOnly = true), onWifi = true))
+        compose.onNodeWithText(context.getString(R.string.voice_use_mobile_data)).assertDoesNotExist()
     }
 
     @Test

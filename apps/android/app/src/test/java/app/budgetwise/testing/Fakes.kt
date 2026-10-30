@@ -193,7 +193,10 @@ class FakeTransactionStore(initial: List<Transaction> = emptyList()) : Transacti
     /** When set, addAll throws it (a Room failure). */
     var addFailure: Exception? = null
 
-    override fun observe(): Flow<List<Transaction>> = rows
+    /** When set, reading the ledger throws it (a Room failure). */
+    var observeFailure: Exception? = null
+
+    override fun observe(): Flow<List<Transaction>> = rows.map { list -> observeFailure?.let { throw it } ?: list }
 
     /** What the DAO query answers: [rows]' expenses in the range, summed per day and category. */
     override fun observeDailySpend(from: LocalDate, to: LocalDate): Flow<List<DailySpend>> = rows.map { all ->
@@ -262,7 +265,9 @@ class FakeModelManager(initial: ModelState = ModelState.Missing) : ModelManager 
 
     override suspend fun ensureDownloaded(allowMetered: Boolean) {
         downloads += allowMetered
-        if (state.value !is ModelState.Ready) state.value = ModelState.Downloading(0f, waiting = !allowMetered)
+        if (state.value !is ModelState.Ready) {
+            state.value = ModelState.Downloading(0f, waiting = !allowMetered, wifiOnly = !allowMetered)
+        }
     }
 
     override suspend fun delete() {

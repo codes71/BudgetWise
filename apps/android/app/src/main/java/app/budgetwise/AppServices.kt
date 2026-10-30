@@ -29,6 +29,7 @@ import app.budgetwise.data.sync.SyncStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDate
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -242,6 +243,7 @@ class DefaultOnDeviceSpeech @Inject constructor(private val stt: OnnxSpeechToTex
 }
 
 /** Read once per process: a phone's memory does not change while the app runs. */
+@Singleton
 class DefaultVoiceAvailability @Inject constructor(@ApplicationContext context: Context) : VoiceAvailability {
-    override val supported: Boolean by lazy { VoiceRequirements.supported(context) }
+    override val supported: Boolean = VoiceRequirements.supported(context)
 }

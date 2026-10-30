@@ -76,6 +76,7 @@ import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.SageRule
 import app.budgetwise.ui.common.SectionLabel
 import app.budgetwise.ui.common.Spinner
+import app.budgetwise.ui.common.toMyanmarDigits
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.extraBold
 import app.budgetwise.ui.theme.forContent
@@ -83,6 +84,7 @@ import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
 import app.budgetwise.ui.theme.tracked
 import java.time.LocalDate
+import java.util.Locale
 
 /**
  * Voice entry, full screen. [onClose] leaves it; [onTypeInstead] swaps it for the add form; [onSaved] leaves after the
@@ -206,7 +208,8 @@ private fun ListeningScreen(state: VoiceUiState, actions: VoiceActions) {
             Box(Modifier.weight(1f))
             val seconds = state.elapsedSeconds
             Text(
-                text = "%d:%02d".format(seconds / 60, seconds % 60),
+                text = String.format(Locale.US, "%d:%02d", seconds / 60, seconds % 60)
+                    .let { if (state.myanmarDigits) toMyanmarDigits(it) else it },
                 style = type.size15.medium.tracked(0.04f),
                 color = colors.muted,
                 modifier = Modifier.clearAndSetSemantics { },

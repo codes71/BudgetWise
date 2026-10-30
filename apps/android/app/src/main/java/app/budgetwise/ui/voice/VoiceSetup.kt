@@ -64,6 +64,7 @@ import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.SecondaryButton
 import app.budgetwise.ui.common.TextAction
+import app.budgetwise.ui.common.groupDigits
 import app.budgetwise.ui.common.toMyanmarDigits
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.extraBold
@@ -220,11 +221,12 @@ class VoiceSetupViewModel @Inject constructor(
         }
     }
 
+    /** Enqueues the download. Onboarding leaves this screen right after, so the enqueue must not be cancelled with it. */
     private fun start(allowMetered: Boolean) {
         if (!supported) return
         viewModelScope.launch {
             try {
-                models.ensureDownloaded(allowMetered)
+                withContext(NonCancellable) { models.ensureDownloaded(allowMetered) }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -282,7 +284,9 @@ fun rememberSayIt(
         onDismiss = viewModel::dismiss,
         onCancelDownload = viewModel::cancelDownload,
     )
-    if (explainIfUnsupported && state.showUnsupportedNotice) VoiceUnsupportedDialog(onDismiss = viewModel::noticeSeen)
+    if (explainIfUnsupported && state.showUnsupportedNotice) {
+        VoiceUnsupportedDialog(myanmarDigits = state.myanmarDigits, onDismiss = viewModel::noticeSeen)
+    }
     return if (state.supported) viewModel::onSayIt else null
 }
 
@@ -291,7 +295,7 @@ fun rememberSayIt(
  * and that typing still works. It offers nothing else.
  */
 @Composable
-fun VoiceUnsupportedDialog(onDismiss: () -> Unit) {
+fun VoiceUnsupportedDialog(onDismiss: () -> Unit, myanmarDigits: Boolean = false) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -305,7 +309,7 @@ fun VoiceUnsupportedDialog(onDismiss: () -> Unit) {
                     modifier = Modifier.padding(top = 8.dp).semantics { heading() },
                 )
                 Text(
-                    stringResource(R.string.voice_unsupported_body, VoiceRequirements.ADVERTISED_GB),
+                    stringResource(R.string.voice_unsupported_body, groupDigits(VoiceRequirements.ADVERTISED_GB.toLong(), myanmarDigits)),
                     style = type.size14,
                     color = colors.muted,
                 )
@@ -422,9 +426,9 @@ private fun DownloadingCard(
         )
         DownloadProgress(progress, state.myanmarDigits, Modifier.padding(top = 4.dp))
         when {
-            downloading?.waiting == true -> WifiWaitNotice(state.myanmarDigits, onUseMobileData)
+            downloading != null && waitsForWifi(downloading, state.onWifi) -> WifiWaitNotice(state.myanmarDigits, onUseMobileData)
             state.minutesLeft != null -> Text(
-                pluralStringResource(R.plurals.voice_minutes_left, state.minutesLeft, state.minutesLeft),
+                pluralStringResource(R.plurals.voice_minutes_left, state.minutesLeft, groupDigits(state.minutesLeft.toLong(), state.myanmarDigits)),
                 style = type.size13,
                 color = colors.muted,
             )
@@ -478,6 +482,13 @@ fun WifiNotice(title: String, detail: String, onUseMobileData: () -> Unit, modif
         }
     }
 }
+
+/**
+ * The download is held only by Wi-Fi: it may not use mobile data, and the phone is off Wi-Fi now. A retry's backoff on
+ * Wi-Fi, or a download already allowed on mobile data, waits for other reasons and gets no Wi-Fi notice.
+ */
+fun waitsForWifi(downloading: ModelState.Downloading, onWifi: Boolean): Boolean =
+    downloading.waiting && downloading.wifiOnly && !onWifi
 
 /** "430 MB of 1.1 GB" and the percent over a sage bar. */
 @Composable

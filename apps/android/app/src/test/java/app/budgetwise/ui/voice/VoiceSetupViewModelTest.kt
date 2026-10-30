@@ -82,7 +82,7 @@ class VoiceSetupViewModelTest {
         vm.useMobileData()
 
         assertEquals(listOf(true), models.downloads)
-        assertEquals(ModelState.Downloading(0f, waiting = false), models.state.value)
+        assertEquals(ModelState.Downloading(0f, waiting = false, wifiOnly = false), models.state.value)
         network.unmetered.value = true
         assertEquals(true, vm.state.value.onWifi)
     }

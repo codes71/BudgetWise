@@ -276,6 +276,7 @@ class DefaultModelManagerTest {
         m.ensureDownloaded()
         val waiting = awaitValue { m.state.value as? ModelState.Downloading }
         assertTrue("no Wi-Fi yet, so the download waits", waiting.waiting)
+        assertTrue("Wi-Fi only until the user picks mobile data", waiting.wifiOnly)
         val id = workInfos().single().id
         WorkManagerTestInitHelper.getTestDriver(context)!!.setAllConstraintsMet(id)
         val before = VoicePack.FREOCOCO_MODEL.bytes + VoicePack.FREOCOCO_VOCAB.bytes
