@@ -142,7 +142,9 @@ private const val SCAN_ADDED_FROM = "scan_added_from"
  */
 internal fun NavController.closeScanSaved(saved: ScanEvent.Saved) {
     if (currentDestination?.route != Routes.SCAN) return
-    runCatching { getBackStackEntry(Routes.TRANSACTIONS) }.getOrNull()?.savedStateHandle?.let {
+    // Nothing new (every KPay row was already saved): no "Added" notice, and no Undo to delete the earlier entries.
+    val handle = if (saved.clientIds.isEmpty()) null else runCatching { getBackStackEntry(Routes.TRANSACTIONS) }.getOrNull()?.savedStateHandle
+    handle?.let {
         it[SCAN_ADDED_FROM] = saved.merchant
         it[SCAN_ADDED_IDS] = ArrayList(saved.clientIds)
     }

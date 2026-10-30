@@ -174,8 +174,8 @@ fun TransactionsRoute(
         onDispose { if (activity?.isChangingConfigurations != true) viewModel.commitPendingDelete() }
     }
 
-    // "Added 3 entries" after a scan, with Undo. The shell hands it over from the scan screen and forgets it once the
-    // notice has ended, so a rotation while it shows brings it back but a later visit does not.
+    // "Added 3 entries" after a scan, with Undo. The shell hands it over from the scan screen; it is forgotten once the
+    // notice ends or the screen goes (another tab, a rotation), so a later visit never offers Undo on old entries.
     val addedCount = scanAdded?.clientIds?.size ?: 0
     val addedTitle = pluralStringResource(R.plurals.scan_added, addedCount, addedCount)
     val addedFrom = scanAdded?.merchant?.let { stringResource(R.string.scan_added_from, it) } ?: stringResource(R.string.scan_added_from_photo)
@@ -183,9 +183,11 @@ fun TransactionsRoute(
     LaunchedEffect(scanAdded) {
         val added = scanAdded ?: return@LaunchedEffect
         val visuals = NoticeVisuals(NoticeTone.SUCCESS, Lucide.CircleCheck, addedTitle, addedFrom, undo, SnackbarDuration.Long)
-        val result = notices.showSnackbar(visuals)
-        addedShown()
-        if (result == SnackbarResult.ActionPerformed) viewModel.undoAdded(added.clientIds)
+        try {
+            if (notices.showSnackbar(visuals) == SnackbarResult.ActionPerformed) viewModel.undoAdded(added.clientIds)
+        } finally {
+            addedShown()
+        }
     }
 
     TransactionsScreen(

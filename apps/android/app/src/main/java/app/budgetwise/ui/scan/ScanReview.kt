@@ -113,7 +113,8 @@ internal fun ScanReview(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
         ) {
             SourceRow(state, Modifier.padding(top = 12.dp))
-            Total(state, Modifier.padding(top = 28.dp))
+            // A KPay history mixes money in and out and has no printed total: each row shows its own amount.
+            if (state.kind != ScanKind.HISTORY) Total(state, Modifier.padding(top = 28.dp))
             state.shortBy?.let { short ->
                 Notice(
                     tone = NoticeTone.ATTENTION,
@@ -203,8 +204,10 @@ private fun SourceRow(state: ScanUiState, modifier: Modifier = Modifier) {
         }
         Column(Modifier.weight(1f)) {
             Text(shop, style = type.size17.semibold.forContent(shop), color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            val date = state.date?.let { localizedDate(it, "EEEEMMMMd") } ?: stringResource(R.string.scan_no_date)
-            Text(date, style = type.size13, color = if (state.date == null) colors.coralText else colors.muted)
+            // Only a receipt is one dated thing; KPay rows carry their own dates.
+            val date = state.date?.let { localizedDate(it, "EEEEMMMMd") }
+                ?: stringResource(R.string.scan_no_date).takeIf { state.kind == ScanKind.RECEIPT }
+            if (date != null) Text(date, style = type.size13, color = if (state.date == null) colors.coralText else colors.muted)
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Icon(Lucide.ScanLine, contentDescription = null, tint = colors.accent, modifier = Modifier.size(14.dp))

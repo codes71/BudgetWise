@@ -164,7 +164,7 @@ class ScanViewModelTest {
         val cases = listOf(
             ApiResult.Failure(NETWORK_ERROR_CODE, "offline", retryable = true) to ScanProblem.NO_INTERNET,
             ApiResult.Failure("rate_limited", "slow down", retryable = true) to ScanProblem.TOO_MANY,
-            ApiResult.Failure("scan_failed", "could not read", retryable = true) to ScanProblem.UNREADABLE,
+            ApiResult.Failure("scan_failed", "could not read", retryable = true) to ScanProblem.SERVER,
             ApiResult.Failure("http_503", "down", retryable = true) to ScanProblem.SERVER,
             ApiResult.Unauthorized("expired") to ScanProblem.SIGN_IN,
             ApiResult.Ok(ScanReading(ScanKind.UNKNOWN, null, null, null, emptyList())) to ScanProblem.UNREADABLE,
@@ -191,5 +191,16 @@ class ScanViewModelTest {
         vm.retake()
         assertEquals(ScanStage.CAMERA, vm.state.value.stage)
         assertNull(vm.photo)
+    }
+
+    @Test
+    fun aPhotoThatCannotBeOpenedSaysSoAndSendsNothing() = runTest {
+        val vm = viewModel()
+
+        vm.cannotOpen()
+
+        assertEquals(ScanStage.PROBLEM, vm.state.value.stage)
+        assertEquals(ScanProblem.UNREADABLE, vm.state.value.problem)
+        assertEquals(0, sent.size)
     }
 }

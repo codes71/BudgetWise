@@ -116,12 +116,12 @@ interface CategorySource {
     suspend fun refresh()
 }
 
-/** Reads what the phone heard (text only) into entries or a spending question, on the server ([VoiceRepository]). */
 /** Reads a photo of a receipt or KPay screen into entries on the server ([ScanRepository]); saves nothing. */
 fun interface ReceiptScanner {
     suspend fun scan(image: ByteArray, mediaType: String): ApiResult<ScanReading>
 }
 
+/** Reads what the phone heard (text only) into entries or a spending question, on the server ([VoiceRepository]). */
 fun interface VoiceParser {
     suspend fun parse(transcripts: List<String>): ApiResult<VoiceParse>
 }

@@ -14,6 +14,8 @@ import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.repo.ScanItem
 import app.budgetwise.data.repo.ScanKind
 import app.budgetwise.data.repo.ScanReading
+import app.budgetwise.data.repo.TransactionRepository
+import app.budgetwise.data.text.BurmeseTextNormalizer
 import app.budgetwise.di.DeviceClock
 import app.budgetwise.nlu.TxType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -84,7 +86,7 @@ data class ScanUiState(
 ) {
     val keptLines: List<ReviewLine> get() = lines.filter { it.kept }
 
-    /** What the review adds up to; the receipt's printed total when it has one. */
+    /** What the review adds up to; the receipt's printed total when it has one. Not shown for a KPay history. */
     val shownTotal: Long get() = totalKyat ?: keptLines.sumOf { it.amountKyat }
 
     /** How much the receipt's lines fall short of its printed total, so the rest can go under Other. */
@@ -172,13 +174,20 @@ class ScanViewModel @Inject constructor(
                     when {
                         result.code == NETWORK_ERROR_CODE -> ScanProblem.NO_INTERNET
                         result.code == "rate_limited" || result.code == "http_429" -> ScanProblem.TOO_MANY
-                        result.code == "scan_failed" -> ScanProblem.UNREADABLE
+                        // The AI read failed (the server says to try again): resending the same photo can work.
+                        result.code == "scan_failed" -> ScanProblem.SERVER
                         result.retryable -> ScanProblem.SERVER
                         else -> ScanProblem.UNREADABLE
                     },
                 )
             }
         }
+    }
+
+    /** A chosen photo that could not be opened as an image: the couldn't-read card, nothing sent. */
+    fun cannotOpen() {
+        photo = null
+        fail(ScanProblem.UNREADABLE)
     }
 
     private fun fail(problem: ScanProblem) = _state.update { it.copy(stage = ScanStage.PROBLEM, problem = problem) }
@@ -256,7 +265,8 @@ class ScanViewModel @Inject constructor(
         type = type,
         amountKyat = amountKyat,
         category = if (type == TxType.INCOME) CategoryRepository.INCOME else category,
-        description = description.trim().ifEmpty { category }.take(MAX_DESCRIPTION),
+        // Prepared before it is cut, as the repository checks the prepared length (Zawgyi to Unicode can lengthen it).
+        description = BurmeseTextNormalizer.prepare(description).ifEmpty { category }.take(TransactionRepository.MAX_DESCRIPTION),
         date = date,
         // The server takes manual or voice; a scanned entry was checked and kept by hand.
         source = Source.MANUAL,
@@ -283,6 +293,5 @@ class ScanViewModel @Inject constructor(
 
     companion object {
         const val OTHER = "Other"
-        private const val MAX_DESCRIPTION = 200
     }
 }

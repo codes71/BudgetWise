@@ -78,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
@@ -89,6 +90,7 @@ import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.bold
 import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.tracked
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.launch
@@ -115,12 +117,23 @@ fun ScanRoute(
     val scope = rememberCoroutineScope()
     // Shrinking a photo takes a moment; the reading card shows from the shutter on.
     var preparing by remember { mutableStateOf(false) }
+    // The camera is asked for once per scan, not again each time the viewfinder comes back after a card.
+    var cameraAsked by rememberSaveable { mutableStateOf(false) }
     fun prepareAndRead(load: () -> Bitmap?) {
         preparing = true
         scope.launch {
-            val prepared = withContext(Dispatchers.Default) { load()?.let(PhotoPrep::prepare) }
+            val prepared = withContext(Dispatchers.Default) {
+                try {
+                    load()?.let(PhotoPrep::prepare)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null // Out of memory on a huge picture, or a file that is not an image after all.
+                }
+            }
             preparing = false
-            if (prepared != null) viewModel.read(prepared)
+            // A photo that could not be opened says so, instead of the camera coming back as if nothing happened.
+            if (prepared != null) viewModel.read(prepared) else viewModel.cannotOpen()
         }
     }
 
@@ -130,8 +143,10 @@ fun ScanRoute(
     when (state.stage) {
         ScanStage.CAMERA -> CameraStage(
             busy = preparing,
+            asked = cameraAsked,
+            onAsked = { cameraAsked = true },
             onClose = onClose,
-            onCaptured = { image -> prepareAndRead { PhotoPrep.fromCapture(image) } },
+            onCaptured = { bitmap -> scope.launch { prepareAndRead { bitmap } } },
             onPicked = { uri -> prepareAndRead { PhotoPrep.fromUri(context, uri) } },
         )
         ScanStage.READING, ScanStage.PROBLEM -> PhotoBackdrop(viewModel.photo?.bitmap, onClose) {
@@ -163,20 +178,31 @@ private val OnCameraMuted = Color(0xFFB8BEC6)
 /**
  * The viewfinder with the sage frame and the hint, then Choose a photo and the shutter. Without the camera
  * permission, a card asks for it; choosing a photo works either way (the system picker needs no permission).
+ * [onCaptured] gets the upright photo, or null when the capture could not be turned into one.
  */
 @Composable
-private fun CameraStage(busy: Boolean, onClose: () -> Unit, onCaptured: (ImageProxy) -> Unit, onPicked: (Uri) -> Unit) {
+private fun CameraStage(
+    busy: Boolean,
+    asked: Boolean,
+    onAsked: () -> Unit,
+    onClose: () -> Unit,
+    onCaptured: (Bitmap?) -> Unit,
+    onPicked: (Uri) -> Unit,
+) {
     val context = LocalContext.current
     val activity = LocalActivity.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val type = BudgetWiseTheme.type
-    var granted by remember {
-        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+    fun hasCamera() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+    var granted by remember { mutableStateOf(hasCamera()) }
+    // Allowed in the app's settings while BudgetWise waited in the background: check again on the way back.
+    LifecycleResumeEffect(Unit) {
+        granted = hasCamera()
+        onPauseOrDispose { }
     }
-    var asked by rememberSaveable { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         granted = it
-        asked = true
+        onAsked()
     }
     LaunchedEffect(Unit) { if (!granted && !asked) permission.launch(Manifest.permission.CAMERA) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(onPicked) }
@@ -200,7 +226,8 @@ private fun CameraStage(busy: Boolean, onClose: () -> Unit, onCaptured: (ImagePr
         controller.takePicture(
             Dispatchers.Default.asExecutor(),
             object : ImageCapture.OnImageCapturedCallback() {
-                override fun onCaptureSuccess(image: ImageProxy) = onCaptured(image)
+                // Turned into a bitmap here, on the capture thread, so the image is always closed.
+                override fun onCaptureSuccess(image: ImageProxy) = onCaptured(runCatching { PhotoPrep.fromCapture(image) }.getOrNull())
 
                 // A failed capture leaves the viewfinder as it was; the user takes it again.
                 override fun onError(exception: ImageCaptureException) = Unit

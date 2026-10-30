@@ -69,9 +69,10 @@ class TransactionRepository @Inject constructor(
     }
 
     /**
-     * Saves every input as a PENDING row of the active account with a fresh UUIDv4 clientId plus its CREATE op, all in
-     * one Room transaction (a failure leaves no rows). A sync is requested only after the commit. Returns the clientIds
-     * in input order. Description and transcript go through [BurmeseTextNormalizer.prepare] (Zawgyi to Unicode, NFC,
+     * Saves every input as a PENDING row of the active account with a fresh UUIDv4 clientId (or its fixed
+     * [NewTransaction.clientId]) plus its CREATE op, all in one Room transaction (a failure leaves no rows). A sync is
+     * requested only after the commit. Returns the clientIds of the rows it stored, in input order: an input whose fixed
+     * id this account already holds is the same entry saved again, and is skipped. Description and transcript go through [BurmeseTextNormalizer.prepare] (Zawgyi to Unicode, NFC,
      * whitespace) before they are stored. Throws [IllegalStateException] when no account is signed in.
      */
     suspend fun addAll(inputs: List<NewTransaction>): List<String> {
@@ -84,11 +85,12 @@ class TransactionRepository @Inject constructor(
             "description is longer than $MAX_DESCRIPTION characters once prepared"
         }
         val ids = db.withTransaction {
-            inputs.mapIndexed { index, input ->
-                // A fixed id this account already has is the same entry saved again: keep the one there. Another
-                // account's (two people scanning one KPay slip on a shared phone) gets a new id instead.
+            inputs.mapIndexedNotNull { index, input ->
+                // A fixed id this account already has is the same entry saved again: the one there stays, untouched.
+                // Another account's (two people scanning one KPay slip on a shared phone), or a row deleted here and
+                // waiting for the server, keeps its id: this entry gets a new one instead.
                 val existing = input.clientId?.let { tx.byClientId(it) }
-                if (existing != null && existing.ownerId == owner) return@mapIndexed existing.clientId
+                if (existing != null && existing.ownerId == owner && !existing.deleted) return@mapIndexedNotNull null
                 val clientId = input.clientId?.takeIf { existing == null } ?: UUID.randomUUID().toString()
                 tx.upsert(
                     TransactionEntity(
@@ -110,7 +112,7 @@ class TransactionRepository @Inject constructor(
                 clientId
             }
         }
-        syncScheduler.requestAfterWrite()
+        if (ids.isNotEmpty()) syncScheduler.requestAfterWrite()
         return ids
     }
 
