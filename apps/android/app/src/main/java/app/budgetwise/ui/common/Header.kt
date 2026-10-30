@@ -2,6 +2,7 @@ package app.budgetwise.ui.common
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -75,7 +76,8 @@ fun HeaderTitle(title: String, modifier: Modifier = Modifier) {
 
 /**
  * A pushed screen's or the add form's header: back (or close) on the left, then the title. Without [title] it is the
- * back arrow alone, for screens that set their own big title below it (sign in, create account).
+ * back arrow alone, for screens that set their own big title below it (sign in, create account). [trailing] sits at
+ * the right end (create account's step).
  */
 @Composable
 fun BackHeader(
@@ -84,6 +86,7 @@ fun BackHeader(
     modifier: Modifier = Modifier,
     icon: ImageVector = Lucide.ArrowLeft,
     backLabel: String = stringResource(R.string.action_back),
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -97,6 +100,7 @@ fun BackHeader(
         IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
             Icon(icon, contentDescription = backLabel, tint = BudgetWiseTheme.colors.ink, modifier = Modifier.size(24.dp))
         }
-        if (title != null) HeaderTitle(title, Modifier.weight(1f))
+        if (title != null) HeaderTitle(title, Modifier.weight(1f)) else Spacer(Modifier.weight(1f))
+        trailing?.invoke()
     }
 }

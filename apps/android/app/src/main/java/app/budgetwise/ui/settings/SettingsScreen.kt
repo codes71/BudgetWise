@@ -42,6 +42,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.BuildConfig
 import app.budgetwise.R
+import app.budgetwise.currentAppLanguage
 import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.KitSwitch
 import app.budgetwise.ui.common.Lucide
@@ -53,6 +54,8 @@ import app.budgetwise.ui.common.SectionLabel
 import app.budgetwise.ui.common.Spinner
 import app.budgetwise.ui.common.relativeTime
 import app.budgetwise.ui.common.rememberTickingNow
+import app.budgetwise.ui.onboarding.ownName
+import app.budgetwise.ui.onboarding.scriptStyle
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.bold
 import app.budgetwise.ui.theme.forContent
@@ -62,7 +65,12 @@ import java.text.BreakIterator
 import java.time.Instant
 
 @Composable
-fun SettingsRoute(onSignIn: () -> Unit, onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsRoute(
+    onSignIn: () -> Unit,
+    onLanguage: () -> Unit,
+    onBack: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     SettingsScreen(
         state = state,
@@ -72,6 +80,7 @@ fun SettingsRoute(onSignIn: () -> Unit, onBack: () -> Unit, viewModel: SettingsV
         onSignOut = viewModel::signOut,
         onMyanmarDigitsChange = viewModel::setMyanmarDigits,
         onSignIn = onSignIn,
+        onLanguage = onLanguage,
         version = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
     )
 }
@@ -86,6 +95,7 @@ fun SettingsScreen(
     onSignOut: () -> Unit,
     onMyanmarDigitsChange: (Boolean) -> Unit,
     onSignIn: () -> Unit,
+    onLanguage: () -> Unit,
     version: String,
     modifier: Modifier = Modifier,
 ) {
@@ -102,7 +112,7 @@ fun SettingsScreen(
                     Section(stringResource(R.string.settings_section_sync)) { SyncCard(state, now, onSyncNow, onSignIn) }
                 }
                 item(key = "display") {
-                    Section(stringResource(R.string.settings_section_display)) { DisplayCard(state.myanmarDigits, onMyanmarDigitsChange) }
+                    Section(stringResource(R.string.settings_section_display)) { DisplayCard(state.myanmarDigits, onMyanmarDigitsChange, onLanguage) }
                 }
                 if (state.account != null) {
                     item(key = "sign-out") { SignOutCard(state.signingOut, onSignOut) }
@@ -295,10 +305,24 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
 }
 
 @Composable
-private fun DisplayCard(myanmarDigits: Boolean, onChange: (Boolean) -> Unit) {
+private fun DisplayCard(myanmarDigits: Boolean, onChange: (Boolean) -> Unit, onLanguage: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     Card {
+        // The language's name is written in its own script, whatever the app's language is.
+        val language = currentAppLanguage()
+        SettingsRow(
+            icon = Lucide.Globe,
+            tint = colors.muted,
+            modifier = Modifier.heightIn(min = 64.dp).clickable(role = Role.Button, onClick = onLanguage),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_language), style = type.size16.medium, color = colors.ink)
+                Text(language.ownName(), style = scriptStyle(language, 13), color = colors.muted)
+            }
+            Icon(Lucide.ChevronRight, contentDescription = null, tint = colors.muted, modifier = Modifier.size(20.dp))
+        }
+        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         SettingsRow(
             icon = null,
             tint = colors.muted,
@@ -354,6 +378,7 @@ private fun SettingsScreenPreview() {
             onSignOut = {},
             onMyanmarDigitsChange = {},
             onSignIn = {},
+            onLanguage = {},
             version = "Version 1.0 (1)",
         )
     }

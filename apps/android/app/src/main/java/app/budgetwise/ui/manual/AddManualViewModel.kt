@@ -16,7 +16,7 @@ import app.budgetwise.data.text.BurmeseTextNormalizer
 import app.budgetwise.di.DeviceClock
 import app.budgetwise.nlu.TxType
 import app.budgetwise.ui.common.MAX_KYAT
-import app.budgetwise.ui.common.asciiDigits
+import app.budgetwise.ui.common.typedKyatDigits
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.LocalDate
@@ -179,10 +179,7 @@ class AddManualViewModel @Inject constructor(
      * leading zeros off. A decimal point or a value above [MAX_KYAT] is refused: the field keeps what it had.
      */
     fun onAmountChange(text: String) {
-        if ('.' in text) return
-        val raw = asciiDigits(text)
-        val digits = if (raw.isEmpty()) "" else raw.trimStart('0').ifEmpty { "0" }
-        if (digits.length > MAX_DIGITS || (digits.isNotEmpty() && digits.toLong() > MAX_KYAT)) return
+        val digits = typedKyatDigits(text) ?: return
         edit { it.copy(amountDigits = digits, amountTouched = true) }
     }
 
@@ -222,7 +219,6 @@ class AddManualViewModel @Inject constructor(
     companion object {
         /** The server's limit for a description, in characters of the prepared text. */
         const val MAX_DESCRIPTION = TransactionRepository.MAX_DESCRIPTION
-        private val MAX_DIGITS = MAX_KYAT.toString().length
 
         // SavedStateHandle keys; values are Bundle types (String, Long, Boolean).
         private const val KEY_TYPE = "type"

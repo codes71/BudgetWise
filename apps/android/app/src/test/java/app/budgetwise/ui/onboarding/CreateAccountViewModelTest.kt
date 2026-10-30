@@ -31,8 +31,7 @@ class CreateAccountViewModelTest {
         return events
     }
 
-    private fun CreateAccountViewModel.fill(name: String = " Aye Chan ", email: String = " aye@example.com ", password: String = "teashop26") {
-        onNameChange(name)
+    private fun CreateAccountViewModel.fill(email: String = " aye@example.com ", password: String = "teashop26") {
         onEmailChange(email)
         onPasswordChange(password)
     }
@@ -46,7 +45,8 @@ class CreateAccountViewModelTest {
         vm.fill()
         vm.submit()
 
-        assertEquals(listOf(RegisterCall("aye@example.com", "teashop26", "Aye Chan")), accounts.registers)
+        // No name is asked; the server names the account after the email.
+        assertEquals(listOf(RegisterCall("aye@example.com", "teashop26", "")), accounts.registers)
         assertEquals(listOf(CreateAccountEvent.SignedIn), events)
         assertTrue(vm.state.value.signedIn)
         assertEquals("", vm.state.value.password)

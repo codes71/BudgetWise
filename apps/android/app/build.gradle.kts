@@ -54,6 +54,14 @@ android {
         }
     }
 
+    // The app's language can differ from the phone's (the language screen), so every install needs both languages'
+    // resources: Play must not split the bundle by the phone's language.
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
     buildTypes {
         debug {
             buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")

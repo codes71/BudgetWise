@@ -121,6 +121,12 @@ object Lucide {
     /** Name (create account). */
     val User by lazy { lucide("User", "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2", "M8 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0Z") }
 
+    /** The app's language (Welcome's chip, Settings). */
+    val Globe by lazy { lucide("Globe", "M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0 -20Z", "M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20", "M2 12h20") }
+
+    /** Type an entry in. */
+    val Pencil by lazy { lucide("Pencil", "M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z") }
+
     /** Email. */
     val Mail by lazy { lucide("Mail", "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-16a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2Z", "m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7") }
 
