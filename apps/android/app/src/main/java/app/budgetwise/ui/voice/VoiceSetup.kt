@@ -75,6 +75,7 @@ import java.util.Locale
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.ceil
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -84,6 +85,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** The card over the screen that offered Say it: set up voice (the download), or its progress. */
 enum class VoiceCard { SETUP, DOWNLOADING }
@@ -98,7 +100,11 @@ data class VoiceSetupUiState(
     val onWifi: Boolean = true,
     /** The phone has the memory for voice ([VoiceAvailability]); without it voice is off and nothing offers it. */
     val supported: Boolean = true,
+    /** This phone has already shown why voice is off, so it is not shown again. */
+    val noticeShown: Boolean = false,
 ) {
+    /** Explain once, on a phone without the memory for voice, why there is no Say it. */
+    val showUnsupportedNotice: Boolean get() = !supported && !noticeShown
     /** Downloading or done: nothing to offer. */
     val setUp: Boolean get() = model is ModelState.Ready || model is ModelState.Downloading
 }
@@ -116,7 +122,7 @@ sealed interface VoiceSetupEvent {
 @HiltViewModel
 class VoiceSetupViewModel @Inject constructor(
     private val models: ModelManager,
-    settings: SettingsStore,
+    private val settings: SettingsStore,
     network: NetworkStatus,
     availability: VoiceAvailability,
     @DeviceClock private val clock: Clock,
@@ -133,9 +139,17 @@ class VoiceSetupViewModel @Inject constructor(
     val events: Flow<VoiceSetupEvent> = _events.receiveAsFlow()
 
     val state: StateFlow<VoiceSetupUiState> =
-        combine(models.state, card, minutesLeft, settings.myanmarDigits, network.unmetered) { model, card, minutes, digits, wifi ->
-            VoiceSetupUiState(model, card, minutes, digits, wifi, supported)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VoiceSetupUiState(models.state.value, supported = supported))
+        combine(models.state, card, minutesLeft, network.unmetered, display()) { model, card, minutes, wifi, display ->
+            VoiceSetupUiState(model, card, minutes, display.first, wifi, supported, display.second)
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            // Shown already until the store says otherwise, so the notice never flashes up before it is read.
+            VoiceSetupUiState(models.state.value, supported = supported, noticeShown = true),
+        )
+
+    /** Myanmar digits and whether the notice was shown, paired so the main combine stays at five sources. */
+    private fun display() = combine(settings.myanmarDigits, settings.voiceNoticeShown) { digits, shown -> digits to shown }
 
     init {
         viewModelScope.launch {
@@ -174,6 +188,22 @@ class VoiceSetupViewModel @Inject constructor(
 
     fun dismiss() {
         card.value = null
+    }
+
+    /**
+     * The phone has shown why voice is off; it is not shown again on this phone. The write outlives this screen:
+     * onboarding leaves it straight after.
+     */
+    fun noticeSeen() {
+        viewModelScope.launch {
+            try {
+                withContext(NonCancellable) { settings.setVoiceNoticeShown() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // DataStore could not write; the notice may show once more, which is harmless.
+            }
+        }
     }
 
     /** Stops the download and deletes what it fetched. */
@@ -227,10 +257,15 @@ class VoiceSetupViewModel @Inject constructor(
 /**
  * Hosts the setup and download cards for a screen that offers Say it, and returns what Say it does: null on a phone
  * without the memory for voice, where the screen shows no Say it at all. [onOpenVoice] opens the listening screen once
- * voice is on the phone.
+ * voice is on the phone. With [explainIfUnsupported] (Add entry, where Say it would be), such a phone shows once why
+ * voice is off: people who signed in rather than signing up never saw onboarding's notice.
  */
 @Composable
-fun rememberSayIt(onOpenVoice: () -> Unit, viewModel: VoiceSetupViewModel = hiltViewModel()): (() -> Unit)? {
+fun rememberSayIt(
+    onOpenVoice: () -> Unit,
+    viewModel: VoiceSetupViewModel = hiltViewModel(),
+    explainIfUnsupported: Boolean = false,
+): (() -> Unit)? {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val open by rememberUpdatedState(onOpenVoice)
     LaunchedEffect(viewModel) {
@@ -247,6 +282,7 @@ fun rememberSayIt(onOpenVoice: () -> Unit, viewModel: VoiceSetupViewModel = hilt
         onDismiss = viewModel::dismiss,
         onCancelDownload = viewModel::cancelDownload,
     )
+    if (explainIfUnsupported && state.showUnsupportedNotice) VoiceUnsupportedDialog(onDismiss = viewModel::noticeSeen)
     return if (state.supported) viewModel::onSayIt else null
 }
 

@@ -157,6 +157,7 @@ class FakeSettingsStore : SettingsStore {
     override val autoSaveHighConfidence = MutableStateFlow(false)
     override val cloudParseEnabled = MutableStateFlow(true)
     override val myanmarDigits = MutableStateFlow(false)
+    override val voiceNoticeShown = MutableStateFlow(false)
     val lastPulled = mutableMapOf<String, MutableStateFlow<Instant?>>()
 
     override fun lastPulledAt(owner: String): Flow<Instant?> = lastPulled.getOrPut(owner) { MutableStateFlow(null) }
@@ -172,6 +173,10 @@ class FakeSettingsStore : SettingsStore {
     override suspend fun setMyanmarDigits(on: Boolean) {
         writeFailure?.let { throw it }
         myanmarDigits.value = on
+    }
+
+    override suspend fun setVoiceNoticeShown() {
+        voiceNoticeShown.value = true
     }
 
     override suspend fun setLastPulledAt(owner: String, at: Instant) {

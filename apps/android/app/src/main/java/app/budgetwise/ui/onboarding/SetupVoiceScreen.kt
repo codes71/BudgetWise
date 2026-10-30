@@ -66,7 +66,15 @@ fun SetupVoiceRoute(onDone: () -> Unit, viewModel: VoiceSetupViewModel = hiltVie
     val state by viewModel.state.collectAsStateWithLifecycle()
     val done by rememberUpdatedState(onDone)
     if (!state.supported) {
-        Box(Modifier.fillMaxSize().background(BudgetWiseTheme.colors.ground)) { VoiceUnsupportedDialog(onDismiss = onDone) }
+        Box(Modifier.fillMaxSize().background(BudgetWiseTheme.colors.ground)) {
+            VoiceUnsupportedDialog(
+                onDismiss = {
+                    // Shown here, so Add entry does not show it again.
+                    viewModel.noticeSeen()
+                    onDone()
+                },
+            )
+        }
         return
     }
     val alreadySetUp = remember { state.setUp }

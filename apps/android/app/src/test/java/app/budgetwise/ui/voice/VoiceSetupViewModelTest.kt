@@ -34,12 +34,13 @@ class VoiceSetupViewModelTest {
     private val clock = TestClock(Instant.parse("2026-10-30T03:00:00Z"))
 
     private val network = FakeNetworkStatus()
+    private val settings = FakeSettingsStore()
 
     private fun TestScope.start(
         models: FakeModelManager,
         supported: Boolean = true,
     ): Pair<VoiceSetupViewModel, MutableList<VoiceSetupEvent>> {
-        val vm = VoiceSetupViewModel(models, FakeSettingsStore(), network, FakeVoiceAvailability(supported), clock)
+        val vm = VoiceSetupViewModel(models, settings, network, FakeVoiceAvailability(supported), clock)
         val events = mutableListOf<VoiceSetupEvent>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events += it } }
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
@@ -99,6 +100,21 @@ class VoiceSetupViewModelTest {
         assertNull(vm.state.value.card)
         assertEquals(emptyList<Boolean>(), models.downloads)
         assertEquals(emptyList<VoiceSetupEvent>(), events)
+    }
+
+    @Test
+    fun theNoticeShowsOnceOnAPhoneWithoutTheMemory() = runTest {
+        val (vm, _) = start(FakeModelManager(), supported = false)
+        assertEquals(true, vm.state.value.showUnsupportedNotice)
+
+        vm.noticeSeen()
+
+        assertEquals(true, settings.voiceNoticeShown.value)
+        assertEquals(false, vm.state.value.showUnsupportedNotice)
+        val (again, _) = start(FakeModelManager(), supported = false)
+        assertEquals("not again on this phone", false, again.state.value.showUnsupportedNotice)
+        val (big, _) = start(FakeModelManager(), supported = true)
+        assertEquals(false, big.state.value.showUnsupportedNotice)
     }
 
     @Test
