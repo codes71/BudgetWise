@@ -7,9 +7,11 @@ import dagger.hilt.components.SingletonComponent
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Invocation
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
@@ -35,6 +37,7 @@ fun createOkHttpClient(logging: NetLogging): OkHttpClient =
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(SlowCalls)
         .apply {
             if (logging is NetLogging.Debug) {
                 addInterceptor(
@@ -48,6 +51,13 @@ fun createOkHttpClient(logging: NetLogging): OkHttpClient =
             }
         }
         .build()
+
+/** Gives an [ApiService] method marked [SlowCall] its longer read timeout. */
+private val SlowCalls = Interceptor { chain ->
+    val slow = chain.request().tag(Invocation::class.java)?.method()?.getAnnotation(SlowCall::class.java)
+    val next = if (slow == null) chain else chain.withReadTimeout(slow.readSeconds, TimeUnit.SECONDS)
+    next.proceed(chain.request())
+}
 
 fun createApiService(baseUrl: String, client: OkHttpClient, json: Json = WireJson): ApiService =
     Retrofit.Builder()
