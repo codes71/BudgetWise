@@ -67,10 +67,13 @@ import app.budgetwise.ui.onboarding.FirstIncomeRoute
 import app.budgetwise.ui.onboarding.LanguageRoute
 import app.budgetwise.ui.onboarding.SetupVoiceRoute
 import app.budgetwise.ui.onboarding.WelcomeScreen
+import app.budgetwise.ui.scan.ScanEvent
+import app.budgetwise.ui.scan.ScanRoute
 import app.budgetwise.ui.settings.SettingsRoute
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
+import app.budgetwise.ui.transactions.ScanAdded
 import app.budgetwise.ui.transactions.TransactionsRoute
 import app.budgetwise.ui.voice.VoiceRoute
 import java.time.Instant
@@ -85,6 +88,7 @@ object Routes {
     const val TRANSACTIONS = "transactions"
     const val MANUAL = "manual"
     const val VOICE = "voice"
+    const val SCAN = "scan"
     const val BUDGETS = "budgets"
     const val SETTINGS = "settings"
 }
@@ -126,6 +130,24 @@ internal fun NavController.closeVoiceSaved() {
     if (currentDestination?.route != Routes.VOICE) return
     val fromManual = previousBackStackEntry?.destination?.route == Routes.MANUAL
     popBackStack(if (fromManual) Routes.MANUAL else Routes.VOICE, inclusive = true)
+}
+
+/** Where a scan hands its saved entries to Transactions, for the "Added" notice and its Undo. */
+private const val SCAN_ADDED_IDS = "scan_added_ids"
+private const val SCAN_ADDED_FROM = "scan_added_from"
+
+/**
+ * Closes scanning after a save, back to Transactions with the "Added" notice: past the add form too when the scan
+ * was opened from it. A second call (the screen is already gone) does nothing.
+ */
+internal fun NavController.closeScanSaved(saved: ScanEvent.Saved) {
+    if (currentDestination?.route != Routes.SCAN) return
+    runCatching { getBackStackEntry(Routes.TRANSACTIONS) }.getOrNull()?.savedStateHandle?.let {
+        it[SCAN_ADDED_FROM] = saved.merchant
+        it[SCAN_ADDED_IDS] = ArrayList(saved.clientIds)
+    }
+    val fromManual = previousBackStackEntry?.destination?.route == Routes.MANUAL
+    popBackStack(if (fromManual) Routes.MANUAL else Routes.SCAN, inclusive = true)
 }
 
 private fun NavDestination?.isOn(route: String) = this?.hierarchy?.any { it.route == route } == true
@@ -192,6 +214,7 @@ fun AppNav(
     fun openSettings() = navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
     fun openLanguage() = navController.navigate(Routes.LANGUAGE) { launchSingleTop = true }
     fun openVoice() = navController.navigate(Routes.VOICE) { launchSingleTop = true }
+    fun openScan() = navController.navigate(Routes.SCAN) { launchSingleTop = true }
 
     // Sign in opens sign-in; every other chip opens Settings, which says more about sync.
     fun onChip(chip: SyncChip) = if (chip == SyncChip.SIGN_IN) openSignIn() else openSettings()
@@ -298,7 +321,9 @@ fun AppNav(
             composable(Routes.SETUP_VOICE) {
                 SetupVoiceRoute(onDone = ::enterApp)
             }
-            composable(Routes.TRANSACTIONS) {
+            composable(Routes.TRANSACTIONS) { entry ->
+                val handle = entry.savedStateHandle
+                val addedIds by handle.getStateFlow<ArrayList<String>?>(SCAN_ADDED_IDS, null).collectAsStateWithLifecycle()
                 TransactionsRoute(
                     chip = chip,
                     sessionNotice = notice,
@@ -307,10 +332,34 @@ fun AppNav(
                     onSignIn = ::openSignIn,
                     onAddManual = { navController.navigate(Routes.MANUAL) { launchSingleTop = true } },
                     onOpenVoice = ::openVoice,
+                    onOpenScan = ::openScan,
+                    scanAdded = addedIds?.let { ScanAdded(it, handle.get<String>(SCAN_ADDED_FROM)) },
+                    onScanAddedShown = {
+                        handle.remove<ArrayList<String>>(SCAN_ADDED_IDS)
+                        handle.remove<String>(SCAN_ADDED_FROM)
+                    },
                 )
             }
             composable(Routes.MANUAL) {
-                AddManualRoute(onDone = navController::closeManual, onOpenVoice = ::openVoice)
+                AddManualRoute(onDone = navController::closeManual, onOpenVoice = ::openVoice, onOpenScan = ::openScan)
+            }
+            composable(Routes.SCAN) {
+                ScanRoute(
+                    onClose = dropUnlessResumed { navController.popBackStack() },
+                    // Back to the add form when scanning came from it, else the form in scanning's place.
+                    onEnterYourself = dropUnlessResumed {
+                        if (navController.previousBackStackEntry?.destination?.route == Routes.MANUAL) {
+                            navController.popBackStack()
+                        } else {
+                            navController.navigate(Routes.MANUAL) {
+                                popUpTo(Routes.SCAN) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                    onSignIn = ::openSignIn,
+                    onSaved = navController::closeScanSaved,
+                )
             }
             composable(Routes.VOICE) {
                 VoiceRoute(

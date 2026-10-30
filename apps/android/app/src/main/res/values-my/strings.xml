@@ -352,4 +352,52 @@
     <string name="setup_voice_no_wifi_title">Wi-Fi မချိတ်ထားပါ</string>
     <string name="setup_voice_no_wifi_detail">Wi-Fi ရမှ ဒေါင်းလုဒ်ဆွဲပါမည်။ သို့မဟုတ် မိုဘိုင်းဒေတာဖြင့် ယခုပင် စနိုင်သည် (%1$s ခန့်)။</string>
     <string name="setup_voice_download_on_wifi">Wi-Fi ရလျှင် ဒေါင်းလုဒ်ဆွဲမည်</string>
+    <!-- Receipt scanning -->
+    <string name="scan_entry">ဘောက်ချာ စကင်ဖတ်ရန်</string>
+    <string name="scan_short">စကင်ဖတ်ရန်</string>
+    <string name="first_expense_scan_detail">ဆိုင်ဘောက်ချာနှင့် KPay ပြေစာများ</string>
+    <string name="scan_hint">ဘောက်ချာ တစ်ခုလုံး ဘောင်ထဲ ဝင်အောင် ထားပါ</string>
+    <string name="scan_choose_photo">ဓာတ်ပုံ ရွေးရန်</string>
+    <string name="scan_take_photo">ဓာတ်ပုံ ရိုက်ရန်</string>
+    <string name="scan_camera_off_title">BudgetWise က ကင်မရာကို သုံးခွင့် မရှိပါ</string>
+    <string name="scan_camera_off_detail">ဘောက်ချာ ဓာတ်ပုံရိုက်ရန် ကင်မရာကို ခွင့်ပြုပါ၊ သို့မဟုတ် ရှိပြီးသား ဓာတ်ပုံကို ရွေးပါ။</string>
+    <string name="scan_allow_camera">ကင်မရာ ခွင့်ပြုရန်</string>
+    <string name="scan_reading_title">ဘောက်ချာကို ဖတ်နေသည်</string>
+    <string name="scan_reading_detail">ဆိုင်၊ ရက်စွဲနှင့် ပစ္စည်းများကို ရှာနေသည်</string>
+    <string name="scan_unreadable_title">ဘောက်ချာကို ဖတ်၍ မရပါ</string>
+    <string name="scan_unreadable_detail">ဘောက်ချာ တစ်ခုလုံးကို ပြန့်ပြန့်ထားပြီး အလင်းကောင်းကောင်းဖြင့် ထပ်ရိုက်ပါ၊ သို့မဟုတ် ကိုယ်တိုင် ထည့်ပါ။</string>
+    <string name="scan_enter_yourself">ကိုယ်တိုင် ထည့်ရန်</string>
+    <string name="scan_offline_detail">ဘောက်ချာ ဖတ်ရန် အင်တာနက် လိုပါသည်။ ဓာတ်ပုံကို သိမ်းထားသဖြင့် အင်တာနက်ရလျှင် ထပ်ကြိုးစားနိုင်ပါသည်။</string>
+    <string name="scan_too_many_title">စကင်ဖတ်မှု များလွန်းနေသည်</string>
+    <string name="scan_too_many_detail">တစ်နာရီလျှင် ဓာတ်ပုံ ၂၀ ပုံ ဖတ်နိုင်ပါသည်။ နောက်မှ ထပ်ကြိုးစားပါ၊ သို့မဟုတ် ကိုယ်တိုင် ထည့်ပါ။</string>
+    <string name="scan_sign_in_title">ဘောက်ချာ ဖတ်ရန် ပြန်ဝင်ပါ</string>
+    <string name="scan_title_receipt">ဘောက်ချာကို စစ်ပါ</string>
+    <string name="scan_title_payment">ငွေပေးချေမှုကို စစ်ပါ</string>
+    <string name="scan_title_history">ငွေပေးချေမှုများကို စစ်ပါ</string>
+    <string name="scan_scanned">စကင်ဖတ်ထားသည်</string>
+    <string name="scan_no_date">ယနေ့။ ဘောက်ချာတွင် ရက်စွဲ မပါပါ</string>
+    <string name="scan_total">စုစုပေါင်း</string>
+    <string name="scan_split">အမျိုးအစားအလိုက်</string>
+    <plurals name="scan_items">
+        <item quantity="other">ပစ္စည်း %d ခု</item>
+    </plurals>
+    <string name="scan_split_note">ပြောင်းရန် အမျိုးအစားကို နှိပ်ပါ။ တစ်ခုစီသည် သီးခြား စာရင်းတစ်ခု ဖြစ်ပါမည်။</string>
+    <string name="scan_history_note">မထည့်လိုသည့် ငွေပေးချေမှုကို နှိပ်ပါ။</string>
+    <string name="scan_short_title">ပစ္စည်းများ %1$s Ks လိုနေသည်</string>
+    <string name="scan_short_detail">ဘောက်ချာ စုစုပေါင်းမှာ %1$s Ks ဖြစ်သည်။</string>
+    <string name="scan_short_add">အခြား အဖြစ် ထည့်ရန်</string>
+    <string name="scan_as_one">စာရင်း တစ်ခုတည်းအဖြစ် ထည့်ရန်</string>
+    <plurals name="scan_add">
+        <item quantity="other">စာရင်း %d ခု ထည့်ရန်</item>
+    </plurals>
+    <plurals name="scan_move_title">
+        <item quantity="other">ပစ္စည်း %d ခုကို ရွှေ့ရန်</item>
+    </plurals>
+    <string name="scan_move_title_none">အမျိုးအစား ပြောင်းရန်</string>
+    <string name="scan_entry_description">%1$s၊ %2$s</string>
+    <plurals name="scan_added">
+        <item quantity="other">စာရင်း %d ခု ထည့်ပြီး</item>
+    </plurals>
+    <string name="scan_added_from">%1$s ဘောက်ချာမှ</string>
+    <string name="scan_added_from_photo">ဓာတ်ပုံမှ</string>
 </resources>

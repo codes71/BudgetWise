@@ -17,8 +17,10 @@ import app.budgetwise.data.repo.AuthRepository
 import app.budgetwise.data.repo.BudgetRepository
 import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.LoginResult
-import app.budgetwise.data.repo.RegisterResult
 import app.budgetwise.data.repo.NewTransaction
+import app.budgetwise.data.repo.RegisterResult
+import app.budgetwise.data.repo.ScanReading
+import app.budgetwise.data.repo.ScanRepository
 import app.budgetwise.data.repo.TransactionRepository
 import app.budgetwise.data.repo.VoiceParse
 import app.budgetwise.data.repo.VoiceRepository
@@ -114,6 +116,11 @@ interface CategorySource {
 }
 
 /** Reads what the phone heard (text only) into entries or a spending question, on the server ([VoiceRepository]). */
+/** Reads a photo of a receipt or KPay screen into entries on the server ([ScanRepository]); saves nothing. */
+fun interface ReceiptScanner {
+    suspend fun scan(image: ByteArray, mediaType: String): ApiResult<ScanReading>
+}
+
 fun interface VoiceParser {
     suspend fun parse(transcripts: List<String>): ApiResult<VoiceParse>
 }
@@ -220,6 +227,10 @@ class DefaultCategorySource @Inject constructor(private val repo: CategoryReposi
     override suspend fun refresh() {
         repo.refresh()
     }
+}
+
+class DefaultReceiptScanner @Inject constructor(private val repo: ScanRepository) : ReceiptScanner {
+    override suspend fun scan(image: ByteArray, mediaType: String) = repo.scan(image, mediaType)
 }
 
 class DefaultVoiceParser @Inject constructor(private val repo: VoiceRepository) : VoiceParser {

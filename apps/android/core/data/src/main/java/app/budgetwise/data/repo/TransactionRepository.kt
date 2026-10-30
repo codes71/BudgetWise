@@ -34,6 +34,8 @@ data class NewTransaction(
     val date: LocalDate,
     val source: Source,
     val transcript: String?,
+    /** A fixed id, so saving the same thing twice stores it once (a KPay transaction); null gets a new one. */
+    val clientId: String? = null,
 )
 
 /**
@@ -83,7 +85,11 @@ class TransactionRepository @Inject constructor(
         }
         val ids = db.withTransaction {
             inputs.mapIndexed { index, input ->
-                val clientId = UUID.randomUUID().toString()
+                // A fixed id this account already has is the same entry saved again: keep the one there. Another
+                // account's (two people scanning one KPay slip on a shared phone) gets a new id instead.
+                val existing = input.clientId?.let { tx.byClientId(it) }
+                if (existing != null && existing.ownerId == owner) return@mapIndexed existing.clientId
+                val clientId = input.clientId?.takeIf { existing == null } ?: UUID.randomUUID().toString()
                 tx.upsert(
                     TransactionEntity(
                         clientId = clientId,

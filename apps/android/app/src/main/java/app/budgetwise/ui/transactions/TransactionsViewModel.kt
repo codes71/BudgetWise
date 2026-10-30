@@ -187,6 +187,9 @@ class TransactionsViewModel @Inject constructor(
         commitPendingDelete()
     }
 
+    /** Undo on "Added 3 entries": deletes what a scan just saved, like a swipe would, without a second notice. */
+    fun undoAdded(clientIds: List<String>) = clientIds.forEach(::send)
+
     private fun send(clientId: String) {
         appScope.launch {
             try {

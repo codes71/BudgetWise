@@ -50,6 +50,17 @@ class TransactionRepositoryTest {
     }
 
     @Test
+    fun aFixedClientIdSavedTwiceIsStoredOnce() = runBlocking {
+        val kpay = "8757c8d9-1367-4ee0-b09b-80b464aba7a0"
+        val first = repo.addAll(listOf(input(150000).copy(clientId = kpay)))
+        val second = repo.addAll(listOf(input(150000).copy(clientId = kpay), input(2500)))
+        assertEquals(listOf(kpay), first)
+        assertEquals(kpay, second[0])
+        assertEquals(2, repo.observe().first().size)
+        assertEquals("one create per stored row", 2, h.sync.pendingOps().size)
+    }
+
+    @Test
     fun addAllNormalizesDescriptionAndTranscriptAndConvertsZawgyi() = runBlocking {
         val zawgyi = "ျမန္မာဘာသာ"
         val unicode = "မြန်မာဘာသာ"

@@ -102,9 +102,17 @@ import java.time.YearMonth
 import java.time.format.TextStyle as DateTextStyle
 import java.time.temporal.WeekFields
 
-/** [onDone] closes the form: after a save, or when the user closes it. [onOpenVoice] opens voice entry. */
+/**
+ * [onDone] closes the form: after a save, or when the user closes it. [onOpenVoice] opens voice entry, [onOpenScan]
+ * receipt scanning.
+ */
 @Composable
-fun AddManualRoute(onDone: () -> Unit, onOpenVoice: () -> Unit, viewModel: AddManualViewModel = hiltViewModel()) {
+fun AddManualRoute(
+    onDone: () -> Unit,
+    onOpenVoice: () -> Unit,
+    onOpenScan: () -> Unit,
+    viewModel: AddManualViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sayIt = rememberSayIt(onOpenVoice)
     val done by rememberUpdatedState(onDone)
@@ -121,6 +129,7 @@ fun AddManualRoute(onDone: () -> Unit, onOpenVoice: () -> Unit, viewModel: AddMa
         onDateChange = viewModel::onDateChange,
         onSave = viewModel::save,
         onSayIt = sayIt,
+        onScan = onOpenScan,
     )
 }
 
@@ -135,6 +144,7 @@ fun AddManualScreen(
     onDateChange: (LocalDate) -> Unit,
     onSave: () -> Unit,
     onSayIt: () -> Unit,
+    onScan: () -> Unit,
     modifier: Modifier = Modifier,
     focusAmount: Boolean = true,
 ) {
@@ -177,19 +187,31 @@ fun AddManualScreen(
                     .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                // Say it sits with the type: both choose how the entry is made, before the fields.
+                // Scan and Say it sit with the type: all three choose how the entry is made, before the fields.
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     TypeSelector(state.type, editable, onTypeChange)
-                    SecondaryButton(
-                        text = stringResource(R.string.voice_say_it),
-                        onClick = {
-                            keyboard?.hide()
-                            onSayIt()
-                        },
-                        enabled = editable,
-                        icon = Lucide.Mic,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SecondaryButton(
+                            text = stringResource(R.string.scan_short),
+                            onClick = {
+                                keyboard?.hide()
+                                onScan()
+                            },
+                            enabled = editable,
+                            icon = Lucide.Camera,
+                            modifier = Modifier.weight(1f),
+                        )
+                        SecondaryButton(
+                            text = stringResource(R.string.voice_say_it),
+                            onClick = {
+                                keyboard?.hide()
+                                onSayIt()
+                            },
+                            enabled = editable,
+                            icon = Lucide.Mic,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
                 AmountField(state, editable, onAmountChange, amountFocus, onNext = { descriptionFocus.requestFocus() })
                 // Income always goes under "Income" (AddManualUiState.savedCategory), so only an expense asks.
@@ -571,6 +593,7 @@ private fun AddManualScreenPreview() {
             onDateChange = {},
             onSave = {},
             onSayIt = {},
+            onScan = {},
             focusAmount = false,
         )
     }

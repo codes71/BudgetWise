@@ -31,6 +31,8 @@ androidxHilt = "1.4.0"
 myanmarTools = "1.2.0"
 icu4j = "78.3"
 navigation = "2.10.2"
+# Receipt scanning: the in-app viewfinder and still capture.
+camerax = "1.6.1"
 
 [libraries]
 junit = { module = "junit:junit", version.ref = "junit" }
@@ -67,6 +69,9 @@ androidx-hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "androi
 androidx-hilt-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "androidxHilt" }
 androidx-hilt-lifecycle-viewmodel-compose = { module = "androidx.hilt:hilt-lifecycle-viewmodel-compose", version.ref = "androidxHilt" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }

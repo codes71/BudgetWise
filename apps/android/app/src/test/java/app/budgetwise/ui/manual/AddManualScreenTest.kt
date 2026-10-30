@@ -34,6 +34,7 @@ class AddManualScreenTest {
                 onDateChange = {},
                 onSave = {},
                 onSayIt = {},
+                onScan = {},
                 focusAmount = false,
             )
         }

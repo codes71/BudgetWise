@@ -8,11 +8,13 @@ import app.budgetwise.DefaultBudgetSource
 import app.budgetwise.DefaultCategorySource
 import app.budgetwise.DefaultLanguageStore
 import app.budgetwise.DefaultNetworkStatus
+import app.budgetwise.DefaultReceiptScanner
 import app.budgetwise.DefaultSessionLoader
 import app.budgetwise.DefaultSyncControls
 import app.budgetwise.DefaultTransactionStore
 import app.budgetwise.LanguageStore
 import app.budgetwise.NetworkStatus
+import app.budgetwise.ReceiptScanner
 import app.budgetwise.SessionLoader
 import app.budgetwise.SyncControls
 import app.budgetwise.TransactionStore
@@ -70,6 +72,9 @@ abstract class AppBindingsModule {
 
     @Binds
     abstract fun languageStore(impl: DefaultLanguageStore): LanguageStore
+
+    @Binds
+    abstract fun receiptScanner(impl: DefaultReceiptScanner): ReceiptScanner
 }
 
 @Module

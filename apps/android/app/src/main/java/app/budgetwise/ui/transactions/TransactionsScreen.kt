@@ -97,6 +97,9 @@ import app.budgetwise.ui.theme.tracked
 import java.time.Instant
 import java.time.LocalDate
 
+/** What a scan just saved, for the "Added 3 entries" notice and its Undo. */
+data class ScanAdded(val clientIds: List<String>, val merchant: String?)
+
 /**
  * The home screen: what is left this month, the month chart, and every entry by day. The shell gives it the header's
  * [chip] and the session notice (the early warning before a session ends), and opens `manual` for Add.
@@ -110,6 +113,9 @@ fun TransactionsRoute(
     onSignIn: () -> Unit,
     onAddManual: () -> Unit,
     onOpenVoice: () -> Unit,
+    onOpenScan: () -> Unit,
+    scanAdded: ScanAdded?,
+    onScanAddedShown: () -> Unit,
     viewModel: TransactionsViewModel = hiltViewModel(),
     voiceSetup: VoiceSetupViewModel = hiltViewModel(),
 ) {
@@ -168,6 +174,20 @@ fun TransactionsRoute(
         onDispose { if (activity?.isChangingConfigurations != true) viewModel.commitPendingDelete() }
     }
 
+    // "Added 3 entries" after a scan, with Undo. The shell hands it over from the scan screen and forgets it once the
+    // notice has ended, so a rotation while it shows brings it back but a later visit does not.
+    val addedCount = scanAdded?.clientIds?.size ?: 0
+    val addedTitle = pluralStringResource(R.plurals.scan_added, addedCount, addedCount)
+    val addedFrom = scanAdded?.merchant?.let { stringResource(R.string.scan_added_from, it) } ?: stringResource(R.string.scan_added_from_photo)
+    val addedShown by rememberUpdatedState(onScanAddedShown)
+    LaunchedEffect(scanAdded) {
+        val added = scanAdded ?: return@LaunchedEffect
+        val visuals = NoticeVisuals(NoticeTone.SUCCESS, Lucide.CircleCheck, addedTitle, addedFrom, undo, SnackbarDuration.Long)
+        val result = notices.showSnackbar(visuals)
+        addedShown()
+        if (result == SnackbarResult.ActionPerformed) viewModel.undoAdded(added.clientIds)
+    }
+
     TransactionsScreen(
         state = state,
         chip = chip,
@@ -176,6 +196,7 @@ fun TransactionsRoute(
         onSettings = onSettings,
         onAddManual = onAddManual,
         onSayIt = sayIt,
+        onScan = onOpenScan,
         onDelete = viewModel::delete,
         onRefresh = viewModel::refresh,
     )
@@ -191,6 +212,7 @@ fun TransactionsScreen(
     onSettings: () -> Unit,
     onAddManual: () -> Unit,
     onSayIt: () -> Unit,
+    onScan: () -> Unit,
     onDelete: (String) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
@@ -235,7 +257,7 @@ fun TransactionsScreen(
                         }
                     }
                     else -> {
-                        item(key = "month", contentType = "month") { MonthHead(state, onAddManual, onSayIt) }
+                        item(key = "month", contentType = "month") { MonthHead(state, onAddManual, onSayIt, onScan) }
                         days(state, onDelete)
                     }
                 }
@@ -250,7 +272,7 @@ fun TransactionsScreen(
  * way to add it instead of an empty chart.
  */
 @Composable
-private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit, onSayIt: () -> Unit) {
+private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit, onSayIt: () -> Unit, onScan: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val month = monthName(state.summary.month)
@@ -275,16 +297,16 @@ private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit, onSay
         }
         SageRule(Modifier.padding(top = 16.dp))
         if (state.noExpensesYet) {
-            FirstExpense(onAddManual, onSayIt, Modifier.padding(top = 28.dp))
+            FirstExpense(onAddManual, onSayIt, onScan, Modifier.padding(top = 28.dp))
         } else {
             SpendingCard(state.pace, state.categories, state.myanmarDigits, Modifier.padding(top = 28.dp))
         }
     }
 }
 
-/** "Add your first expense": what it does to the number above, then two ways: type it (the add form) or say it. */
+/** "Add your first expense": what it does to the number above, then the ways in: type it, scan a receipt, or say it. */
 @Composable
-private fun FirstExpense(onAddManual: () -> Unit, onSayIt: () -> Unit, modifier: Modifier = Modifier) {
+private fun FirstExpense(onAddManual: () -> Unit, onSayIt: () -> Unit, onScan: () -> Unit, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     Column(modifier.fillMaxWidth()) {
@@ -301,6 +323,8 @@ private fun FirstExpense(onAddManual: () -> Unit, onSayIt: () -> Unit, modifier:
             modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
         )
         WayRow(Lucide.Pencil, stringResource(R.string.first_expense_type), stringResource(R.string.first_expense_type_detail), onAddManual)
+        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        WayRow(Lucide.Camera, stringResource(R.string.scan_entry), stringResource(R.string.first_expense_scan_detail), onScan)
         HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         WayRow(Lucide.Mic, stringResource(R.string.voice_say_it), stringResource(R.string.first_expense_say_detail), onSayIt)
         HorizontalDivider(thickness = 1.dp, color = colors.hairline)
@@ -525,6 +549,7 @@ private fun TransactionsScreenPreview() {
             onSettings = {},
             onAddManual = {},
             onSayIt = {},
+            onScan = {},
             onDelete = {},
             onRefresh = {},
         )
