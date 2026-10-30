@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="asr_channel_download">အသံ ဒေါင်းလုဒ်</string>
+    <string name="asr_channel_ready">အသံ အသင့်ဖြစ်ပြီ</string>
+    <string name="asr_downloading">အသံကို ဒေါင်းလုဒ်ဆွဲနေသည်</string>
+    <string name="asr_ready_title">အသံဖြင့် ထည့်နိုင်ပါပြီ</string>
+    <string name="asr_ready_text">ပြောထည့်ရန် ကိုနှိပ်ပြီး သုံးခဲ့သည့်ငွေကို ပြောပါ။</string>
+</resources>

@@ -1,5 +1,6 @@
 package app.budgetwise.asr.download
 
+import android.app.NotificationManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.ListenableWorker
@@ -16,6 +17,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.io.File
 import java.io.IOException
@@ -61,6 +63,16 @@ class ModelDownloadWorkerTest {
         assertEquals(ListenableWorker.Result.success(), run())
         assertEquals(listOf("freococo.onnx", "vocab.json", "model.int8.onnx", "tokens.txt"), order)
         assertNotNull(ModelStore.verified(context))
+    }
+
+    @Test
+    fun aFinishedDownloadSaysVoiceIsReady() {
+        ModelDownloadWorker.fetcher = { f, dest, _ -> writeSized(dest, f.bytes) }
+        assertEquals(ListenableWorker.Result.success(), run())
+        val manager = shadowOf(context.getSystemService(NotificationManager::class.java))
+        val ready = manager.getNotification(ModelDownloadWorker.READY_NOTIFICATION_ID)
+        assertNotNull("a notification says voice is ready", ready)
+        assertEquals("Voice is ready", ready.extras.getString(android.app.Notification.EXTRA_TITLE))
     }
 
     @Test

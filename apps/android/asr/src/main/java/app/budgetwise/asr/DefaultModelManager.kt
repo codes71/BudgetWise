@@ -56,7 +56,7 @@ class DefaultModelManager(
             VoicePack.downloadBytes - ModelStore.bytesOnDisk(context)
         }.coerceAtLeast(0L)
         if (!storage.hasRoomFor(remaining)) {
-            localFailure.value = "Not enough free storage to download the ${VoicePack.DISPLAY_NAME}"
+            localFailure.value = ModelState.NOT_ENOUGH_STORAGE
             return
         }
         val network = if (allowMetered) NetworkType.CONNECTED else NetworkType.UNMETERED
@@ -110,8 +110,11 @@ class DefaultModelManager(
         internal fun mapWork(infos: List<WorkInfo>): ModelState {
             val info = infos.lastOrNull() ?: return ModelState.Missing
             return when (info.state) {
-                WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED, WorkInfo.State.RUNNING ->
-                    ModelState.Downloading(info.progress.getFloat(ModelDownloadWorker.KEY_PROGRESS, 0f))
+                WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED, WorkInfo.State.RUNNING -> ModelState.Downloading(
+                    progress = info.progress.getFloat(ModelDownloadWorker.KEY_PROGRESS, 0f),
+                    // Enqueued work waits for its network constraint, or for a retry after a dropped connection.
+                    waiting = info.state != WorkInfo.State.RUNNING,
+                )
                 WorkInfo.State.FAILED ->
                     ModelState.Failed(info.outputData.getString(ModelDownloadWorker.KEY_REASON) ?: "download failed")
                 WorkInfo.State.SUCCEEDED, WorkInfo.State.CANCELLED -> ModelState.Missing

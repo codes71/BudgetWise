@@ -258,6 +258,7 @@ class DefaultModelManagerTest {
         m.ensureDownloaded()
         val failed = awaitValue { m.state.value as? ModelState.Failed }
         assertTrue(failed.reason.contains("storage", ignoreCase = true))
+        assertTrue(failed.outOfStorage)
         assertTrue(workInfos().isEmpty())
         assertEquals(0, fetchCalls)
     }
@@ -273,6 +274,8 @@ class DefaultModelManagerTest {
         }
         val m = manager()
         m.ensureDownloaded()
+        val waiting = awaitValue { m.state.value as? ModelState.Downloading }
+        assertTrue("no Wi-Fi yet, so the download waits", waiting.waiting)
         val id = workInfos().single().id
         WorkManagerTestInitHelper.getTestDriver(context)!!.setAllConstraintsMet(id)
         val before = VoicePack.FREOCOCO_MODEL.bytes + VoicePack.FREOCOCO_VOCAB.bytes
@@ -281,6 +284,7 @@ class DefaultModelManagerTest {
             (m.state.value as? ModelState.Downloading)?.takeIf { it.progress > 0f }
         }
         assertEquals(expected, downloading.progress, 0.01f)
+        assertFalse(downloading.waiting)
         gate.complete(Unit)
     }
 

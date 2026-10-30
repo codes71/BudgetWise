@@ -2,6 +2,7 @@ package app.budgetwise.asr.download
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -12,6 +13,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import app.budgetwise.asr.ModelFile
+import app.budgetwise.asr.R
 import app.budgetwise.asr.VoicePack
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
@@ -59,6 +61,7 @@ class ModelDownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
                 ModelStore.writeMarker(dir)
             }
             setProgress(workDataOf(KEY_PROGRESS to 1f))
+            notifyReady()
             Result.success()
         } catch (e: DownloadException.NotConfigured) {
             Result.failure(failure("voice model host not configured (${e.file})"))
@@ -87,14 +90,10 @@ class ModelDownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
 
     private fun foregroundInfo(fraction: Float, indeterminate: Boolean): ForegroundInfo {
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
-        if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel(CHANNEL_ID) == null) {
-            manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Speech model download", NotificationManager.IMPORTANCE_LOW),
-            )
-        }
+        channel(manager, CHANNEL_ID, R.string.asr_channel_download, NotificationManager.IMPORTANCE_LOW)
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle("Downloading ${VoicePack.DISPLAY_NAME}")
+            .setContentTitle(applicationContext.getString(R.string.asr_downloading))
             .setProgress(100, (fraction * 100).toInt(), indeterminate)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -106,6 +105,33 @@ class ModelDownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
         }
     }
 
+    /**
+     * "Voice is ready", which opens the app. Its own channel, at default importance, so it is seen even when the
+     * progress channel is silenced. Skipped when the user has turned notifications off (or not allowed them).
+     */
+    private fun notifyReady() {
+        val manager = applicationContext.getSystemService(NotificationManager::class.java)
+        if (!manager.areNotificationsEnabled()) return
+        channel(manager, READY_CHANNEL_ID, R.string.asr_channel_ready, NotificationManager.IMPORTANCE_DEFAULT)
+        val launch = applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)
+        val open = launch?.let { PendingIntent.getActivity(applicationContext, 0, it, PendingIntent.FLAG_IMMUTABLE) }
+        val notification = NotificationCompat.Builder(applicationContext, READY_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setContentTitle(applicationContext.getString(R.string.asr_ready_title))
+            .setContentText(applicationContext.getString(R.string.asr_ready_text))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        manager.notify(READY_NOTIFICATION_ID, notification)
+    }
+
+    private fun channel(manager: NotificationManager, id: String, name: Int, importance: Int) {
+        if (Build.VERSION.SDK_INT >= 26) {
+            // Created again each time, which also renames it when the app's language changed.
+            manager.createNotificationChannel(NotificationChannel(id, applicationContext.getString(name), importance))
+        }
+    }
+
     private fun failure(reason: String): Data = workDataOf(KEY_REASON to reason)
 
     companion object {
@@ -113,7 +139,9 @@ class ModelDownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
         const val KEY_PROGRESS = "progress"
         const val KEY_REASON = "reason"
         const val CHANNEL_ID = "voice_model_download"
+        const val READY_CHANNEL_ID = "voice_ready"
         private const val NOTIFICATION_ID = 0x5a17
+        internal const val READY_NOTIFICATION_ID = 0x5a18
         private const val PROGRESS_INTERVAL_MS = 500L
         private const val MAX_ATTEMPTS = 5
 
