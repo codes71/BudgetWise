@@ -30,10 +30,11 @@ jobs:
       # No submodules or NDK: :asr runs ONNX Runtime from Maven.
       - uses: actions/checkout@v7
 
+      # 21: Robolectric runs the unit tests on Android SDK 36, which it supports only on Java 21 or newer.
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - uses: android-actions/setup-android@v4.0.4
 
