@@ -27,8 +27,8 @@
     <string name="chip_could_not_sync_description">စာရင်းအချို့ စင့်ခ်လုပ်၍ မရပါ။ ဆက်တင် ဖွင့်ရန်</string>
 
     <!-- Sign in -->
-    <string name="login_title">အကောင့်ဝင်ရန်</string>
-    <string name="login_subtitle">သင့်စာရင်းများကို ကြည့်ရန်နှင့် စင့်ခ်လုပ်ရန် BudgetWise အကောင့်ဖြင့် ဝင်ပါ။</string>
+    <string name="login_title">ပြန်လည် ကြိုဆိုပါတယ်</string>
+    <string name="login_subtitle">စာရင်းသွင်းခဲ့သော အီးမေးလ်ဖြင့် ဝင်ပါ။ ဝင်ပြီးတာနဲ့ သင့်စာရင်းများ ပြန်ရောက်လာပါမည်။</string>
     <string name="login_subtitle_returning">ပြန်လာတာ ကြိုဆိုပါတယ်။ စာရင်းများ ဆက်စင့်ခ်ဖြစ်ရန် ပြန်ဝင်ပါ။</string>
     <string name="login_email">အီးမေးလ်</string>
     <string name="login_password">စကားဝှက်</string>
@@ -168,6 +168,7 @@
     <string name="settings_title">ဆက်တင်</string>
     <string name="settings_section_sync">စင့်ခ်</string>
     <string name="settings_section_display">ပြသမှု</string>
+    <string name="settings_language">ဘာသာစကား</string>
     <string name="settings_myanmar_digits">မြန်မာ ဂဏန်း</string>
     <string name="settings_myanmar_digits_detail">ပမာဏများကို ၅,၀၀၀ Ks ဟု ပြမည်</string>
     <string name="settings_sync_syncing">စင့်ခ်လုပ်နေသည်…</string>
@@ -194,16 +195,22 @@
     <string name="settings_sign_out_failed">အကောင့်မှ ထွက်၍ မရပါ</string>
     <string name="settings_sign_out_failed_detail">စာရင်းများ ဤဖုန်းထဲတွင် ရှိနေပါသည်။</string>
     <string name="settings_version">ဗားရှင်း %1$s (%2$d)</string>
-    <!-- First launch and create account -->
-    <string name="welcome_headline">လစဉ် %1$sကို တစ်နေရာတည်းတွင် ကြည့်ပါ</string>
-    <string name="welcome_headline_word">သုံးငွေ</string>
-    <string name="welcome_body">သုံးငွေနှင့် ဝင်ငွေများကို ထည့်ပါ။ ဝဘ်ပေါ်ရှိ BudgetWise နှင့် စင့်ခ်ဖြစ်ပါမည်။</string>
-    <string name="welcome_create">အကောင့်ဖွင့်မည်</string>
-    <string name="welcome_sign_in">အကောင့်ဝင်ရန်</string>
+    <!-- First launch: language, welcome, create account, this month's income -->
+    <string name="language_later">ဆက်တင်တွင် နောက်မှ ပြောင်းနိုင်ပါသည်။</string>
+    <string name="language_continue">ဆက်သွားရန်</string>
+    <string name="language_done">ပြီးပါပြီ</string>
+    <!-- Word joiners (\u2060) keep each word on one line: Android would otherwise break Burmese between any two
+         syllables, splitting a word across the headline's lines. -->
+    <string name="welcome_headline">လစာ\u2060မ\u2060ရ\u2060ခင် %1$s သိ\u2060ထား\u2060ပါ</string>
+    <string name="welcome_headline_word">ဘယ်\u2060လောက်\u2060ကျန်\u2060လဲ</string>
+    <string name="welcome_body">သုံးငွေကို ခဏချင်း ထည့်ပြီး ဒီလ ဘယ်လောက်ကျန်လဲ ကြည့်ပါ။ အင်တာနက်မရှိလည်း သုံးနိုင်ပါသည်။</string>
+    <string name="welcome_get_started">စတင်မည်</string>
+    <string name="welcome_have_account">အကောင့်ရှိပြီးသားလား။</string>
+    <string name="welcome_sample_bus">ဆူးလေသို့ ဘတ်စ်ကား</string>
+    <string name="welcome_sample_salary">လစာ</string>
+    <string name="onboarding_step">အဆင့် %1$d / %2$d</string>
     <string name="create_title">အကောင့်ဖွင့်ရန်</string>
-    <string name="create_subtitle">အီးမေးလ်ဖြင့် ဖွင့်ပါ။ ဤအကောင့်ကို ဝဘ်တွင်လည်း သုံးနိုင်သည်။</string>
-    <string name="create_name">အမည်</string>
-    <string name="create_name_hint">သင့်အမည်</string>
+    <string name="create_subtitle">သင့်စာရင်းများကို ဤအကောင့်တွင် သိမ်းထားသဖြင့် ဖုန်းအသစ်တွင်လည်း ဆက်သုံးနိုင်ပါသည်။ ဝဘ်တွင်လည်း သုံးနိုင်ပါသည်။</string>
     <string name="create_password_hint">စကားဝှက် ရွေးပါ</string>
     <string name="create_password_rule">အနည်းဆုံး စာလုံး ၆ လုံး</string>
     <string name="create_error_short_password">အနည်းဆုံး စာလုံး ၆ လုံး သုံးပါ</string>
@@ -214,5 +221,21 @@
     <string name="create_creating">အကောင့်ဖွင့်နေသည်…</string>
     <string name="create_error_needs_internet">အကောင့်ဖွင့်ရန် အင်တာနက် ချိတ်ဆက်ပါ။</string>
     <string name="create_have_account">အကောင့် ရှိပြီးသားလား။</string>
-    <string name="login_new_here">BudgetWise ကို အသစ်သုံးမလား။</string>
+    <string name="login_new_here">အသစ်လား။</string>
+    <string name="login_make_account">အကောင့်ဖွင့်မည်</string>
+    <string name="income_title">ဒီလ ဝင်ငွေ ဘယ်လောက်လဲ</string>
+    <string name="income_subtitle">လစာ၊ ဆိုင်ဝင်ငွေ၊ မိသားစုထံမှ ငွေ။ သုံးသမျှကို ဤငွေထဲမှ နုတ်ပြပါမည်။</string>
+    <string name="income_from">ရင်းမြစ်</string>
+    <string name="income_source_salary">လစာ</string>
+    <string name="income_source_shop">ဆိုင်</string>
+    <string name="income_source_family">မိသားစု</string>
+    <string name="income_source_other">အခြား</string>
+    <string name="income_preview">%2$sလ လက်ကျန် %1$s Ks</string>
+    <string name="income_note">ယနေ့ ဝင်ငွေအဖြစ် သိမ်းပါမည်။ နောက်မှ ဖျက်နိုင်ပါသည်။</string>
+    <string name="income_start">ဒီလကို စတင်မည်</string>
+    <string name="income_skip">နောက်မှ ထည့်မည်</string>
+    <string name="first_expense_title">ပထမဆုံး သုံးငွေကို ထည့်ပါ</string>
+    <string name="first_expense_detail">အပေါ်က ပမာဏထဲမှ ချက်ချင်း နုတ်ပါမည်။</string>
+    <string name="first_expense_type">ရိုက်ထည့်ရန်</string>
+    <string name="first_expense_type_detail">ပမာဏနှင့် အမျိုးအစား၊ စက္ကန့်အနည်းငယ်သာ</string>
 </resources>

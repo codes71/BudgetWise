@@ -67,6 +67,9 @@ data class TransactionsUiState(
     val categories: CategoryBreakdown = CategoryBreakdown.EMPTY,
 ) {
     val isEmpty: Boolean get() = !loading && days.isEmpty()
+
+    /** Entries, but no expense yet in any month (a new account with its income in): home offers the first one. */
+    val noExpensesYet: Boolean get() = !loading && days.isNotEmpty() && days.none { day -> day.rows.any { it.type == TxType.EXPENSE } }
 }
 
 sealed interface TransactionsEvent {

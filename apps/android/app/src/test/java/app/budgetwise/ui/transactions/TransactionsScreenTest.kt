@@ -216,4 +216,30 @@ class TransactionsScreenTest {
 
         assertEquals(1, opened)
     }
+
+    @Test
+    fun anIncomeAloneOffersTheFirstExpenseInsteadOfTheChart() {
+        var opened = 0
+        show(listOf(testTransaction("Salary", 850000, today, type = TxType.INCOME, category = "Income")), onAddManual = { opened++ })
+
+        compose.onNode(hasContentDescription("Left in October, 850,000 kyat")).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.spending_by_category)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.first_expense_type)).performClick()
+
+        assertEquals(1, opened)
+    }
+
+    @Test
+    fun theFirstExpenseRowGoesOnceThereIsAnExpense() {
+        show(
+            listOf(
+                testTransaction("Salary", 850000, today.withDayOfMonth(1), type = TxType.INCOME, category = "Income"),
+                // Last month's: any expense, in any month, means the user has added one.
+                testTransaction("Rice", 20000, today.minusMonths(1)),
+            ),
+        )
+
+        compose.onNodeWithText(text(R.string.first_expense_title)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.spending_by_category)).assertIsDisplayed()
+    }
 }

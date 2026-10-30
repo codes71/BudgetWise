@@ -2,6 +2,8 @@ package app.budgetwise.ui.transactions
 
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
@@ -69,9 +72,9 @@ import app.budgetwise.ui.common.NoticeHost
 import app.budgetwise.ui.common.NoticeTone
 import app.budgetwise.ui.common.NoticeVisuals
 import app.budgetwise.ui.common.PrimaryButton
-import app.budgetwise.ui.common.SessionNotice
 import app.budgetwise.ui.common.SageRule
 import app.budgetwise.ui.common.SectionLabel
+import app.budgetwise.ui.common.SessionNotice
 import app.budgetwise.ui.common.SkeletonBar
 import app.budgetwise.ui.common.SyncChip
 import app.budgetwise.ui.common.categoryLabel
@@ -83,11 +86,11 @@ import app.budgetwise.ui.common.monthName
 import app.budgetwise.ui.common.signedDigits
 import app.budgetwise.ui.common.spokenAmount
 import app.budgetwise.ui.theme.BudgetWiseTheme
-import app.budgetwise.ui.theme.forContent
 import app.budgetwise.ui.theme.extraBold
+import app.budgetwise.ui.theme.forContent
 import app.budgetwise.ui.theme.medium
-import app.budgetwise.ui.theme.tracked
 import app.budgetwise.ui.theme.semibold
+import app.budgetwise.ui.theme.tracked
 import java.time.Instant
 import java.time.LocalDate
 
@@ -224,7 +227,7 @@ fun TransactionsScreen(
                         }
                     }
                     else -> {
-                        item(key = "month", contentType = "month") { MonthHead(state) }
+                        item(key = "month", contentType = "month") { MonthHead(state, onAddManual) }
                         days(state, onDelete)
                     }
                 }
@@ -234,9 +237,12 @@ fun TransactionsScreen(
     }
 }
 
-/** "Left in October" with the big number and the sage rule, then the month's spending. */
+/**
+ * "Left in October" with the big number and the sage rule, then the month's spending; before the first expense, the
+ * way to add it instead of an empty chart.
+ */
 @Composable
-private fun MonthHead(state: TransactionsUiState) {
+private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val month = monthName(state.summary.month)
@@ -260,7 +266,55 @@ private fun MonthHead(state: TransactionsUiState) {
             }
         }
         SageRule(Modifier.padding(top = 16.dp))
-        SpendingCard(state.pace, state.categories, state.myanmarDigits, Modifier.padding(top = 28.dp))
+        if (state.noExpensesYet) {
+            FirstExpense(onAddManual, Modifier.padding(top = 28.dp))
+        } else {
+            SpendingCard(state.pace, state.categories, state.myanmarDigits, Modifier.padding(top = 28.dp))
+        }
+    }
+}
+
+/** "Add your first expense": what it does to the number above, and one row that opens the add form. */
+@Composable
+private fun FirstExpense(onAddManual: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
+    Column(modifier.fillMaxWidth()) {
+        Text(
+            stringResource(R.string.first_expense_title),
+            style = type.size16.semibold,
+            color = colors.ink,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(
+            stringResource(R.string.first_expense_detail),
+            style = type.size14,
+            color = colors.muted,
+            modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 68.dp)
+                .clickable(role = Role.Button, onClick = onAddManual)
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(
+                Modifier.size(38.dp).clip(CircleShape).background(colors.badgeFill).border(1.dp, colors.hairline, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Lucide.Pencil, contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.first_expense_type), style = type.size16.medium, color = colors.ink)
+                val detail = stringResource(R.string.first_expense_type_detail)
+                Text(detail, style = type.size13, color = colors.muted)
+            }
+            Icon(Lucide.ChevronRight, contentDescription = null, tint = colors.muted, modifier = Modifier.size(20.dp))
+        }
+        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
     }
 }
 
