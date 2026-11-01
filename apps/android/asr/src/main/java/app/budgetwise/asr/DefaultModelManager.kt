@@ -114,6 +114,7 @@ class DefaultModelManager(
                     progress = info.progress.getFloat(ModelDownloadWorker.KEY_PROGRESS, 0f),
                     // Enqueued work waits for its network constraint, or for a retry after a dropped connection.
                     waiting = info.state != WorkInfo.State.RUNNING,
+                    wifiOnly = info.constraints.requiredNetworkType == NetworkType.UNMETERED,
                 )
                 WorkInfo.State.FAILED ->
                     ModelState.Failed(info.outputData.getString(ModelDownloadWorker.KEY_REASON) ?: "download failed")

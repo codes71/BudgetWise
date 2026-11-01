@@ -67,13 +67,14 @@ class TransactionsScreenTest {
         onOpenScan: () -> Unit = {},
         scanAdded: ScanAdded? = null,
         voiceSupported: Boolean = true,
+        onWifi: Boolean = true,
     ): FakeTransactionStore {
         val store = FakeTransactionStore(rows)
         // The delete outlives the screen in the app; here it runs straight away.
         vm = TransactionsViewModel(
             store, FakeSyncControls(), FakeSettingsStore(), FakeNetworkStatus(), clock, CoroutineScope(Dispatchers.Unconfined),
         )
-        val voiceSetup = VoiceSetupViewModel(voice, FakeSettingsStore(), FakeNetworkStatus(), FakeVoiceAvailability(voiceSupported), clock)
+        val voiceSetup = VoiceSetupViewModel(voice, FakeSettingsStore(), FakeNetworkStatus(unmetered = onWifi), FakeVoiceAvailability(voiceSupported), clock)
         compose.setContent {
             BudgetWiseTheme {
                 TransactionsRoute(
@@ -269,7 +270,7 @@ class TransactionsScreenTest {
         val income = listOf(testTransaction("Salary", 850000, today, type = TxType.INCOME, category = "Income"))
         val voice = FakeModelManager()
         var opened = 0
-        show(income, voice = voice, onOpenVoice = { opened++ })
+        show(income, voice = voice, onOpenVoice = { opened++ }, onWifi = false)
 
         compose.onNodeWithText(text(R.string.voice_say_it)).performClick()
         compose.onNodeWithText(text(R.string.voice_setup_title)).assertIsDisplayed()

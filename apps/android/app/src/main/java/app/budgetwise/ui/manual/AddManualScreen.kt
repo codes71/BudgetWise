@@ -114,7 +114,7 @@ fun AddManualRoute(
     viewModel: AddManualViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val sayIt = rememberSayIt(onOpenVoice)
+    val sayIt = rememberSayIt(onOpenVoice, explainIfUnsupported = true)
     val done by rememberUpdatedState(onDone)
     LaunchedEffect(viewModel) {
         viewModel.events.collect { if (it == AddManualEvent.Saved) done() }

@@ -59,7 +59,10 @@ private class AudioRecordRecording(private val record: AudioRecord, maxSamples: 
 
     @Volatile
     private var running = true
-    private var released = false
+    private var finished = false
+
+    /** Whoever finishes last, [finish] or a capture thread still inside a read, releases the recorder. */
+    private var recordReleased = false
     private val thread = Thread(::pump, "voice-capture").apply { start() }
 
     private fun pump() {
@@ -79,6 +82,8 @@ private class AudioRecordRecording(private val record: AudioRecord, maxSamples: 
             }
         }
         chunk.fill(0)
+        // finish() gave up waiting for this thread (a read that stop() did not unblock): release here, after the read.
+        synchronized(lock) { if (finished) releaseRecord() }
     }
 
     override fun stop(): FloatArray {
@@ -97,15 +102,23 @@ private class AudioRecordRecording(private val record: AudioRecord, maxSamples: 
 
     private fun finish() {
         synchronized(lock) {
-            if (released) return
-            released = true
+            if (finished) return
+            finished = true
         }
         running = false
-        // Stopping first unblocks a pending read, so the join returns promptly.
+        // Stopping first unblocks a pending read, so the join normally returns within one 20 ms read.
         runCatching { record.stop() }
         thread.join(JOIN_MS)
-        record.release()
+        // Never release under a read still in progress: if the thread is alive, it releases when its read returns.
+        synchronized(lock) { if (!thread.isAlive) releaseRecord() }
         _level.value = 0f
+    }
+
+    /** Called with [lock] held. */
+    private fun releaseRecord() {
+        if (recordReleased) return
+        recordReleased = true
+        record.release()
     }
 
     private companion object {

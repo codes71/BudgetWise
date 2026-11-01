@@ -153,19 +153,11 @@ class VoiceViewModel @Inject constructor(
     /** What the speech models heard, kept so Try again does not need the user to speak again. */
     private var transcripts: List<String> = emptyList()
 
+    private var warmedUp = false
+
     init {
         viewModelScope.launch { settings.myanmarDigits.collect { on -> _state.update { it.copy(myanmarDigits = on) } } }
         viewModelScope.launch { categories.categories.collect { names -> _state.update { it.copy(categories = names) } } }
-        // Loading the models takes a few seconds the first time; do it while the user speaks.
-        viewModelScope.launch {
-            try {
-                speech.warmUp()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                // The first transcription tries again and reports a failure itself.
-            }
-        }
         viewModelScope.launch {
             if (settings.cloudParseEnabled.first()) _events.send(VoiceEvent.NeedMic) else problem(VoiceProblem.VoiceOff)
         }
@@ -182,8 +174,13 @@ class VoiceViewModel @Inject constructor(
         } catch (_: MicUnavailableException) {
             problem(VoiceProblem.MicBusy)
             return
+        } catch (_: SecurityException) {
+            // The permission was taken back between the check and the start.
+            problem(VoiceProblem.MicDenied(canAsk = true))
+            return
         }
         recording = rec
+        warmUp()
         transcripts = emptyList()
         _state.update { it.copy(phase = VoicePhase.Listening, elapsedSeconds = 0, level = 0f) }
         listenJob = viewModelScope.launch {
@@ -202,6 +199,24 @@ class VoiceViewModel @Inject constructor(
                     stopRecording()
                     problem(VoiceProblem.MicBusy)
                 }
+            }
+        }
+    }
+
+    /**
+     * Loads the models (about 1 GB, a few seconds the first time) while the user speaks. Only once listening has
+     * started: a user who turned voice off or denied the microphone never pays for them.
+     */
+    private fun warmUp() {
+        if (warmedUp) return
+        warmedUp = true
+        viewModelScope.launch {
+            try {
+                speech.warmUp()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // The first transcription tries again and reports a failure itself.
             }
         }
     }
@@ -267,9 +282,21 @@ class VoiceViewModel @Inject constructor(
         }
     }
 
+    /** Reads the kept words into entries or an answer; any failure on the way (Room, the session store) is a card. */
     private suspend fun understand() {
         _state.update { it.copy(phase = VoicePhase.Working(WorkStep.UNDERSTANDING)) }
-        val next = when (val r = parser.parse(transcripts)) {
+        val next = try {
+            reading()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            VoicePhase.Problem(VoiceProblem.Failed)
+        }
+        _state.update { it.copy(phase = next) }
+    }
+
+    private suspend fun reading(): VoicePhase =
+        when (val r = parser.parse(transcripts)) {
             is ApiResult.Ok -> when (val parse = r.v) {
                 is VoiceParse.Add -> VoicePhase.Review(ReviewState(parse.heard, parse.entries.map(::notAfterToday)))
                 is VoiceParse.Question -> VoicePhase.Answer(
@@ -284,8 +311,6 @@ class VoiceViewModel @Inject constructor(
             is ApiResult.Failure ->
                 VoicePhase.Problem(if (r.code == NETWORK_ERROR_CODE) VoiceProblem.Offline else VoiceProblem.Failed)
         }
-        _state.update { it.copy(phase = next) }
-    }
 
     /** The server allows tomorrow in Yangon; the phone's form never takes a future day, so neither does voice. */
     private fun notAfterToday(entry: VoiceEntry): VoiceEntry {

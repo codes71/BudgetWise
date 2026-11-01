@@ -8,6 +8,7 @@ import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
 import app.budgetwise.testing.FakeAccountActions
 import app.budgetwise.testing.FakeModelManager
+import app.budgetwise.testing.FakeNetworkStatus
 import app.budgetwise.testing.FakeSettingsStore
 import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTokenStore
@@ -44,7 +45,7 @@ class SettingsViewModelTest {
         SessionManager(FakeTokenStore(StoredSession("tok", now.plus(expiresIn), TestUser)), Clock.fixed(now, ZoneOffset.UTC))
             .also { runBlocking { it.load() } }
 
-    private fun TestScope.vm(session: SessionManager = session()) = SettingsViewModel(accounts, session, sync, settings, models, FakeVoiceAvailability()).also { vm ->
+    private fun TestScope.vm(session: SessionManager = session()) = SettingsViewModel(accounts, session, sync, settings, models, FakeVoiceAvailability(), FakeNetworkStatus()).also { vm ->
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
     }
 

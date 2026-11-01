@@ -64,6 +64,7 @@ import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.SecondaryButton
 import app.budgetwise.ui.common.TextAction
+import app.budgetwise.ui.common.groupDigits
 import app.budgetwise.ui.common.toMyanmarDigits
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.extraBold
@@ -75,6 +76,7 @@ import java.util.Locale
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.ceil
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -84,6 +86,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** The card over the screen that offered Say it: set up voice (the download), or its progress. */
 enum class VoiceCard { SETUP, DOWNLOADING }
@@ -98,7 +101,11 @@ data class VoiceSetupUiState(
     val onWifi: Boolean = true,
     /** The phone has the memory for voice ([VoiceAvailability]); without it voice is off and nothing offers it. */
     val supported: Boolean = true,
+    /** This phone has already shown why voice is off, so it is not shown again. */
+    val noticeShown: Boolean = false,
 ) {
+    /** Explain once, on a phone without the memory for voice, why there is no Say it. */
+    val showUnsupportedNotice: Boolean get() = !supported && !noticeShown
     /** Downloading or done: nothing to offer. */
     val setUp: Boolean get() = model is ModelState.Ready || model is ModelState.Downloading
 }
@@ -116,7 +123,7 @@ sealed interface VoiceSetupEvent {
 @HiltViewModel
 class VoiceSetupViewModel @Inject constructor(
     private val models: ModelManager,
-    settings: SettingsStore,
+    private val settings: SettingsStore,
     network: NetworkStatus,
     availability: VoiceAvailability,
     @DeviceClock private val clock: Clock,
@@ -133,9 +140,17 @@ class VoiceSetupViewModel @Inject constructor(
     val events: Flow<VoiceSetupEvent> = _events.receiveAsFlow()
 
     val state: StateFlow<VoiceSetupUiState> =
-        combine(models.state, card, minutesLeft, settings.myanmarDigits, network.unmetered) { model, card, minutes, digits, wifi ->
-            VoiceSetupUiState(model, card, minutes, digits, wifi, supported)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VoiceSetupUiState(models.state.value, supported = supported))
+        combine(models.state, card, minutesLeft, network.unmetered, display()) { model, card, minutes, wifi, display ->
+            VoiceSetupUiState(model, card, minutes, display.first, wifi, supported, display.second)
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            // Shown already until the store says otherwise, so the notice never flashes up before it is read.
+            VoiceSetupUiState(models.state.value, supported = supported, noticeShown = true),
+        )
+
+    /** Myanmar digits and whether the notice was shown, paired so the main combine stays at five sources. */
+    private fun display() = combine(settings.myanmarDigits, settings.voiceNoticeShown) { digits, shown -> digits to shown }
 
     init {
         viewModelScope.launch {
@@ -176,6 +191,22 @@ class VoiceSetupViewModel @Inject constructor(
         card.value = null
     }
 
+    /**
+     * The phone has shown why voice is off; it is not shown again on this phone. The write outlives this screen:
+     * onboarding leaves it straight after.
+     */
+    fun noticeSeen() {
+        viewModelScope.launch {
+            try {
+                withContext(NonCancellable) { settings.setVoiceNoticeShown() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // DataStore could not write; the notice may show once more, which is harmless.
+            }
+        }
+    }
+
     /** Stops the download and deletes what it fetched. */
     fun cancelDownload() {
         card.value = null
@@ -190,11 +221,12 @@ class VoiceSetupViewModel @Inject constructor(
         }
     }
 
+    /** Enqueues the download. Onboarding leaves this screen right after, so the enqueue must not be cancelled with it. */
     private fun start(allowMetered: Boolean) {
         if (!supported) return
         viewModelScope.launch {
             try {
-                models.ensureDownloaded(allowMetered)
+                withContext(NonCancellable) { models.ensureDownloaded(allowMetered) }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -227,10 +259,15 @@ class VoiceSetupViewModel @Inject constructor(
 /**
  * Hosts the setup and download cards for a screen that offers Say it, and returns what Say it does: null on a phone
  * without the memory for voice, where the screen shows no Say it at all. [onOpenVoice] opens the listening screen once
- * voice is on the phone.
+ * voice is on the phone. With [explainIfUnsupported] (Add entry, where Say it would be), such a phone shows once why
+ * voice is off: people who signed in rather than signing up never saw onboarding's notice.
  */
 @Composable
-fun rememberSayIt(onOpenVoice: () -> Unit, viewModel: VoiceSetupViewModel = hiltViewModel()): (() -> Unit)? {
+fun rememberSayIt(
+    onOpenVoice: () -> Unit,
+    viewModel: VoiceSetupViewModel = hiltViewModel(),
+    explainIfUnsupported: Boolean = false,
+): (() -> Unit)? {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val open by rememberUpdatedState(onOpenVoice)
     LaunchedEffect(viewModel) {
@@ -247,6 +284,9 @@ fun rememberSayIt(onOpenVoice: () -> Unit, viewModel: VoiceSetupViewModel = hilt
         onDismiss = viewModel::dismiss,
         onCancelDownload = viewModel::cancelDownload,
     )
+    if (explainIfUnsupported && state.showUnsupportedNotice) {
+        VoiceUnsupportedDialog(myanmarDigits = state.myanmarDigits, onDismiss = viewModel::noticeSeen)
+    }
     return if (state.supported) viewModel::onSayIt else null
 }
 
@@ -255,7 +295,7 @@ fun rememberSayIt(onOpenVoice: () -> Unit, viewModel: VoiceSetupViewModel = hilt
  * and that typing still works. It offers nothing else.
  */
 @Composable
-fun VoiceUnsupportedDialog(onDismiss: () -> Unit) {
+fun VoiceUnsupportedDialog(onDismiss: () -> Unit, myanmarDigits: Boolean = false) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -269,7 +309,7 @@ fun VoiceUnsupportedDialog(onDismiss: () -> Unit) {
                     modifier = Modifier.padding(top = 8.dp).semantics { heading() },
                 )
                 Text(
-                    stringResource(R.string.voice_unsupported_body, VoiceRequirements.ADVERTISED_GB),
+                    stringResource(R.string.voice_unsupported_body, groupDigits(VoiceRequirements.ADVERTISED_GB.toLong(), myanmarDigits)),
                     style = type.size14,
                     color = colors.muted,
                 )
@@ -386,9 +426,9 @@ private fun DownloadingCard(
         )
         DownloadProgress(progress, state.myanmarDigits, Modifier.padding(top = 4.dp))
         when {
-            downloading?.waiting == true -> WifiWaitNotice(state.myanmarDigits, onUseMobileData)
+            downloading != null && waitsForWifi(downloading, state.onWifi) -> WifiWaitNotice(state.myanmarDigits, onUseMobileData)
             state.minutesLeft != null -> Text(
-                pluralStringResource(R.plurals.voice_minutes_left, state.minutesLeft, state.minutesLeft),
+                pluralStringResource(R.plurals.voice_minutes_left, state.minutesLeft, groupDigits(state.minutesLeft.toLong(), state.myanmarDigits)),
                 style = type.size13,
                 color = colors.muted,
             )
@@ -442,6 +482,13 @@ fun WifiNotice(title: String, detail: String, onUseMobileData: () -> Unit, modif
         }
     }
 }
+
+/**
+ * The download is held only by Wi-Fi: it may not use mobile data, and the phone is off Wi-Fi now. A retry's backoff on
+ * Wi-Fi, or a download already allowed on mobile data, waits for other reasons and gets no Wi-Fi notice.
+ */
+fun waitsForWifi(downloading: ModelState.Downloading, onWifi: Boolean): Boolean =
+    downloading.waiting && downloading.wifiOnly && !onWifi
 
 /** "430 MB of 1.1 GB" and the percent over a sage bar. */
 @Composable

@@ -3,8 +3,11 @@ package app.budgetwise.asr
 sealed interface ModelState {
     data object Missing : ModelState
 
-    /** [waiting] while the download waits to start (for Wi-Fi, or for a retry after a dropped connection). */
-    data class Downloading(val progress: Float, val waiting: Boolean = false) : ModelState
+    /**
+     * [waiting] while the download is not running: it waits for its network, or for a retry after a dropped
+     * connection. [wifiOnly] when it may only run on Wi-Fi (an unmetered network); the user has not chosen mobile data.
+     */
+    data class Downloading(val progress: Float, val waiting: Boolean = false, val wifiOnly: Boolean = false) : ModelState
 
     /** [path] is the pack directory holding every model file. */
     data class Ready(val path: String) : ModelState

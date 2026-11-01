@@ -63,8 +63,9 @@ class VoiceViewModelTest {
     fun whatWasSaidBecomesEntriesToCheckThenIsSavedAsVoice() = runTest {
         val (vm, events) = start()
         assertEquals(listOf<VoiceEvent>(VoiceEvent.NeedMic), events)
-        assertEquals("the models load while the user speaks", 1, speech.warmUps)
+        assertEquals("nothing loads before listening starts", 0, speech.warmUps)
         vm.listen()
+        assertEquals("the models load while the user speaks", 1, speech.warmUps)
         assertEquals(VoicePhase.Listening, vm.phase)
         parser.reply = ApiResult.Ok(VoiceParse.Add("ကော်ဖီ သုံးထောင်၊ တက္ကစီ ငါးထောင်", listOf(coffee, taxi)))
 
@@ -155,11 +156,23 @@ class VoiceViewModelTest {
     }
 
     @Test
+    fun aRoomFailureWhileAnsweringIsACardNotACrash() = runTest {
+        store.observeFailure = IllegalStateException("room")
+        val (vm, _) = start()
+        val q = VoiceQuestion(VoiceMetric.TOTAL, null, today, today)
+        parser.reply = ApiResult.Ok(VoiceParse.Question("h", q))
+        vm.listen()
+        vm.done()
+        assertEquals(VoicePhase.Problem(VoiceProblem.Failed), vm.phase)
+    }
+
+    @Test
     fun voiceTurnedOffShowsItsCardUntilTurnedOn() = runTest {
         settings.cloudParseEnabled.value = false
         val (vm, events) = start()
         assertEquals(VoicePhase.Problem(VoiceProblem.VoiceOff), vm.phase)
         assertTrue(events.isEmpty())
+        assertEquals("voice off loads no models", 0, speech.warmUps)
 
         vm.turnOnVoice()
 
