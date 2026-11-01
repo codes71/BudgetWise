@@ -42,6 +42,14 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.BuildConfig
 import app.budgetwise.R
+import app.budgetwise.asr.ModelState
+import app.budgetwise.asr.VoicePack
+import app.budgetwise.asr.VoiceRequirements
+import app.budgetwise.ui.voice.DownloadProgress
+import app.budgetwise.ui.voice.WifiWaitNotice
+import app.budgetwise.ui.voice.waitsForWifi
+import app.budgetwise.ui.voice.rememberAskNotifications
+import app.budgetwise.ui.voice.voiceSize
 import app.budgetwise.currentAppLanguage
 import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.KitSwitch
@@ -52,6 +60,8 @@ import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.SecondaryButton
 import app.budgetwise.ui.common.SectionLabel
 import app.budgetwise.ui.common.Spinner
+import app.budgetwise.ui.common.TextAction
+import app.budgetwise.ui.common.groupDigits
 import app.budgetwise.ui.common.relativeTime
 import app.budgetwise.ui.common.rememberTickingNow
 import app.budgetwise.ui.onboarding.ownName
@@ -72,6 +82,7 @@ fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val askNotifications = rememberAskNotifications()
     SettingsScreen(
         state = state,
         now = rememberTickingNow(),
@@ -79,6 +90,16 @@ fun SettingsRoute(
         onSyncNow = viewModel::syncNow,
         onSignOut = viewModel::signOut,
         onMyanmarDigitsChange = viewModel::setMyanmarDigits,
+        onDownloadVoice = {
+            askNotifications()
+            viewModel.downloadVoice()
+        },
+        onUseMobileData = {
+            askNotifications()
+            viewModel.useMobileDataForVoice()
+        },
+        onRemoveVoice = viewModel::removeVoice,
+        onCloudParseChange = viewModel::setCloudParse,
         onSignIn = onSignIn,
         onLanguage = onLanguage,
         version = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
@@ -94,6 +115,10 @@ fun SettingsScreen(
     onSyncNow: () -> Unit,
     onSignOut: () -> Unit,
     onMyanmarDigitsChange: (Boolean) -> Unit,
+    onDownloadVoice: () -> Unit,
+    onUseMobileData: () -> Unit,
+    onRemoveVoice: () -> Unit,
+    onCloudParseChange: (Boolean) -> Unit,
     onSignIn: () -> Unit,
     onLanguage: () -> Unit,
     version: String,
@@ -110,6 +135,11 @@ fun SettingsScreen(
                 state.account?.let { account -> item(key = "account") { AccountCard(account) } }
                 item(key = "sync") {
                     Section(stringResource(R.string.settings_section_sync)) { SyncCard(state, now, onSyncNow, onSignIn) }
+                }
+                item(key = "voice") {
+                    Section(stringResource(R.string.settings_section_voice)) {
+                        VoiceCard(state, onDownloadVoice, onUseMobileData, onRemoveVoice, onCloudParseChange)
+                    }
                 }
                 item(key = "display") {
                     Section(stringResource(R.string.settings_section_display)) { DisplayCard(state.myanmarDigits, onMyanmarDigitsChange, onLanguage) }
@@ -304,6 +334,88 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
     }
 }
 
+/**
+ * Voice: whether the models are on the phone (with Download, Cancel or Remove), and "Understand what I say", the switch
+ * that lets voice send the words it hears.
+ */
+@Composable
+private fun VoiceCard(
+    state: SettingsUiState,
+    onDownload: () -> Unit,
+    onUseMobileData: () -> Unit,
+    onRemove: () -> Unit,
+    onCloudParseChange: (Boolean) -> Unit,
+) {
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
+    val size = voiceSize(VoicePack.downloadBytes, state.myanmarDigits)
+    val voice = state.voice
+    if (!state.voiceSupported) {
+        Card {
+            SettingsRow(icon = Lucide.MicOff, tint = colors.muted, modifier = Modifier.heightIn(min = 64.dp).semantics(mergeDescendants = true) {}) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.voice_unsupported_title), style = type.size16.medium, color = colors.ink)
+                    Text(
+                        stringResource(
+                            R.string.settings_voice_unsupported_detail,
+                            groupDigits(VoiceRequirements.ADVERTISED_GB.toLong(), state.myanmarDigits),
+                        ),
+                        style = type.size13,
+                        color = colors.muted,
+                    )
+                }
+            }
+        }
+        return
+    }
+    Card {
+        SettingsRow(icon = Lucide.Mic, tint = if (voice is ModelState.Ready) colors.accent else colors.muted, modifier = Modifier.heightIn(min = 64.dp)) {
+            Column(Modifier.weight(1f)) {
+                val title = when (voice) {
+                    is ModelState.Ready -> R.string.settings_voice_ready
+                    is ModelState.Downloading -> R.string.voice_downloading_title
+                    is ModelState.Failed -> R.string.settings_voice_failed
+                    ModelState.Missing -> R.string.settings_voice_missing
+                }
+                Text(stringResource(title), style = type.size16.medium, color = colors.ink)
+                when (voice) {
+                    is ModelState.Ready -> Text(stringResource(R.string.settings_voice_on_phone, size), style = type.size13, color = colors.muted)
+                    // While it waits for Wi-Fi, the notice under the row says so and offers mobile data.
+                    is ModelState.Downloading -> DownloadProgress(voice.progress, state.myanmarDigits, Modifier.padding(top = 6.dp))
+                    is ModelState.Failed -> Text(
+                        stringResource(if (voice.outOfStorage) R.string.voice_download_no_room else R.string.voice_download_failed, size),
+                        style = type.size13,
+                        color = colors.coralText,
+                    )
+                    ModelState.Missing -> Text(stringResource(R.string.settings_voice_missing_detail, size), style = type.size13, color = colors.muted)
+                }
+            }
+            when (voice) {
+                is ModelState.Ready -> TextAction(stringResource(R.string.settings_voice_remove), onRemove, color = colors.coralText)
+                is ModelState.Downloading -> TextAction(stringResource(R.string.action_cancel), onRemove, color = colors.coralText)
+                is ModelState.Failed -> TextAction(stringResource(R.string.action_try_again), onDownload)
+                ModelState.Missing -> TextAction(stringResource(R.string.settings_voice_download), onDownload)
+            }
+        }
+        if (voice is ModelState.Downloading && waitsForWifi(voice, state.onWifi)) {
+            WifiWaitNotice(state.myanmarDigits, onUseMobileData, Modifier.padding(bottom = 12.dp))
+        }
+        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        SettingsRow(
+            icon = Lucide.Cloud,
+            tint = colors.muted,
+            // The whole row is the switch (one 48 dp target), as for Myanmar digits.
+            modifier = Modifier.heightIn(min = 64.dp).toggleable(value = state.cloudParse, role = Role.Switch, onValueChange = onCloudParseChange),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_cloud_parse), style = type.size16.medium, color = colors.ink)
+                Text(stringResource(R.string.settings_cloud_parse_detail), style = type.size13, color = colors.muted)
+            }
+            KitSwitch(checked = state.cloudParse)
+        }
+    }
+}
+
 @Composable
 private fun DisplayCard(myanmarDigits: Boolean, onChange: (Boolean) -> Unit, onLanguage: () -> Unit) {
     val colors = BudgetWiseTheme.colors
@@ -377,6 +489,10 @@ private fun SettingsScreenPreview() {
             onSyncNow = {},
             onSignOut = {},
             onMyanmarDigitsChange = {},
+            onDownloadVoice = {},
+            onUseMobileData = {},
+            onRemoveVoice = {},
+            onCloudParseChange = {},
             onSignIn = {},
             onLanguage = {},
             version = "Version 1.0 (1)",

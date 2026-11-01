@@ -6,10 +6,11 @@ both transcripts. Pure Kotlin plus Maven AARs: no NDK, CMake or submodule.
 
 ## Building
 
-The voice pack (about 1.1 GB) is downloaded at runtime, never bundled. Omnilingual comes from its Hugging Face repo at
-a pinned revision. freococo's ONNX export has no public host yet: pass
-`-Pbudgetwise.freococoModelBaseUrl=https://<host>/<dir>/` (the directory holding `freococo.onnx` and `vocab.json`).
-Without it the download fails at once with "voice model host not configured".
+The voice pack (about 1.1 GB) is downloaded at runtime, never bundled. Both models come from Hugging Face at pinned
+revisions: Omnilingual from sherpa-onnx's repo, freococo's ONNX export from
+[thura2/freococo-myanmar-asr-onnx](https://huggingface.co/thura2/freococo-myanmar-asr-onnx) (published 2026-10-31,
+Apache-2.0 like the original). `-Pbudgetwise.freococoModelBaseUrl=https://<host>/<dir>/` points freococo at another
+host; a `.invalid` host makes the download fail at once with "voice model host not configured".
 
 ## Using :asr from the app
 

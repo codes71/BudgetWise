@@ -28,6 +28,10 @@ class SettingsScreenTest {
     private val now = Instant.parse("2026-10-21T10:00:00Z")
     private var signOuts = 0
     private var languageOpened = 0
+    private var voiceDownloads = 0
+    private var mobileData = 0
+    private var voiceRemovals = 0
+    private val cloudParse = mutableListOf<Boolean>()
 
     private fun show(state: SettingsUiState) = compose.setContent {
         BudgetWiseTheme {
@@ -38,6 +42,10 @@ class SettingsScreenTest {
                 onSyncNow = {},
                 onSignOut = { signOuts++ },
                 onMyanmarDigitsChange = {},
+                onDownloadVoice = { voiceDownloads++ },
+                onUseMobileData = { mobileData++ },
+                onRemoveVoice = { voiceRemovals++ },
+                onCloudParseChange = { cloudParse += it },
                 onSignIn = {},
                 onLanguage = { languageOpened++ },
                 version = "Version 0.1.0 (1)",
@@ -61,6 +69,55 @@ class SettingsScreenTest {
         compose.onNodeWithText("Developer", substring = true).assertDoesNotExist()
         // The sync button and its state stay.
         compose.onNodeWithText(context.getString(R.string.settings_sync_now)).assertExists()
+    }
+
+    @Test
+    fun theVoiceSectionShowsWhatIsOnThePhoneAndTheSwitch() {
+        show(signedIn.copy(voice = app.budgetwise.asr.ModelState.Ready("/voice"), cloudParse = true))
+
+        compose.onNodeWithText(context.getString(R.string.settings_voice_ready)).assertIsDisplayed()
+        compose.onNodeWithText("1.1 GB on this phone").assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.settings_voice_remove)).performClick()
+        compose.onNodeWithText(context.getString(R.string.settings_cloud_parse)).performClick()
+
+        assertEquals(1, voiceRemovals)
+        assertEquals("the switch turns it off", listOf(false), cloudParse)
+    }
+
+    @Test
+    fun aDownloadWaitingForWifiSaysSoAndOffersMobileData() {
+        show(signedIn.copy(voice = app.budgetwise.asr.ModelState.Downloading(0f, waiting = true, wifiOnly = true), onWifi = false))
+
+        compose.onNodeWithText(context.getString(R.string.voice_waiting_wifi)).assertIsDisplayed()
+        compose.onNodeWithText("Voice downloads on Wi-Fi to save your data. On mobile data it uses about 1.1 GB.").assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.voice_use_mobile_data)).performClick()
+
+        assertEquals(1, mobileData)
+    }
+
+    @Test
+    fun aPhoneWithoutTheMemoryForVoiceOnlySaysWhy() {
+        show(signedIn.copy(voiceSupported = false))
+
+        compose.onNodeWithText(context.getString(R.string.voice_unsupported_title)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.settings_voice_download)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.settings_cloud_parse)).assertDoesNotExist()
+    }
+
+    @Test
+    fun aRetryOnWifiOrADownloadAllowedOnMobileDataGetsNoWifiNotice() {
+        show(signedIn.copy(voice = app.budgetwise.asr.ModelState.Downloading(0.3f, waiting = true, wifiOnly = true), onWifi = true))
+        compose.onNodeWithText(context.getString(R.string.voice_use_mobile_data)).assertDoesNotExist()
+    }
+
+    @Test
+    fun voiceNotOnThePhoneOffersTheDownload() {
+        show(signedIn)
+
+        compose.onNodeWithText(context.getString(R.string.settings_voice_missing)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.settings_voice_download)).performClick()
+
+        assertEquals(1, voiceDownloads)
     }
 
     @Test

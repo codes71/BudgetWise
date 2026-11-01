@@ -43,6 +43,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -86,6 +87,8 @@ import app.budgetwise.ui.common.monthName
 import app.budgetwise.ui.common.signedDigits
 import app.budgetwise.ui.common.spokenAmount
 import app.budgetwise.ui.theme.BudgetWiseTheme
+import app.budgetwise.ui.voice.VoiceSetupViewModel
+import app.budgetwise.ui.voice.rememberSayIt
 import app.budgetwise.ui.theme.extraBold
 import app.budgetwise.ui.theme.forContent
 import app.budgetwise.ui.theme.medium
@@ -106,9 +109,12 @@ fun TransactionsRoute(
     onSettings: () -> Unit,
     onSignIn: () -> Unit,
     onAddManual: () -> Unit,
+    onOpenVoice: () -> Unit,
     viewModel: TransactionsViewModel = hiltViewModel(),
+    voiceSetup: VoiceSetupViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sayIt = rememberSayIt(onOpenVoice, voiceSetup)
     val notices = remember { SnackbarHostState() }
 
     val refreshFailed = stringResource(R.string.transactions_refresh_failed)
@@ -169,6 +175,7 @@ fun TransactionsRoute(
         onChip = onChip,
         onSettings = onSettings,
         onAddManual = onAddManual,
+        onSayIt = sayIt,
         onDelete = viewModel::delete,
         onRefresh = viewModel::refresh,
     )
@@ -183,6 +190,8 @@ fun TransactionsScreen(
     onChip: () -> Unit,
     onSettings: () -> Unit,
     onAddManual: () -> Unit,
+    /** Null on a phone without the memory for voice: the first-day home offers typing only. */
+    onSayIt: (() -> Unit)?,
     onDelete: (String) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
@@ -227,7 +236,7 @@ fun TransactionsScreen(
                         }
                     }
                     else -> {
-                        item(key = "month", contentType = "month") { MonthHead(state, onAddManual) }
+                        item(key = "month", contentType = "month") { MonthHead(state, onAddManual, onSayIt) }
                         days(state, onDelete)
                     }
                 }
@@ -242,7 +251,7 @@ fun TransactionsScreen(
  * way to add it instead of an empty chart.
  */
 @Composable
-private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit) {
+private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit, onSayIt: (() -> Unit)?) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val month = monthName(state.summary.month)
@@ -267,16 +276,16 @@ private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit) {
         }
         SageRule(Modifier.padding(top = 16.dp))
         if (state.noExpensesYet) {
-            FirstExpense(onAddManual, Modifier.padding(top = 28.dp))
+            FirstExpense(onAddManual, onSayIt, Modifier.padding(top = 28.dp))
         } else {
             SpendingCard(state.pace, state.categories, state.myanmarDigits, Modifier.padding(top = 28.dp))
         }
     }
 }
 
-/** "Add your first expense": what it does to the number above, and one row that opens the add form. */
+/** "Add your first expense": what it does to the number above, then two ways: type it (the add form) or say it. */
 @Composable
-private fun FirstExpense(onAddManual: () -> Unit, modifier: Modifier = Modifier) {
+private fun FirstExpense(onAddManual: () -> Unit, onSayIt: (() -> Unit)?, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     Column(modifier.fillMaxWidth()) {
@@ -292,29 +301,40 @@ private fun FirstExpense(onAddManual: () -> Unit, modifier: Modifier = Modifier)
             color = colors.muted,
             modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
         )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 68.dp)
-                .clickable(role = Role.Button, onClick = onAddManual)
-                .padding(vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Box(
-                Modifier.size(38.dp).clip(CircleShape).background(colors.badgeFill).border(1.dp, colors.hairline, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Lucide.Pencil, contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.first_expense_type), style = type.size16.medium, color = colors.ink)
-                val detail = stringResource(R.string.first_expense_type_detail)
-                Text(detail, style = type.size13, color = colors.muted)
-            }
-            Icon(Lucide.ChevronRight, contentDescription = null, tint = colors.muted, modifier = Modifier.size(20.dp))
-        }
+        WayRow(Lucide.Pencil, stringResource(R.string.first_expense_type), stringResource(R.string.first_expense_type_detail), onAddManual)
         HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        if (onSayIt != null) {
+            WayRow(Lucide.Mic, stringResource(R.string.voice_say_it), stringResource(R.string.first_expense_say_detail), onSayIt)
+            HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        }
+    }
+}
+
+/** One way to add the first expense: an outlined icon, what it is, and a chevron. One row-sized target. */
+@Composable
+private fun WayRow(icon: ImageVector, title: String, detail: String, onClick: () -> Unit) {
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 68.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(
+            Modifier.size(38.dp).clip(CircleShape).background(colors.badgeFill).border(1.dp, colors.hairline, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(title, style = type.size16.medium, color = colors.ink)
+            Text(detail, style = type.size13.forContent(detail), color = colors.muted)
+        }
+        Icon(Lucide.ChevronRight, contentDescription = null, tint = colors.muted, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -507,6 +527,7 @@ private fun TransactionsScreenPreview() {
             onChip = {},
             onSettings = {},
             onAddManual = {},
+            onSayIt = {},
             onDelete = {},
             onRefresh = {},
         )

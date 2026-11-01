@@ -38,9 +38,13 @@ interface SettingsStore : PullCursorStore {
     /** Show amounts with Myanmar digits. Default false. */
     val myanmarDigits: Flow<Boolean>
 
+    /** This phone has shown its "voice isn't available here" notice (it lacks the memory). Per phone. Default false. */
+    val voiceNoticeShown: Flow<Boolean>
+
     suspend fun setAutoSaveHighConfidence(on: Boolean)
     suspend fun setCloudParseEnabled(on: Boolean)
     suspend fun setMyanmarDigits(on: Boolean)
+    suspend fun setVoiceNoticeShown()
 }
 
 @Singleton
@@ -50,6 +54,7 @@ class DataStoreSettingsStore @Inject constructor(
     override val autoSaveHighConfidence: Flow<Boolean> = store.data.map { it[AUTO_SAVE] ?: false }
     override val cloudParseEnabled: Flow<Boolean> = store.data.map { it[CLOUD_PARSE] ?: true }
     override val myanmarDigits: Flow<Boolean> = store.data.map { it[MYANMAR_DIGITS] ?: false }
+    override val voiceNoticeShown: Flow<Boolean> = store.data.map { it[VOICE_NOTICE_SHOWN] ?: false }
 
     override fun lastPulledAt(owner: String): Flow<Instant?> =
         store.data.map { p -> p[lastPulledAtKey(owner)]?.let(Instant::ofEpochMilli) }
@@ -66,6 +71,10 @@ class DataStoreSettingsStore @Inject constructor(
         store.edit { it[MYANMAR_DIGITS] = on }
     }
 
+    override suspend fun setVoiceNoticeShown() {
+        store.edit { it[VOICE_NOTICE_SHOWN] = true }
+    }
+
     override suspend fun setLastPulledAt(owner: String, at: Instant) {
         store.edit { it[lastPulledAtKey(owner)] = at.toEpochMilli() }
     }
@@ -74,6 +83,7 @@ class DataStoreSettingsStore @Inject constructor(
         val AUTO_SAVE = booleanPreferencesKey("auto_save_high_confidence")
         val CLOUD_PARSE = booleanPreferencesKey("cloud_parse_enabled")
         val MYANMAR_DIGITS = booleanPreferencesKey("myanmar_digits")
+        val VOICE_NOTICE_SHOWN = booleanPreferencesKey("voice_unsupported_notice_shown")
 
         /**
          * One cursor per account. The single cursor of earlier versions (`last_pulled_at_ms`) is not read: the first

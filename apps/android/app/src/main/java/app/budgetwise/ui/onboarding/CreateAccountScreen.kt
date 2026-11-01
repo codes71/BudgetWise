@@ -47,6 +47,7 @@ fun CreateAccountRoute(
     onCreated: () -> Unit,
     onSignIn: () -> Unit,
     onBack: () -> Unit,
+    steps: Int = 3,
     viewModel: CreateAccountViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -55,6 +56,7 @@ fun CreateAccountRoute(
         viewModel.events.collect { if (it == CreateAccountEvent.SignedIn) created() }
     }
     CreateAccountScreen(
+        steps = steps,
         state = state,
         onEmailChange = viewModel::onEmailChange,
         onPasswordChange = viewModel::onPasswordChange,
@@ -73,6 +75,8 @@ fun CreateAccountScreen(
     onSignIn: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Onboarding's length: 3 with the voice step, 2 on a phone without the memory for voice. */
+    steps: Int = 3,
 ) {
     val colors = BudgetWiseTheme.colors
     val keyboard = LocalSoftwareKeyboardController.current
@@ -91,7 +95,7 @@ fun CreateAccountScreen(
         subtitle = stringResource(R.string.create_subtitle),
         onBack = onBack,
         modifier = modifier,
-        step = Step(at = 1, of = 2),
+        step = Step(at = 1, of = steps),
         button = {
             PrimaryButton(
                 text = stringResource(if (state.loading) R.string.create_creating else R.string.create_submit),

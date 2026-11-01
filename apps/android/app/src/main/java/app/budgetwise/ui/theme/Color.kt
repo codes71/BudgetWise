@@ -125,6 +125,8 @@ data class BudgetWiseColors(
     val onExpenseSelected: Color,
     /** Offline and waiting. */
     val blue: Color,
+    /** Something to check before saving: a guessed date, an amount that was not heard. */
+    val amber: Color,
     val blueBorder: Color,
     val error: Color,
     val errorBorder: Color,
@@ -167,6 +169,7 @@ internal val DarkBudgetWiseColors = BudgetWiseColors(
     expenseSelected = CoralContainerDark,
     onExpenseSelected = Color(0xFFF8C3B4),
     blue = BlueLight,
+    amber = Color(0xFFE9C46A),
     blueBorder = BlueContainerDark,
     error = ErrorDark,
     errorBorder = ErrorContainerDark,
@@ -208,6 +211,7 @@ internal val LightBudgetWiseColors = BudgetWiseColors(
     expenseSelected = CoralContainer,
     onExpenseSelected = Color(0xFF93331B),
     blue = BlueDeep,
+    amber = Color(0xFF8A6100),
     blueBorder = BlueContainer,
     error = ErrorLight,
     errorBorder = ErrorPale,

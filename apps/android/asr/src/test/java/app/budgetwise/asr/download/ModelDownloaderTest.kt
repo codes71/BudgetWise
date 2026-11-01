@@ -79,10 +79,16 @@ class ModelDownloaderTest {
     }
 
     @Test
+    fun theDefaultFreococoHostIsItsHuggingFaceRepoAtAPinnedCommit() {
+        assertEquals(
+            "https://huggingface.co/thura2/freococo-myanmar-asr-onnx/resolve/e5041e673745d9fcd62872710820c22d8ccb9307/freococo.onnx",
+            ModelSource().urlFor(VoicePack.FREOCOCO_MODEL).toString(),
+        )
+    }
+
+    @Test
     fun placeholderFreococoBaseIsNotConfigured() {
-        // The build default until freococo's export has a public home.
-        assertTrue(app.budgetwise.asr.BuildConfig.FREOCOCO_MODEL_BASE_URL.contains(".invalid/"))
-        for (base in listOf(app.budgetwise.asr.BuildConfig.FREOCOCO_MODEL_BASE_URL, "not a url")) {
+        for (base in listOf("https://freococo-models.budgetwise.invalid/", "not a url")) {
             val e = assertThrows(DownloadException.NotConfigured::class.java) {
                 ModelSource(freococoBase = base).urlFor(VoicePack.FREOCOCO_MODEL)
             }

@@ -62,7 +62,7 @@ import java.time.YearMonth
 
 /** [onDone] goes on to the app: after the income is saved, or straight away on Skip. */
 @Composable
-fun FirstIncomeRoute(onDone: () -> Unit, viewModel: FirstIncomeViewModel = hiltViewModel()) {
+fun FirstIncomeRoute(onDone: () -> Unit, steps: Int = 3, viewModel: FirstIncomeViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val done by rememberUpdatedState(onDone)
     LaunchedEffect(viewModel) {
@@ -70,6 +70,7 @@ fun FirstIncomeRoute(onDone: () -> Unit, viewModel: FirstIncomeViewModel = hiltV
     }
     val description = stringResource(state.source.label)
     FirstIncomeScreen(
+        steps = steps,
         state = state,
         onAmountChange = viewModel::onAmountChange,
         onSourceChange = viewModel::onSourceChange,
@@ -79,7 +80,7 @@ fun FirstIncomeRoute(onDone: () -> Unit, viewModel: FirstIncomeViewModel = hiltV
 }
 
 /**
- * Step 2 of 2, with no way back (the account exists): the amount, where it comes from, and what the month will show.
+ * Step 2 of 3, with no way back (the account exists): the amount, where it comes from, and what the month will show.
  * Skip goes on without saving anything.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -91,6 +92,8 @@ fun FirstIncomeScreen(
     onSave: () -> Unit,
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Onboarding's length: 3 with the voice step, 2 on a phone without the memory for voice. */
+    steps: Int = 3,
 ) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
@@ -101,7 +104,7 @@ fun FirstIncomeScreen(
         subtitle = stringResource(R.string.income_subtitle),
         onBack = null,
         modifier = modifier,
-        step = Step(at = 2, of = 2),
+        step = Step(at = 2, of = steps),
         button = {
             PrimaryButton(
                 text = stringResource(R.string.income_start),

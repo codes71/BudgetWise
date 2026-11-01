@@ -6,6 +6,10 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import app.budgetwise.asr.AsrResult
+import app.budgetwise.asr.OnnxSpeechToText
+import app.budgetwise.asr.SpeechToText
+import app.budgetwise.asr.VoiceRequirements
 import app.budgetwise.data.model.Budget
 import app.budgetwise.data.model.DailySpend
 import app.budgetwise.data.model.Transaction
@@ -17,12 +21,15 @@ import app.budgetwise.data.repo.LoginResult
 import app.budgetwise.data.repo.RegisterResult
 import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.repo.TransactionRepository
+import app.budgetwise.data.repo.VoiceParse
+import app.budgetwise.data.repo.VoiceRepository
 import app.budgetwise.data.sync.SyncEngine
 import app.budgetwise.data.sync.SyncScheduler
 import app.budgetwise.data.sync.SyncStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDate
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -95,6 +102,9 @@ interface BudgetSource {
 /** Whether the phone can reach the internet, for the header's Offline chip. */
 interface NetworkStatus {
     val online: Flow<Boolean>
+
+    /** On Wi-Fi, or another network that does not charge for data: where the voice download runs by default. */
+    val unmetered: Flow<Boolean>
 }
 
 /** Category names for the add form ([CategoryRepository]): the cached server list, else the eight built-ins. */
@@ -103,6 +113,25 @@ interface CategorySource {
 
     /** Fetches the server list for next time; a failure keeps the cache. */
     suspend fun refresh()
+}
+
+/** Reads what the phone heard (text only) into entries or a spending question, on the server ([VoiceRepository]). */
+fun interface VoiceParser {
+    suspend fun parse(transcripts: List<String>): ApiResult<VoiceParse>
+}
+
+/**
+ * Whether this phone has the memory to run voice ([VoiceRequirements]). Where it does not, voice is off: no Say it,
+ * no download offer, and Settings and onboarding say why.
+ */
+interface VoiceAvailability {
+    val supported: Boolean
+}
+
+/** On-device speech recognition ([OnnxSpeechToText]): every speech model's transcript of the same audio. */
+interface OnDeviceSpeech : SpeechToText {
+    /** Loads the models ahead of the first transcription; does nothing while voice is not downloaded. */
+    suspend fun warmUp()
 }
 
 /**
@@ -163,24 +192,30 @@ class DefaultTransactionStore @Inject constructor(private val repo: TransactionR
  */
 class DefaultNetworkStatus @Inject constructor(@ApplicationContext private val context: Context) : NetworkStatus {
     override val online: Flow<Boolean>
-        get() = callbackFlow {
-            val cm = context.getSystemService(ConnectivityManager::class.java)
-            fun NetworkCapabilities?.online() = this != null &&
-                hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-            trySend(cm.getNetworkCapabilities(cm.activeNetwork).online())
-            val callback = object : ConnectivityManager.NetworkCallback() {
-                override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-                    trySend(capabilities.online())
-                }
+        get() = capabilities().map { it.has(NetworkCapabilities.NET_CAPABILITY_INTERNET) && it.has(NetworkCapabilities.NET_CAPABILITY_VALIDATED) }
+            .distinctUntilChanged()
 
-                override fun onLost(network: Network) {
-                    trySend(false)
-                }
+    override val unmetered: Flow<Boolean>
+        get() = capabilities().map { it.has(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) }.distinctUntilChanged()
+
+    private fun NetworkCapabilities?.has(capability: Int) = this != null && hasCapability(capability)
+
+    /** The default network's capabilities, null while there is none. */
+    private fun capabilities(): Flow<NetworkCapabilities?> = callbackFlow {
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+        trySend(cm.getNetworkCapabilities(cm.activeNetwork))
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                trySend(capabilities)
             }
-            cm.registerDefaultNetworkCallback(callback)
-            awaitClose { cm.unregisterNetworkCallback(callback) }
-        }.distinctUntilChanged()
+
+            override fun onLost(network: Network) {
+                trySend(null)
+            }
+        }
+        cm.registerDefaultNetworkCallback(callback)
+        awaitClose { cm.unregisterNetworkCallback(callback) }
+    }
 }
 
 class DefaultBudgetSource @Inject constructor(private val repo: BudgetRepository) : BudgetSource {
@@ -195,4 +230,20 @@ class DefaultCategorySource @Inject constructor(private val repo: CategoryReposi
     override suspend fun refresh() {
         repo.refresh()
     }
+}
+
+class DefaultVoiceParser @Inject constructor(private val repo: VoiceRepository) : VoiceParser {
+    override suspend fun parse(transcripts: List<String>): ApiResult<VoiceParse> = repo.parse(transcripts)
+}
+
+class DefaultOnDeviceSpeech @Inject constructor(private val stt: OnnxSpeechToText) : OnDeviceSpeech {
+    override suspend fun transcribe(audio: FloatArray): AsrResult = stt.transcribe(audio)
+
+    override suspend fun warmUp() = stt.warmUp()
+}
+
+/** Read once per process: a phone's memory does not change while the app runs. */
+@Singleton
+class DefaultVoiceAvailability @Inject constructor(@ApplicationContext context: Context) : VoiceAvailability {
+    override val supported: Boolean = VoiceRequirements.supported(context)
 }

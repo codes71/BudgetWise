@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.budgetwise.NetworkStatus
 import app.budgetwise.SyncControls
+import app.budgetwise.VoiceAvailability
+import app.budgetwise.asr.ModelManager
+import app.budgetwise.asr.ModelState
 import app.budgetwise.data.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -20,9 +23,23 @@ data class SyncSignals(
     val unsynced: Int = 0,
 )
 
-/** The shell's own state: the sync signals both tabs' headers show. It lives as long as the activity. */
+/**
+ * The shell's own state: the sync signals both tabs' headers show, and whether onboarding has its voice step. It lives
+ * as long as the activity.
+ */
 @HiltViewModel
-class ShellViewModel @Inject constructor(sync: SyncControls, network: NetworkStatus) : ViewModel() {
+class ShellViewModel @Inject constructor(
+    sync: SyncControls,
+    network: NetworkStatus,
+    voice: VoiceAvailability,
+    models: ModelManager,
+) : ViewModel() {
+    /**
+     * Onboarding offers voice (three steps, not two): the phone has the memory for it, and voice is not already on it
+     * or coming (another account set it up), in which case the step skips itself ([app.budgetwise.ui.onboarding.SetupVoiceRoute]).
+     */
+    val voiceStep: Boolean = voice.supported && models.state.value.let { it !is ModelState.Ready && it !is ModelState.Downloading }
+
     val signals: StateFlow<SyncSignals> =
         combine(network.online, sync.status, sync.queued, sync.unsyncedCount) { online, status, queued, unsynced ->
             SyncSignals(online, status, queued, unsynced)

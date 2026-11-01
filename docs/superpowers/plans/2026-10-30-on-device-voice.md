@@ -50,28 +50,64 @@ Committed and opened as a pull request into `chore/monorepo`; not merged or depl
   for them are in `OnnxEngines.kt` and `asr/host/README.md`; ONNX Runtime telemetry is off. Device steps:
   `asr/src/androidTest/README.md`. The CI task list (now with `:asr`) passes locally.
 
+## Voice UI (branch `feat/voice-ui`, worktree `BudgetWise-voice-ui`)
+
+Built on `feat/onboarding-v2` plus this branch. Designs: Paper file "Budget Wise", page "Redesign: full app", row
+"Voice" (VO1 to VO14), approved by the user on 2026-10-30, with onboarding getting a voice step (user, 2026-10-30).
+
+- Entry points: "Say it" on Add entry and on the first-day home. Before the models are on the phone it opens the setup
+  card (1.1 GB, waits for Wi-Fi, "Use mobile data" while waiting), then the progress card; voice opens when the
+  download finishes with the card open. The worker posts "Voice is ready" (Android 13+ asks for notifications first).
+- Onboarding is now three steps: create account, first income, then "Say what you spend" (Download or Not now). A
+  phone that already has voice skips the step.
+- `ui/voice`: listening (20 s limit, level rings), working (on the phone, then the server), problem cards (no amount,
+  nothing heard, no internet, server failure, signed out, microphone denied or busy, voice turned off), check what you
+  said (edit sheet per entry, saved with source `voice` and what was heard), and answers worked out on the phone from
+  Room (total, list, over budget for the month).
+- Settings has a Voice section: Download, Cancel or Remove, and the "Understand what I say" switch (`cloudParseEnabled`).
+- `:feature:voice` is the microphone (`AudioRecordMicrophone`, audio in memory only). `POST /voice/parse` gets a 65 s
+  read timeout (`@SlowCall`), since the server may try OpenAI after Claude.
+- No "Scan a receipt" button yet: the phone has no scan screen.
+- Low-memory phones (user, 2026-10-31): voice is off where Android reports under 3.3 GB of total memory (advertised
+  3 GB phones) or the phone calls itself low-RAM (`VoiceRequirements`). Nothing offers voice there: no Say it, no
+  download, two onboarding steps. A small notice says why, once per phone: where onboarding's voice step would be,
+  or else the first time Add entry opens (people who sign in skip onboarding). Settings says the same.
+  Cloud speech recognition was ruled out: OpenAI's best model got 4 of 14 amounts (rerun 2026-10-31).
+
+## Device gate (Xiaomi 14, Snapdragon 8 Gen 3, 12 GB; 2026-10-31)
+
+Run with `asr/src/androidTest` (README there), the shipped ONNX Runtime 1.31.1 and settings:
+
+- Parity: on all 18 of the user's recordings, both models' transcripts are character-identical to the Mac goldens.
+  Plain ONNX Runtime stays for Omnilingual; sherpa-onnx is not needed.
+- Full path (VAD, both models): load 3.3 to 4.2 s, p50 RTF 0.61 (about 2.5 s for a 4 to 7 s phrase), peak VmHWM
+  1.55 GB.
+- A 20 s recording (the listening limit): 17.6 s to transcribe (RTF 0.88), peak 1.76 GB.
+- ONNX Runtime's telemetry provider is removed from the merged manifest.
+- A 4 GB emulator (arm64, 16 KB pages, Mac CPU so its speed means nothing): peak 1.39 GB for short phrases and
+  1.69 GB for 20 s; Android killed only background apps, never the test. The emulator image would not go below
+  4 GB, so 3 GB phones are untested.
+
 ## Still open
 
-- `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`) in the deployed environment; without it there is no fallback.
-- The phone's `cloudParseEnabled` setting now defaults on (user, 2026-10-30). People still need a switch for it in
-  Settings; that comes later with the voice UI.
+- `OPENAI_API_KEY` was added in Vercel by the user (2026-10-31). It applies from the next deployment of each
+  environment; production gets it when `chore/monorepo` is merged and deployed.
+- The phone's `cloudParseEnabled` setting defaults on (user, 2026-10-30); its switch is in Settings on `feat/voice-ui`.
 
-- Public host for `freococo.onnx` and `vocab.json` (`-Pbudgetwise.freococoModelBaseUrl`); until then the download
-  fails with "voice model host not configured".
-- Memory: on the Mac a 20 s segment peaks near 2 GB; short phrases near 1.5 GB. Measure on the phone, then pick
-  `maxSegmentMs`.
+- Done 2026-10-31 (user chose Hugging Face): `freococo.onnx` and `vocab.json` are public at
+  huggingface.co/thura2/freococo-myanmar-asr-onnx, commit e5041e6, Apache-2.0 with a model card; the app's default
+  host pins that commit. Downloaded copies match the pinned sha256.
+- Memory: measured on the phone (above): 1.55 GB for short phrases, 1.76 GB for 20 s. 4 GB (emulator) works; 3 GB
+  phones and a real low-end CPU are untested.
 - 64-bit ARM only (`abiFilters`), kept from the Raj build. Cheap 32-bit phones cannot install the app.
 
 ## Work, in order
 
-1. Device gate: run both models on the Mi 14 from files on disk, with the runtime the app will ship. Check
-   transcripts against the Mac on the user's 18 clips, latency, and peak memory (the Raj limit was 1.6 GB).
-   Decide plain ONNX Runtime for both versus sherpa-onnx for Omnilingual from this result.
+1. Device gate: done on the Mi 14 (see above). Plain ONNX Runtime for both models.
 2. `:asr`: replace the Raj/llama.cpp engine with the two ONNX engines behind the existing `SpeechToText`
    (returning both transcripts), keep `SpeechSegmenter`, and point `ModelManager` and the download worker at the
    new files with checksums. Drop the llama.cpp submodule and native build.
-3. Model hosting: Omnilingual from its Hugging Face repo at a pinned revision; freococo's ONNX export needs a
-   public home (a Hugging Face repo or a public GitHub release). Both are free.
-4. Understanding: done (Claude, OpenAI fallback); needs `OPENAI_API_KEY` in the deployed environment.
-5. `:feature:voice`: download button and progress, mic button, review screen for entries, answers for questions.
+3. Model hosting: done. Both models come from Hugging Face at pinned revisions.
+4. Understanding: done (Claude, OpenAI fallback); `OPENAI_API_KEY` is set in Vercel.
+5. Voice UI: built on `feat/voice-ui` (see above); not yet tried on a phone.
 6. Licenses screen entries for both models (freococo is Apache-2.0; check Omnilingual's).

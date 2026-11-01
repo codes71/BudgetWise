@@ -27,7 +27,15 @@ class SettingsStoreTest {
         assertFalse(s.autoSaveHighConfidence.first())
         assertTrue("voice has no offline mode", s.cloudParseEnabled.first())
         assertFalse(s.myanmarDigits.first())
+        assertFalse(s.voiceNoticeShown.first())
         assertNull(s.lastPulledAt("u1").first())
+    }
+
+    @Test
+    fun theVoiceNoticeIsRememberedOnceShown() = runTest(UnconfinedTestDispatcher()) {
+        val s = store()
+        s.setVoiceNoticeShown()
+        assertTrue(s.voiceNoticeShown.first())
     }
 
     @Test

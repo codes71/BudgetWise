@@ -4,7 +4,10 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-/** Minimal reader for 16-bit PCM mono WAV files, returning samples scaled to [-1, 1). */
+/**
+ * Minimal reader for 16-bit PCM mono WAV files, returning samples scaled to [-1, 1). Takes plain PCM and
+ * WAVE_FORMAT_EXTENSIBLE with the PCM sub-format (what ffmpeg writes for the user's recordings).
+ */
 object WavReader {
     fun readMono16(file: File): FloatArray {
         val buf = ByteBuffer.wrap(file.readBytes()).order(ByteOrder.LITTLE_ENDIAN)
@@ -17,7 +20,9 @@ object WavReader {
             val size = buf.getInt(pos + 4)
             val body = pos + 8
             if (id == "fmt ") {
-                require(buf.getShort(body).toInt() == 1) { "not PCM" }
+                val format = buf.getShort(body).toInt() and 0xFFFF
+                val pcm = format == PCM || (format == EXTENSIBLE && size >= 26 && buf.getShort(body + 24).toInt() == PCM)
+                require(pcm) { "not PCM (format $format)" }
                 channels = buf.getShort(body + 2).toInt()
                 bits = buf.getShort(body + 14).toInt()
             } else if (id == "data") {
@@ -29,6 +34,9 @@ object WavReader {
         }
         error("no data chunk")
     }
+
+    private const val PCM = 1
+    private const val EXTENSIBLE = 0xFFFE
 
     private fun tag(buf: ByteBuffer, at: Int): String =
         String(ByteArray(4) { buf.get(at + it) }, Charsets.US_ASCII)

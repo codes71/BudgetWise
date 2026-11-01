@@ -79,6 +79,7 @@ import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
 import app.budgetwise.ui.common.PrimaryButton
+import app.budgetwise.ui.common.SecondaryButton
 import app.budgetwise.ui.common.SegmentedPill
 import app.budgetwise.ui.common.TextAction
 import app.budgetwise.ui.common.categoryColors
@@ -95,15 +96,17 @@ import app.budgetwise.ui.theme.extraBold
 import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.tracked
 import app.budgetwise.ui.theme.semibold
+import app.budgetwise.ui.voice.rememberSayIt
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle as DateTextStyle
 import java.time.temporal.WeekFields
 
-/** [onDone] closes the form: after a save, or when the user closes it. */
+/** [onDone] closes the form: after a save, or when the user closes it. [onOpenVoice] opens voice entry. */
 @Composable
-fun AddManualRoute(onDone: () -> Unit, viewModel: AddManualViewModel = hiltViewModel()) {
+fun AddManualRoute(onDone: () -> Unit, onOpenVoice: () -> Unit, viewModel: AddManualViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sayIt = rememberSayIt(onOpenVoice, explainIfUnsupported = true)
     val done by rememberUpdatedState(onDone)
     LaunchedEffect(viewModel) {
         viewModel.events.collect { if (it == AddManualEvent.Saved) done() }
@@ -117,6 +120,7 @@ fun AddManualRoute(onDone: () -> Unit, viewModel: AddManualViewModel = hiltViewM
         onDescriptionChange = viewModel::onDescriptionChange,
         onDateChange = viewModel::onDateChange,
         onSave = viewModel::save,
+        onSayIt = sayIt,
     )
 }
 
@@ -130,6 +134,8 @@ fun AddManualScreen(
     onDescriptionChange: (String) -> Unit,
     onDateChange: (LocalDate) -> Unit,
     onSave: () -> Unit,
+    /** Null on a phone without the memory for voice: no Say it. */
+    onSayIt: (() -> Unit)?,
     modifier: Modifier = Modifier,
     focusAmount: Boolean = true,
 ) {
@@ -172,7 +178,22 @@ fun AddManualScreen(
                     .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                TypeSelector(state.type, editable, onTypeChange)
+                // Say it sits with the type: both choose how the entry is made, before the fields.
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    TypeSelector(state.type, editable, onTypeChange)
+                    if (onSayIt != null) {
+                        SecondaryButton(
+                            text = stringResource(R.string.voice_say_it),
+                            onClick = {
+                                keyboard?.hide()
+                                onSayIt()
+                            },
+                            enabled = editable,
+                            icon = Lucide.Mic,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
                 AmountField(state, editable, onAmountChange, amountFocus, onNext = { descriptionFocus.requestFocus() })
                 // Income always goes under "Income" (AddManualUiState.savedCategory), so only an expense asks.
                 if (state.type != TxType.INCOME) CategoryPicker(state, editable, onCategoryChange)
@@ -437,7 +458,7 @@ private fun DateField(state: AddManualUiState, enabled: Boolean, onClick: () -> 
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DateSheet(date: LocalDate, today: LocalDate, myanmarDigits: Boolean, onPick: (LocalDate) -> Unit, onDismiss: () -> Unit) {
+internal fun DateSheet(date: LocalDate, today: LocalDate, myanmarDigits: Boolean, onPick: (LocalDate) -> Unit, onDismiss: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val locale = LocalConfiguration.current.locales[0]
@@ -552,6 +573,7 @@ private fun AddManualScreenPreview() {
             onDescriptionChange = {},
             onDateChange = {},
             onSave = {},
+            onSayIt = {},
             focusAmount = false,
         )
     }

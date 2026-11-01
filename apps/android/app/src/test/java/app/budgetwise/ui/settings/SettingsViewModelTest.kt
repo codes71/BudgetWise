@@ -7,9 +7,12 @@ import app.budgetwise.data.auth.StoredSession
 import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
 import app.budgetwise.testing.FakeAccountActions
+import app.budgetwise.testing.FakeModelManager
+import app.budgetwise.testing.FakeNetworkStatus
 import app.budgetwise.testing.FakeSettingsStore
 import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTokenStore
+import app.budgetwise.testing.FakeVoiceAvailability
 import app.budgetwise.testing.MainDispatcherRule
 import app.budgetwise.testing.TestUser
 import java.time.Clock
@@ -36,12 +39,13 @@ class SettingsViewModelTest {
     private val accounts = FakeAccountActions()
     private val sync = FakeSyncControls()
     private val settings = FakeSettingsStore()
+    private val models = FakeModelManager()
 
     private fun session(expiresIn: Duration = Duration.ofDays(20)) =
         SessionManager(FakeTokenStore(StoredSession("tok", now.plus(expiresIn), TestUser)), Clock.fixed(now, ZoneOffset.UTC))
             .also { runBlocking { it.load() } }
 
-    private fun TestScope.vm(session: SessionManager = session()) = SettingsViewModel(accounts, session, sync, settings).also { vm ->
+    private fun TestScope.vm(session: SessionManager = session()) = SettingsViewModel(accounts, session, sync, settings, models, FakeVoiceAvailability(), FakeNetworkStatus()).also { vm ->
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
     }
 
@@ -101,6 +105,28 @@ class SettingsViewModelTest {
 
         assertTrue(settings.myanmarDigits.value)
         assertTrue(vm.state.value.myanmarDigits)
+    }
+
+    @Test
+    fun voiceDownloadsOnWifiCanBeRemovedAndItsSwitchIsSaved() = runTest {
+        val vm = vm()
+        assertEquals(app.budgetwise.asr.ModelState.Missing, vm.state.value.voice)
+        assertTrue("voice has no offline mode, so it starts on", vm.state.value.cloudParse)
+
+        vm.downloadVoice()
+        assertEquals(listOf(false), models.downloads)
+        assertTrue(vm.state.value.voice is app.budgetwise.asr.ModelState.Downloading)
+
+        vm.useMobileDataForVoice()
+        assertEquals("then on mobile data, when asked", listOf(false, true), models.downloads)
+
+        vm.removeVoice()
+        assertEquals(1, models.deletes)
+        assertEquals(app.budgetwise.asr.ModelState.Missing, vm.state.value.voice)
+
+        vm.setCloudParse(false)
+        assertFalse(settings.cloudParseEnabled.value)
+        assertFalse(vm.state.value.cloudParse)
     }
 
     @Test
