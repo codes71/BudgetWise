@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <title>Budget b (chosen)</title>
+  <rect id="bg" width="108" height="108" fill="#143429"/>
+  <path d="M37,36.5A4,4 0 0,1 45,36.5V59.5H37Z" fill="#F3FCF8"/>
+  <path d="M69,59.5A16,16 0 1,1 53,43.5L53,51.5A8,8 0 1,0 61,59.5Z" fill="#F3FCF8"/>
+  <path d="M54.77 41.73A16 16 0 0 1 70.77 57.73L62.77 57.73A8 8 0 0 0 54.77 49.73Z" fill="#E76E50"/>
+</svg>

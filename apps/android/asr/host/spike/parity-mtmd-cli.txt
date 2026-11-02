@@ -1,0 +1,9 @@
+fleurs_23 MATCH
+  cli: language None<asr_text>Rolan Domingo သည် ၂ E M ၁၆ နိုင်ငံအဖြစ် ကမ္ဘာလှည့်ခရီးသွားများကို ပစ်ခတ်ခဲ့ပါသည်။
+  srv: language None<asr_text>Rolan Domingo သည် ၂ E M ၁၆ နိုင်ငံအဖြစ် ကမ္ဘာလှည့်ခရီးသွားများကို ပစ်ခတ်ခဲ့ပါသည်။
+fleurs_13 MATCH
+  cli: language None<asr_text>ထို့နောက် လာခါဇင်းသည် ပဟာဂျန်ကို သီဆိုကာ ဦးဆောင်သူနေရာကို ရယူခဲ့ပါသည်။
+  srv: language None<asr_text>ထို့နောက် လာခါဇင်းသည် ပဟာဂျန်ကို သီဆိုကာ ဦးဆောင်သူနေရာကို ရယူခဲ့ပါသည်။
+fleurs_17 MATCH
+  cli: language None<asr_text>ကျန်နံပါတ်သိုင်းများကလည်း လူနာအတွက် ချီးကျူးကုန်ပြုစကားများဆိုခဲ့ကြသည်။
+  srv: language None<asr_text>ကျန်နံပါတ်သိုင်းများကလည်း လူနာအတွက် ချီးကျူးကုန်ပြုစကားများဆိုခဲ့ကြသည်။

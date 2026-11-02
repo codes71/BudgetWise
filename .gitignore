@@ -1,50 +1,10 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
+# Repo-wide ignores. The web app (apps/web/.gitignore) and the Android project
+# (apps/android/.gitignore) keep their own.
 .DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-.genkit/*
 .env*
 
-# firebase
-.firebase
-.vscode
-.
-firebase-debug.log
-firestore-debug.log
+# Vercel CLI link and prebuilt output; web-deploy.yml runs the CLI from the repo root.
+.vercel
 
-.idxIssues.md
+# Leftover dependency folders, for example from the old root layout.
+node_modules/

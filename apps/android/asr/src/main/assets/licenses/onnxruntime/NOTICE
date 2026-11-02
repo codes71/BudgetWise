@@ -1,0 +1,5 @@
+ONNX Runtime 1.31.1 (com.microsoft.onnxruntime:onnxruntime-android)
+Copyright (c) Microsoft Corporation. MIT License (LICENSE).
+https://github.com/microsoft/onnxruntime
+ThirdPartyNotices.txt is the notice file from the v1.31.1 tag, unmodified. It covers the components compiled
+into the runtime library, KleidiAI among them.

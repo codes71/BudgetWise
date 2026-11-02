@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Notification channels, as Android's app settings list them. -->
+    <string name="asr_channel_download">Voice download</string>
+    <string name="asr_channel_ready">Voice ready</string>
+    <string name="asr_downloading">Downloading voice</string>
+    <string name="asr_ready_title">Voice is ready</string>
+    <string name="asr_ready_text">Tap Say it and tell BudgetWise what you spent.</string>
+</resources>

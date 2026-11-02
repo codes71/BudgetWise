@@ -1,0 +1,139 @@
+name: Android release
+
+# Builds a signed release bundle (AAB) of :app and uploads it to the Play Console internal track.
+# Without the signing secrets nothing is built; without the Play secret or the API URL variable the
+# signed AAB is kept as a workflow artifact and the upload is skipped. See docs/repo-layout.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      status:
+        description: "Play release status (draft until the app's first release has been reviewed)"
+        type: choice
+        options: [draft, completed]
+        default: draft
+      version_code:
+        description: "versionCode (empty: the workflow run number)"
+        required: false
+      version_name:
+        description: "versionName (empty: 0.1.0)"
+        required: false
+  push:
+    tags: ["android-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      RELEASE_API_BASE_URL: ${{ vars.BUDGETWISE_RELEASE_API_BASE_URL }}
+      INPUT_VERSION_CODE: ${{ inputs.version_code }}
+      INPUT_VERSION_NAME: ${{ inputs.version_name }}
+    steps:
+      - name: Check release secrets
+        id: check
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "::notice title=Android release skipped::Add ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD to build a signed AAB."
+            echo "sign=false" >> "$GITHUB_OUTPUT"
+            echo "upload=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "sign=true" >> "$GITHUB_OUTPUT"
+          if [ -z "$RELEASE_API_BASE_URL" ]; then
+            echo "::warning title=Play upload skipped::Set the BUDGETWISE_RELEASE_API_BASE_URL repository variable (the live https://.../api/v1/ URL); without it the app points at api.budgetwise.invalid."
+            echo "upload=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::notice title=Play upload skipped::Add PLAY_SERVICE_ACCOUNT_JSON to upload to the internal track. The signed AAB is kept as an artifact."
+            echo "upload=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "upload=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.check.outputs.sign == 'true'
+
+      - uses: actions/setup-java@v6
+        if: steps.check.outputs.sign == 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v4.0.4
+        if: steps.check.outputs.sign == 'true'
+
+      - uses: gradle/actions/setup-gradle@v6
+        if: steps.check.outputs.sign == 'true'
+        with:
+          cache-read-only: true
+
+      # app/build.gradle.kts reads ANDROID_KEYSTORE_FILE and the three passwords/alias from the environment.
+      - name: Decode the upload keystore
+        if: steps.check.outputs.sign == 'true'
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload-keystore.jks"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/upload-keystore.jks" >> "$GITHUB_ENV"
+
+      - name: Pick version code and name
+        if: steps.check.outputs.sign == 'true'
+        run: |
+          code="${INPUT_VERSION_CODE:-$GITHUB_RUN_NUMBER}"
+          name="${INPUT_VERSION_NAME:-0.1.0}"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            name="${GITHUB_REF_NAME#android-v}"
+          fi
+          echo "VERSION_CODE=$code" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$name" >> "$GITHUB_ENV"
+          echo "versionCode $code, versionName $name" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build the signed release bundle
+        if: steps.check.outputs.sign == 'true'
+        working-directory: apps/android
+        run: >-
+          ./gradlew :app:bundleRelease
+          -Pbudgetwise.versionCode="$VERSION_CODE"
+          -Pbudgetwise.versionName="$VERSION_NAME"
+          ${RELEASE_API_BASE_URL:+-Pbudgetwise.releaseApiBaseUrl="$RELEASE_API_BASE_URL"}
+
+      # jarsigner exits 0 for an unsigned file too, so look for its verdict line.
+      - name: Check the bundle signature
+        if: steps.check.outputs.sign == 'true'
+        run: |
+          jarsigner -verify apps/android/app/build/outputs/bundle/release/app-release.aab > "$RUNNER_TEMP/jarsigner.txt" 2>&1
+          grep -x "jar verified." "$RUNNER_TEMP/jarsigner.txt"
+
+      - uses: actions/upload-artifact@v7
+        if: steps.check.outputs.sign == 'true'
+        with:
+          name: app-release-${{ env.VERSION_CODE }}
+          path: |
+            apps/android/app/build/outputs/bundle/release/app-release.aab
+            apps/android/app/build/outputs/mapping/release/mapping.txt
+          retention-days: 14
+
+      - name: Upload to the Play Console internal track
+        if: steps.check.outputs.upload == 'true'
+        uses: r0adkll/upload-google-play@v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: app.budgetwise
+          releaseFiles: apps/android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: ${{ inputs.status || 'draft' }}
+          mappingFile: apps/android/app/build/outputs/mapping/release/mapping.txt
+
+      - name: Remove the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload-keystore.jks"

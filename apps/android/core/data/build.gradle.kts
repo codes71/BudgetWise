@@ -1,0 +1,78 @@
+plugins {
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.room)
+}
+
+android {
+    namespace = "app.budgetwise.data"
+    compileSdk = 37
+
+    defaultConfig {
+        minSdk = 26
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    testOptions {
+        // Robolectric 4.16 supports up to SDK 36; compileSdk is 37.
+        targetSdk = 36
+        unitTests.isIncludeAndroidResources = true
+    }
+}
+
+// Exported Room schemas feed MigrationTestHelper in unit tests.
+androidComponents {
+    onVariants { variant ->
+        (variant as? com.android.build.api.variant.HasUnitTest)?.unitTest?.sources?.assets?.addStaticSourceDirectory("$projectDir/schemas")
+    }
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
+dependencies {
+    api(project(":nlu"))
+    api(libs.kotlinx.serialization.json)
+    api(libs.retrofit)
+    api(libs.okhttp)
+    api(libs.androidx.work.runtime)
+
+    implementation(libs.retrofit.converter.kotlinx.serialization)
+    implementation(libs.okhttp.logging.interceptor)
+    implementation(libs.hilt.android)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.myanmar.tools)
+    ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
+
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.icu4j)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.androidx.room.testing)
+}
+
+dependencies {
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+}
