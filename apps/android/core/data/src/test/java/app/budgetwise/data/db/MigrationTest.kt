@@ -94,12 +94,31 @@ class MigrationTest {
     }
 
     @Test
+    fun migration3To4KeepsEveryRowAndAddsTheReceiptColumns() {
+        helper.createDatabase("mig4", 3).apply {
+            execSQL(
+                "INSERT INTO tx (clientId, ownerId, serverId, type, amountKyat, category, description, date, source, " +
+                    "transcript, updatedAt, syncState, deleted) VALUES ('c1', 'u1', NULL, 'EXPENSE', 1200, 'Other', 'tea', " +
+                    "'2026-10-21', 'MANUAL', NULL, 1000, 'PENDING', 0)",
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate("mig4", 4, true, MIGRATION_3_4)
+        db.query("SELECT clientId, amountKyat, receiptId, merchant, items FROM tx").use {
+            it.moveToFirst()
+            assertEquals("c1", it.getString(0))
+            assertEquals(1200L, it.getLong(1))
+            assertTrue(it.isNull(2) && it.isNull(3) && it.isNull(4))
+        }
+    }
+
+    @Test
     fun aVersion1DatabaseMigratesAllTheWay() {
         helper.createDatabase("mig13", 1).apply {
             execSQL("INSERT INTO outbox (op, clientId, attempts) VALUES ('CREATE', 'c1', 0)")
             close()
         }
-        val db = helper.runMigrationsAndValidate("mig13", 3, true, MIGRATION_1_2, MIGRATION_2_3)
+        val db = helper.runMigrationsAndValidate("mig13", 4, true, MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
         db.query("SELECT COUNT(*) FROM outbox WHERE ownerId IS NULL").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
     }
 }

@@ -23,6 +23,10 @@ interface TransactionDao {
     )
     fun observeDailySpend(owner: String, from: LocalDate, to: LocalDate): Flow<List<DailySpend>>
 
+    /** [owner]'s entries saved from one scanned receipt, largest first. */
+    @Query("SELECT * FROM tx WHERE ownerId = :owner AND receiptId = :receiptId AND deleted = 0 ORDER BY amountKyat DESC")
+    fun observeReceipt(owner: String, receiptId: String): Flow<List<TransactionEntity>>
+
     @Upsert
     suspend fun upsert(e: TransactionEntity)
 

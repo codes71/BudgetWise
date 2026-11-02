@@ -88,8 +88,17 @@ interface TransactionStore {
     /** The active account's spending from [from] to [to] (both included), per day and category, for the month chart. */
     fun observeDailySpend(from: LocalDate, to: LocalDate): Flow<List<DailySpend>>
 
+    /** The entries saved from one scanned receipt; empty once they are all deleted. */
+    fun observeReceipt(receiptId: String): Flow<List<Transaction>>
+
+    /** One entry, or null when it is gone. */
+    suspend fun get(clientId: String): Transaction?
+
     /** Saves PENDING rows plus their outbox ops and requests a sync; works offline. Returns the new clientIds. */
     suspend fun addAll(inputs: List<NewTransaction>): List<String>
+
+    /** An edit: deletes [old] and saves [inputs] in their place, in one go; works offline. Returns the new clientIds. */
+    suspend fun replace(old: List<String>, inputs: List<NewTransaction>): List<String>
 
     suspend fun delete(clientId: String)
 }
@@ -188,7 +197,14 @@ class DefaultTransactionStore @Inject constructor(private val repo: TransactionR
 
     override fun observeDailySpend(from: LocalDate, to: LocalDate): Flow<List<DailySpend>> = repo.observeDailySpend(from, to)
 
+    override fun observeReceipt(receiptId: String): Flow<List<Transaction>> = repo.observeReceipt(receiptId)
+
+    override suspend fun get(clientId: String): Transaction? = repo.get(clientId)
+
     override suspend fun addAll(inputs: List<NewTransaction>) = withContext(NonCancellable) { repo.addAll(inputs) }
+
+    override suspend fun replace(old: List<String>, inputs: List<NewTransaction>) =
+        withContext(NonCancellable) { repo.replace(old, inputs) }
 
     override suspend fun delete(clientId: String) = withContext(NonCancellable) { repo.delete(clientId) }
 }

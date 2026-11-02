@@ -218,10 +218,27 @@ class FakeTransactionStore(initial: List<Transaction> = emptyList()) : Transacti
         rows.value = rows.value.filterNot { it.clientId == clientId }
     }
 
+    override fun observeReceipt(receiptId: String): Flow<List<Transaction>> =
+        rows.map { all -> all.filter { it.receiptId == receiptId }.sortedByDescending { it.amountKyat } }
+
+    override suspend fun get(clientId: String): Transaction? = rows.value.firstOrNull { it.clientId == clientId }
+
+    /** Each replace: the clientIds it removed and what it saved in their place. */
+    val replaced = mutableListOf<Pair<List<String>, List<NewTransaction>>>()
+
+    override suspend fun replace(old: List<String>, inputs: List<NewTransaction>): List<String> {
+        addFailure?.let { throw it }
+        replaced += old to inputs
+        val ids = inputs.map { UUID.randomUUID().toString() }
+        rows.value = inputs.zip(ids) { input, id -> input.toPendingRow(id) } + rows.value.filterNot { it.clientId in old }
+        return ids
+    }
+
     private fun NewTransaction.toPendingRow(id: String) = Transaction(
         clientId = id, serverId = null, type = type, amountKyat = amountKyat, category = category,
         description = description, date = date, source = source, transcript = transcript,
         updatedAt = Instant.EPOCH, syncState = SyncState.PENDING,
+        receiptId = receiptId, merchant = merchant, items = items,
     )
 }
 

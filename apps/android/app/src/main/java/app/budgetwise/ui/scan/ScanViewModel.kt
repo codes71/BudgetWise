@@ -21,6 +21,7 @@ import app.budgetwise.nlu.TxType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.LocalDate
+import java.util.UUID
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Job
@@ -250,7 +251,8 @@ class ScanViewModel @Inject constructor(
     fun addEntries(describe: (ReviewLine) -> String) {
         val s = _state.value
         if (!s.canSave) return
-        save(s.keptLines.map { it.toNew(if (s.kind == ScanKind.RECEIPT) describe(it) else it.description) })
+        val receipt = s.receiptOrNull()
+        save(s.keptLines.map { it.toNew(if (s.kind == ScanKind.RECEIPT) describe(it) else it.description, receipt) })
     }
 
     /** The whole receipt as one entry, under its largest category, for [description] (the shop's name). */
@@ -258,20 +260,27 @@ class ScanViewModel @Inject constructor(
         val s = _state.value
         if (!s.canSave || s.kind != ScanKind.RECEIPT) return
         val largest = s.keptLines.maxBy { it.amountKyat }
-        save(listOf(largest.copy(amountKyat = s.shownTotal, clientId = null).toNew(description)))
+        val all = largest.copy(amountKyat = s.shownTotal, clientId = null, items = s.keptLines.flatMap { it.items })
+        save(listOf(all.toNew(description, s.receiptOrNull())))
     }
 
-    private fun ReviewLine.toNew(description: String) = NewTransaction(
+    /** A receipt's entries share a new id and keep the shop; a KPay slip's payments are separate entries. */
+    private fun ScanUiState.receiptOrNull(): Pair<String, String?>? =
+        if (kind == ScanKind.RECEIPT) UUID.randomUUID().toString() to merchant else null
+
+    private fun ReviewLine.toNew(description: String, receipt: Pair<String, String?>?) = NewTransaction(
         type = type,
         amountKyat = amountKyat,
         category = if (type == TxType.INCOME) CategoryRepository.INCOME else category,
         // Prepared before it is cut, as the repository checks the prepared length (Zawgyi to Unicode can lengthen it).
         description = BurmeseTextNormalizer.prepare(description).ifEmpty { category }.take(TransactionRepository.MAX_DESCRIPTION),
         date = date,
-        // The server takes manual or voice; a scanned entry was checked and kept by hand.
-        source = Source.MANUAL,
+        source = Source.SCAN,
         transcript = null,
         clientId = clientId,
+        receiptId = receipt?.first,
+        merchant = receipt?.second,
+        items = if (receipt != null) items else emptyList(),
     )
 
     private fun save(inputs: List<NewTransaction>) {
