@@ -68,15 +68,22 @@ export async function parseVoice({
   categories,
   today,
   effort = 'low',
+  deadlineAt,
+  signal,
 }: {
   transcripts: string[];
   categories: string[];
   today: string;
   effort?: 'low' | 'medium' | 'high';
+  deadlineAt?: number;
+  signal?: AbortSignal;
 }): Promise<VoiceOutput> {
   return generateStructured({
     schema: VoiceOutputSchema,
     effort,
+    deadlineAt,
+    signal,
+    flow: 'voice',
     content: voicePrompt(transcripts, categories, today),
   });
 }
