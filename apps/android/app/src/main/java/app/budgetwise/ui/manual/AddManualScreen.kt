@@ -72,6 +72,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
 import app.budgetwise.data.model.Source
@@ -109,14 +110,27 @@ import java.time.YearMonth
 import java.time.format.TextStyle as DateTextStyle
 import java.time.temporal.WeekFields
 
-/** [onDone] closes the form: after a save or a delete, when the entry to change is gone, or when the user closes it. */
+/**
+ * [onDone] closes the form: after a save or a delete, when the entry to change is gone, or when the user closes it.
+ * [onDelete] hands Delete entry's clientId to the list under the form, which deletes it with Undo; false when there is
+ * no list to hand it to, and the entry is deleted here instead.
+ */
 @Composable
-fun AddManualRoute(onDone: () -> Unit, viewModel: AddManualViewModel = hiltViewModel()) {
+fun AddManualRoute(onDone: () -> Unit, onDelete: (String) -> Boolean = { false }, viewModel: AddManualViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val done by rememberUpdatedState(onDone)
+    val handOver by rememberUpdatedState(onDelete)
     LaunchedEffect(viewModel) {
-        // Saved, deleted, or nothing left to change: every event ends the form.
-        viewModel.events.collect { done() }
+        // Saved, deleted, or nothing left to change: every event ends the form. Delete entry goes to the list, or,
+        // with no list under the form, is made here and ends it when done.
+        viewModel.events.collect { event ->
+            if (event is AddManualEvent.Delete && !handOver(event.clientId)) viewModel.deleteNow() else done()
+        }
+    }
+    // The form can be left open over midnight: back on it, Today is the clock's day.
+    LifecycleResumeEffect(viewModel) {
+        viewModel.refreshToday()
+        onPauseOrDispose { }
     }
     AddManualScreen(
         state = state,
@@ -129,6 +143,7 @@ fun AddManualRoute(onDone: () -> Unit, viewModel: AddManualViewModel = hiltViewM
         onDateChange = viewModel::onDateChange,
         onSave = viewModel::save,
         onDelete = viewModel::delete,
+        onSaveAsNew = viewModel::saveAsNew,
         // A saved entry opens as it is, without the keyboard over it.
         focusAmount = !state.editing,
     )
@@ -152,6 +167,7 @@ fun AddManualScreen(
     onSave: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    onSaveAsNew: () -> Unit = {},
     focusAmount: Boolean = true,
 ) {
     val colors = BudgetWiseTheme.colors
@@ -203,7 +219,20 @@ fun AddManualScreen(
                 state.deleteFailed -> R.string.manual_delete_failed to R.string.manual_delete_failed_detail
                 else -> null
             }
-            if (failure != null) {
+            if (state.gone) {
+                // Deleted on the web or another phone while the form was open: saved as a new entry, or closed. It
+                // stays over a failed Save as new too, as Save changes is off and its action is the way to try again.
+                Notice(
+                    tone = NoticeTone.ATTENTION,
+                    icon = Lucide.CircleAlert,
+                    title = stringResource(R.string.manual_gone),
+                    detail = stringResource(R.string.manual_gone_detail),
+                    actionLabel = stringResource(R.string.manual_save_as_new),
+                    onAction = { if (!state.busy) onSaveAsNew() },
+                    floating = true,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
+                )
+            } else if (failure != null) {
                 Notice(
                     tone = NoticeTone.ERROR,
                     icon = Lucide.CircleAlert,
@@ -220,7 +249,7 @@ fun AddManualScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (state.editing) {
-                TextAction(stringResource(R.string.manual_delete), onClick = onDelete, enabled = editable, color = colors.coralText)
+                TextAction(stringResource(R.string.manual_delete), onClick = onDelete, enabled = editable && !state.gone, color = colors.coralText)
             }
             val amount = state.amount?.takeIf { it > 0 }
             PrimaryButton(
@@ -242,6 +271,7 @@ fun AddManualScreen(
         DateSheet(
             date = state.date,
             today = state.today,
+            keep = state.keptDate,
             myanmarDigits = state.myanmarDigits,
             onPick = {
                 onDateChange(it)
@@ -381,6 +411,7 @@ private fun AmountField(
         SageRule()
         when {
             error != null -> FieldError(error)
+            state.wholeKyatHint -> FieldHint(stringResource(R.string.manual_amount_whole_kyat))
             state.type == TxType.INCOME -> FieldHint(stringResource(R.string.manual_income_note))
         }
     }
@@ -496,6 +527,11 @@ private fun RecentChip(entry: RecentEntry, myanmarDigits: Boolean, enabled: Bool
 private fun CategoryPicker(state: AddManualUiState, enabled: Boolean, onCategoryChange: (String) -> Unit) {
     val colors = BudgetWiseTheme.colors
     val error = state.categoryError != null
+    val message = when (state.categoryError) {
+        CategoryError.MISSING -> stringResource(R.string.manual_category_error)
+        CategoryError.TOO_LONG -> stringResource(R.string.manual_category_error_too_long)
+        null -> null
+    }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             FieldLabel(stringResource(R.string.manual_category))
@@ -520,7 +556,7 @@ private fun CategoryPicker(state: AddManualUiState, enabled: Boolean, onCategory
                 CategoryChip(name, selected = name == state.category, error = error, enabled = enabled, onClick = { onCategoryChange(name) })
             }
         }
-        if (error) FieldError(stringResource(R.string.manual_category_error))
+        if (message != null) FieldError(message)
     }
 }
 
@@ -608,18 +644,27 @@ private fun DayChip(text: String, selected: Boolean, enabled: Boolean, onClick: 
 }
 
 /**
- * The board's date sheet: a month at a time, today and earlier only (the form refuses future dates). The day tapped is
+ * The board's date sheet: a month at a time, today and earlier only (the form refuses future dates), plus [keep], the
+ * day of an entry being changed, even when that is later (the web, a scan or voice can save one). The day tapped is
  * kept until OK; Cancel or a swipe down leaves the date as it was. Days follow the Myanmar-digits setting.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun DateSheet(date: LocalDate, today: LocalDate, myanmarDigits: Boolean, onPick: (LocalDate) -> Unit, onDismiss: () -> Unit) {
+internal fun DateSheet(
+    date: LocalDate,
+    today: LocalDate,
+    myanmarDigits: Boolean,
+    onPick: (LocalDate) -> Unit,
+    onDismiss: () -> Unit,
+    keep: LocalDate? = null,
+) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val locale = LocalConfiguration.current.locales[0]
-    val thisMonth = YearMonth.from(today)
-    var shown by rememberSaveable { mutableStateOf(YearMonth.from(date.coerceAtMost(today))) }
-    var picked by rememberSaveable { mutableStateOf(date.coerceAtMost(today)) }
+    val lastMonth = YearMonth.from(if (keep != null && keep.isAfter(today)) keep else today)
+    val start = if (date == keep) date else date.coerceAtMost(today)
+    var shown by rememberSaveable { mutableStateOf(YearMonth.from(start)) }
+    var picked by rememberSaveable { mutableStateOf(start) }
     val firstDay = remember(locale) { WeekFields.of(locale).firstDayOfWeek }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -648,7 +693,7 @@ internal fun DateSheet(date: LocalDate, today: LocalDate, myanmarDigits: Boolean
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f),
                 )
-                val canGoOn = shown < thisMonth
+                val canGoOn = shown < lastMonth
                 IconButton(onClick = { shown = shown.plusMonths(1) }, enabled = canGoOn, modifier = Modifier.size(48.dp)) {
                     Icon(
                         Lucide.ChevronRight,
@@ -671,7 +716,7 @@ internal fun DateSheet(date: LocalDate, today: LocalDate, myanmarDigits: Boolean
                         (0 until 7).forEach { i ->
                             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                                 val day = week.getOrNull(i) ?: return@Box
-                                val future = day.isAfter(today)
+                                val future = day.isAfter(today) && day != keep
                                 val selected = day == picked
                                 val name = localizedDate(day, "MMMMd")
                                 val spoken = if (day == today) "$name, $todayLabel" else name

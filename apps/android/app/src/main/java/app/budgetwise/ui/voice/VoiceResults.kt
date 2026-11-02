@@ -257,7 +257,7 @@ private fun EntrySheet(
             val transformation = remember(state.myanmarDigits) { KyatGroupingTransformation(state.myanmarDigits) }
             KitTextField(
                 value = digits,
-                onValueChange = { text -> typedKyatDigits(text)?.let { digits = it } },
+                onValueChange = { text -> typedKyatDigits(text, digits)?.let { digits = it } },
                 label = stringResource(R.string.manual_amount),
                 textStyle = type.size22.extraBold,
                 trailing = { Text("Ks", style = type.size17.medium, color = colors.muted, modifier = Modifier.padding(end = 18.dp)) },

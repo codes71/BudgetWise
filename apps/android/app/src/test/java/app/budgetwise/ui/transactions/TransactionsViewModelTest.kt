@@ -172,6 +172,28 @@ class TransactionsViewModelTest {
     }
 
     @Test
+    fun aDeleteFromTheFormIsHiddenWithUndoLikeASwipe() = runTest {
+        val tea = testTransaction("tea", 1500, today)
+        val rice = testTransaction("rice", 20000, today)
+        store.rows.value = listOf(tea, rice)
+        val vm = vm()
+
+        // Delete entry in the form hands the entry over by its line's key.
+        vm.deleteEntries(tea.clientId, listOf(tea.clientId))
+        runCurrent()
+
+        assertEquals(listOf(rice.clientId), vm.state.value.visibleIds())
+        assertEquals(tea.clientId, vm.state.value.pendingDelete)
+        assertEquals(listOf(tea), vm.state.value.pendingDeleteRows)
+        assertTrue(store.deleted.isEmpty())
+
+        vm.undoDelete(tea.clientId)
+        runCurrent()
+        assertEquals(setOf(tea.clientId, rice.clientId), vm.state.value.visibleIds().toSet())
+        assertTrue(store.deleted.isEmpty())
+    }
+
+    @Test
     fun leavingTheScreenCommitsThePendingDelete() = runTest {
         val tea = testTransaction("tea", 1500, today)
         store.rows.value = listOf(tea)

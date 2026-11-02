@@ -218,6 +218,29 @@ class SyncEngineTest {
     }
 
     @Test
+    fun aHostingPage404OnDeleteKeepsTheTombstoneAndRetries() = runTest {
+        h.seedSynced("c1")
+        h.engine.enqueueDelete("c1")
+        // A deploy without the route answers with its own page: it says nothing about the row.
+        h.server.htmlStatusOnDelete = 404
+
+        assertEquals(SyncOutcome.RetryLater, h.engine.syncOnce())
+
+        assertTrue("c1" in h.server.rows)
+        assertTrue(h.tx.byClientId("c1")!!.deleted)
+        assertEquals(listOf(OutboxOp.DELETE), h.pendingOps().map { it.op })
+        // The full pull still lists it, and it stays hidden instead of coming back to the list.
+        h.engine.syncOnce(fullPull = true)
+        assertTrue(h.tx.observeAll("u1").first().isEmpty())
+
+        h.server.htmlStatusOnDelete = null
+        assertEquals(SyncOutcome.Success(pushed = 1, pulled = 0), h.engine.syncOnce())
+        assertTrue(h.server.rows.isEmpty())
+        assertNull(h.tx.byClientId("c1"))
+        assertTrue(h.pendingOps().isEmpty())
+    }
+
+    @Test
     fun deleteAfterUnconfirmedCreateStillDeletesOnServer() = runTest {
         val id = h.addLocal(1).single()
         h.server.dropResponseOnPost = 1

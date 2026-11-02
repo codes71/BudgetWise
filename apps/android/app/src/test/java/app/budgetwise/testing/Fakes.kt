@@ -30,6 +30,7 @@ import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.LoginResult
 import app.budgetwise.data.repo.RegisterResult
 import app.budgetwise.data.repo.NewTransaction
+import app.budgetwise.data.repo.ReplaceResult
 import app.budgetwise.data.repo.VoiceParse
 import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
@@ -226,12 +227,14 @@ class FakeTransactionStore(initial: List<Transaction> = emptyList()) : Transacti
     /** Each replace: the clientIds it removed and what it saved in their place. */
     val replaced = mutableListOf<Pair<List<String>, List<NewTransaction>>>()
 
-    override suspend fun replace(old: List<String>, inputs: List<NewTransaction>): List<String> {
+    /** As the repository: a change ([inputs]) of an entry that is gone writes nothing and says so. */
+    override suspend fun replace(old: List<String>, inputs: List<NewTransaction>): ReplaceResult {
         addFailure?.let { throw it }
+        if (inputs.isNotEmpty() && old.any { id -> rows.value.none { it.clientId == id } }) return ReplaceResult.Gone
         replaced += old to inputs
-        val ids = inputs.map { UUID.randomUUID().toString() }
+        val ids = inputs.map { it.clientId ?: UUID.randomUUID().toString() }
         rows.value = inputs.zip(ids) { input, id -> input.toPendingRow(id) } + rows.value.filterNot { it.clientId in old }
-        return ids
+        return ReplaceResult.Saved(ids)
     }
 
     private fun NewTransaction.toPendingRow(id: String) = Transaction(

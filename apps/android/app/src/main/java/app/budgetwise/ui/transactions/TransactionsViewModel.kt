@@ -209,10 +209,16 @@ class TransactionsViewModel @Inject constructor(
      * Swiped away: hide the line (an entry, or every entry of a receipt) and offer Undo. A line still waiting for its
      * Undo window is deleted now.
      */
-    fun delete(line: DayLine) {
+    fun delete(line: DayLine) = deleteEntries(line.key, line.clientIds)
+
+    /**
+     * [delete] for the entries [clientIds] of the line [key]: a swipe, or Delete entry in the form (and Delete this
+     * receipt on the receipt's screen), which hands its entries back here for the same notice and Undo.
+     */
+    fun deleteEntries(key: String, clientIds: List<String>) {
         val previous = local.value.pendingDelete
-        local.update { it.copy(hidden = it.hidden + line.clientIds, pendingDelete = PendingDelete(line.key, line.clientIds)) }
-        if (previous != null && previous.key != line.key) previous.clientIds.forEach(::send)
+        local.update { it.copy(hidden = it.hidden + clientIds, pendingDelete = PendingDelete(key, clientIds)) }
+        if (previous != null && previous.key != key) previous.clientIds.forEach(::send)
     }
 
     /** Undo: the line [key] comes back, all its entries. */
