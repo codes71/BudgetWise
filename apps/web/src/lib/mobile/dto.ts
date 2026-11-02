@@ -1,3 +1,13 @@
+/** One receipt line: `quantity` of `name` at `unitPrice` whole kyat each. */
+export interface EntryItemDto {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+/** "web" is only ever read: rows added on the website, and legacy rows without a source. */
+export type TransactionSource = "voice" | "manual" | "scan" | "web";
+
 export interface TransactionDto {
   id: string;
   clientId: string;
@@ -6,8 +16,11 @@ export interface TransactionDto {
   category: string;
   description: string;
   date: string;
-  source: "voice" | "manual" | "web";
+  source: TransactionSource;
   transcript?: string;
+  receiptId?: string;
+  merchant?: string;
+  items?: EntryItemDto[];
   createdAt: string;
   updatedAt: string;
 }
@@ -33,7 +46,12 @@ export interface ScanEntryDto {
   dateGuessed?: true;
   reference?: string;
   clientId?: string;
-  items?: { name: string; amount: number }[];
+  items?: ScanItemDto[];
+}
+
+/** A receipt line as read: `amount` is the line total, always `quantity * unitPrice`. */
+export interface ScanItemDto extends EntryItemDto {
+  amount: number;
 }
 
 export interface ScanResultDto {
@@ -76,8 +94,11 @@ export interface LeanTransaction {
   category: string;
   type: "income" | "expense";
   clientId?: string;
-  source?: "voice" | "manual" | "web";
+  source?: TransactionSource;
   transcript?: string;
+  receiptId?: string;
+  merchant?: string;
+  items?: EntryItemDto[];
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }
@@ -98,6 +119,9 @@ export function toTransactionDto(doc: LeanTransaction): TransactionDto {
     date: doc.date.slice(0, 10),
     source: doc.source ?? "web",
     ...(doc.transcript ? { transcript: doc.transcript } : {}),
+    ...(doc.receiptId ? { receiptId: doc.receiptId } : {}),
+    ...(doc.merchant ? { merchant: doc.merchant } : {}),
+    ...(doc.items?.length ? { items: doc.items } : {}),
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
   };

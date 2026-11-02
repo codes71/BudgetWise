@@ -25,6 +25,27 @@ test("legacy row maps source web and synthesized clientId", () => {
   expect(dto.clientId).toBe(base._id);
   expect(dto.id).toBe(base._id);
   expect(dto.transcript).toBeUndefined();
+  expect(dto).not.toHaveProperty("receiptId");
+  expect(dto).not.toHaveProperty("merchant");
+  expect(dto).not.toHaveProperty("items");
+});
+
+test("scan row keeps source scan, receipt id, merchant and items", () => {
+  const items = [{ name: "Milk", quantity: 2, unitPrice: 1250 }];
+  const dto = toTransactionDto({
+    ...base,
+    date: "2026-10-19",
+    clientId: "c-2",
+    source: "scan",
+    receiptId: "9f1c2b3a-4d5e-4f60-8a7b-1c2d3e4f5a6b",
+    merchant: "City Mart",
+    items,
+  });
+  expect(dto).toMatchObject({ source: "scan", receiptId: "9f1c2b3a-4d5e-4f60-8a7b-1c2d3e4f5a6b", merchant: "City Mart", items });
+});
+
+test("an empty items list is left out", () => {
+  expect(toTransactionDto({ ...base, date: "2026-10-19", items: [] })).not.toHaveProperty("items");
 });
 
 test("mobile row keeps clientId, source, transcript and ISO timestamps", () => {

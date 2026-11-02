@@ -1,5 +1,6 @@
 package app.budgetwise.nav
 
+import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -49,10 +50,12 @@ import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import app.budgetwise.R
 import app.budgetwise.data.auth.SessionState
 import app.budgetwise.ui.budgets.BudgetsRoute
@@ -62,11 +65,15 @@ import app.budgetwise.ui.common.sessionNoticeFor
 import app.budgetwise.ui.common.syncChipFor
 import app.budgetwise.ui.login.LoginRoute
 import app.budgetwise.ui.manual.AddManualRoute
+import app.budgetwise.ui.manual.AddManualViewModel
+import app.budgetwise.ui.manual.AddSheetRoute
 import app.budgetwise.ui.onboarding.CreateAccountRoute
 import app.budgetwise.ui.onboarding.FirstIncomeRoute
 import app.budgetwise.ui.onboarding.LanguageRoute
 import app.budgetwise.ui.onboarding.SetupVoiceRoute
 import app.budgetwise.ui.onboarding.WelcomeScreen
+import app.budgetwise.ui.receipt.ReceiptRoute
+import app.budgetwise.ui.receipt.ReceiptViewModel
 import app.budgetwise.ui.scan.ScanEvent
 import app.budgetwise.ui.scan.ScanRoute
 import app.budgetwise.ui.settings.SettingsRoute
@@ -87,10 +94,23 @@ object Routes {
     const val SETUP_VOICE = "setup_voice"
     const val TRANSACTIONS = "transactions"
     const val MANUAL = "manual"
+
+    /** The add form, starting as income (the Add sheet's Add income). */
+    const val MANUAL_INCOME = "manual_income"
+
+    /** The add form changing a saved entry; open it with [editEntry]. */
+    const val EDIT_ENTRY = "edit/{${AddManualViewModel.ARG_CLIENT_ID}}"
     const val VOICE = "voice"
     const val SCAN = "scan"
+    const val RECEIPT = "receipt/{${ReceiptViewModel.RECEIPT_ID}}"
     const val BUDGETS = "budgets"
     const val SETTINGS = "settings"
+
+    /** [RECEIPT] for one scanned receipt, opened from its line in the list. */
+    fun receipt(receiptId: String) = "receipt/$receiptId"
+
+    /** The route that opens the entry [clientId] in the form, to change or delete it. */
+    fun editEntry(clientId: String): String = "edit/${Uri.encode(clientId)}"
 }
 
 /**
@@ -113,13 +133,17 @@ private val TopLevels = listOf(
     TopLevel(Routes.BUDGETS, R.string.nav_budgets, Lucide.Pie),
 )
 
+/** The add form's routes: a new entry, a new income, and a saved entry being changed. */
+private val FormRoutes = setOf(Routes.MANUAL, Routes.MANUAL_INCOME, Routes.EDIT_ENTRY)
+
 /**
- * Closes the manual add form. Not `dropUnlessResumed`: the Saved event is one-shot and already consumed, so dropping it
- * while the entry is not resumed (app in the background, a transition running) would leave the form spinning with
- * saving = true. Checking the current destination still makes a second call (double tap on close) a no-op.
+ * Closes the add form, whichever way it was opened. Not `dropUnlessResumed`: the Saved event is one-shot and already
+ * consumed, so dropping it while the entry is not resumed (app in the background, a transition running) would leave
+ * the form spinning with saving = true. Checking the current destination still makes a second call (double tap on
+ * close) a no-op.
  */
 internal fun NavController.closeManual() {
-    if (currentDestination?.route == Routes.MANUAL) popBackStack()
+    if (currentDestination?.route in FormRoutes) popBackStack()
 }
 
 /**
@@ -155,9 +179,9 @@ internal fun NavController.closeScanSaved(saved: ScanEvent.Saved) {
 private fun NavDestination?.isOn(route: String) = this?.hierarchy?.any { it.route == route } == true
 
 /**
- * The app shell: a bottom bar with the two tabs and the Add pill between them; Settings opens from the gear in each
- * tab's header as a pushed screen. Sign-in, Settings and manual add are full screen. Transactions is the root of the
- * signed-in back stack, so the bottom bar pops back to it.
+ * The app shell: a bottom bar with the two tabs and the Add pill between them, which opens the Add sheet (scan, say,
+ * type, or add income); Settings opens from the gear in each tab's header as a pushed screen. Sign-in, Settings and
+ * the add form are full screen. Transactions is the root of the signed-in back stack, so the bottom bar pops back to it.
  */
 @Composable
 fun AppNav(
@@ -217,6 +241,12 @@ fun AppNav(
     fun openLanguage() = navController.navigate(Routes.LANGUAGE) { launchSingleTop = true }
     fun openVoice() = navController.navigate(Routes.VOICE) { launchSingleTop = true }
     fun openScan() = navController.navigate(Routes.SCAN) { launchSingleTop = true }
+    fun openForm(route: String) = navController.navigate(route) { launchSingleTop = true }
+
+    // The Add sheet belongs to the tabs: leaving them (signing out under it) closes it. Before the graph is set there
+    // is no destination yet, which says nothing: a sheet open before a rotation stays open.
+    var adding by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(showBottomBar) { if (!showBottomBar && destination != null) adding = false }
 
     // Sign in opens sign-in; every other chip opens Settings, which says more about sync.
     fun onChip(chip: SyncChip) = if (chip == SyncChip.SIGN_IN) openSignIn() else openSettings()
@@ -237,7 +267,7 @@ fun AppNav(
                             restoreState = true
                         }
                     },
-                    onAdd = { navController.navigate(Routes.MANUAL) { launchSingleTop = true } },
+                    onAdd = { adding = true },
                 )
             }
         },
@@ -339,6 +369,8 @@ fun AppNav(
                     onAddManual = { navController.navigate(Routes.MANUAL) { launchSingleTop = true } },
                     onOpenVoice = ::openVoice,
                     onOpenScan = ::openScan,
+                    onOpenEntry = { navController.navigate(Routes.editEntry(it)) { launchSingleTop = true } },
+                    onOpenReceipt = { navController.navigate(Routes.receipt(it)) { launchSingleTop = true } },
                     scanAdded = addedIds?.let { ScanAdded(it, handle.get<String>(SCAN_ADDED_FROM)) },
                     onScanAddedShown = {
                         handle.remove<ArrayList<String>>(SCAN_ADDED_IDS)
@@ -347,7 +379,19 @@ fun AppNav(
                 )
             }
             composable(Routes.MANUAL) {
-                AddManualRoute(onDone = navController::closeManual, onOpenVoice = ::openVoice, onOpenScan = ::openScan)
+                AddManualRoute(onDone = navController::closeManual)
+            }
+            composable(
+                Routes.MANUAL_INCOME,
+                arguments = listOf(navArgument(AddManualViewModel.ARG_INCOME) { type = NavType.BoolType; defaultValue = true }),
+            ) {
+                AddManualRoute(onDone = navController::closeManual)
+            }
+            composable(
+                Routes.EDIT_ENTRY,
+                arguments = listOf(navArgument(AddManualViewModel.ARG_CLIENT_ID) { type = NavType.StringType }),
+            ) {
+                AddManualRoute(onDone = navController::closeManual)
             }
             composable(Routes.SCAN) {
                 ScanRoute(
@@ -366,6 +410,10 @@ fun AppNav(
                     onSignIn = ::openSignIn,
                     onSaved = navController::closeScanSaved,
                 )
+            }
+            composable(Routes.RECEIPT) {
+                // Back, or once the receipt has no entries left; a second call (the screen already gone) does nothing.
+                ReceiptRoute(onClose = { if (navController.currentDestination?.route == Routes.RECEIPT) navController.popBackStack() })
             }
             composable(Routes.VOICE) {
                 VoiceRoute(
@@ -393,6 +441,15 @@ fun AppNav(
             }
         }
     }
+
+    AddSheetRoute(
+        visible = adding && showBottomBar,
+        onClose = { adding = false },
+        onScan = ::openScan,
+        onOpenVoice = ::openVoice,
+        onTypeIt = { openForm(Routes.MANUAL) },
+        onAddIncome = { openForm(Routes.MANUAL_INCOME) },
+    )
 }
 
 /**

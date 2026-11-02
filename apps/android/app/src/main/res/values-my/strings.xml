@@ -113,7 +113,7 @@
     <string name="spending_other_collapsed">ပိတ်ထားသည်</string>
 
     <!-- Add entry -->
-    <string name="manual_title">စာရင်းသွင်းရန်</string>
+    <string name="manual_title">စာရင်းအသစ်</string>
     <string name="action_close">ပိတ်မည်</string>
     <string name="action_ok">အိုကေ</string>
     <string name="manual_expense">သုံးငွေ</string>
@@ -141,6 +141,25 @@
     <string name="manual_saving">သိမ်းနေသည်…</string>
     <string name="manual_save_failed">ဤစာရင်းကို သိမ်း၍ မရပါ</string>
     <string name="manual_save_failed_detail">ဘာမှ မပျောက်ပါ။ ထပ်ကြိုးစားရန် သိမ်းမည် ကို နှိပ်ပါ။</string>
+    <string name="manual_edit_title">စာရင်း ပြင်ရန်</string>
+    <string name="manual_source_voice">ပြောထည့်ထားသည်</string>
+    <string name="manual_source_scan">စကင်ဖတ်ထားသည်</string>
+    <string name="manual_source_manual">ရိုက်ထည့်ထားသည်</string>
+    <string name="manual_source_web">ဝက်ဘ်မှ ထည့်ထားသည်</string>
+    <string name="manual_description_clear">ရှင်းမည်</string>
+    <string name="manual_picked_from">“%1$s” အရ ရွေးထားသည်</string>
+    <string name="manual_day_other">အခြားနေ့</string>
+    <string name="manual_save_amount">%1$s Ks သိမ်းမည်</string>
+    <string name="manual_save_changes">ပြင်ဆင်မှု သိမ်းမည်</string>
+    <string name="manual_delete">စာရင်း ဖျက်မည်</string>
+    <string name="manual_delete_failed">ဤစာရင်းကို ဖျက်၍ မရပါ</string>
+    <string name="manual_delete_failed_detail">စာရင်း ရှိနေဆဲ ဖြစ်သည်။ ထပ်ကြိုးစားရန် စာရင်း ဖျက်မည် ကို နှိပ်ပါ။</string>
+
+    <!-- The Add sheet -->
+    <string name="add_scan_detail">ပစ္စည်းတိုင်းကို ဖတ်ပြီး အမျိုးအစား ခွဲပေးသည်။\nKPay စခရင်ပုံများလည်း ရသည်။</string>
+    <string name="add_say_it_example">“ဆူးလေ ဘတ်စ်ကား ခြောက်ရာ”</string>
+    <string name="add_type_it">ရိုက်ထည့်ရန်</string>
+    <string name="add_income">ဝင်ငွေ ထည့်ရန်</string>
 
     <!-- Budgets -->
     <string name="budgets_title">ဘတ်ဂျက်</string>
@@ -354,7 +373,6 @@
     <string name="setup_voice_download_on_wifi">Wi-Fi ရလျှင် ဒေါင်းလုဒ်ဆွဲမည်</string>
     <!-- Receipt scanning -->
     <string name="scan_entry">ဘောက်ချာ စကင်ဖတ်ရန်</string>
-    <string name="scan_short">စကင်ဖတ်ရန်</string>
     <string name="first_expense_scan_detail">ဆိုင်ဘောက်ချာနှင့် KPay ပြေစာများ</string>
     <string name="scan_hint">ဘောက်ချာ တစ်ခုလုံး ဘောင်ထဲ ဝင်အောင် ထားပါ</string>
     <string name="scan_choose_photo">ဓာတ်ပုံ ရွေးရန်</string>
@@ -377,7 +395,6 @@
     <string name="scan_scanned">စကင်ဖတ်ထားသည်</string>
     <string name="scan_no_date">ယနေ့။ ဘောက်ချာတွင် ရက်စွဲ မပါပါ</string>
     <string name="scan_total">စုစုပေါင်း</string>
-    <string name="scan_split">အမျိုးအစားအလိုက်</string>
     <string name="scan_split_note">ပြောင်းရန် အမျိုးအစားကို နှိပ်ပါ။ တစ်ခုစီသည် သီးခြား စာရင်းတစ်ခု ဖြစ်ပါမည်။</string>
     <string name="scan_history_note">မထည့်လိုသည့် ငွေပေးချေမှုကို နှိပ်ပါ။</string>
     <string name="scan_short_title">ပစ္စည်းများ %1$s Ks လိုနေသည်</string>
@@ -397,6 +414,34 @@
     </plurals>
     <string name="scan_added_from">%1$s ဘောက်ချာမှ</string>
     <string name="scan_added_from_photo">ဓာတ်ပုံမှ</string>
+    <plurals name="scan_changed">
+        <item quantity="other">စကင်ဖတ်ချိန်က %1$s Ks။ ပစ္စည်း %2$d ခု ပြင်ထားသည်။</item>
+    </plurals>
+    <string name="item_was_count">မူလ %1$s ခု</string>
+    <string name="item_was_price">မူလ တစ်ခုလျှင် %1$s</string>
+    <string name="item_was_both">မူလ %1$s × %2$s</string>
+    <string name="item_not_added">မထည့်ပါ၊ မူလ %1$s ခု</string>
+    <string name="item_fewer">တစ်ခု လျှော့ရန်</string>
+    <string name="item_more">တစ်ခု တိုးရန်</string>
+    <string name="item_price">%1$s ၏ တစ်ခုချင်း ဈေးနှုန်း</string>
+    <string name="receipt_title">ဘောက်ချာ</string>
+    <plurals name="receipt_row_entries">
+        <item quantity="other">ဘောက်ချာ · စာရင်း %d ခု</item>
+    </plurals>
+    <string name="receipt_scanned_twice">နှစ်ခါ စကင်ဖတ်မိသလား</string>
+    <string name="receipt_deleted">ဘောက်ချာ ဖျက်ပြီးပါပြီ</string>
+    <string name="transactions_by_voice">အသံဖြင့် ထည့်ထားသည်</string>
+    <plurals name="receipt_entries">
+        <item quantity="other">ဤဘောက်ချာမှ စာရင်း %d ခု</item>
+    </plurals>
+    <string name="receipt_item_count">%1$s × %2$s</string>
+    <string name="receipt_note">အမျိုးအစား ပြောင်းရန် စာရင်းကို နှိပ်ပါ။ အရေအတွက် သို့မဟုတ် ဈေးနှုန်း ပြင်ရန် ပစ္စည်းများ ပြင်ရန် ကို နှိပ်ပါ၊ စာရင်းများ လိုက်ပြောင်းပါမည်။</string>
+    <string name="receipt_delete">ဤဘောက်ချာကို ဖျက်ရန်</string>
+    <string name="receipt_change_items">ပစ္စည်းများ ပြင်ရန်</string>
+    <plurals name="receipt_changed">
+        <item quantity="other">%1$s Ks ဖြင့် သိမ်းထားခဲ့သည်။ ပစ္စည်း %2$d ခု ပြင်ထားသည်။</item>
+    </plurals>
+    <string name="receipt_save">ပြင်ထားသည်များ သိမ်းရန်</string>
     <string name="voice_unsupported_title">ဤဖုန်းတွင် အသံဖြင့် ထည့်၍ မရပါ</string>
     <string name="voice_unsupported_body">အသံကို ဖုန်းထဲမှာပင် နားလည်အောင် လုပ်ရသဖြင့် မှတ်ဉာဏ် (RAM) အနည်းဆုံး %1$s GB လိုသည်။ ဤဖုန်းတွင် ထိုထက်နည်းသဖြင့် အသံကို ပိတ်ထားသည်။ စာရင်းအားလုံးကို ရိုက်ထည့်နိုင်ပါသည်။</string>
     <string name="settings_voice_unsupported_detail">အသံအတွက် မှတ်ဉာဏ် (RAM) အနည်းဆုံး %1$s GB လိုပြီး ဤဖုန်းတွင် ထိုထက်နည်းသည်။</string>

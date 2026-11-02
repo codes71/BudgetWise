@@ -48,8 +48,17 @@ async function createMissing(userId: string, items: TransactionInput[]): Promise
     const now = new Date();
     for (const id of clientIds) {
       if (found.has(id)) continue;
-      const { clientId, type, amount, category, description, date, source, transcript } = byClientId.get(id)!;
-      const data = { userId, clientId, type, amount, category, description, date, source, transcript, createdAt: now, updatedAt: now };
+      const { clientId, type, amount, category, description, date, source, transcript, receiptId, merchant, items: lines } =
+        byClientId.get(id)!;
+      // Optional fields are stored only when sent, so the doc has no undefined keys.
+      const data = {
+        userId, clientId, type, amount, category, description, date, source,
+        ...(transcript !== undefined ? { transcript } : {}),
+        ...(receiptId !== undefined ? { receiptId } : {}),
+        ...(merchant !== undefined ? { merchant } : {}),
+        ...(lines?.length ? { items: lines.map(({ name, quantity, unitPrice }) => ({ name, quantity, unitPrice })) } : {}),
+        createdAt: now, updatedAt: now,
+      };
       tx.create(col.doc(id), data);
       found.set(id, { _id: id, ...data });
     }

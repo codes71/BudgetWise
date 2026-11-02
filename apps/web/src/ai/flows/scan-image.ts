@@ -5,7 +5,9 @@ import { generateStructured } from '@/ai/generate';
 // does not fail the whole parse; src/lib/mobile/scan.ts validates every field.
 const ScanItemSchema = z.object({
   name: z.string(),
-  amount: z.number(),
+  amount: z.number().describe('Line total, in whole kyat'),
+  quantity: z.number().optional().describe('Count as printed; 1 when the line shows none'),
+  unitPrice: z.number().optional().describe('Price of one, in kyat, as printed'),
 });
 
 const ScanEntrySchema = z.object({
@@ -39,7 +41,7 @@ Today is ${today} in Myanmar (Asia/Yangon).
 Expense categories: ${JSON.stringify(categories)}. Use one of them, spelled exactly as listed; when none fits, use "Other". Income entries always use the category "Income".
 
 First decide the kind of image:
-- "receipt": a shop receipt or bill. merchant is the shop name, date is the receipt date, total is the amount paid. Put each line item in the expense category that fits it best, then return one expense entry per category: items lists that category's line items (name as printed, amount in kyat), amount is what was paid for them, and description is the shop name. Subtract discounts from the items they apply to; add tax or a service charge as its own item under the category with the largest amount, so the entries add up to the total.
+- "receipt": a shop receipt or bill. merchant is the shop name, date is the receipt date, total is the amount paid. Put each line item in the expense category that fits it best, then return one expense entry per category: items lists that category's line items, amount is what was paid for them, and description is the shop name. For each line item: name as printed; quantity is the count as printed, a whole number (1 when the line shows no count, or sells by weight); unitPrice is the price of one as printed (leave it out when the line shows none); amount is the line total in kyat. Subtract discounts from the items they apply to; add tax or a service charge as its own item under the category with the largest amount, so the entries add up to the total.
 - "payment": one KBZPay (KPay) payment, transfer or receive slip. Return exactly one entry. Money received is income; money paid or transferred out is expense. description is the shop or person on the other side, reference is the transaction ID (Transaction No.).
 - "history": a screenshot of the KPay transaction history list. Return one entry per visible transaction, top to bottom. Money received is income; money paid or transferred out is expense. Skip balance rows, fee-only rows, and failed, cancelled or pending transactions. description is the shop or person on the other side, reference is the transaction ID when the row shows one. When a row shows no year, use the year shown elsewhere in the screenshot (for example a month heading); otherwise use the current year in Myanmar, or the year before if that would put the date after today.
 - "unknown": anything else, or an image too unclear to read. Return no entries.

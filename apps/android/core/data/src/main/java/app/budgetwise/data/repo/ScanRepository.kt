@@ -1,10 +1,12 @@
 package app.budgetwise.data.repo
 
 import app.budgetwise.data.auth.SessionManager
+import app.budgetwise.data.model.EntryItem
 import app.budgetwise.data.net.ApiResult
 import app.budgetwise.data.net.ApiService
 import app.budgetwise.data.net.ScanBody
 import app.budgetwise.data.net.ScanEntryDto
+import app.budgetwise.data.net.ScanItemDto
 import app.budgetwise.data.net.ScanResponse
 import app.budgetwise.data.net.authorization
 import app.budgetwise.data.net.safeApi
@@ -19,7 +21,8 @@ import javax.inject.Singleton
 /** What the photo was: a shop receipt, one KPay payment slip, a screenshot of the KPay history, or none of these. */
 enum class ScanKind { RECEIPT, PAYMENT, HISTORY, UNKNOWN }
 
-data class ScanItem(val name: String, val amountKyat: Long)
+/** A receipt line as read: a count and a price each, which the review lets the user change. */
+typealias ScanItem = EntryItem
 
 /**
  * One entry read from the photo, for the user to check before it is saved. A receipt gives one expense per category,
@@ -102,9 +105,25 @@ private fun ScanEntryDto.toDomain(): ScanEntry? {
         date = day,
         dateGuessed = dateGuessed,
         clientId = clientId?.takeIf { it.isUuid() },
-        items = items.filter { it.amount > 0 && it.name.isNotBlank() }.map { ScanItem(it.name.trim(), it.amount) },
+        items = items.filter { it.amount > 0 && it.name.isNotBlank() }.map { it.toItem() },
     )
 }
+
+/**
+ * The count and price each as read, when they make the line's amount; otherwise one unit at the line's amount (an older
+ * server sends no count, and a discount can break the product).
+ */
+private fun ScanItemDto.toItem(): ScanItem {
+    val name = name.trim()
+    val each = unitPrice
+    return if (quantity in 1..MAX_QUANTITY && each != null && each >= 0 && quantity * each == amount) {
+        ScanItem(name, quantity, each)
+    } else {
+        ScanItem(name, amount)
+    }
+}
+
+private const val MAX_QUANTITY = 999
 
 private fun String.isUuid() = try {
     UUID.fromString(this).toString() == lowercase()

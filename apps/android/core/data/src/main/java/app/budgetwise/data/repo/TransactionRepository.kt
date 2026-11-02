@@ -3,11 +3,13 @@ package app.budgetwise.data.repo
 import androidx.room.withTransaction
 import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.db.BudgetWiseDb
+import app.budgetwise.data.db.ItemsJson
 import app.budgetwise.data.db.OutboxEntity
 import app.budgetwise.data.db.OutboxOp
 import app.budgetwise.data.db.TransactionEntity
 import app.budgetwise.data.db.toDomain
 import app.budgetwise.data.model.DailySpend
+import app.budgetwise.data.model.EntryItem
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
@@ -36,6 +38,10 @@ data class NewTransaction(
     val transcript: String?,
     /** A fixed id, so saving the same thing twice stores it once (a KPay transaction); null gets a new one. */
     val clientId: String? = null,
+    /** Shared by the entries saved from one scanned receipt. */
+    val receiptId: String? = null,
+    val merchant: String? = null,
+    val items: List<EntryItem> = emptyList(),
 )
 
 /**
@@ -63,6 +69,17 @@ class TransactionRepository @Inject constructor(
         if (owner == null) flowOf(emptyList()) else tx.observeDailySpend(owner, from, to)
     }
 
+    /** The active account's entries from one scanned receipt; empty once they are all deleted. */
+    fun observeReceipt(receiptId: String): Flow<List<Transaction>> = session.activeUserId.flatMapLatest { owner ->
+        if (owner == null) flowOf(emptyList()) else tx.observeReceipt(owner, receiptId).map { rows -> rows.map { it.toDomain() } }
+    }
+
+    /** One of the active account's entries, or null when it is gone (deleted, or another account's). */
+    suspend fun get(clientId: String): Transaction? {
+        val owner = session.activeUserId.value ?: return null
+        return tx.byClientId(clientId)?.takeIf { it.ownerId == owner && !it.deleted }?.toDomain()
+    }
+
     /** The active account's rows not yet confirmed by the server (queued, rejected, or awaiting delete). */
     fun observeUnsyncedCount(): Flow<Int> = session.activeUserId.flatMapLatest { owner ->
         if (owner == null) flowOf(0) else tx.observeUnsyncedCount(owner)
@@ -77,6 +94,27 @@ class TransactionRepository @Inject constructor(
      */
     suspend fun addAll(inputs: List<NewTransaction>): List<String> {
         if (inputs.isEmpty()) return emptyList()
+        val ids = db.withTransaction { store(inputs) }
+        if (ids.isNotEmpty()) syncScheduler.requestAfterWrite()
+        return ids
+    }
+
+    /**
+     * An edit: deletes [old] (as [delete] does) and saves [inputs] in their place, in one Room transaction, then syncs.
+     * Entries are never changed on the server, so a changed entry is a new one. Returns the new clientIds as [addAll].
+     */
+    suspend fun replace(old: List<String>, inputs: List<NewTransaction>): List<String> {
+        val ids = db.withTransaction {
+            old.forEach { syncEngine.enqueueDelete(it) }
+            store(inputs)
+        }
+        syncScheduler.requestAfterWrite()
+        return ids
+    }
+
+    /** [addAll]'s rows and CREATE ops; the caller holds the Room transaction. */
+    private suspend fun store(inputs: List<NewTransaction>): List<String> {
+        if (inputs.isEmpty()) return emptyList()
         val owner = checkNotNull(session.activeUserId.value) { "no account is signed in" }
         val now = clock.instant()
         // Converting Zawgyi to Unicode can lengthen the text, so the server's limit is checked on what is stored.
@@ -84,36 +122,37 @@ class TransactionRepository @Inject constructor(
         require(descriptions.all { it.length <= MAX_DESCRIPTION }) {
             "description is longer than $MAX_DESCRIPTION characters once prepared"
         }
-        val ids = db.withTransaction {
-            inputs.mapIndexedNotNull { index, input ->
-                // A fixed id this account already has is the same entry saved again: the one there stays, untouched.
-                // Another account's (two people scanning one KPay slip on a shared phone), or a row deleted here and
-                // waiting for the server, keeps its id: this entry gets a new one instead.
-                val existing = input.clientId?.let { tx.byClientId(it) }
-                if (existing != null && existing.ownerId == owner && !existing.deleted) return@mapIndexedNotNull null
-                val clientId = input.clientId?.takeIf { existing == null } ?: UUID.randomUUID().toString()
-                tx.upsert(
-                    TransactionEntity(
-                        clientId = clientId,
-                        ownerId = owner,
-                        serverId = null,
-                        type = input.type,
-                        amountKyat = input.amountKyat,
-                        category = input.category,
-                        description = descriptions[index],
-                        date = input.date,
-                        source = input.source,
-                        transcript = input.transcript?.let(BurmeseTextNormalizer::prepare),
-                        updatedAt = now,
-                        syncState = SyncState.PENDING,
+        return inputs.mapIndexedNotNull { index, input ->
+            // A fixed id this account already has is the same entry saved again: the one there stays, untouched.
+            // Another account's (two people scanning one KPay slip on a shared phone), or a row deleted here and
+            // waiting for the server, keeps its id: this entry gets a new one instead.
+            val existing = input.clientId?.let { tx.byClientId(it) }
+            if (existing != null && existing.ownerId == owner && !existing.deleted) return@mapIndexedNotNull null
+            val clientId = input.clientId?.takeIf { existing == null } ?: UUID.randomUUID().toString()
+            tx.upsert(
+                TransactionEntity(
+                    clientId = clientId,
+                    ownerId = owner,
+                    serverId = null,
+                    type = input.type,
+                    amountKyat = input.amountKyat,
+                    category = input.category,
+                    description = descriptions[index],
+                    date = input.date,
+                    source = input.source,
+                    transcript = input.transcript?.let(BurmeseTextNormalizer::prepare),
+                    updatedAt = now,
+                    syncState = SyncState.PENDING,
+                    receiptId = input.receiptId,
+                    merchant = input.merchant?.let(BurmeseTextNormalizer::prepare)?.take(MAX_MERCHANT)?.ifEmpty { null },
+                    itemsJson = ItemsJson.encode(
+                        input.items.take(MAX_ITEMS).map { it.copy(name = BurmeseTextNormalizer.prepare(it.name).take(MAX_ITEM_NAME)) },
                     ),
-                )
-                outbox.enqueue(OutboxEntity(op = OutboxOp.CREATE, clientId = clientId, ownerId = owner))
-                clientId
-            }
+                ),
+            )
+            outbox.enqueue(OutboxEntity(op = OutboxOp.CREATE, clientId = clientId, ownerId = owner))
+            clientId
         }
-        if (ids.isNotEmpty()) syncScheduler.requestAfterWrite()
-        return ids
     }
 
     /** Deletes locally at once ([SyncEngine.enqueueDelete] handles never-synced and synced rows), then syncs. */
@@ -125,5 +164,10 @@ class TransactionRepository @Inject constructor(
     companion object {
         /** The server's limit for a description, in characters, measured on the stored (prepared) text. */
         const val MAX_DESCRIPTION = 200
+
+        /** The server's limits for a receipt's shop name, a line's name, and an entry's lines. */
+        const val MAX_MERCHANT = 100
+        const val MAX_ITEM_NAME = 120
+        const val MAX_ITEMS = 100
     }
 }

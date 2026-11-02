@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import type { ScanOutput } from "@/ai/flows/scan-image";
 import { isWholeKyat } from "@/lib/kyat";
-import type { ScanEntryDto, ScanResultDto } from "./dto";
+import type { ScanEntryDto, ScanItemDto, ScanResultDto } from "./dto";
 import { ApiError } from "./errors";
-import { transactionInputSchema, type ScanMediaType } from "./schemas";
+import { MAX_ITEMS, MAX_QUANTITY, transactionInputSchema, type ScanMediaType } from "./schemas";
 
 // As base64 (4/3 of the bytes) inside the JSON body, 3 MB stays under Vercel's 4.5 MB request limit.
 export const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
@@ -91,6 +91,21 @@ export function validDate(value: string, today: string): string | undefined {
   return s >= MIN_DATE && s <= addDays(today, 1) ? s : undefined;
 }
 
+/**
+ * A line item whose quantity times unitPrice is its amount. The count and price are kept as read when they
+ * make the amount; otherwise (a discount, rounding, or nothing read) the amount is split over the count when
+ * it divides evenly, else it is one item at the line's amount.
+ */
+export function scanItem(name: string, amount: number, quantity?: number, unitPrice?: number): ScanItemDto {
+  const count =
+    quantity !== undefined && Number.isInteger(quantity) && quantity >= 1 && quantity <= MAX_QUANTITY ? quantity : 1;
+  const each = kyat(unitPrice);
+  if (each !== undefined && count * each === amount) return { name, amount, quantity: count, unitPrice: each };
+  return amount % count === 0
+    ? { name, amount, quantity: count, unitPrice: amount / count }
+    : { name, amount, quantity: 1, unitPrice: amount };
+}
+
 const BURMESE_DIGITS = /[၀-၉]/g;
 
 function reference(value: string | undefined): string | undefined {
@@ -138,7 +153,7 @@ export function normalizeScan(
       const items = (e.items ?? []).flatMap((item) => {
         const name = text(item.name);
         const itemAmount = kyat(item.amount);
-        return name && itemAmount ? [{ name, amount: itemAmount }] : [];
+        return name && itemAmount ? [scanItem(name, itemAmount, item.quantity, item.unitPrice)] : [];
       });
       if (items.length) entry.items = items;
     } else {
@@ -175,17 +190,18 @@ export function normalizeScan(
 }
 
 // One entry per category, in the order the categories first appear.
+// Items keep their own quantity and unitPrice; an entry lists at most MAX_ITEMS, the most a save accepts.
 function groupByCategory(entries: ScanEntryDto[]): ScanEntryDto[] {
   const groups = new Map<string, ScanEntryDto>();
   for (const e of entries) {
     const key = `${e.type}:${e.category}`;
     const group = groups.get(key);
     if (!group) {
-      groups.set(key, { ...e, ...(e.items ? { items: [...e.items] } : {}) });
+      groups.set(key, { ...e, ...(e.items ? { items: e.items.slice(0, MAX_ITEMS) } : {}) });
       continue;
     }
     group.amount += e.amount;
-    if (e.items) group.items = [...(group.items ?? []), ...e.items];
+    if (e.items) group.items = [...(group.items ?? []), ...e.items].slice(0, MAX_ITEMS);
   }
   return [...groups.values()];
 }

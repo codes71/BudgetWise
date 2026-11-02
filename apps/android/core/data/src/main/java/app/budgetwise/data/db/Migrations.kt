@@ -38,6 +38,19 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
 }
 
 /**
+ * Version 4 lets an entry remember the receipt it was scanned from: the id its entries share, the shop, and its lines
+ * (JSON). Existing rows get nulls and keep every value.
+ */
+val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `tx` ADD COLUMN `receiptId` TEXT")
+        db.execSQL("ALTER TABLE `tx` ADD COLUMN `merchant` TEXT")
+        db.execSQL("ALTER TABLE `tx` ADD COLUMN `items` TEXT")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tx_receiptId` ON `tx` (`receiptId`)")
+    }
+}
+
+/**
  * Gives every row without an owner (saved before several accounts) to [owner]: transactions, outbox ops and cached
  * budgets, in one transaction. Nothing is deleted except a cached budget [owner] already has a fresher copy of.
  * Called when the saved session loads and on every online sign-in; once rows have owners it changes nothing.

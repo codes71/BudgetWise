@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import {
   loginSchema,
   transactionInputSchema,
@@ -39,6 +39,83 @@ test("rejects source web", () => {
 test("rejects non-v4 clientId and blank description", () => {
   expect(transactionInputSchema.safeParse({ ...valid, clientId: "abc" }).success).toBe(false);
   expect(transactionInputSchema.safeParse({ ...valid, description: "   " }).success).toBe(false);
+});
+
+describe("receipt fields", () => {
+  const scanned = {
+    ...valid,
+    source: "scan" as const,
+    transcript: undefined,
+    receiptId: "9f1c2b3a-4d5e-4f60-8a7b-1c2d3e4f5a6b",
+    merchant: "  City Mart  ",
+    items: [
+      { name: " Milk ", quantity: 2, unitPrice: 1250 },
+      { name: "Bag", quantity: 1, unitPrice: 0 },
+    ],
+  };
+  const parse = (over: Record<string, unknown>) => transactionInputSchema.safeParse({ ...scanned, ...over });
+
+  test("accepts source scan with a receipt id, merchant and items, trimming the text", () => {
+    const out = transactionInputSchema.parse(scanned);
+    expect(out).toMatchObject({
+      source: "scan",
+      receiptId: scanned.receiptId,
+      merchant: "City Mart",
+      items: [
+        { name: "Milk", quantity: 2, unitPrice: 1250 },
+        { name: "Bag", quantity: 1, unitPrice: 0 },
+      ],
+    });
+  });
+
+  test("does not require the items to add up to the amount", () => {
+    // 2 x 1250 + 0 is 2500, the entry says 450 (a discount or a tax line can do that).
+    expect(parse({}).success).toBe(true);
+  });
+
+  test("an old client's entry without the new fields still parses, without them", () => {
+    const out = transactionInputSchema.parse(valid);
+    expect(out).not.toHaveProperty("receiptId");
+    expect(out).not.toHaveProperty("merchant");
+    expect(out).not.toHaveProperty("items");
+  });
+
+  test("rejects a receipt id that is not a v4 uuid", () => {
+    expect(parse({ receiptId: "abc" }).success).toBe(false);
+    expect(parse({ receiptId: "9f1c2b3a-4d5e-1f60-8a7b-1c2d3e4f5a6b" }).success).toBe(false);
+  });
+
+  test("merchant is 1..100 characters after trimming", () => {
+    expect(parse({ merchant: "   " }).success).toBe(false);
+    expect(parse({ merchant: "x".repeat(100) }).success).toBe(true);
+    expect(parse({ merchant: "x".repeat(101) }).success).toBe(false);
+  });
+
+  test("at most 100 items; an empty list is allowed", () => {
+    const line = { name: "x", quantity: 1, unitPrice: 1 };
+    expect(parse({ items: Array(100).fill(line) }).success).toBe(true);
+    expect(parse({ items: Array(101).fill(line) }).success).toBe(false);
+    expect(parse({ items: [] }).success).toBe(true);
+  });
+
+  test.each([
+    ["blank name", { name: "  " }],
+    ["name over 120", { name: "x".repeat(121) }],
+    ["quantity 0", { quantity: 0 }],
+    ["quantity 1000", { quantity: 1000 }],
+    ["quantity 1.5", { quantity: 1.5 }],
+    ["negative unit price", { unitPrice: -1 }],
+    ["decimal unit price", { unitPrice: 2.5 }],
+    ["unsafe unit price", { unitPrice: 2 ** 53 }],
+    ["missing quantity", { quantity: undefined }],
+    ["missing unit price", { unitPrice: undefined }],
+  ])("rejects an item with %s", (_, over) => {
+    expect(parse({ items: [{ name: "Milk", quantity: 1, unitPrice: 100, ...over }] }).success).toBe(false);
+  });
+
+  test("an item name of 120 characters and a count of 999 are allowed", () => {
+    expect(parse({ items: [{ name: "x".repeat(120), quantity: 999, unitPrice: 1 }] }).success).toBe(true);
+  });
 });
 
 test("batch bounds 1..50", () => {

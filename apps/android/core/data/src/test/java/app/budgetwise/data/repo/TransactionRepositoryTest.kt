@@ -1,6 +1,7 @@
 package app.budgetwise.data.repo
 
 import app.budgetwise.data.model.DailySpend
+import app.budgetwise.data.model.EntryItem
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.db.OutboxOp
@@ -47,6 +48,33 @@ class TransactionRepositoryTest {
         assertEquals(0, repo.observe().first().size)
         assertEquals(0, h.sync.pendingOps().size)
         assertTrue("no sync is requested for a failed write", h.work("sync").isEmpty())
+    }
+
+    @Test
+    fun aScannedReceiptKeepsItsIdShopAndLines() = runBlocking {
+        val receipt = UUID.randomUUID().toString()
+        val lines = listOf(EntryItem("Fresh milk 1L", 2, 4500), EntryItem("Bread", 2200))
+        val id = repo.addAll(listOf(input(11200, Source.SCAN).copy(receiptId = receipt, merchant = "Ocean", items = lines))).single()
+
+        val row = repo.get(id)!!
+        assertEquals(Source.SCAN, row.source)
+        assertEquals(receipt, row.receiptId)
+        assertEquals("Ocean", row.merchant)
+        assertEquals(lines, row.items)
+        assertEquals(listOf(id), repo.observeReceipt(receipt).first().map { it.clientId })
+    }
+
+    @Test
+    fun replaceDeletesTheOldEntryAndSavesTheNewOneTogether() = runBlocking {
+        val old = repo.addAll(listOf(input(600))).single()
+        val new = repo.replace(listOf(old), listOf(input(700))).single()
+
+        val rows = repo.observe().first()
+        assertEquals(listOf(new), rows.map { it.clientId })
+        assertEquals(700L, rows.single().amountKyat)
+        // Never synced, the old row and its CREATE are simply gone: one CREATE is left, for the new row.
+        assertEquals(listOf(OutboxOp.CREATE), h.sync.pendingOps().map { it.op })
+        assertEquals(null, repo.get(old))
     }
 
     @Test

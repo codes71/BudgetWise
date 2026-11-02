@@ -69,7 +69,7 @@ annotation class SlowCall(val readSeconds: Int, val writeSeconds: Int = 0)
 data class ScanBody(val image: String, val mediaType: String)
 
 @Serializable
-data class ScanItemDto(val name: String, val amount: Long)
+data class ScanItemDto(val name: String, val amount: Long, val quantity: Int = 1, val unitPrice: Long? = null)
 
 @Serializable
 data class ScanEntryDto(

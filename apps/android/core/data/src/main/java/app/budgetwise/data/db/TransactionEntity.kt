@@ -1,5 +1,6 @@
 package app.budgetwise.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -16,7 +17,7 @@ import java.time.LocalDate
  * the DELETE. [ownerId] is the user id of the account the row belongs to; null only for a row saved
  * before several accounts, until an account claims it ([claimUnowned]).
  */
-@Entity(tableName = "tx", indices = [Index("ownerId")])
+@Entity(tableName = "tx", indices = [Index("ownerId"), Index("receiptId")])
 data class TransactionEntity(
     @PrimaryKey val clientId: String,
     val ownerId: String?,
@@ -31,6 +32,10 @@ data class TransactionEntity(
     val updatedAt: Instant,
     val syncState: SyncState,
     val deleted: Boolean = false,
+    val receiptId: String? = null,
+    val merchant: String? = null,
+    /** The receipt lines as JSON ([ItemsJson]); null when there are none. */
+    @ColumnInfo(name = "items") val itemsJson: String? = null,
 )
 
 fun TransactionEntity.toDomain() = Transaction(
@@ -45,6 +50,9 @@ fun TransactionEntity.toDomain() = Transaction(
     transcript = transcript,
     updatedAt = updatedAt,
     syncState = syncState,
+    receiptId = receiptId,
+    merchant = merchant,
+    items = ItemsJson.decode(itemsJson),
 )
 
 fun Transaction.toEntity(ownerId: String?, deleted: Boolean = false) = TransactionEntity(
@@ -61,4 +69,7 @@ fun Transaction.toEntity(ownerId: String?, deleted: Boolean = false) = Transacti
     updatedAt = updatedAt,
     syncState = syncState,
     deleted = deleted,
+    receiptId = receiptId,
+    merchant = merchant,
+    itemsJson = ItemsJson.encode(items),
 )
