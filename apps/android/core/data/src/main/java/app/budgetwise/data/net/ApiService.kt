@@ -46,12 +46,52 @@ interface ApiService {
     @SlowCall(readSeconds = 65)
     @POST("voice/parse")
     suspend fun parseVoice(@Header(AUTHORIZATION) auth: String, @Body body: VoiceParseBody): VoiceParseResponse
+
+    /**
+     * Reads a receipt, KPay slip or KPay history screenshot into entries; saves nothing. Uploads up to 3 MB, then an
+     * AI read with the same 60 s server limit as voice.
+     */
+    @SlowCall(readSeconds = 65, writeSeconds = 60)
+    @POST("scan")
+    suspend fun scan(@Header(AUTHORIZATION) auth: String, @Body body: ScanBody): ScanResponse
 }
 
-/** A call that may outlast the client's default read timeout; [createOkHttpClient] gives it [readSeconds]. */
+/**
+ * A call that may outlast the client's default timeouts; [createOkHttpClient] gives it [readSeconds], and
+ * [writeSeconds] when above 0 (a large upload).
+ */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class SlowCall(val readSeconds: Int)
+annotation class SlowCall(val readSeconds: Int, val writeSeconds: Int = 0)
+
+/** [image] is plain base64 of at most 3 MB of image bytes. */
+@Serializable
+data class ScanBody(val image: String, val mediaType: String)
+
+@Serializable
+data class ScanItemDto(val name: String, val amount: Long)
+
+@Serializable
+data class ScanEntryDto(
+    val type: String,
+    val amount: Long,
+    val category: String,
+    val description: String,
+    val date: String,
+    val dateGuessed: Boolean = false,
+    val reference: String? = null,
+    val clientId: String? = null,
+    val items: List<ScanItemDto> = emptyList(),
+)
+
+@Serializable
+data class ScanResponse(
+    val kind: String,
+    val merchant: String? = null,
+    val date: String? = null,
+    val total: Long? = null,
+    val entries: List<ScanEntryDto> = emptyList(),
+)
 
 private const val AUTHORIZATION = "Authorization"
 

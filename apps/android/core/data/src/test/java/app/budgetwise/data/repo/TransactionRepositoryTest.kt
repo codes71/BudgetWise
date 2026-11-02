@@ -50,6 +50,30 @@ class TransactionRepositoryTest {
     }
 
     @Test
+    fun aFixedClientIdSavedTwiceIsStoredOnce() = runBlocking {
+        val kpay = "8757c8d9-1367-4ee0-b09b-80b464aba7a0"
+        val first = repo.addAll(listOf(input(150000).copy(clientId = kpay)))
+        val second = repo.addAll(listOf(input(150000).copy(clientId = kpay), input(2500)))
+        assertEquals(listOf(kpay), first)
+        // Only the new row is reported, so Undo after the second save never deletes the first one.
+        assertEquals(1, second.size)
+        assertTrue(second.single() != kpay)
+        assertEquals(2, repo.observe().first().size)
+        assertEquals("one create per stored row", 2, h.sync.pendingOps().size)
+    }
+
+    @Test
+    fun aFixedClientIdDeletedHereCanBeSavedAgain() = runBlocking {
+        val kpay = "8757c8d9-1367-4ee0-b09b-80b464aba7a0"
+        repo.addAll(listOf(input(150000).copy(clientId = kpay)))
+        repo.delete(kpay)
+        // Deleted before it synced, the row is gone at once, so the same slip saved again is a new entry.
+        val again = repo.addAll(listOf(input(150000).copy(clientId = kpay)))
+        assertEquals(1, again.size)
+        assertEquals(1, repo.observe().first().size)
+    }
+
+    @Test
     fun addAllNormalizesDescriptionAndTranscriptAndConvertsZawgyi() = runBlocking {
         val zawgyi = "ျမန္မာဘာသာ"
         val unicode = "မြန်မာဘာသာ"

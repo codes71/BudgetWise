@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Voice entry. The audio stays in memory on the phone and is never saved or sent. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Receipt scanning takes the photo in the app. Phones without a camera can still choose a photo. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".BudgetWiseApp"
