@@ -234,6 +234,12 @@ class FakeTransactionStore(initial: List<Transaction> = emptyList()) : Transacti
         return ids
     }
 
+    /** As the repository: replaced (and recorded in [replaced]) only while the receipt's entries are [old]. */
+    override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
+        if (rows.value.filter { it.receiptId == receiptId }.map { it.clientId }.toSet() != old) return null
+        return replace(old.toList(), inputs)
+    }
+
     private fun NewTransaction.toPendingRow(id: String) = Transaction(
         clientId = id, serverId = null, type = type, amountKyat = amountKyat, category = category,
         description = description, date = date, source = source, transcript = transcript,

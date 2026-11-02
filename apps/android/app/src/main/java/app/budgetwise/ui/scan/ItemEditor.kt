@@ -114,7 +114,7 @@ internal fun ChangedNote(
     myanmarDigits: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val note = pluralStringResource(text, changed, groupDigits(before, myanmarDigits), changed)
+    val note = pluralStringResource(text, changed, groupDigits(before, myanmarDigits), groupDigits(changed.toLong(), myanmarDigits))
     Text(note, style = BudgetWiseTheme.type.size14, color = BudgetWiseTheme.colors.muted, modifier = modifier)
 }
 

@@ -39,7 +39,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
@@ -78,7 +77,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -91,6 +89,7 @@ import app.budgetwise.ui.common.PermissionMemory
 import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.Spinner
 import app.budgetwise.ui.common.TextAction
+import app.budgetwise.ui.common.groupDigits
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.bold
 import app.budgetwise.ui.theme.medium
@@ -120,19 +119,10 @@ fun ScanRoute(
     // Here, not in the camera, so a problem card can open it too and its answer arrives after the activity is recreated.
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(viewModel::picked) }
     val pick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-    // Leaving a review that was changed asks first; which way it was leaving, for after Discard.
-    var discarding by rememberSaveable { mutableStateOf<Leave?>(null) }
 
-    // Back from a card, the photo being prepared or an unchanged review returns to the camera; from the camera it
-    // leaves scanning. While the entries are being saved it does nothing.
-    BackHandler(enabled = state.stage != ScanStage.CAMERA) {
-        when {
-            state.stage != ScanStage.REVIEW -> viewModel.retake()
-            state.saving -> Unit
-            state.edited -> discarding = Leave.BACK
-            else -> viewModel.retake()
-        }
-    }
+    // Back from a card or the photo being prepared returns to the camera; from the camera it leaves scanning. The review
+    // asks first (its own BackHandler), as going back drops what was read.
+    BackHandler(enabled = state.stage != ScanStage.CAMERA && state.stage != ScanStage.REVIEW) { viewModel.retake() }
 
     when (state.stage) {
         ScanStage.CAMERA, ScanStage.PREPARING -> CameraStage(
@@ -163,6 +153,7 @@ fun ScanRoute(
                 ProblemCard(
                     problem = problem,
                     waitMinutes = state.waitMinutes,
+                    myanmarDigits = state.myanmarDigits,
                     onTryAgain = viewModel::tryAgain,
                     onRetake = viewModel::retake,
                     onPick = pick,
@@ -173,8 +164,9 @@ fun ScanRoute(
         }
         ScanStage.REVIEW -> ScanReview(
             state = state,
-            // The X leaves scanning altogether.
-            onClose = { if (state.edited && !state.saving) discarding = Leave.CLOSE else onClose() },
+            // The X leaves scanning altogether; back goes to the camera. Both ask first.
+            onClose = onClose,
+            onRetake = viewModel::retake,
             onMove = viewModel::move,
             onAddShort = viewModel::addShortAsOther,
             onToggle = viewModel::toggle,
@@ -184,20 +176,7 @@ fun ScanRoute(
             onAddAsOne = viewModel::addAsOne,
         )
     }
-
-    discarding?.let { leave ->
-        DiscardDialog(
-            onDiscard = {
-                discarding = null
-                if (leave == Leave.CLOSE) onClose() else viewModel.retake()
-            },
-            onKeep = { discarding = null },
-        )
-    }
 }
-
-/** How a changed review was being left: back to the camera, or out of scanning. */
-private enum class Leave { BACK, CLOSE }
 
 /** The camera is always dark, whatever the theme: the photo is the light thing on screen. */
 private val Viewfinder = Color(0xFF1F1C18)
@@ -555,6 +534,7 @@ private fun ReadingCard(slow: Boolean, onCancel: (() -> Unit)?, onEnterYourself:
 private fun ProblemCard(
     problem: ScanProblem,
     waitMinutes: Int?,
+    myanmarDigits: Boolean,
     onTryAgain: () -> Unit,
     onRetake: () -> Unit,
     onPick: () -> Unit,
@@ -614,7 +594,7 @@ private fun ProblemCard(
             Lucide.Clock, colors.coralText,
             stringResource(R.string.scan_too_many_title),
             if (waitMinutes != null) {
-                pluralStringResource(R.plurals.scan_too_many_wait, waitMinutes, waitMinutes)
+                pluralStringResource(R.plurals.scan_too_many_wait, waitMinutes, groupDigits(waitMinutes.toLong(), myanmarDigits))
             } else {
                 stringResource(R.string.scan_too_many_detail)
             },
@@ -658,43 +638,6 @@ private fun ProblemCard(
         PrimaryButton(card.primary.first, card.primary.second, Modifier.fillMaxWidth())
         card.secondary?.let { (label, action) ->
             TextAction(label, action, Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp))
-        }
-    }
-}
-
-/** "Discard this scan?" before a changed review is left: the photo was read once already, and that counts. */
-@Composable
-private fun DiscardDialog(onDiscard: () -> Unit, onKeep: () -> Unit) {
-    val colors = BudgetWiseTheme.colors
-    val type = BudgetWiseTheme.type
-    Dialog(onDismissRequest = onKeep) {
-        Column(
-            Modifier
-                .widthIn(max = 440.dp)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(colors.raised)
-                .padding(24.dp),
-        ) {
-            Text(
-                stringResource(R.string.scan_discard_title),
-                style = type.size22.bold.tracked(-0.02f),
-                color = colors.ink,
-                modifier = Modifier.semantics { heading() },
-            )
-            Text(
-                stringResource(R.string.scan_discard_detail),
-                style = type.size15,
-                color = colors.muted,
-                modifier = Modifier.padding(top = 8.dp, bottom = 20.dp),
-            )
-            PrimaryButton(stringResource(R.string.scan_discard_keep), onKeep, Modifier.fillMaxWidth())
-            TextAction(
-                stringResource(R.string.scan_discard),
-                onDiscard,
-                Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
-                color = colors.coralText,
-            )
         }
     }
 }

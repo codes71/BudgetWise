@@ -55,8 +55,8 @@
 
     <!-- The notice on Transactions before a session ends -->
     <plurals name="session_ending">
-        <item quantity="one">You\'ll be signed out in %d day</item>
-        <item quantity="other">You\'ll be signed out in %d days</item>
+        <item quantity="one">You\'ll be signed out in %1$s day</item>
+        <item quantity="other">You\'ll be signed out in %1$s days</item>
     </plurals>
     <string name="session_ending_detail">Sign in again to keep your entries syncing.</string>
     <string name="session_sign_in">Sign in</string>
@@ -180,12 +180,12 @@
     <string name="budgets_spent_of_limit">%1$s of %2$s</string>
     <string name="budgets_of_limit">of %1$s</string>
     <plurals name="budgets_left_across">
-        <item quantity="one">%1$s left in %2$d budget</item>
-        <item quantity="other">%1$s left across %2$d budgets</item>
+        <item quantity="one">%1$s left in %2$s budget</item>
+        <item quantity="other">%1$s left across %2$s budgets</item>
     </plurals>
     <plurals name="budgets_over_across">
-        <item quantity="one">%1$s over in %2$d budget</item>
-        <item quantity="other">%1$s over across %2$d budgets</item>
+        <item quantity="one">%1$s over in %2$s budget</item>
+        <item quantity="other">%1$s over across %2$s budgets</item>
     </plurals>
     <string name="budgets_left">%1$s left</string>
     <string name="budgets_percent">%1$s%%</string>
@@ -211,8 +211,8 @@
     <string name="settings_sync_needs_sign_in">Sign in again to sync</string>
     <string name="settings_sync_needs_sign_in_detail">Your session ended.</string>
     <plurals name="settings_sync_rejected">
-        <item quantity="one">%d entry couldn\'t sync</item>
-        <item quantity="other">%d entries couldn\'t sync</item>
+        <item quantity="one">%1$s entry couldn\'t sync</item>
+        <item quantity="other">%1$s entries couldn\'t sync</item>
     </plurals>
     <string name="settings_sync_never">Not synced yet</string>
     <string name="settings_sync_last_synced">Last synced %1$s</string>
@@ -220,8 +220,8 @@
     <string name="settings_sync_rejected_detail">The server refused them. They stay on this phone.</string>
     <string name="settings_sync_waiting_detail">Runs as soon as you\'re online.</string>
     <plurals name="settings_unsynced">
-        <item quantity="one">%d entry waiting to sync</item>
-        <item quantity="other">%d entries waiting to sync</item>
+        <item quantity="one">%1$s entry waiting to sync</item>
+        <item quantity="other">%1$s entries waiting to sync</item>
     </plurals>
     <string name="settings_all_synced">Every entry is synced</string>
     <string name="settings_all_other_synced">Every other entry is synced</string>
@@ -437,15 +437,11 @@
     <string name="scan_slow_title">This is taking too long</string>
     <string name="scan_slow_detail">Your connection may be slow. Your photo is kept, so you can try again, or enter it yourself.</string>
     <plurals name="scan_too_many_wait">
-        <item quantity="one">You can read 20 photos an hour. Try again in %d minute, or enter it yourself.</item>
-        <item quantity="other">You can read 20 photos an hour. Try again in %d minutes, or enter it yourself.</item>
+        <item quantity="one">You can read 20 photos an hour. Try again in %s minute, or enter it yourself.</item>
+        <item quantity="other">You can read 20 photos an hour. Try again in %s minutes, or enter it yourself.</item>
     </plurals>
     <string name="scan_interrupted_title">The reading stopped</string>
     <string name="scan_interrupted_detail">BudgetWise was closed while it read your photo. The photo is kept, so you can try again.</string>
-    <string name="scan_discard_title">Discard this scan?</string>
-    <string name="scan_discard_detail">Your changes will be lost, and reading the photo again counts as another scan.</string>
-    <string name="scan_discard">Discard</string>
-    <string name="scan_discard_keep">Keep checking</string>
     <string name="scan_title_receipt">Check the receipt</string>
     <string name="scan_title_payment">Check the payment</string>
     <string name="scan_title_history">Check the payments</string>
@@ -459,26 +455,26 @@
     <string name="scan_short_add">Add as Other</string>
     <string name="scan_as_one">Add as one entry instead</string>
     <plurals name="scan_add">
-        <item quantity="one">Add %d entry</item>
-        <item quantity="other">Add %d entries</item>
+        <item quantity="one">Add %1$s entry</item>
+        <item quantity="other">Add %1$s entries</item>
     </plurals>
     <plurals name="scan_move_title">
-        <item quantity="one">Move %d item to</item>
-        <item quantity="other">Move %d items to</item>
+        <item quantity="one">Move %1$s item to</item>
+        <item quantity="other">Move %1$s items to</item>
     </plurals>
     <string name="scan_move_title_none">Move to</string>
     <!-- A receipt line's description: the shop, then the category. -->
     <string name="scan_entry_description">%1$s, %2$s</string>
     <plurals name="scan_added">
-        <item quantity="one">Added %d entry</item>
-        <item quantity="other">Added %d entries</item>
+        <item quantity="one">Added %1$s entry</item>
+        <item quantity="other">Added %1$s entries</item>
     </plurals>
     <string name="scan_added_from">From your %1$s receipt</string>
     <string name="scan_added_from_photo">From your photo</string>
     <!-- Changing a receipt's items, on Check the receipt and from a saved receipt's Change items. -->
     <plurals name="scan_changed">
-        <item quantity="one">Scanned %1$s Ks. You changed %2$d item.</item>
-        <item quantity="other">Scanned %1$s Ks. You changed %2$d items.</item>
+        <item quantity="one">Scanned %1$s Ks. You changed %2$s item.</item>
+        <item quantity="other">Scanned %1$s Ks. You changed %2$s items.</item>
     </plurals>
     <!-- What an item was before it was changed: "was 2", "was 802 each", "was 2 × 802". -->
     <string name="item_was_count">was %1$s</string>
@@ -492,16 +488,16 @@
     <!-- A scanned receipt: one row in the list, and its own screen. -->
     <string name="receipt_title">Receipt</string>
     <plurals name="receipt_row_entries">
-        <item quantity="one">Receipt · %d entry</item>
-        <item quantity="other">Receipt · %d entries</item>
+        <item quantity="one">Receipt · %1$s entry</item>
+        <item quantity="other">Receipt · %1$s entries</item>
     </plurals>
     <string name="receipt_scanned_twice">Scanned twice?</string>
     <string name="receipt_deleted">Receipt deleted</string>
     <!-- TalkBack, the mic before an entry's category. -->
     <string name="transactions_by_voice">Added by voice</string>
     <plurals name="receipt_entries">
-        <item quantity="one">%d entry from this receipt</item>
-        <item quantity="other">%d entries from this receipt</item>
+        <item quantity="one">%1$s entry from this receipt</item>
+        <item quantity="other">%1$s entries from this receipt</item>
     </plurals>
     <!-- An item bought more than once: "2 × 4,500". -->
     <string name="receipt_item_count">%1$s × %2$s</string>
@@ -509,10 +505,26 @@
     <string name="receipt_delete">Delete this receipt</string>
     <string name="receipt_change_items">Change items</string>
     <plurals name="receipt_changed">
-        <item quantity="one">Saved as %1$s Ks. You changed %2$d item.</item>
-        <item quantity="other">Saved as %1$s Ks. You changed %2$d items.</item>
+        <item quantity="one">Saved as %1$s Ks. You changed %2$s item.</item>
+        <item quantity="other">Saved as %1$s Ks. You changed %2$s items.</item>
     </plurals>
     <string name="receipt_save">Save changes</string>
+    <string name="scan_over_title">Items come to %1$s Ks</string>
+    <string name="scan_over_detail">The receipt total is %1$s Ks.</string>
+    <!-- Leaving Check the receipt (back or the X) asks first. -->
+    <string name="scan_discard_title">Discard this scan?</string>
+    <string name="scan_discard_detail">What was read and your changes are lost. Reading it again takes a new photo.</string>
+    <string name="action_discard">Discard</string>
+    <string name="scan_discard_keep">Keep checking</string>
+    <!-- Leaving Change items with a changed item asks first. -->
+    <string name="receipt_discard_title">Discard changes?</string>
+    <string name="receipt_discard_detail">Your changes to the items are not saved.</string>
+    <string name="receipt_discard_keep">Keep changing</string>
+    <!-- Change items, when a sync brought another device's change to the receipt. -->
+    <string name="receipt_changed_elsewhere_title">This receipt changed on another device</string>
+    <string name="receipt_changed_elsewhere_detail">Check it again. The changes you made here are dropped.</string>
+    <string name="receipt_changed_elsewhere_action">Check again</string>
+    <string name="receipt_all_left_out">Every item is at 0. To remove this receipt, delete it.</string>
     <string name="voice_unsupported_title">Voice isn\'t available on this phone</string>
     <string name="voice_unsupported_body">Voice works out what you say on the phone itself, which needs at least %1$s GB of memory. This phone has less, so voice is off. You can still type every entry.</string>
     <string name="settings_voice_unsupported_detail">Voice needs at least %1$s GB of memory, more than this phone has.</string>

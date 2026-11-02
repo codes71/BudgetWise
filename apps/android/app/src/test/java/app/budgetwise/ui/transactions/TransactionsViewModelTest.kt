@@ -219,7 +219,7 @@ class TransactionsViewModelTest {
     }
 
     @Test
-    fun aLaterReceiptWithTheSameShopAndTotalMayBeScannedTwice() {
+    fun receiptsWithTheSameShopAndTotalOnADayAreBothMarked() {
         val first = listOf(
             scanned("a", 16307, "r1", "Ocean Supercenter", hour = 7),
             scanned("b", 30000, "r1", "Ocean Supercenter", hour = 7, category = "Other"),
@@ -234,7 +234,59 @@ class TransactionsViewModelTest {
         val days = groupByDay(first + again + otherTotal + noShop + yesterday)
 
         val twice = days.flatMap { it.lines }.filterIsInstance<DayLine.Receipt>().associate { it.receiptId to it.scannedTwice }
-        assertEquals(mapOf("r1" to false, "r2" to true, "r3" to false, "r4" to false, "r5" to false, "r6" to false), twice)
+        assertEquals(mapOf("r1" to true, "r2" to true, "r3" to false, "r4" to false, "r5" to false, "r6" to false), twice)
+    }
+
+    @Test
+    fun changingTheFirstReceiptKeepsTheMarkOnBoth() {
+        // The first receipt's entry was moved to another category after the second was scanned: it is the newer now.
+        val first = scanned("a", 46307, "r1", "Ocean Supercenter", hour = 11)
+        val again = scanned("b", 46307, "r2", "Ocean Supercenter", hour = 9)
+
+        val lines = groupByDay(listOf(first, again)).single().lines.filterIsInstance<DayLine.Receipt>()
+
+        assertEquals(listOf("r1" to true, "r2" to true), lines.map { it.receiptId to it.scannedTwice })
+        // One of the two deleted: the other is plain again.
+        assertFalse((groupByDay(listOf(again)).single().lines.single() as DayLine.Receipt).scannedTwice)
+    }
+
+    @Test
+    fun aReceiptSavedAcrossTwoDaysIsOneLineOnItsNewerDay() {
+        val milk = scanned("Ocean Supercenter, Groceries", 16307, "r1", "Ocean Supercenter", hour = 9)
+        val soap = scanned("Ocean Supercenter, Other", 30000, "r1", "Ocean Supercenter", hour = 9, category = "Other", date = today.minusDays(1))
+        val taxi = testTransaction("taxi", 4000, today.minusDays(1), category = "Transport")
+
+        val days = groupByDay(listOf(milk, soap, taxi))
+
+        assertEquals(listOf(today, today.minusDays(1)), days.map { it.date })
+        val receipt = days[0].lines.single() as DayLine.Receipt
+        assertEquals(setOf(milk, soap), receipt.entries.toSet())
+        // The day's total is what its lines show.
+        assertEquals(setOf(milk, soap), days[0].rows.toSet())
+        assertEquals(listOf(taxi.clientId), days[1].lines.map { it.key })
+        val keys = days.flatMap { day -> day.lines.map { it.key } }
+        assertEquals("every line has its own key", keys.distinct(), keys)
+    }
+
+    @Test
+    fun aReceiptDeletedOnItsOwnScreenWaitsForUndoLikeASwipe() = runTest {
+        val milk = scanned("Ocean Supercenter, Groceries", 16307, "r1", "Ocean Supercenter", hour = 9)
+        val soap = scanned("Ocean Supercenter, Other", 30000, "r1", "Ocean Supercenter", hour = 9, category = "Other")
+        val tea = testTransaction("tea", 1500, today)
+        store.rows.value = listOf(milk, soap, tea)
+        val vm = vm()
+
+        vm.deleteEntries("r1", listOf(milk.clientId, soap.clientId))
+        runCurrent()
+
+        assertEquals(listOf(tea.clientId), vm.state.value.visibleIds())
+        assertEquals("r1", vm.state.value.pendingDelete)
+        assertEquals(setOf(milk, soap), vm.state.value.pendingDeleteRows.toSet())
+        assertTrue(store.deleted.isEmpty())
+
+        vm.undoDelete("r1")
+        assertEquals(setOf(milk.clientId, soap.clientId, tea.clientId), vm.state.value.visibleIds().toSet())
+        assertTrue(store.deleted.isEmpty())
     }
 
     @Test

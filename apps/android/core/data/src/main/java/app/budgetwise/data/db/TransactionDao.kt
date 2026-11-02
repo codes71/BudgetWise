@@ -27,6 +27,10 @@ interface TransactionDao {
     @Query("SELECT * FROM tx WHERE ownerId = :owner AND receiptId = :receiptId AND deleted = 0 ORDER BY amountKyat DESC")
     fun observeReceipt(owner: String, receiptId: String): Flow<List<TransactionEntity>>
 
+    /** The clientIds of [owner]'s entries saved from one scanned receipt, as [observeReceipt] has them now. */
+    @Query("SELECT clientId FROM tx WHERE ownerId = :owner AND receiptId = :receiptId AND deleted = 0")
+    suspend fun receiptClientIds(owner: String, receiptId: String): List<String>
+
     @Upsert
     suspend fun upsert(e: TransactionEntity)
 

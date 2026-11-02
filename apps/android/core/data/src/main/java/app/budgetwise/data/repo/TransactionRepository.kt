@@ -112,6 +112,22 @@ class TransactionRepository @Inject constructor(
         return ids
     }
 
+    /**
+     * [replace] for the entries of receipt [receiptId], only while they are still exactly [old]: checked in the same Room
+     * transaction, so a sync that changed the receipt in the meantime (another phone moved an entry) is never written
+     * over. Null, with nothing written, when they are not.
+     */
+    suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
+        val owner = checkNotNull(session.activeUserId.value) { "no account is signed in" }
+        val ids = db.withTransaction {
+            if (tx.receiptClientIds(owner, receiptId).toSet() != old) return@withTransaction null
+            old.forEach { syncEngine.enqueueDelete(it) }
+            store(inputs)
+        } ?: return null
+        syncScheduler.requestAfterWrite()
+        return ids
+    }
+
     /** [addAll]'s rows and CREATE ops; the caller holds the Room transaction. */
     private suspend fun store(inputs: List<NewTransaction>): List<String> {
         if (inputs.isEmpty()) return emptyList()
