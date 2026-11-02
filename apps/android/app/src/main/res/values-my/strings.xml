@@ -132,7 +132,6 @@
     </plurals>
     <string name="manual_description_count">%1$s/%2$s</string>
     <string name="manual_date">ရက်စွဲ</string>
-    <string name="manual_date_change">ရက်စွဲ ပြောင်းမည်</string>
     <string name="manual_date_error_future">နောင်ရက်စွဲ မရွေးနိုင်ပါ</string>
     <string name="manual_previous_month">ယခင်လ</string>
     <string name="manual_next_month">နောက်လ</string>
@@ -444,7 +443,7 @@
     <string name="item_was_count">မူလ %1$s ခု</string>
     <string name="item_was_price">မူလ တစ်ခုလျှင် %1$s</string>
     <string name="item_was_both">မူလ %1$s × %2$s</string>
-    <string name="item_not_added">မထည့်ပါ၊ မူလ %1$s ခု</string>
+    <string name="item_not_added">မထည့်ပါ</string>
     <string name="item_fewer">တစ်ခု လျှော့ရန်</string>
     <string name="item_more">တစ်ခု တိုးရန်</string>
     <string name="item_price">%1$s ၏ တစ်ခုချင်း ဈေးနှုန်း</string>

@@ -58,7 +58,7 @@ import app.budgetwise.R
 import app.budgetwise.data.repo.ScanItem
 import app.budgetwise.ui.common.KyatGroupingTransformation
 import app.budgetwise.ui.common.Lucide
-import app.budgetwise.ui.common.SectionLabel
+import app.budgetwise.ui.common.CategoryBadge
 import app.budgetwise.ui.common.categoryLabel
 import app.budgetwise.ui.common.formatKyat
 import app.budgetwise.ui.common.groupDigits
@@ -85,23 +85,23 @@ internal fun ItemLines(
     val colors = BudgetWiseTheme.colors
     Column(modifier.fillMaxWidth()) {
         lines.forEachIndexed { lineIndex, line ->
-            CategoryHeader(
-                line = line,
-                myanmarDigits = myanmarDigits,
-                onClick = onMove?.let { move -> { move(lineIndex) } },
-                modifier = Modifier.padding(top = if (lineIndex == 0) 0.dp else 12.dp),
-            )
-            line.items.forEachIndexed { itemIndex, item ->
-                ItemRow(
-                    item = item,
-                    original = line.originalItems.getOrNull(itemIndex) ?: item,
-                    myanmarDigits = myanmarDigits,
-                    onCount = { onCount(lineIndex, itemIndex, it) },
-                    onPrice = { onPrice(lineIndex, itemIndex, it) },
-                )
-                HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+            HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+            CategoryHeader(line = line, myanmarDigits = myanmarDigits, onClick = onMove?.let { move -> { move(lineIndex) } })
+            // Indented under their category, dividers too, so each category reads as one block.
+            Column(Modifier.fillMaxWidth().padding(start = ITEM_INDENT)) {
+                line.items.forEachIndexed { itemIndex, item ->
+                    if (itemIndex > 0) HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+                    ItemRow(
+                        item = item,
+                        original = line.originalItems.getOrNull(itemIndex) ?: item,
+                        myanmarDigits = myanmarDigits,
+                        onCount = { onCount(lineIndex, itemIndex, it) },
+                        onPrice = { onPrice(lineIndex, itemIndex, it) },
+                    )
+                }
             }
         }
+        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
     }
 }
 
@@ -118,27 +118,33 @@ internal fun ChangedNote(
     Text(note, style = BudgetWiseTheme.type.size14, color = BudgetWiseTheme.colors.muted, modifier = modifier)
 }
 
-/** The category's name and its live total over a hairline; with [onClick], a chevron and a tap to move its items. */
+/** The category's badge, name and live total; with [onClick], a chevron and a tap to move its items. */
 @Composable
-private fun CategoryHeader(line: ReviewLine, myanmarDigits: Boolean, onClick: (() -> Unit)?, modifier: Modifier = Modifier) {
+private fun CategoryHeader(line: ReviewLine, myanmarDigits: Boolean, onClick: (() -> Unit)?) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
-    Column(modifier.fillMaxWidth()) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
-                .padding(vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                SectionLabel(categoryLabel(line.category), Modifier.weight(1f, fill = false).semantics { heading() })
-                if (onClick != null) Icon(Lucide.ChevronDown, contentDescription = null, tint = colors.muted, modifier = Modifier.size(14.dp))
-            }
-            Text(formatKyat(line.amountKyat, myanmarDigits), style = type.size13.semibold, color = colors.ink, softWrap = false)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+            .padding(top = 14.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        CategoryBadge(line.category, contentDescription = null)
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            val name = categoryLabel(line.category)
+            Text(
+                name,
+                style = type.size16.semibold.forContent(name),
+                color = colors.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).semantics { heading() },
+            )
+            if (onClick != null) Icon(Lucide.ChevronDown, contentDescription = null, tint = colors.muted, modifier = Modifier.size(16.dp))
         }
-        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        Text(formatKyat(line.amountKyat, myanmarDigits), style = type.size16.semibold, color = colors.ink, softWrap = false)
     }
 }
 
@@ -164,7 +170,7 @@ private fun ItemRow(item: ScanItem, original: ScanItem, myanmarDigits: Boolean, 
             )
             Text(
                 formatKyat(item.amountKyat, myanmarDigits),
-                style = type.size15.semibold,
+                style = type.size15.medium,
                 color = if (left) colors.disabled else colors.ink,
                 softWrap = false,
             )
@@ -188,7 +194,7 @@ private fun ItemRow(item: ScanItem, original: ScanItem, myanmarDigits: Boolean, 
     }
 }
 
-/** What changed since the item was read: "was 2", "was 802 each", or "not added, was 1"; null when nothing did. */
+/** What changed since the item was read: "was 2", "was 802 each", or "not added"; null when nothing did. */
 @Composable
 private fun changeNote(item: ScanItem, was: ScanItem, myanmarDigits: Boolean): String? {
     val count = groupDigits(was.quantity.toLong(), myanmarDigits)
@@ -196,7 +202,7 @@ private fun changeNote(item: ScanItem, was: ScanItem, myanmarDigits: Boolean): S
     val countChanged = item.quantity != was.quantity
     val priceChanged = item.unitPriceKyat != was.unitPriceKyat
     return when {
-        item.quantity == 0 -> stringResource(R.string.item_not_added, count)
+        item.quantity == 0 -> stringResource(R.string.item_not_added)
         countChanged && priceChanged -> stringResource(R.string.item_was_both, count, each)
         countChanged -> stringResource(R.string.item_was_count, count)
         priceChanged -> stringResource(R.string.item_was_price, each)
@@ -288,3 +294,6 @@ private fun PriceField(price: Long, name: String, myanmarDigits: Boolean, onPric
         Text("Ks", style = type.size14.medium, color = colors.muted, softWrap = false)
     }
 }
+
+/** How far a category's items sit in from its badge. */
+private val ITEM_INDENT = 20.dp

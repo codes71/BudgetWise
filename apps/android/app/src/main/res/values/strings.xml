@@ -138,7 +138,6 @@
     </plurals>
     <string name="manual_description_count">%1$s/%2$s</string>
     <string name="manual_date">Date</string>
-    <string name="manual_date_change">Change date</string>
     <string name="manual_date_error_future">The date can\'t be in the future</string>
     <string name="manual_previous_month">Previous month</string>
     <string name="manual_next_month">Next month</string>
@@ -488,7 +487,7 @@
     <string name="item_was_count">was %1$s</string>
     <string name="item_was_price">was %1$s each</string>
     <string name="item_was_both">was %1$s × %2$s</string>
-    <string name="item_not_added">not added, was %1$s</string>
+    <string name="item_not_added">not added</string>
     <string name="item_fewer">One fewer</string>
     <string name="item_more">One more</string>
     <!-- TalkBack, an item's price field: "Price each of Fresh milk 1L". -->
