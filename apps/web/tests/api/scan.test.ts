@@ -6,6 +6,7 @@ import { req } from "../helpers/request";
 vi.mock("@/ai/generate", () => ({ generateStructured: vi.fn() }));
 import { generateStructured } from "@/ai/generate";
 import type { ScanOutput } from "@/ai/flows/scan-image";
+import { DeadlineError, RefusalError } from "@/ai/structured";
 
 const claude = vi.mocked(generateStructured);
 
@@ -105,6 +106,62 @@ describe("POST /api/v1/scan", () => {
     expect(prompt).toMatch(/Today is \d{4}-\d{2}-\d{2} in Myanmar/);
     expect(prompt).toContain("quantity is the count as printed");
     expect(prompt).toContain("unitPrice is the price of one as printed");
+    // Rules that must not be dropped later: an early way out for images that are not about money,
+    // day-first dates, and amounts never converted to kyat.
+    expect(prompt).toContain('{"kind":"unknown","reason":"not_money","entries":[]}');
+    expect(prompt).toContain("05/10/2026 is 5 October 2026");
+    expect(prompt).toContain("Never convert currencies or invent an exchange rate");
+    expect(prompt).toContain("A menu, price list or quotation is not a receipt");
+  });
+
+  it("gives the model one deadline, 50 s from arrival, and the request's signal", async () => {
+    reads({ kind: "unknown", entries: [] });
+    const before = Date.now();
+    await scan(tokenA);
+    const [{ deadlineAt, signal, flow }] = claude.mock.calls[0] as unknown as [
+      { deadlineAt: number; signal: AbortSignal; flow: string },
+    ];
+    expect(deadlineAt).toBeGreaterThanOrEqual(before + 50_000);
+    expect(deadlineAt).toBeLessThanOrEqual(Date.now() + 50_000);
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(flow).toBe("scan");
+  });
+
+  it("says why an image gave nothing, so the phone does not ask for a better photo of a screen", async () => {
+    reads({ kind: "unknown", reason: "not_money", entries: [] });
+    expect(await (await scan(tokenA)).json()).toEqual({ kind: "unknown", reason: "not_money", entries: [] });
+    reads({ kind: "receipt", currency: "THB", total: 350, entries: [{ type: "expense", amount: 350, category: "Food", description: "7-Eleven" }] });
+    expect(await (await scan(tokenA)).json()).toEqual({
+      kind: "unknown", reason: "foreign_currency", currency: "THB", entries: [],
+    });
+  });
+
+  it("logs one line per scan with timings and counts, never what was read", async () => {
+    const info = vi.spyOn(console, "log").mockImplementation(() => {});
+    reads({
+      kind: "receipt",
+      merchant: "Secret Shop",
+      date: "2026-10-20",
+      entries: [{ type: "expense", amount: 2500, category: "Groceries", description: "Secret Shop",
+        items: [{ name: "Secret Item", amount: 2500 }] }],
+    });
+    await scan(tokenA);
+    const lines = info.mock.calls.map(([l]) => JSON.parse(String(l)));
+    info.mockRestore();
+    const done = lines.find((l) => l.message === "Scan done");
+    expect(done.context).toMatchObject({
+      ms: expect.any(Number), mediaType: "image/jpeg", imageBytes: expect.any(Number),
+      kind: "receipt", keptKind: "receipt", rawEntries: 1, keptEntries: 1,
+    });
+    expect(JSON.stringify(lines)).not.toContain("Secret");
+  });
+
+  it("logs a rejected image by its code only", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await scan(tokenA, { image: PNG, mediaType: "image/jpeg" });
+    const lines = warn.mock.calls.map(([l]) => JSON.parse(String(l)));
+    warn.mockRestore();
+    expect(lines).toEqual([expect.objectContaining({ message: "Scan rejected", context: { status: 422, code: "invalid_image" } })]);
   });
 
   it("groups receipt line items into one entry per category", async () => {
@@ -278,7 +335,7 @@ describe("POST /api/v1/scan", () => {
       merchant: "???",
       entries: [{ type: "expense", amount: 100, category: "Other", description: "x", date: "2026-10-20" }],
     });
-    expect(await (await scan(tokenA)).json()).toEqual({ kind: "unknown", entries: [] });
+    expect(await (await scan(tokenA)).json()).toEqual({ kind: "unknown", reason: "unclear", entries: [] });
   });
 
   it("502 scan_failed when the AI fails, without leaking the error", async () => {
@@ -290,5 +347,48 @@ describe("POST /api/v1/scan", () => {
     const body = await res.json();
     expect(body.error.code).toBe("scan_failed");
     expect(JSON.stringify(body)).not.toContain("upstream detail");
+  });
+
+  it("422 scan_declined when the model declines, so the phone offers a new photo instead of resending this one", async () => {
+    const quiet = vi.spyOn(console, "warn").mockImplementation(() => {});
+    claude.mockRejectedValue(new RefusalError("Claude declined this request."));
+    const res = await scan(tokenA);
+    quiet.mockRestore();
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatchObject({ code: "scan_declined", message: expect.any(String) });
+  });
+
+  it("504 scan_timeout as JSON when the deadline runs out", async () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    claude.mockRejectedValue(new DeadlineError("Claude failed with no time left for OpenAI."));
+    const res = await scan(tokenA);
+    quiet.mockRestore();
+    expect(res.status).toBe(504);
+    const body = await res.json();
+    expect(body.error.code).toBe("scan_timeout");
+    expect(JSON.stringify(body)).not.toContain("OpenAI");
+  });
+
+  it("does not log a scan the phone gave up on as a failure", async () => {
+    const phone = new AbortController();
+    const r = new Request("http://localhost/api/v1/scan", {
+      method: "POST",
+      headers: { authorization: `Bearer ${tokenA}`, "content-type": "application/json" },
+      body: JSON.stringify({ image: JPEG, mediaType: "image/jpeg" }),
+      signal: phone.signal,
+    });
+    claude.mockImplementation(async () => {
+      phone.abort();
+      throw new Error("Request was aborted.");
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const info = vi.spyOn(console, "log").mockImplementation(() => {});
+    await SCAN(r);
+    const lines = info.mock.calls.map(([l]) => JSON.parse(String(l)).message);
+    const errors = error.mock.calls.length;
+    error.mockRestore();
+    info.mockRestore();
+    expect(errors).toBe(0);
+    expect(lines).toContain("Scan cancelled");
   });
 });
