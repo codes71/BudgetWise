@@ -24,6 +24,17 @@ export const registerSchema = z.object({
   fullName: z.string().trim().max(100).optional(),
 });
 
+// The most line items one entry carries, and the largest count of one item.
+export const MAX_ITEMS = 100;
+export const MAX_QUANTITY = 999;
+
+// One receipt line: `quantity` of `name` at `unitPrice` kyat each.
+export const entryItemSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  quantity: z.number().int().min(1).max(MAX_QUANTITY),
+  unitPrice: z.number().int().nonnegative().safe(),
+});
+
 export const transactionInputSchema = z.object({
   clientId: z.uuid({ version: "v4" }),
   type: z.enum(["expense", "income"]),
@@ -34,8 +45,13 @@ export const transactionInputSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .refine(isRealDate, "invalid calendar date"),
-  source: z.enum(["voice", "manual"]),
+  source: z.enum(["voice", "manual", "scan"]),
   transcript: z.string().max(2000).optional(),
+  // The entries saved from one scanned receipt share it.
+  receiptId: z.uuid({ version: "v4" }).optional(),
+  merchant: z.string().trim().min(1).max(100).optional(),
+  // Not checked against amount: discounts and tax lines make the two differ.
+  items: z.array(entryItemSchema).max(MAX_ITEMS).optional(),
 });
 
 export const transactionBatchSchema = z.object({

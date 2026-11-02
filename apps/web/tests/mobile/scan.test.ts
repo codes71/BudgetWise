@@ -197,6 +197,112 @@ describe("normalizeScan", () => {
     expect(out.entries[0].clientId).toBeUndefined();
   });
 
+  describe("receipt items", () => {
+    type RawItem = NonNullable<ScanOutput["entries"][number]["items"]>[number];
+    const items = (...lines: RawItem[]) =>
+      normalizeScan({ kind: "receipt", date: "2026-10-20", entries: [entry({ items: lines })] }, ctx).entries[0].items;
+
+    it("keeps the count and price as read when they make the line total", () => {
+      expect(items({ name: "Milk", amount: 2500, quantity: 2, unitPrice: 1250 })).toEqual([
+        { name: "Milk", amount: 2500, quantity: 2, unitPrice: 1250 },
+      ]);
+      expect(items({ name: "Bag", amount: 100, quantity: 1, unitPrice: 100 })).toEqual([
+        { name: "Bag", amount: 100, quantity: 1, unitPrice: 100 },
+      ]);
+    });
+
+    it("a line without a count is one item at the line total", () => {
+      expect(items({ name: "Eggs", amount: 2000 })).toEqual([{ name: "Eggs", amount: 2000, quantity: 1, unitPrice: 2000 }]);
+      expect(items({ name: "Eggs", amount: 2000, unitPrice: 500 })).toEqual([
+        { name: "Eggs", amount: 2000, quantity: 1, unitPrice: 2000 },
+      ]);
+    });
+
+    it("splits the line total over the count when the price is missing or disagrees and it divides evenly", () => {
+      expect(items({ name: "Soap", amount: 3000, quantity: 3 })).toEqual([
+        { name: "Soap", amount: 3000, quantity: 3, unitPrice: 1000 },
+      ]);
+      // A discount: 2 x 1500 printed, 2700 paid.
+      expect(items({ name: "Oil", amount: 2700, quantity: 2, unitPrice: 1500 })).toEqual([
+        { name: "Oil", amount: 2700, quantity: 2, unitPrice: 1350 },
+      ]);
+    });
+
+    it("falls back to one item at the line total when the total does not divide by the count", () => {
+      expect(items({ name: "Tea", amount: 2900, quantity: 3, unitPrice: 1000 })).toEqual([
+        { name: "Tea", amount: 2900, quantity: 1, unitPrice: 2900 },
+      ]);
+      // Rounding: 3 x 333.4 is not 1000 once the price is whole kyat.
+      expect(items({ name: "Gum", amount: 1000, quantity: 3, unitPrice: 333.4 })).toEqual([
+        { name: "Gum", amount: 1000, quantity: 1, unitPrice: 1000 },
+      ]);
+    });
+
+    it("treats a count that is not a whole number from 1 to 999 as missing", () => {
+      for (const quantity of [0, -2, 1.5, 1000, Number.NaN]) {
+        expect(items({ name: "Rice", amount: 3000, quantity, unitPrice: 2000 })).toEqual([
+          { name: "Rice", amount: 3000, quantity: 1, unitPrice: 3000 },
+        ]);
+      }
+    });
+
+    it("rounds the line total first, so quantity times unitPrice always equals amount", () => {
+      const out = items(
+        { name: "Bread", amount: 1200.6 },
+        { name: "Cake", amount: 3000.2, quantity: 2, unitPrice: 1500 },
+        { name: "Juice", amount: 1999.5, quantity: 2, unitPrice: 1000 },
+      )!;
+      expect(out).toEqual([
+        { name: "Bread", amount: 1201, quantity: 1, unitPrice: 1201 },
+        { name: "Cake", amount: 3000, quantity: 2, unitPrice: 1500 },
+        { name: "Juice", amount: 2000, quantity: 2, unitPrice: 1000 },
+      ]);
+      for (const i of out) expect(i.quantity * i.unitPrice).toBe(i.amount);
+    });
+
+    it("carries each item's count and price when entries of one category are merged", () => {
+      const out = normalizeScan(
+        {
+          kind: "receipt",
+          date: "2026-10-20",
+          entries: [
+            entry({ amount: 2500, items: [{ name: "Milk", amount: 2500, quantity: 2, unitPrice: 1250 }] }),
+            entry({ amount: 900, category: "Transport", items: [{ name: "Parking", amount: 900 }] }),
+            entry({ amount: 3000, category: "groceries", items: [{ name: "Soap", amount: 3000, quantity: 3 }] }),
+          ],
+        },
+        ctx,
+      ).entries;
+      expect(out).toHaveLength(2);
+      expect(out[0]).toMatchObject({
+        category: "Groceries",
+        amount: 5500,
+        items: [
+          { name: "Milk", amount: 2500, quantity: 2, unitPrice: 1250 },
+          { name: "Soap", amount: 3000, quantity: 3, unitPrice: 1000 },
+        ],
+      });
+      expect(out[1].items).toEqual([{ name: "Parking", amount: 900, quantity: 1, unitPrice: 900 }]);
+    });
+
+    it("lists at most 100 items per entry, the most a save accepts", () => {
+      const line = (n: number) => ({ name: `item ${n}`, amount: 100 });
+      const out = normalizeScan(
+        {
+          kind: "receipt",
+          date: "2026-10-20",
+          entries: [
+            entry({ items: Array.from({ length: 60 }, (_, n) => line(n)) }),
+            entry({ items: Array.from({ length: 60 }, (_, n) => line(60 + n)) }),
+          ],
+        },
+        ctx,
+      ).entries;
+      expect(out[0].items).toHaveLength(100);
+      expect(out[0].items![99].name).toBe("item 99");
+    });
+  });
+
   it("keeps only the first entry of a payment slip and drops items outside receipts", () => {
     const out = normalizeScan(
       { kind: "payment", entries: [entry({ items: [{ name: "x", amount: 1 }] }), entry({ amount: 7 })] },

@@ -103,6 +103,8 @@ describe("POST /api/v1/scan", () => {
     expect(prompt).toContain('"Groceries"');
     expect(prompt).toContain('"အလှူ"');
     expect(prompt).toMatch(/Today is \d{4}-\d{2}-\d{2} in Myanmar/);
+    expect(prompt).toContain("quantity is the count as printed");
+    expect(prompt).toContain("unitPrice is the price of one as printed");
   });
 
   it("groups receipt line items into one entry per category", async () => {
@@ -113,9 +115,9 @@ describe("POST /api/v1/scan", () => {
       total: 12650.4,
       entries: [
         { type: "expense", amount: 4500, category: "Groceries", description: "City Mart",
-          items: [{ name: "Milk", amount: 2500 }, { name: "Eggs", amount: 2000 }] },
+          items: [{ name: "Milk", amount: 2500, quantity: 2, unitPrice: 1250 }, { name: "Eggs", amount: 2000 }] },
         { type: "expense", amount: 3000, category: "Food and Drink Item", description: "City Mart",
-          items: [{ name: "Coffee", amount: 3000 }] },
+          items: [{ name: "Coffee", amount: 3000, quantity: 2, unitPrice: 1600 }] },
         { type: "expense", amount: 1200.6, category: "groceries", description: "City Mart",
           items: [{ name: "Bread", amount: 1200.6 }, { name: "", amount: 50 }] },
         { type: "expense", amount: 3950, category: "Snacks", description: "City Mart",
@@ -131,13 +133,51 @@ describe("POST /api/v1/scan", () => {
       total: 12650,
       entries: [
         { type: "expense", amount: 5701, category: "Groceries", description: "City Mart", date: "2026-10-20",
-          items: [{ name: "Milk", amount: 2500 }, { name: "Eggs", amount: 2000 }, { name: "Bread", amount: 1201 }] },
+          items: [
+            { name: "Milk", amount: 2500, quantity: 2, unitPrice: 1250 },
+            { name: "Eggs", amount: 2000, quantity: 1, unitPrice: 2000 },
+            { name: "Bread", amount: 1201, quantity: 1, unitPrice: 1201 },
+          ] },
+        // 2 x 1600 printed, 3000 paid after a discount: the price becomes 1500 each.
         { type: "expense", amount: 3000, category: "Food and Drink Item", description: "City Mart", date: "2026-10-20",
-          items: [{ name: "Coffee", amount: 3000 }] },
+          items: [{ name: "Coffee", amount: 3000, quantity: 2, unitPrice: 1500 }] },
         { type: "expense", amount: 3950, category: "Other", description: "City Mart", date: "2026-10-20",
-          items: [{ name: "ချိုချဉ်", amount: 3950 }] },
+          items: [{ name: "ချိုချဉ်", amount: 3950, quantity: 1, unitPrice: 3950 }] },
       ],
     });
+  });
+
+  it("saves a scanned receipt's entries with source scan, one receipt id, the merchant and the items", async () => {
+    reads({
+      kind: "receipt",
+      merchant: "City Mart",
+      date: "2026-10-20",
+      entries: [
+        { type: "expense", amount: 2500, category: "Groceries", description: "City Mart",
+          items: [{ name: "Milk", amount: 2500, quantity: 2, unitPrice: 1250 }] },
+        { type: "expense", amount: 900, category: "Transport", description: "City Mart",
+          items: [{ name: "Parking", amount: 900 }] },
+      ],
+    });
+    const body = await (await scan(tokenA)).json();
+    const receiptId = "9f1c2b3a-4d5e-4f60-8a7b-1c2d3e4f5a6b";
+    const transactions = body.entries.map((e: any, n: number) => ({
+      clientId: `00000000-0000-4000-8000-00000000000${n + 1}`,
+      type: e.type, amount: e.amount, category: e.category, description: e.description, date: e.date,
+      source: "scan", receiptId, merchant: body.merchant,
+      items: e.items.map(({ name, quantity, unitPrice }: any) => ({ name, quantity, unitPrice })),
+    }));
+    const res = await SAVE(req("POST", "/api/v1/transactions", { token: tokenA, body: { transactions } }));
+    expect(res.status).toBe(200);
+    const { saved } = await res.json();
+    expect(saved.map((t: any) => [t.source, t.receiptId, t.merchant])).toEqual([
+      ["scan", receiptId, "City Mart"],
+      ["scan", receiptId, "City Mart"],
+    ]);
+    expect(saved.map((t: any) => t.items)).toEqual([
+      [{ name: "Milk", quantity: 2, unitPrice: 1250 }],
+      [{ name: "Parking", quantity: 1, unitPrice: 900 }],
+    ]);
   });
 
   it("dates a receipt with no readable date today in Yangon and flags it as guessed", async () => {

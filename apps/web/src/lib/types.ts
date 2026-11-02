@@ -8,7 +8,7 @@ export interface Transaction {
   category: string;
   type: 'income' | 'expense';
   clientId?: string;
-  source?: 'voice' | 'manual' | 'web';
+  source?: 'voice' | 'manual' | 'scan' | 'web';
   transcript?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;

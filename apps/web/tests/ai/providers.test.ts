@@ -39,6 +39,9 @@ describe("strictSchema", () => {
     const entry = scan.properties.entries.items;
     expect(entry.properties.date.anyOf[1]).toEqual({ type: "null" });
     expect(entry.properties.amount.type).toBe("number");
+    const item = entry.properties.items.anyOf[0].items;
+    expect(item.properties.quantity).toMatchObject({ anyOf: [{ type: "number" }, { type: "null" }] });
+    expect(item.properties.unitPrice).toMatchObject({ anyOf: [{ type: "number" }, { type: "null" }] });
   });
 });
 
@@ -47,7 +50,7 @@ describe("withoutNulls", () => {
     const raw = {
       kind: "receipt", merchant: null, date: "2026-10-30", total: null,
       entries: [{ type: "expense", amount: 3000, category: "Food", description: "ကော်ဖီ", date: null,
-        reference: null, items: [{ name: "ကော်ဖီ", amount: 3000 }] }],
+        reference: null, items: [{ name: "ကော်ဖီ", amount: 3000, quantity: null, unitPrice: null }] }],
     };
     expect(ScanOutputSchema.parse(withoutNulls(raw, json(ScanOutputSchema)))).toEqual({
       kind: "receipt", date: "2026-10-30",
