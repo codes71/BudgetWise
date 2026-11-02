@@ -67,6 +67,8 @@ import app.budgetwise.ui.onboarding.FirstIncomeRoute
 import app.budgetwise.ui.onboarding.LanguageRoute
 import app.budgetwise.ui.onboarding.SetupVoiceRoute
 import app.budgetwise.ui.onboarding.WelcomeScreen
+import app.budgetwise.ui.receipt.ReceiptRoute
+import app.budgetwise.ui.receipt.ReceiptViewModel
 import app.budgetwise.ui.scan.ScanEvent
 import app.budgetwise.ui.scan.ScanRoute
 import app.budgetwise.ui.settings.SettingsRoute
@@ -89,8 +91,12 @@ object Routes {
     const val MANUAL = "manual"
     const val VOICE = "voice"
     const val SCAN = "scan"
+    const val RECEIPT = "receipt/{${ReceiptViewModel.RECEIPT_ID}}"
     const val BUDGETS = "budgets"
     const val SETTINGS = "settings"
+
+    /** [RECEIPT] for one scanned receipt, opened from its line in the list. */
+    fun receipt(receiptId: String) = "receipt/$receiptId"
 }
 
 /**
@@ -339,6 +345,9 @@ fun AppNav(
                     onAddManual = { navController.navigate(Routes.MANUAL) { launchSingleTop = true } },
                     onOpenVoice = ::openVoice,
                     onOpenScan = ::openScan,
+                    // Opens nothing yet: the screen that edits an entry comes next.
+                    onOpenEntry = {},
+                    onOpenReceipt = { navController.navigate(Routes.receipt(it)) { launchSingleTop = true } },
                     scanAdded = addedIds?.let { ScanAdded(it, handle.get<String>(SCAN_ADDED_FROM)) },
                     onScanAddedShown = {
                         handle.remove<ArrayList<String>>(SCAN_ADDED_IDS)
@@ -366,6 +375,10 @@ fun AppNav(
                     onSignIn = ::openSignIn,
                     onSaved = navController::closeScanSaved,
                 )
+            }
+            composable(Routes.RECEIPT) {
+                // Back, or once the receipt has no entries left; a second call (the screen already gone) does nothing.
+                ReceiptRoute(onClose = { if (navController.currentDestination?.route == Routes.RECEIPT) navController.popBackStack() })
             }
             composable(Routes.VOICE) {
                 VoiceRoute(

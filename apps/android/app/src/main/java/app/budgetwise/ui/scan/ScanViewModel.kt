@@ -18,6 +18,7 @@ import app.budgetwise.data.repo.TransactionRepository
 import app.budgetwise.data.text.BurmeseTextNormalizer
 import app.budgetwise.di.DeviceClock
 import app.budgetwise.nlu.TxType
+import app.budgetwise.ui.common.MAX_KYAT
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.LocalDate
@@ -58,17 +59,50 @@ enum class ScanStage { CAMERA, READING, PROBLEM, REVIEW }
 /**
  * One line of the review. On a receipt it is one category's share, with its items; on a KPay slip or history it is one
  * payment. Each kept line becomes its own entry.
+ *
+ * [originalKyat] and [originalItems] are the line as read (or as saved, when a receipt's items are changed later);
+ * [items] are the same items with the counts and prices the user set, in the same order.
  */
 data class ReviewLine(
     val type: TxType,
-    val amountKyat: Long,
+    val originalKyat: Long,
     val category: String,
     val description: String,
     val date: LocalDate,
     val clientId: String?,
     val items: List<ScanItem>,
     val kept: Boolean = true,
-)
+    val originalItems: List<ScanItem> = items,
+) {
+    /**
+     * What the line comes to: as read, moved by what the changed items add or take off. A part the items do not cover
+     * (the short-by amount put under Other) stays.
+     */
+    val amountKyat: Long
+        get() = (originalKyat + items.sumOf { it.amountKyat } - originalItems.sumOf { it.amountKyat }).coerceAtLeast(0)
+
+    /** How many items have another count or price than they were read with. */
+    val changedItems: Int get() = items.indices.count { items[it] != originalItems.getOrNull(it) }
+
+    /** The items an entry keeps: one left at 0 was not bought. */
+    val savedItems: List<ScanItem> get() = items.filter { it.quantity > 0 }
+
+    /** [count] of the item at [index], from 0 (left out) to [MAX_COUNT]. */
+    fun withCount(index: Int, count: Int): ReviewLine = withItem(index) { it.copy(quantity = count.coerceIn(0, MAX_COUNT)) }
+
+    /** The item at [index] at [price] kyat each. */
+    fun withPrice(index: Int, price: Long): ReviewLine = withItem(index) { it.copy(unitPriceKyat = price.coerceIn(0, MAX_KYAT)) }
+
+    private fun withItem(index: Int, change: (ScanItem) -> ScanItem): ReviewLine {
+        val item = items.getOrNull(index) ?: return this
+        return copy(items = items.toMutableList().also { it[index] = change(item) })
+    }
+
+    companion object {
+        /** The most of one item a receipt line takes, as the scan reads it. */
+        const val MAX_COUNT = 999
+    }
+}
 
 data class ScanUiState(
     val today: LocalDate,
@@ -85,15 +119,28 @@ data class ScanUiState(
     val saving: Boolean = false,
     val saveFailed: Boolean = false,
 ) {
-    val keptLines: List<ReviewLine> get() = lines.filter { it.kept }
+    /** The lines to save. A receipt line whose items were all set to 0 is not one. */
+    val keptLines: List<ReviewLine> get() = lines.filter { it.kept && it.amountKyat > 0 }
 
-    /** What the review adds up to; the receipt's printed total when it has one. Not shown for a KPay history. */
-    val shownTotal: Long get() = totalKyat ?: keptLines.sumOf { it.amountKyat }
+    /** Receipt items whose count or price the user changed. */
+    val changedItems: Int get() = lines.sumOf { it.changedItems }
 
-    /** How much the receipt's lines fall short of its printed total, so the rest can go under Other. */
+    /** What was read: the receipt's printed total, else what its lines came to. */
+    val scannedTotal: Long get() = totalKyat ?: lines.sumOf { it.originalKyat }
+
+    /**
+     * What the review adds up to: the receipt's printed total when it has one and no item was changed, else what the
+     * kept lines come to. Not shown for a KPay history.
+     */
+    val shownTotal: Long get() = totalKyat?.takeIf { changedItems == 0 } ?: keptLines.sumOf { it.amountKyat }
+
+    /**
+     * How much the receipt's lines fall short of its printed total, so the rest can go under Other. Once a count or a
+     * price was changed, the printed total no longer says what is missing.
+     */
     val shortBy: Long?
         get() {
-            if (kind != ScanKind.RECEIPT) return null
+            if (kind != ScanKind.RECEIPT || changedItems > 0) return null
             val total = totalKyat ?: return null
             return (total - lines.sumOf { it.amountKyat }).takeIf { it > 0 }
         }
@@ -223,7 +270,11 @@ class ScanViewModel @Inject constructor(
         } else {
             rest.toMutableList().also {
                 val into = it[joinAt]
-                it[joinAt] = into.copy(amountKyat = into.amountKyat + moved.amountKyat, items = into.items + moved.items)
+                it[joinAt] = into.copy(
+                    originalKyat = into.originalKyat + moved.originalKyat,
+                    items = into.items + moved.items,
+                    originalItems = into.originalItems + moved.originalItems,
+                )
             }
         }
         s.copy(lines = lines, saveFailed = false)
@@ -234,7 +285,7 @@ class ScanViewModel @Inject constructor(
         val short = s.shortBy ?: return@update s
         val at = s.lines.indexOfFirst { it.type == TxType.EXPENSE && it.category == OTHER }
         val lines = if (at >= 0) {
-            s.lines.toMutableList().also { it[at] = it[at].copy(amountKyat = it[at].amountKyat + short) }
+            s.lines.toMutableList().also { it[at] = it[at].copy(originalKyat = it[at].originalKyat + short) }
         } else {
             s.lines + ReviewLine(TxType.EXPENSE, short, OTHER, s.merchant ?: OTHER, s.date ?: s.today, null, emptyList())
         }
@@ -242,9 +293,17 @@ class ScanViewModel @Inject constructor(
     }
 
     /** A KPay history row in or out. */
-    fun toggle(index: Int) = _state.update { s ->
+    fun toggle(index: Int) = edit(index) { it.copy(kept = !it.kept) }
+
+    /** How many of a receipt item were bought: the item at [item] in the line at [line]; 0 leaves it out. */
+    fun setCount(line: Int, item: Int, count: Int) = edit(line) { it.withCount(item, count) }
+
+    /** A receipt item's price each, as typed. */
+    fun setPrice(line: Int, item: Int, price: Long) = edit(line) { it.withPrice(item, price) }
+
+    private fun edit(index: Int, change: (ReviewLine) -> ReviewLine) = _state.update { s ->
         val line = s.lines.getOrNull(index) ?: return@update s
-        s.copy(lines = s.lines.toMutableList().also { it[index] = line.copy(kept = !line.kept) }, saveFailed = false)
+        s.copy(lines = s.lines.toMutableList().also { it[index] = change(line) }, saveFailed = false)
     }
 
     /** Each kept line as its own entry. [describe] writes a receipt line's description in the app's language. */
@@ -260,7 +319,8 @@ class ScanViewModel @Inject constructor(
         val s = _state.value
         if (!s.canSave || s.kind != ScanKind.RECEIPT) return
         val largest = s.keptLines.maxBy { it.amountKyat }
-        val all = largest.copy(amountKyat = s.shownTotal, clientId = null, items = s.keptLines.flatMap { it.items })
+        val items = s.keptLines.flatMap { it.savedItems }
+        val all = largest.copy(originalKyat = s.shownTotal, clientId = null, items = items, originalItems = items)
         save(listOf(all.toNew(description, s.receiptOrNull())))
     }
 
@@ -280,7 +340,7 @@ class ScanViewModel @Inject constructor(
         clientId = clientId,
         receiptId = receipt?.first,
         merchant = receipt?.second,
-        items = if (receipt != null) items else emptyList(),
+        items = if (receipt != null) savedItems else emptyList(),
     )
 
     private fun save(inputs: List<NewTransaction>) {

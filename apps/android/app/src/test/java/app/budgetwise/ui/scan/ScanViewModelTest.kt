@@ -2,6 +2,7 @@ package app.budgetwise.ui.scan
 
 import android.graphics.Bitmap
 import app.budgetwise.ReceiptScanner
+import app.budgetwise.data.model.Source
 import app.budgetwise.data.net.ApiResult
 import app.budgetwise.data.net.NETWORK_ERROR_CODE
 import app.budgetwise.data.repo.CategoryRepository
@@ -134,6 +135,90 @@ class ScanViewModelTest {
         assertEquals(20650L, one.amountKyat)
         assertEquals("Groceries", one.category)
         assertEquals("City Mart", one.description)
+    }
+
+    @Test
+    fun changingCountsAndPricesMovesTheLinesAndTheTotal() = runTest {
+        val vm = viewModel()
+        vm.read(photo)
+
+        // Groceries is two items at 6,700; Other one at 1,550.
+        vm.setCount(0, 0, 2)
+        assertEquals(20100L, vm.state.value.lines[0].amountKyat)
+        assertEquals(1, vm.state.value.changedItems)
+
+        vm.setPrice(0, 1, 6000)
+        assertEquals(19400L, vm.state.value.lines[0].amountKyat)
+
+        vm.setCount(2, 0, 0)
+        val s = vm.state.value
+        assertEquals(0L, s.lines[2].amountKyat)
+        assertEquals(3, s.changedItems)
+        assertEquals("the line left at 0 is not saved", listOf("Groceries", "Food and Drink Item"), s.keptLines.map { it.category })
+        // The printed total gives way to what the lines now come to; what was scanned is still said.
+        assertEquals(19400L + 5700L, s.shownTotal)
+        assertEquals(20650L, s.scannedTotal)
+
+        vm.setCount(1, 0, 1000)
+        assertEquals(ReviewLine.MAX_COUNT, vm.state.value.lines[1].items[0].quantity)
+        vm.setCount(1, 0, -1)
+        assertEquals(0, vm.state.value.lines[1].items[0].quantity)
+    }
+
+    @Test
+    fun countingBackToWhatWasReadIsNoChange() = runTest {
+        val vm = viewModel()
+        vm.read(photo)
+
+        vm.setCount(0, 0, 3)
+        vm.setCount(0, 0, 1)
+
+        assertEquals(0, vm.state.value.changedItems)
+        assertEquals(20650L, vm.state.value.shownTotal)
+    }
+
+    @Test
+    fun aChangedItemPutsTheShortByNoticeAway() = runTest {
+        reply = ApiResult.Ok(receipt().copy(entries = receipt().entries.take(2)))
+        val vm = viewModel()
+        vm.read(photo)
+        assertEquals(1550L, vm.state.value.shortBy)
+
+        vm.setPrice(0, 0, 7000)
+
+        assertNull("the printed total no longer says what is missing", vm.state.value.shortBy)
+    }
+
+    @Test
+    fun theEntriesAreSavedWithTheChangedItems() = runTest {
+        val vm = viewModel()
+        vm.read(photo)
+
+        vm.setCount(0, 0, 2)
+        vm.setPrice(1, 1, 3000)
+        vm.setCount(2, 0, 0)
+        vm.addEntries { "City Mart, ${it.category}" }
+
+        assertEquals(listOf("Groceries", "Food and Drink Item"), store.added.map { it.category })
+        assertEquals(listOf(20100L, 5850L), store.added.map { it.amountKyat })
+        assertEquals(listOf(ScanItem("item 0", 2, 6700), ScanItem("item 1", 6700)), store.added[0].items)
+        assertEquals(listOf(ScanItem("item 0", 2850), ScanItem("item 1", 3000)), store.added[1].items)
+        assertEquals(setOf(Source.SCAN), store.added.map { it.source }.toSet())
+        assertEquals("one receipt", 1, store.added.map { it.receiptId }.toSet().size)
+    }
+
+    @Test
+    fun asOneEntryTheChangedTotalLeavesOutWhatIsAtZero() = runTest {
+        val vm = viewModel()
+        vm.read(photo)
+
+        vm.setCount(2, 0, 0)
+        vm.addAsOne("City Mart")
+
+        val one = store.added.single()
+        assertEquals(13400L + 5700L, one.amountKyat)
+        assertEquals(4, one.items.size)
+        assertEquals("City Mart", one.merchant)
     }
 
     @Test

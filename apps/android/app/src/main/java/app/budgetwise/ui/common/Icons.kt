@@ -88,6 +88,9 @@ object Lucide {
     /** Transactions (bottom bar). */
     val Receipt by lazy { lucide("Receipt", "M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z", "M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8", "M12 17.5v-11") }
 
+    /** A scanned receipt's entries, as one row of the list. */
+    val ReceiptText by lazy { lucide("ReceiptText", "M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z", "M14 8H8", "M16 12H8", "M13 16H8") }
+
     /** Budgets (bottom bar). */
     val Pie by lazy { lucide("Pie", "M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z", "M21.21 15.89A10 10 0 1 1 8 2.83") }
 
@@ -177,6 +180,9 @@ object Lucide {
 
     /** The Add pill's plus, drawn heavier (2.25) as on the boards. */
     val PlusBold by lazy { lucide("PlusBold", "M5 12h14", "M12 5v14", strokeWidth = 2.25f) }
+
+    /** A receipt item's count stepper, with [PlusBold]. */
+    val MinusBold by lazy { lucide("MinusBold", "M5 12h14", strokeWidth = 2.25f) }
 
     /** The type selector's arrows and the selected category's check, drawn at 2 as on the boards. */
     val ArrowUpRightBold by lazy { lucide("ArrowUpRightBold", "M7 7h10v10", "M7 17 17 7", strokeWidth = 2f) }

@@ -3,6 +3,7 @@ package app.budgetwise.ui.transactions
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -15,6 +16,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.test.core.app.ApplicationProvider
 import app.budgetwise.R
+import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.nlu.TxType
@@ -66,6 +68,8 @@ class TransactionsScreenTest {
         onOpenVoice: () -> Unit = {},
         onOpenScan: () -> Unit = {},
         scanAdded: ScanAdded? = null,
+        onOpenEntry: (String) -> Unit = {},
+        onOpenReceipt: (String) -> Unit = {},
         voiceSupported: Boolean = true,
         onWifi: Boolean = true,
     ): FakeTransactionStore {
@@ -86,6 +90,8 @@ class TransactionsScreenTest {
                     onAddManual = onAddManual,
                     onOpenVoice = onOpenVoice,
                     onOpenScan = onOpenScan,
+                    onOpenEntry = onOpenEntry,
+                    onOpenReceipt = onOpenReceipt,
                     scanAdded = scanAdded,
                     onScanAddedShown = {},
                     viewModel = vm,
@@ -169,6 +175,101 @@ class TransactionsScreenTest {
 
         assertTrue("a rotation must not end the Undo window", store.deleted.isEmpty())
         assertEquals(rice.clientId, vm.state.value.pendingDelete)
+    }
+
+    private fun receiptEntry(category: String, amount: Long, receiptId: String = "r1", merchant: String? = "Ocean Supercenter") =
+        testTransaction("$merchant, $category", amount, today, category = category)
+            .copy(source = Source.SCAN, receiptId = receiptId, merchant = merchant)
+
+    @Test
+    fun eachRowSaysHowItWasAdded() {
+        show(
+            listOf(
+                testTransaction("Bus to Sule", 600, today, category = "Transport").copy(source = Source.VOICE),
+                testTransaction("Yangon Bakehouse", 2500, today, category = "Other").copy(source = Source.SCAN),
+                testTransaction("Rice", 20000, today),
+            ),
+        )
+
+        val byVoice = text(R.string.transactions_by_voice)
+        val scanned = text(R.string.scan_scanned)
+        compose.onNode(hasText("Bus to Sule") and hasContentDescription(byVoice)).assertIsDisplayed()
+        compose.onNode(hasText("Yangon Bakehouse") and hasContentDescription(scanned)).assertIsDisplayed()
+        // Typed in: no mark.
+        compose.onNode(hasText("Rice") and (hasContentDescription(byVoice) or hasContentDescription(scanned))).assertDoesNotExist()
+        compose.onNode(hasText("Rice") and hasText(text(R.string.category_groceries))).assertIsDisplayed()
+    }
+
+    @Test
+    fun aReceiptIsOneRowThatOpensTheReceipt() {
+        val rice = testTransaction("Rice", 3600, today)
+        val opened = mutableListOf<String>()
+        val entries = mutableListOf<String>()
+        show(
+            listOf(receiptEntry("Groceries", 16307), receiptEntry("Other", 30000), rice),
+            onOpenReceipt = { opened += it },
+            onOpenEntry = { entries += it },
+        )
+
+        compose.onNode(hasText("Ocean Supercenter") and hasText("Receipt · 2 entries")).assertIsDisplayed()
+        compose.onNodeWithText("−46,307 Ks").assertIsDisplayed()
+        compose.onNodeWithText("Ocean Supercenter, Groceries").assertDoesNotExist()
+        // The day's total still counts every entry.
+        compose.onNodeWithText("−49,907 Ks").assertIsDisplayed()
+
+        compose.onNodeWithText("Ocean Supercenter").performClick()
+        compose.onNodeWithText("Rice").performClick()
+
+        assertEquals(listOf("r1"), opened)
+        assertEquals(listOf(rice.clientId), entries)
+    }
+
+    @Test
+    fun aReceiptScannedAgainAsksIfItWasScannedTwice() {
+        show(
+            listOf(
+                receiptEntry("Groceries", 16307).copy(updatedAt = clock.instant()),
+                receiptEntry("Other", 30000).copy(updatedAt = clock.instant()),
+                receiptEntry("Groceries", 46307, receiptId = "r2").copy(updatedAt = clock.instant().plusSeconds(60)),
+            ),
+        )
+
+        compose.onAllNodesWithText("Ocean Supercenter").assertCountEquals(2)
+        compose.onNodeWithText(text(R.string.receipt_scanned_twice)).assertIsDisplayed()
+        compose.onNodeWithText("Receipt · 2 entries").assertIsDisplayed()
+        compose.onNodeWithText("Receipt · 1 entry").assertDoesNotExist()
+    }
+
+    @Test
+    fun swipingAReceiptAwayUndoBringsBackAllItsEntries() {
+        val rows = listOf(receiptEntry("Groceries", 16307), receiptEntry("Other", 30000))
+        val store = show(rows)
+
+        compose.onNodeWithText("Ocean Supercenter").performTouchInput { swipeLeft() }
+
+        compose.onNodeWithText(text(R.string.receipt_deleted)).assertIsDisplayed()
+        compose.onNodeWithText("Ocean Supercenter, 46,307 Ks").assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.transactions_undo)).performClick()
+        compose.mainClock.advanceTimeBy(1_000)
+
+        compose.onNodeWithText("Ocean Supercenter").assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(15_000)
+        compose.waitForIdle()
+        assertTrue(store.deleted.isEmpty())
+        assertEquals(rows, store.rows.value)
+    }
+
+    @Test
+    fun swipingAReceiptAwayDeletesAllItsEntriesWhenTheNoticeEnds() {
+        val rows = listOf(receiptEntry("Groceries", 16307), receiptEntry("Other", 30000))
+        val store = show(rows)
+
+        compose.onNodeWithText("Ocean Supercenter").performTouchInput { swipeLeft() }
+        compose.mainClock.advanceTimeBy(15_000)
+        compose.waitForIdle()
+
+        assertEquals(rows.map { it.clientId }.toSet(), store.deleted.toSet())
+        compose.onNodeWithText("Ocean Supercenter").assertDoesNotExist()
     }
 
     @Test

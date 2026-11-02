@@ -408,7 +408,6 @@
     <string name="scan_scanned">Scanned</string>
     <string name="scan_no_date">Today. No date on the receipt</string>
     <string name="scan_total">Total</string>
-    <string name="scan_split">Split by category</string>
     <string name="scan_split_note">Tap a category to change it. Each one becomes its own entry.</string>
     <string name="scan_history_note">Tap a payment to leave it out.</string>
     <string name="scan_short_title">Items are %1$s Ks short</string>
@@ -432,6 +431,44 @@
     </plurals>
     <string name="scan_added_from">From your %1$s receipt</string>
     <string name="scan_added_from_photo">From your photo</string>
+    <!-- Changing a receipt's items, on Check the receipt and from a saved receipt's Change items. -->
+    <plurals name="scan_changed">
+        <item quantity="one">Scanned %1$s Ks. You changed %2$d item.</item>
+        <item quantity="other">Scanned %1$s Ks. You changed %2$d items.</item>
+    </plurals>
+    <!-- What an item was before it was changed: "was 2", "was 802 each", "was 2 × 802". -->
+    <string name="item_was_count">was %1$s</string>
+    <string name="item_was_price">was %1$s each</string>
+    <string name="item_was_both">was %1$s × %2$s</string>
+    <string name="item_not_added">not added, was %1$s</string>
+    <string name="item_fewer">One fewer</string>
+    <string name="item_more">One more</string>
+    <!-- TalkBack, an item's price field: "Price each of Fresh milk 1L". -->
+    <string name="item_price">Price each of %1$s</string>
+    <!-- A scanned receipt: one row in the list, and its own screen. -->
+    <string name="receipt_title">Receipt</string>
+    <plurals name="receipt_row_entries">
+        <item quantity="one">Receipt · %d entry</item>
+        <item quantity="other">Receipt · %d entries</item>
+    </plurals>
+    <string name="receipt_scanned_twice">Scanned twice?</string>
+    <string name="receipt_deleted">Receipt deleted</string>
+    <!-- TalkBack, the mic before an entry's category. -->
+    <string name="transactions_by_voice">Added by voice</string>
+    <plurals name="receipt_entries">
+        <item quantity="one">%d entry from this receipt</item>
+        <item quantity="other">%d entries from this receipt</item>
+    </plurals>
+    <!-- An item bought more than once: "2 × 4,500". -->
+    <string name="receipt_item_count">%1$s × %2$s</string>
+    <string name="receipt_note">Tap an entry to change its category. Change items to fix a count or a price; the entries follow.</string>
+    <string name="receipt_delete">Delete this receipt</string>
+    <string name="receipt_change_items">Change items</string>
+    <plurals name="receipt_changed">
+        <item quantity="one">Saved as %1$s Ks. You changed %2$d item.</item>
+        <item quantity="other">Saved as %1$s Ks. You changed %2$d items.</item>
+    </plurals>
+    <string name="receipt_save">Save changes</string>
     <string name="voice_unsupported_title">Voice isn\'t available on this phone</string>
     <string name="voice_unsupported_body">Voice works out what you say on the phone itself, which needs at least %1$s GB of memory. This phone has less, so voice is off. You can still type every entry.</string>
     <string name="settings_voice_unsupported_detail">Voice needs at least %1$s GB of memory, more than this phone has.</string>
