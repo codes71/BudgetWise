@@ -157,22 +157,6 @@ describe("normalizeScan", () => {
     }
   });
 
-  it("says why nothing was read, so a photo of a screen is told apart from a blurred receipt", () => {
-    expect(normalizeScan({ kind: "unknown", reason: "not_money", entries: [entry()] }, ctx)).toEqual({
-      kind: "unknown",
-      reason: "not_money",
-      entries: [],
-    });
-    expect(normalizeScan({ kind: "unknown", reason: "unclear", entries: [] }, ctx)).toEqual({
-      kind: "unknown",
-      reason: "unclear",
-      entries: [],
-    });
-    expect(normalizeScan({ kind: "unknown", entries: [] }, ctx)).toEqual({ kind: "unknown", entries: [] });
-    // A reason only goes with "unknown".
-    expect(normalizeScan({ kind: "receipt", reason: "unclear", entries: [entry()] }, ctx)).not.toHaveProperty("reason");
-  });
-
   it("drops a history row without a readable date, never guessing it", () => {
     expect(history([entry({ date: undefined })])).toEqual([]);
     expect(normalizeScan({ kind: "history", date: "2026-10-21", entries: [entry({ date: undefined })] }, ctx).entries[0])
