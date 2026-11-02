@@ -14,8 +14,10 @@ import app.budgetwise.data.auth.AuthBindingsModule
 import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.auth.StoredSession
 import app.budgetwise.data.auth.TokenStore
+import app.budgetwise.data.model.EntryItem
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
+import app.budgetwise.data.model.Transaction
 import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.repo.TransactionRepository
@@ -27,6 +29,7 @@ import app.budgetwise.testing.FakeTokenStore
 import app.budgetwise.testing.FakeTransactionStore
 import app.budgetwise.testing.MainDispatcherRule
 import app.budgetwise.testing.TestUser
+import app.budgetwise.testing.testTransaction
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -49,6 +52,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -366,5 +370,213 @@ class AddManualViewModelTest {
         // No network in the test: the sync waits in WorkManager for a connection instead of running.
         val work = WorkManager.getInstance(context).getWorkInfosForUniqueWork(SyncScheduler.UNIQUE_WORK).get()
         assertEquals(listOf(WorkInfo.State.ENQUEUED), work.map { it.state })
+    }
+
+    /** The user's ledger, newest first as Room lists it. */
+    private val history = listOf(
+        testTransaction("Tea shop", 1_200, today, category = "Food and Drink Item"),
+        testTransaction("Bus to Sule", 600, today, category = "Transport"),
+        // An older entry of the same description: only the newest one is offered.
+        testTransaction("tea  shop", 1_500, today.minusDays(1), category = "Other"),
+        testTransaction("Top-up", 5_000, today.minusDays(2), category = "Utilities"),
+        testTransaction("Mohinga", 1_500, today.minusDays(3), category = "Food and Drink Item"),
+        testTransaction("Salary", 850_000, today.minusDays(4), type = TxType.INCOME, category = CategoryRepository.INCOME),
+    )
+
+    private fun AddManualUiState.recentDescriptions() = recent.map { it.description }
+
+    @Test
+    fun recentEntriesAreTheNewestDescriptionsOfTheTypeMatchingWhatIsTyped() = runTest {
+        store.rows.value = history
+        val vm = vm()
+
+        assertEquals(listOf("Tea shop", "Bus to Sule", "Top-up"), vm.state.value.recentDescriptions())
+
+        // Case does not matter, and only entries with what is typed in them are left.
+        vm.onDescriptionChange("U")
+        assertEquals(listOf("Bus to Sule", "Top-up"), vm.state.value.recentDescriptions())
+
+        vm.onDescriptionChange("")
+        vm.onTypeChange(TxType.INCOME)
+        assertEquals(listOf("Salary"), vm.state.value.recentDescriptions())
+    }
+
+    @Test
+    fun aDescriptionUsedBeforePicksItsCategoryUntilTheUserPicksOne() = runTest {
+        store.rows.value = history
+        val vm = vm()
+
+        vm.onDescriptionChange(" mohinga ")
+        assertEquals("Food and Drink Item", vm.state.value.category)
+        assertEquals("Mohinga", vm.state.value.categoryFrom)
+
+        // The pick stays while the user goes on typing; another match replaces it.
+        vm.onDescriptionChange("Mohinga with Ko Aung")
+        assertEquals("Food and Drink Item", vm.state.value.category)
+        assertEquals("Mohinga", vm.state.value.categoryFrom)
+        vm.onDescriptionChange("bus to SULE")
+        assertEquals("Transport", vm.state.value.category)
+        assertEquals("Bus to Sule", vm.state.value.categoryFrom)
+
+        // The user's tap wins, now and for whatever is typed next.
+        vm.onCategoryChange("Other")
+        assertNull(vm.state.value.categoryFrom)
+        vm.onDescriptionChange("Tea shop")
+        assertEquals("Other", vm.state.value.category)
+        assertNull(vm.state.value.categoryFrom)
+    }
+
+    @Test
+    fun aRecentEntryFillsInTheForm() = runTest {
+        store.rows.value = history
+        val vm = vm()
+
+        vm.onRecentPick(vm.state.value.recent.single { it.description == "Bus to Sule" })
+
+        val s = vm.state.value
+        assertEquals("Bus to Sule", s.description)
+        assertEquals("600", s.amountDigits)
+        assertEquals("Transport", s.category)
+        assertEquals("Bus to Sule", s.categoryFrom)
+        assertTrue(s.canSave)
+        // Filled in already: it is not offered again.
+        assertTrue(s.recent.isEmpty())
+        vm.save()
+        assertEquals(NewTransaction(TxType.EXPENSE, 600, "Transport", "Bus to Sule", today, Source.MANUAL, transcript = null), store.added.single())
+    }
+
+    @Test
+    fun addIncomeStartsTheFormAsIncome() = runTest {
+        val vm = vm(saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_INCOME to true)))
+
+        assertEquals(TxType.INCOME, vm.state.value.type)
+        assertFalse(vm.state.value.editing)
+    }
+
+    private val lunch = testTransaction("Lunch with Ko Aung", 3_600, today.minusDays(2), category = "Food and Drink Item")
+        .copy(source = Source.VOICE, transcript = "နေ့လယ်စာ သုံးထောင့်ခြောက်ရာ")
+
+    private fun editing(entry: Transaction, saved: SavedStateHandle = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to entry.clientId))): AddManualViewModel {
+        store.rows.value = listOf(entry) + history
+        return vm(saved = saved)
+    }
+
+    @Test
+    fun anEntryOpensInTheFormAsItIs() = runTest {
+        val s = editing(lunch).state.value
+
+        assertTrue(s.editing)
+        assertTrue(s.loaded)
+        assertEquals(Source.VOICE, s.source)
+        assertEquals(TxType.EXPENSE, s.type)
+        assertEquals("3600", s.amountDigits)
+        assertEquals("Food and Drink Item", s.category)
+        assertEquals("Lunch with Ko Aung", s.description)
+        assertEquals(today.minusDays(2), s.date)
+        assertTrue(s.canSave)
+        // Nothing is offered over an entry that is filled in, and its description picks no category.
+        assertTrue(s.recent.isEmpty())
+        assertNull(s.categoryFrom)
+    }
+
+    @Test
+    fun savingAChangeReplacesTheEntryAndKeepsHowItWasAdded() = runTest {
+        val scanned = testTransaction("Ocean Supercenter, Groceries", 46_307, today, category = "Groceries").copy(
+            source = Source.SCAN,
+            receiptId = "receipt-1",
+            merchant = "Ocean Supercenter",
+            items = listOf(EntryItem("Rice", 2, 15_000), EntryItem("Eggs", 16_307)),
+        )
+        val vm = editing(scanned)
+        val events = events(vm)
+
+        vm.onAmountChange("46000")
+        vm.onCategoryChange("Food and Drink Item")
+        vm.onDateChange(today.minusDays(1))
+        vm.save()
+
+        val changed = NewTransaction(
+            type = TxType.EXPENSE,
+            amountKyat = 46_000,
+            category = "Food and Drink Item",
+            description = "Ocean Supercenter, Groceries",
+            date = today.minusDays(1),
+            source = Source.SCAN,
+            transcript = null,
+            receiptId = "receipt-1",
+            merchant = "Ocean Supercenter",
+            items = scanned.items,
+        )
+        assertEquals(listOf(listOf(scanned.clientId) to listOf(changed)), store.replaced)
+        assertTrue(store.added.isEmpty())
+        assertEquals(listOf(AddManualEvent.Saved), events)
+    }
+
+    @Test
+    fun aSaidEntryKeepsItsTranscriptAndCanBecomeIncome() = runTest {
+        val vm = editing(lunch)
+        vm.onTypeChange(TxType.INCOME)
+        vm.save()
+
+        val (old, new) = store.replaced.single()
+        assertEquals(listOf(lunch.clientId), old)
+        assertEquals(
+            NewTransaction(TxType.INCOME, 3_600, CategoryRepository.INCOME, lunch.description, lunch.date, Source.VOICE, transcript = lunch.transcript),
+            new.single(),
+        )
+    }
+
+    @Test
+    fun savingWithNothingChangedLeavesTheEntryAlone() = runTest {
+        val vm = editing(lunch)
+        val events = events(vm)
+
+        vm.save()
+
+        assertTrue(store.replaced.isEmpty())
+        assertEquals(listOf(AddManualEvent.Saved), events)
+    }
+
+    @Test
+    fun deleteRemovesTheEntryAndCloses() = runTest {
+        val vm = editing(lunch)
+        val events = events(vm)
+
+        vm.delete()
+
+        assertEquals(listOf(lunch.clientId), store.deleted)
+        assertEquals(listOf(AddManualEvent.Gone), events)
+    }
+
+    @Test
+    fun anEntryThatIsGoneClosesTheForm() = runTest {
+        val vm = vm(saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to "gone")))
+        val events = events(vm)
+
+        assertEquals(listOf(AddManualEvent.Gone), events)
+        assertFalse(vm.state.value.loaded)
+        assertFalse(vm.state.value.canSave)
+        vm.delete()
+        vm.save()
+        assertTrue(store.deleted.isEmpty())
+        assertTrue(store.replaced.isEmpty())
+    }
+
+    @Test
+    fun aChangeInProgressSurvivesProcessDeath() = runTest {
+        val saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to lunch.clientId))
+        val before = editing(lunch, saved)
+        before.onAmountChange("4200")
+
+        val restoredHandle = SavedStateHandle(saved.keys().associateWith { saved.get<Any>(it) })
+        val after = vm(saved = restoredHandle)
+
+        // The user's change stays; the entry is read again only for what the form does not show.
+        assertEquals("4200", after.state.value.amountDigits)
+        assertEquals(Source.VOICE, after.state.value.source)
+        after.save()
+        assertNotNull(store.replaced.singleOrNull())
+        assertEquals(4_200L, store.replaced.single().second.single().amountKyat)
+        assertEquals(lunch.transcript, store.replaced.single().second.single().transcript)
     }
 }

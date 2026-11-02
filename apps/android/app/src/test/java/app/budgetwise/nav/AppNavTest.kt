@@ -125,13 +125,60 @@ class AppNavTest {
         compose.onNodeWithText(text(R.string.nav_budgets)).assertIsDisplayed()
     }
 
+    private fun openAddSheet() {
+        compose.onNode(hasText(text(R.string.action_add)) and hasClickAction()).performClick()
+        compose.onNodeWithText(text(R.string.add_scan_detail)).assertIsDisplayed()
+    }
+
     @Test
-    fun theAddPillOpensTheForm() {
+    fun theAddPillOpensTheSheetAndTypeItOpensTheForm() {
         showApp()
 
-        compose.onNode(hasText(text(R.string.action_add)) and hasClickAction()).performClick()
+        openAddSheet()
+        // This phone has the memory for voice, so Say it is offered.
+        compose.onNodeWithText(text(R.string.add_say_it_example)).assertIsDisplayed()
+        compose.onNode(hasText(text(R.string.add_type_it)) and hasClickAction()).performClick()
+
         compose.onNodeWithText(text(R.string.manual_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.add_scan_detail)).assertDoesNotExist()
         compose.onNodeWithText(text(R.string.nav_budgets)).assertDoesNotExist()
+    }
+
+    @Test
+    fun addIncomeOpensTheFormAsIncomeAndClosingItLeavesTheSheetClosed() {
+        showApp()
+
+        openAddSheet()
+        compose.onNode(hasText(text(R.string.add_income)) and hasClickAction()).performClick()
+        compose.onNodeWithText(text(R.string.manual_income_note)).assertIsDisplayed()
+
+        compose.onNodeWithContentDescription(text(R.string.action_close)).performClick()
+        compose.onNodeWithText(text(R.string.nav_budgets)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.add_scan_detail)).assertDoesNotExist()
+    }
+
+    @Test
+    fun theAddPillWorksFromBudgetsToo() {
+        showApp()
+
+        compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
+        openAddSheet()
+        compose.onNode(hasText(text(R.string.scan_entry)) and hasClickAction()).assertIsDisplayed()
+    }
+
+    @Test
+    fun anEntryThatIsGoneClosesTheEditForm() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme { AppNav(session = session.state.collectAsState().value, navController = nav) }
+        }
+
+        assertEquals("edit/a%20b", Routes.editEntry("a b"))
+        compose.runOnIdle { nav.navigate(Routes.editEntry("gone")) }
+        // Room answers on its own thread that there is no such entry, and the form closes.
+        compose.waitUntil(5_000) { compose.runOnIdle { nav.currentDestination?.route } == Routes.TRANSACTIONS }
+        assertEquals(listOf(Routes.TRANSACTIONS), compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } })
     }
 
     @Test

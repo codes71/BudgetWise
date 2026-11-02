@@ -130,6 +130,9 @@ object Lucide {
     /** Type an entry in. */
     val Pencil by lazy { lucide("Pencil", "M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z") }
 
+    /** The Add sheet's Type it, and an entry that was typed in. */
+    val Keyboard by lazy { lucide("Keyboard", "M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-16a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2Z", "M6 9h.01", "M10 9h.01", "M14 9h.01", "M18 9h.01", "M8 15h8") }
+
     /** Take a photo of a receipt. */
     val Camera by lazy { lucide("Camera", "M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z", "M9 13a3 3 0 1 0 6 0a3 3 0 1 0 -6 0Z") }
 

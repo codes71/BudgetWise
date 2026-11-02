@@ -118,7 +118,7 @@
     <string name="spending_other_collapsed">Collapsed</string>
 
     <!-- Add entry -->
-    <string name="manual_title">Add entry</string>
+    <string name="manual_title">New entry</string>
     <string name="action_close">Close</string>
     <string name="action_ok">OK</string>
     <string name="manual_expense">Expense</string>
@@ -148,6 +148,28 @@
     <string name="manual_saving">Saving…</string>
     <string name="manual_save_failed">Couldn\'t save this entry</string>
     <string name="manual_save_failed_detail">Nothing was lost. Tap Save to try again.</string>
+    <string name="manual_edit_title">Edit entry</string>
+    <!-- How a saved entry was added, under the Edit entry title -->
+    <string name="manual_source_voice">Said</string>
+    <string name="manual_source_scan">Scanned</string>
+    <string name="manual_source_manual">Typed</string>
+    <string name="manual_source_web">From the web</string>
+    <string name="manual_description_clear">Clear</string>
+    <!-- %1$s is the past entry's description: Picked from “Mohinga” -->
+    <string name="manual_picked_from">Picked from “%1$s”</string>
+    <string name="manual_day_other">Other day</string>
+    <!-- %1$s is the amount: Save 4,500 Ks -->
+    <string name="manual_save_amount">Save %1$s Ks</string>
+    <string name="manual_save_changes">Save changes</string>
+    <string name="manual_delete">Delete entry</string>
+    <string name="manual_delete_failed">Couldn\'t delete this entry</string>
+    <string name="manual_delete_failed_detail">It\'s still here. Tap Delete entry to try again.</string>
+
+    <!-- The Add sheet: how to add an entry -->
+    <string name="add_scan_detail">Every item read and sorted.\nKPay screens too.</string>
+    <string name="add_say_it_example">“Bus to Sule, 600”</string>
+    <string name="add_type_it">Type it</string>
+    <string name="add_income">Add income</string>
 
     <!-- Budgets (%1$s is a month's name in budgets_spent_in) -->
     <string name="budgets_title">Budgets</string>
@@ -384,8 +406,6 @@
     <string name="setup_voice_download_on_wifi">Download on Wi-Fi</string>
     <!-- Receipt scanning: camera, reading, problems, and Check the receipt. -->
     <string name="scan_entry">Scan a receipt</string>
-    <!-- The add form's half-width button, beside Say it. -->
-    <string name="scan_short">Scan</string>
     <string name="first_expense_scan_detail">Shop receipts and KPay slips</string>
     <string name="scan_hint">Fit the whole receipt in the frame</string>
     <string name="scan_choose_photo">Choose a photo</string>
