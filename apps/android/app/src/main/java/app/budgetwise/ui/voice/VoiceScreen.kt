@@ -72,6 +72,7 @@ import app.budgetwise.R
 import app.budgetwise.data.repo.VoiceEntry
 import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.PermissionMemory
 import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.SageRule
 import app.budgetwise.ui.common.SectionLabel
@@ -102,19 +103,27 @@ fun VoiceRoute(
     val activity = LocalActivity.current
     fun micGranted() =
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    val memory = remember(context) { PermissionMemory(context, Manifest.permission.RECORD_AUDIO) }
     val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        memory.answered(granted, rationale = activity?.shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO) == true)
         if (granted) {
             viewModel.listen()
         } else {
-            // After a second "Don't allow", Android stops asking: only Settings can allow it.
-            viewModel.micDenied(canAsk = activity?.shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO) == true)
+            // After a second "Don't allow", Android stops asking: only Settings can allow it. A dismissed dialog was
+            // no answer, so Allow asks again.
+            viewModel.micDenied(canAsk = !memory.blocked)
         }
+    }
+    // Each ask follows a tap (Say it, or Allow), so a refusal faster than anyone could answer was Android's own.
+    val ask = {
+        memory.tapped()
+        askMic.launch(Manifest.permission.RECORD_AUDIO)
     }
     val saved by rememberUpdatedState(onSaved)
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
-                VoiceEvent.NeedMic -> if (micGranted()) viewModel.listen() else askMic.launch(Manifest.permission.RECORD_AUDIO)
+                VoiceEvent.NeedMic -> if (micGranted()) viewModel.listen() else ask()
                 VoiceEvent.Saved -> saved()
             }
         }
@@ -122,6 +131,7 @@ fun VoiceRoute(
     // Back from the app's settings with the microphone allowed: start listening.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         val problem = (viewModel.state.value.phase as? VoicePhase.Problem)?.problem
+        if (micGranted()) memory.allowed()
         if (problem is VoiceProblem.MicDenied && micGranted()) viewModel.listen()
     }
     VoiceScreen(
@@ -133,7 +143,7 @@ fun VoiceRoute(
             onTypeInstead = onTypeInstead,
             onRetry = viewModel::retry,
             onTurnOnVoice = viewModel::turnOnVoice,
-            onAllowMic = { askMic.launch(Manifest.permission.RECORD_AUDIO) },
+            onAllowMic = ask,
             onOpenAppSettings = {
                 context.startActivity(
                     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))

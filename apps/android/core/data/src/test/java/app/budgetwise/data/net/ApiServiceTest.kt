@@ -69,6 +69,21 @@ class ApiServiceTest {
     }
 
     @Test
+    fun tooManyRequestsCarriesItsRetryAfter() = runBlocking {
+        server.enqueue(json(429, """{"error":{"code":"rate_limited","message":"slow down"}}""").setHeader("Retry-After", " 1800 "))
+        server.enqueue(json(429, """{"error":{"code":"rate_limited","message":"slow down"}}"""))
+        server.enqueue(json(429, "{}").setHeader("Retry-After", "90"))
+        server.enqueue(json(429, "{}").setHeader("Retry-After", "Wed, 21 Oct 2026 07:28:00 GMT"))
+
+        val withHeader = safeApi { api().categories(auth) } as ApiResult.Failure
+        assertEquals(1800L, withHeader.retryAfterSec)
+        assertTrue(withHeader.retryable)
+        assertNull((safeApi { api().categories(auth) } as ApiResult.Failure).retryAfterSec)
+        assertEquals(90L, (safeApiResponse { api().delete(auth, "x") } as ApiResult.Failure).retryAfterSec)
+        assertNull("only seconds are read", (safeApi { api().categories(auth) } as ApiResult.Failure).retryAfterSec)
+    }
+
+    @Test
     fun http5xxAndIOExceptionAreRetryable() = runBlocking {
         server.enqueue(json(500, """{"error":{"code":"internal","message":"boom"}}"""))
         val serverError = safeApi { api().categories(auth) } as ApiResult.Failure

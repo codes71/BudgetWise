@@ -1,6 +1,8 @@
 package app.budgetwise.ui.scan
 
 import android.graphics.Bitmap
+import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
 import app.budgetwise.ReceiptScanner
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.net.ApiResult
@@ -10,23 +12,31 @@ import app.budgetwise.data.repo.ScanEntry
 import app.budgetwise.data.repo.ScanItem
 import app.budgetwise.data.repo.ScanKind
 import app.budgetwise.data.repo.ScanReading
+import app.budgetwise.data.repo.TransactionRepository
 import app.budgetwise.nlu.TxType
 import app.budgetwise.testing.FakeCategorySource
+import app.budgetwise.testing.FakeNetworkStatus
 import app.budgetwise.testing.FakeSettingsStore
 import app.budgetwise.testing.FakeTransactionStore
 import app.budgetwise.testing.MainDispatcherRule
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,17 +55,60 @@ class ScanViewModelTest {
 
     private var reply: ApiResult<ScanReading> = ApiResult.Ok(receipt())
     private val sent = mutableListOf<ByteArray>()
+
+    /** The server never answers (a stalled upload): the read is only ended by its time limit or Cancel. */
+    private var hang = false
     private val scanner = ReceiptScanner { image, _ ->
         sent += image
+        if (hang) awaitCancellation()
         reply
     }
+    private val network = FakeNetworkStatus(online = false)
+    private val photos = FakeScanPhotos()
+    private val camera = Bitmap.createBitmap(4, 3, Bitmap.Config.ARGB_8888)
 
-    private fun viewModel() = ScanViewModel(
-        scanner, store, FakeCategorySource(), FakeSettingsStore(), Clock.fixed(today.atStartOfDay(zone).toInstant(), zone),
+    private fun viewModel(saved: SavedStateHandle = SavedStateHandle()) = ScanViewModel(
+        scanner, store, FakeCategorySource(), FakeSettingsStore(), network, photos, saved,
+        Clock.fixed(today.atStartOfDay(zone).toInstant(), zone),
     )
 
-    private fun entry(category: String, amount: Long, items: Int) = ScanEntry(
-        TxType.EXPENSE, amount, category, "City Mart", day, dateGuessed = false, clientId = null,
+    /** What the phone keeps when it closes BudgetWise: the saved state as it was, and the photo on disk. */
+    private fun afterProcessDeath(saved: SavedStateHandle) =
+        viewModel(SavedStateHandle(saved.keys().associateWith { saved.get<Any>(it) }))
+
+    /** [ScanPhotos] in memory: the "disk" outlives a view model, as the cache file outlives the process. */
+    private class FakeScanPhotos : ScanPhotos {
+        var opened: OpenedPhoto? = null
+        var dark = false
+        var failure: Throwable? = null
+        var gate: CompletableDeferred<Unit>? = null
+        var prepared = 0
+        var disk: ByteArray? = null
+
+        override suspend fun open(uri: Uri) = opened ?: OpenedPhoto.Photo(Bitmap.createBitmap(3, 4, Bitmap.Config.ARGB_8888))
+
+        override suspend fun tooDark(bitmap: Bitmap) = dark
+
+        override suspend fun prepare(bitmap: Bitmap): PreparedPhoto {
+            prepared++
+            gate?.await()
+            failure?.let { throw it }
+            return PreparedPhoto(byteArrayOf(9, 9), bitmap)
+        }
+
+        override suspend fun keep(bytes: ByteArray) {
+            disk = bytes
+        }
+
+        override suspend fun kept() = disk?.let { PreparedPhoto(it, Bitmap.createBitmap(4, 3, Bitmap.Config.ARGB_8888)) }
+
+        override fun drop() {
+            disk = null
+        }
+    }
+
+    private fun entry(category: String, amount: Long, items: Int, date: LocalDate = day) = ScanEntry(
+        TxType.EXPENSE, amount, category, "City Mart", date, dateGuessed = false, clientId = null,
         items = List(items) { ScanItem("item $it", amount / items) },
     )
 
@@ -178,15 +231,129 @@ class ScanViewModelTest {
     }
 
     @Test
-    fun aChangedItemPutsTheShortByNoticeAway() = runTest {
+    fun theShortByNoticeFollowsWhatTheItemsComeToNow() = runTest {
         reply = ApiResult.Ok(receipt().copy(entries = receipt().entries.take(2)))
         val vm = viewModel()
         vm.read(photo)
         assertEquals(1550L, vm.state.value.shortBy)
 
-        vm.setPrice(0, 0, 7000)
+        // Changes that leave the lines' sum as it was: still short, and still addable.
+        vm.setCount(0, 0, 2)
+        vm.setCount(0, 1, 0)
+        assertEquals(2, vm.state.value.changedItems)
+        assertEquals(1550L, vm.state.value.shortBy)
 
-        assertNull("the printed total no longer says what is missing", vm.state.value.shortBy)
+        // The misread price corrected (2,850 was 4,400): the lines meet the total, and nothing is left to add.
+        vm.setCount(0, 0, 1)
+        vm.setCount(0, 1, 1)
+        vm.setPrice(1, 0, 4400)
+        assertNull(vm.state.value.shortBy)
+        assertNull(vm.state.value.overBy)
+        vm.addShortAsOther()
+        assertEquals("no Other line", 2, vm.state.value.lines.size)
+    }
+
+    @Test
+    fun linesOverThePrintedTotalSaySoAndTheTotalIsWhatIsSaved() = runTest {
+        // A bill discount the read missed: the items come to 20,650, the receipt says 19,000.
+        reply = ApiResult.Ok(receipt(total = 19000))
+        val vm = viewModel()
+        vm.read(photo)
+
+        val s = vm.state.value
+        assertEquals(1650L, s.overBy)
+        assertNull("nothing to add as Other", s.shortBy)
+        assertEquals(20650L, s.shownTotal)
+
+        vm.addEntries { "City Mart, ${it.category}" }
+        assertEquals(s.shownTotal, store.added.sumOf { it.amountKyat })
+    }
+
+    @Test
+    fun asOneEntryTheAmountIsTheTotalShown() = runTest {
+        reply = ApiResult.Ok(receipt(total = 19000))
+        val vm = viewModel()
+        vm.read(photo)
+
+        vm.addAsOne("City Mart")
+
+        assertEquals(vm.state.value.shownTotal, store.added.single().amountKyat)
+        assertEquals(20650L, store.added.single().amountKyat)
+    }
+
+    @Test
+    fun aReceiptsEntriesAllTakeOneDate() = runTest {
+        // No date on the receipt, and the read gave its lines two (each line dated on its own).
+        val tomorrow = day.plusDays(1)
+        reply = ApiResult.Ok(
+            ScanReading(
+                ScanKind.RECEIPT, "City Mart", null, 20650,
+                listOf(entry("Groceries", 13400, 2), entry("Food and Drink Item", 5700, 2, date = tomorrow)),
+            ),
+        )
+        val vm = viewModel()
+        vm.read(photo)
+
+        // The missing 1,550 as Other takes the receipt's date too, not the phone's today.
+        vm.addShortAsOther()
+        assertEquals(day, vm.state.value.lines.last().date)
+        vm.addEntries { "City Mart, ${it.category}" }
+
+        assertEquals(3, store.added.size)
+        assertEquals(setOf(day), store.added.map { it.date }.toSet())
+    }
+
+    @Test
+    fun asOneEntryTheReceiptKeepsItsDate() = runTest {
+        reply = ApiResult.Ok(
+            ScanReading(
+                ScanKind.RECEIPT, "City Mart", null, null,
+                listOf(entry("Groceries", 13400, 2, date = day.plusDays(1)), entry("Other", 1550, 1)),
+            ),
+        )
+        val vm = viewModel()
+        vm.read(photo)
+
+        vm.addAsOne("City Mart")
+
+        assertEquals(day.plusDays(1), store.added.single().date)
+    }
+
+    @Test
+    fun aReceiptWithMoreItemsThanAnEntryKeepsIsNotOneEntry() = runTest {
+        reply = ApiResult.Ok(
+            ScanReading(
+                ScanKind.RECEIPT, "City Mart", day, null,
+                listOf(entry("Groceries", 40000, 40), entry("Household", 40000, 40), entry("Other", 40000, 40)),
+            ),
+        )
+        val vm = viewModel()
+        vm.read(photo)
+        assertFalse("120 items, more than ${TransactionRepository.MAX_ITEMS}", vm.state.value.canAddAsOne)
+
+        vm.addAsOne("City Mart")
+        assertTrue("nothing is cut down to 100 items", store.added.isEmpty())
+
+        // Every Other item left out: that line is not saved, and the 80 items left fit one entry.
+        repeat(40) { vm.setCount(2, it, 0) }
+        assertTrue(vm.state.value.canAddAsOne)
+    }
+
+    @Test
+    fun aMoveThatWouldMakeALineTooLongKeepsItApart() = runTest {
+        reply = ApiResult.Ok(
+            ScanReading(ScanKind.RECEIPT, "City Mart", day, null, listOf(entry("Groceries", 60000, 60), entry("Household", 60000, 60))),
+        )
+        val vm = viewModel()
+        vm.read(photo)
+
+        vm.move(1, "Groceries")
+
+        val lines = vm.state.value.lines
+        assertEquals(listOf("Groceries", "Groceries"), lines.map { it.category })
+        assertEquals(listOf(60, 60), lines.map { it.items.size })
+        vm.addEntries { "City Mart, ${it.category}" }
+        assertEquals(listOf(60, 60), store.added.map { it.items.size })
     }
 
     @Test
@@ -251,15 +418,76 @@ class ScanViewModelTest {
             ApiResult.Failure("rate_limited", "slow down", retryable = true) to ScanProblem.TOO_MANY,
             ApiResult.Failure("scan_failed", "could not read", retryable = true) to ScanProblem.SERVER,
             ApiResult.Failure("http_503", "down", retryable = true) to ScanProblem.SERVER,
+            // None of these is the photo's fault: a reply the phone cannot read, a deployment without /scan, a
+            // firewall's HTML page, a body the server refused.
+            ApiResult.Failure("bad_response", "Unexpected server response", retryable = false) to ScanProblem.SERVER,
+            ApiResult.Failure("http_404", "HTTP 404", retryable = false) to ScanProblem.SERVER,
+            ApiResult.Failure("http_403", "HTTP 403", retryable = false) to ScanProblem.SERVER,
+            ApiResult.Failure("validation_failed", "bad body", retryable = false) to ScanProblem.SERVER,
+            ApiResult.Failure("invalid_image", "not a JPEG", retryable = false) to ScanProblem.UNREADABLE,
             ApiResult.Unauthorized("expired") to ScanProblem.SIGN_IN,
+            // A photo of a computer screen: no receipt in it at all.
+            ApiResult.Ok(ScanReading(ScanKind.UNKNOWN, null, null, null, emptyList(), notMoney = true)) to ScanProblem.NOT_A_RECEIPT,
+            // A receipt too blurred to read, and an older server that gives no reason.
             ApiResult.Ok(ScanReading(ScanKind.UNKNOWN, null, null, null, emptyList())) to ScanProblem.UNREADABLE,
+            // A receipt the server read, none of whose entries the phone could use.
+            ApiResult.Ok(ScanReading(ScanKind.RECEIPT, "City Mart", null, 5000, emptyList())) to ScanProblem.UNREADABLE,
         )
         for ((result, problem) in cases) {
             reply = result
             vm.read(photo)
             assertEquals(ScanStage.PROBLEM, vm.state.value.stage)
             assertEquals(problem, vm.state.value.problem)
+            if (problem == ScanProblem.SERVER) assertSame("kept for Try again", photo, vm.photo)
         }
+    }
+
+    @Test
+    fun aDroppedConnectionOnAPhoneThatIsOnlineIsSlowNotOffline() = runTest {
+        network.online.value = true
+        reply = ApiResult.Failure(NETWORK_ERROR_CODE, "timeout", retryable = true)
+        val vm = viewModel()
+        vm.read(photo)
+
+        assertEquals(ScanProblem.SLOW, vm.state.value.problem)
+        assertSame(photo, vm.photo)
+    }
+
+    @Test
+    fun aLongReadSaysSoAndEndsAfterItsLimitWithThePhotoKept() = runTest {
+        hang = true
+        val vm = viewModel()
+        vm.read(photo)
+        assertEquals(ScanStage.READING, vm.state.value.stage)
+        assertFalse(vm.state.value.slow)
+
+        advanceTimeBy(ScanViewModel.SLOW_NOTICE.inWholeMilliseconds + 1)
+        assertTrue("still reading, and it can take a minute", vm.state.value.slow)
+        assertEquals(ScanStage.READING, vm.state.value.stage)
+
+        advanceTimeBy((ScanViewModel.READ_LIMIT - ScanViewModel.SLOW_NOTICE).inWholeMilliseconds)
+        assertEquals(ScanProblem.SLOW, vm.state.value.problem)
+        assertFalse(vm.state.value.slow)
+
+        hang = false
+        vm.tryAgain()
+        assertEquals(ScanStage.REVIEW, vm.state.value.stage)
+        assertEquals("the same photo, sent again", listOf(photo.bytes, photo.bytes), sent)
+    }
+
+    @Test
+    fun tooManyScansCountsDownToTryAgain() = runTest {
+        reply = ApiResult.Failure("rate_limited", "slow down", retryable = true, retryAfterSec = 90)
+        val vm = viewModel()
+        vm.read(photo)
+        assertEquals(ScanProblem.TOO_MANY, vm.state.value.problem)
+        assertEquals(2, vm.state.value.waitMinutes)
+
+        advanceTimeBy(30_001)
+        assertEquals(1, vm.state.value.waitMinutes)
+        advanceTimeBy(60_000)
+        assertNull("Try again is back", vm.state.value.waitMinutes)
+        assertEquals(ScanProblem.TOO_MANY, vm.state.value.problem)
     }
 
     @Test
@@ -279,13 +507,146 @@ class ScanViewModelTest {
     }
 
     @Test
-    fun aPhotoThatCannotBeOpenedSaysSoAndSendsNothing() = runTest {
+    fun aChosenPhotoThatCannotBeUsedSaysWhyAndSendsNothing() = runTest {
         val vm = viewModel()
 
-        vm.cannotOpen()
+        photos.opened = OpenedPhoto.TooLong
+        vm.picked(Uri.EMPTY)
+        assertEquals(ScanProblem.TOO_LONG, vm.state.value.problem)
+
+        // Choose another photo, from the card.
+        photos.opened = OpenedPhoto.CannotOpen
+        vm.picked(Uri.EMPTY)
+        assertEquals(ScanProblem.CANNOT_OPEN, vm.state.value.problem)
+
+        photos.opened = OpenedPhoto.Photo(camera)
+        photos.failure = OutOfMemoryError("a huge picture")
+        vm.picked(Uri.EMPTY)
+        assertEquals("out of memory is caught, not a crash", ScanProblem.CANNOT_OPEN, vm.state.value.problem)
+        assertEquals(0, sent.size)
+
+        photos.failure = null
+        vm.picked(Uri.EMPTY)
+        assertEquals(ScanStage.REVIEW, vm.state.value.stage)
+        assertEquals(1, sent.size)
+    }
+
+    @Test
+    fun aCameraPhotoTooDarkToReadIsNotSent() = runTest {
+        photos.dark = true
+        val vm = viewModel()
+
+        vm.captured(camera)
+
+        assertEquals(ScanProblem.TOO_DARK, vm.state.value.problem)
+        assertNull(vm.photo)
+        assertEquals(0, sent.size)
+    }
+
+    @Test
+    fun aFailedCaptureSaysSoOnTheCamera() = runTest {
+        val vm = viewModel()
+        vm.captureFailed()
+        assertEquals(ScanStage.CAMERA, vm.state.value.stage)
+        assertTrue(vm.state.value.captureFailed)
+
+        // The photo could not be encoded: back to the camera, which says so.
+        photos.failure = java.io.IOException("could not encode")
+        vm.captured(camera)
+        assertEquals(ScanStage.CAMERA, vm.state.value.stage)
+        assertTrue(vm.state.value.captureFailed)
+
+        photos.failure = null
+        vm.captured(camera)
+        assertFalse(vm.state.value.captureFailed)
+        assertEquals(ScanStage.REVIEW, vm.state.value.stage)
+    }
+
+    @Test
+    fun onePhotoAtATimeAndCancelWhilePreparingSendsNothing() = runTest {
+        photos.gate = CompletableDeferred()
+        val vm = viewModel()
+
+        vm.captured(camera)
+        assertEquals(ScanStage.PREPARING, vm.state.value.stage)
+        // A second tap's photo while the first is being prepared.
+        vm.captured(camera)
+        vm.picked(Uri.EMPTY)
+        assertEquals(1, photos.prepared)
+
+        vm.retake()
+        photos.gate!!.complete(Unit)
+        assertEquals(ScanStage.CAMERA, vm.state.value.stage)
+        assertEquals("the finished preparation does not start a read", 0, sent.size)
+    }
+
+    @Test
+    fun aReviewWithItsChangesComesBackAfterThePhoneClosedBudgetWise() = runTest {
+        val saved = SavedStateHandle()
+        val vm = viewModel(saved)
+        vm.captured(camera)
+        vm.setCount(0, 0, 2)
+        vm.setPrice(1, 1, 3000)
+        vm.move(2, "Groceries")
+        val before = vm.state.value
+
+        val restored = afterProcessDeath(saved).state.value
+
+        assertEquals(ScanStage.REVIEW, restored.stage)
+        assertEquals("each count, price and original item", before.lines, restored.lines)
+        assertEquals(before.changedItems, restored.changedItems)
+        assertEquals(before.shownTotal, restored.shownTotal)
+        assertEquals(20650L, restored.totalKyat)
+        assertEquals("City Mart", restored.merchant)
+        assertEquals(day, restored.date)
+        assertFalse(restored.saving)
+        assertNotNull(restored.photo)
+    }
+
+    @Test
+    fun aReadThePhoneCutOffComesBackWithTryAgainNotSentAgain() = runTest {
+        hang = true
+        val saved = SavedStateHandle()
+        viewModel(saved).captured(camera)
+        assertEquals(1, sent.size)
+
+        val vm = afterProcessDeath(saved)
 
         assertEquals(ScanStage.PROBLEM, vm.state.value.stage)
-        assertEquals(ScanProblem.UNREADABLE, vm.state.value.problem)
-        assertEquals(0, sent.size)
+        assertEquals(ScanProblem.INTERRUPTED, vm.state.value.problem)
+        assertEquals("each send counts toward the hour's 20", 1, sent.size)
+        hang = false
+        vm.tryAgain()
+        assertEquals(ScanStage.REVIEW, vm.state.value.stage)
+        assertEquals(listOf(9, 9), sent.last().map { it.toInt() })
+    }
+
+    @Test
+    fun withoutItsPhotoACutOffReadStartsAgainAtTheCamera() = runTest {
+        hang = true
+        val saved = SavedStateHandle()
+        viewModel(saved).captured(camera)
+        photos.disk = null
+
+        assertEquals(ScanStage.CAMERA, afterProcessDeath(saved).state.value.stage)
+    }
+
+    @Test
+    fun nothingIsKeptOnceTheEntriesAreSavedOrTheScanIsDropped() = runTest {
+        val saved = SavedStateHandle()
+        val vm = viewModel(saved)
+        vm.captured(camera)
+        assertNotNull(photos.disk)
+
+        vm.addEntries { "City Mart, ${it.category}" }
+
+        assertNull("the receipt photo is deleted", photos.disk)
+        assertTrue("nothing to bring back", saved.keys().isEmpty())
+        assertEquals(ScanStage.CAMERA, afterProcessDeath(saved).state.value.stage)
+
+        val again = viewModel()
+        again.captured(camera)
+        again.retake()
+        assertNull(photos.disk)
     }
 }

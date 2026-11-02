@@ -15,6 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.TorchState
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.view.CameraController
@@ -29,7 +30,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -51,7 +52,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -80,21 +81,21 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Observer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
 import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.PermissionMemory
 import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.Spinner
 import app.budgetwise.ui.common.TextAction
+import app.budgetwise.ui.common.groupDigits
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.bold
 import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.tracked
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Receipt scanning from the camera to the saved entries. [onEnterYourself] opens the add form instead; [onSaved]
@@ -113,53 +114,59 @@ fun ScanRoute(
     LaunchedEffect(viewModel) {
         viewModel.events.collect { if (it is ScanEvent.Saved) saved(it) }
     }
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    // Shrinking a photo takes a moment; the reading card shows from the shutter on.
-    var preparing by remember { mutableStateOf(false) }
     // The camera is asked for once per scan, not again each time the viewfinder comes back after a card.
     var cameraAsked by rememberSaveable { mutableStateOf(false) }
-    fun prepareAndRead(load: () -> Bitmap?) {
-        preparing = true
-        scope.launch {
-            val prepared = withContext(Dispatchers.Default) {
-                try {
-                    load()?.let(PhotoPrep::prepare)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    null // Out of memory on a huge picture, or a file that is not an image after all.
-                }
-            }
-            preparing = false
-            // A photo that could not be opened says so, instead of the camera coming back as if nothing happened.
-            if (prepared != null) viewModel.read(prepared) else viewModel.cannotOpen()
-        }
-    }
+    // Here, not in the camera, so a problem card can open it too and its answer arrives after the activity is recreated.
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(viewModel::picked) }
+    val pick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
 
-    // Back from a card or the review returns to the camera; from the camera it leaves scanning.
-    BackHandler(enabled = state.stage != ScanStage.CAMERA) { viewModel.retake() }
+    // Back from a card or the photo being prepared returns to the camera; from the camera it leaves scanning. The review
+    // asks first (its own BackHandler), as going back drops what was read.
+    BackHandler(enabled = state.stage != ScanStage.CAMERA && state.stage != ScanStage.REVIEW) { viewModel.retake() }
 
     when (state.stage) {
-        ScanStage.CAMERA -> CameraStage(
-            busy = preparing,
+        ScanStage.CAMERA, ScanStage.PREPARING -> CameraStage(
+            preparing = state.stage == ScanStage.PREPARING,
+            captureFailed = state.captureFailed,
             asked = cameraAsked,
             onAsked = { cameraAsked = true },
             onClose = onClose,
-            onCaptured = { bitmap -> scope.launch { prepareAndRead { bitmap } } },
-            onPicked = { uri -> prepareAndRead { PhotoPrep.fromUri(context, uri) } },
+            ready = { viewModel.state.value.stage == ScanStage.CAMERA },
+            onCaptured = viewModel::captured,
+            onCaptureFailed = viewModel::captureFailed,
+            onPick = pick,
+            onCancel = viewModel::retake,
         )
-        ScanStage.READING, ScanStage.PROBLEM -> PhotoBackdrop(viewModel.photo?.bitmap, onClose) {
+        ScanStage.READING, ScanStage.PROBLEM -> PhotoBackdrop(state.photo?.bitmap, onClose) {
             val problem = state.problem
             if (state.stage == ScanStage.READING || problem == null) {
-                ReadingCard(onCancel = viewModel::retake)
+                ReadingCard(
+                    slow = state.slow,
+                    onCancel = viewModel::retake,
+                    // Stops the read first: it would otherwise keep running, and counting, behind the add form.
+                    onEnterYourself = {
+                        viewModel.retake()
+                        onEnterYourself()
+                    },
+                )
             } else {
-                ProblemCard(problem, onTryAgain = viewModel::tryAgain, onRetake = viewModel::retake, onEnterYourself, onSignIn)
+                ProblemCard(
+                    problem = problem,
+                    waitMinutes = state.waitMinutes,
+                    myanmarDigits = state.myanmarDigits,
+                    onTryAgain = viewModel::tryAgain,
+                    onRetake = viewModel::retake,
+                    onPick = pick,
+                    onEnterYourself = onEnterYourself,
+                    onSignIn = onSignIn,
+                )
             }
         }
         ScanStage.REVIEW -> ScanReview(
             state = state,
+            // The X leaves scanning altogether; back goes to the camera. Both ask first.
             onClose = onClose,
+            onRetake = viewModel::retake,
             onMove = viewModel::move,
             onAddShort = viewModel::addShortAsOther,
             onToggle = viewModel::toggle,
@@ -178,37 +185,51 @@ private val OnCamera = Color(0xFFF9FAFB)
 private val OnCameraMuted = Color(0xFFB8BEC6)
 
 /**
- * The viewfinder with the sage frame and the hint, then Choose a photo and the shutter. Without the camera
+ * The viewfinder with the sage frame and the hint, then Choose a photo, the shutter and the light. Without the camera
  * permission, a card asks for it; choosing a photo works either way (the system picker needs no permission).
- * [onCaptured] gets the upright photo, or null when the capture could not be turned into one.
+ * [onCaptured] gets the upright photo on the main thread; [onCaptureFailed] when the shutter gave none. [ready] says,
+ * at the moment of a tap, whether a photo is wanted. While [preparing], the viewfinder stays (leaving it would stop the
+ * camera) under a busy card that [onCancel] closes.
  */
 @Composable
 private fun CameraStage(
-    busy: Boolean,
+    preparing: Boolean,
+    captureFailed: Boolean,
     asked: Boolean,
     onAsked: () -> Unit,
     onClose: () -> Unit,
-    onCaptured: (Bitmap?) -> Unit,
-    onPicked: (Uri) -> Unit,
+    ready: () -> Boolean,
+    onCaptured: (Bitmap) -> Unit,
+    onCaptureFailed: () -> Unit,
+    onPick: () -> Unit,
+    onCancel: () -> Unit,
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val type = BudgetWiseTheme.type
+    val main = remember(context) { ContextCompat.getMainExecutor(context) }
+    val memory = remember(context) { PermissionMemory(context, Manifest.permission.CAMERA) }
     fun hasCamera() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     var granted by remember { mutableStateOf(hasCamera()) }
+    var blocked by remember { mutableStateOf(memory.blocked) }
     // Allowed in the app's settings while BudgetWise waited in the background: check again on the way back.
     LifecycleResumeEffect(Unit) {
         granted = hasCamera()
+        if (granted) memory.allowed()
+        blocked = memory.blocked
         onPauseOrDispose { }
     }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         granted = it
+        memory.answered(it, rationale = activity?.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) == true)
+        blocked = memory.blocked
         onAsked()
     }
-    LaunchedEffect(Unit) { if (!granted && !asked) permission.launch(Manifest.permission.CAMERA) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(onPicked) }
-    val pick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+    LaunchedEffect(Unit) { if (!granted && !asked && !blocked) permission.launch(Manifest.permission.CAMERA) }
+    // From the shutter until the photo reaches the ViewModel: a second tap would take, and send, a second photo.
+    var capturing by remember { mutableStateOf(false) }
+    val busy = preparing || capturing
 
     val controller = remember {
         LifecycleCameraController(context).apply {
@@ -222,19 +243,50 @@ private fun CameraStage(
     }
     DisposableEffect(granted, lifecycleOwner) {
         if (granted) controller.bindToLifecycle(lifecycleOwner)
-        onDispose { controller.unbind() }
+        onDispose {
+            controller.enableTorch(false)
+            controller.unbind()
+        }
     }
-    val shoot = {
-        controller.takePicture(
-            Dispatchers.Default.asExecutor(),
-            object : ImageCapture.OnImageCapturedCallback() {
-                // Turned into a bitmap here, on the capture thread, so the image is always closed.
-                override fun onCaptureSuccess(image: ImageProxy) = onCaptured(runCatching { PhotoPrep.fromCapture(image) }.getOrNull())
+    // The light, when the camera has one; its icon follows what the camera reports, not what was last tapped.
+    var hasLight by remember { mutableStateOf(false) }
+    var lightOn by remember { mutableStateOf(false) }
+    DisposableEffect(controller, lifecycleOwner) {
+        val observer = Observer<Int> {
+            lightOn = it == TorchState.ON
+            hasLight = controller.cameraInfo?.hasFlashUnit() == true
+        }
+        controller.torchState.observe(lifecycleOwner, observer)
+        onDispose { controller.torchState.removeObserver(observer) }
+    }
+    val shoot = shoot@{
+        // Read now, not from busy: two taps can land before the screen redraws, and the ViewModel is already preparing
+        // the first photo when the flag clears.
+        if (capturing || !ready()) return@shoot
+        capturing = true
+        val callback = object : ImageCapture.OnImageCapturedCallback() {
+            // Turned into a bitmap here, on the capture thread, so the image is always closed; then to the ViewModel on
+            // the main thread, which outlives this screen if the phone is turned meanwhile.
+            override fun onCaptureSuccess(image: ImageProxy) {
+                val bitmap = runCatching { PhotoPrep.fromCapture(image) }.getOrNull()
+                main.execute {
+                    if (bitmap != null) onCaptured(bitmap) else onCaptureFailed()
+                    capturing = false
+                }
+            }
 
-                // A failed capture leaves the viewfinder as it was; the user takes it again.
-                override fun onError(exception: ImageCaptureException) = Unit
-            },
-        )
+            override fun onError(exception: ImageCaptureException) = main.execute {
+                capturing = false
+                onCaptureFailed()
+            }
+        }
+        try {
+            controller.takePicture(Dispatchers.Default.asExecutor(), callback)
+        } catch (_: IllegalStateException) {
+            // "Camera not initialized": tapped before the camera started, or it could not start.
+            capturing = false
+            onCaptureFailed()
+        }
     }
 
     Column(Modifier.fillMaxSize().background(CameraBar)) {
@@ -251,15 +303,17 @@ private fun CameraStage(
             } else {
                 CameraOff(
                     modifier = Modifier.align(Alignment.Center),
+                    blocked = blocked,
                     onAllow = {
-                        val again = activity?.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) == true
-                        if (!asked || again) {
-                            permission.launch(Manifest.permission.CAMERA)
-                        } else {
+                        if (blocked) {
                             // Refused twice: only the app's settings can allow it now.
                             context.startActivity(
                                 Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
                             )
+                        } else {
+                            // A dismissed dialog was no answer: ask again.
+                            memory.tapped()
+                            permission.launch(Manifest.permission.CAMERA)
                         }
                     },
                 )
@@ -271,7 +325,7 @@ private fun CameraStage(
                 CloseButton(onClose, Modifier.align(Alignment.Start).padding(start = 16.dp))
                 if (granted) {
                     Text(
-                        stringResource(R.string.scan_hint),
+                        stringResource(if (captureFailed) R.string.scan_capture_failed else R.string.scan_hint),
                         style = type.size14.medium,
                         color = OnCamera,
                         modifier = Modifier
@@ -282,7 +336,12 @@ private fun CameraStage(
                     )
                 }
             }
-            if (busy) Box(Modifier.align(Alignment.Center)) { ReadingCard(onCancel = null) }
+            // Cancel once the photo is with the ViewModel; a capture in progress cannot be stopped.
+            if (busy) {
+                Box(Modifier.align(Alignment.Center).padding(horizontal = 24.dp)) {
+                    ReadingCard(slow = false, onCancel = onCancel.takeIf { preparing }, onEnterYourself = null)
+                }
+            }
         }
         Row(
             Modifier
@@ -294,7 +353,7 @@ private fun CameraStage(
         ) {
             Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 Column(
-                    Modifier.clip(RoundedCornerShape(16.dp)).clickable(enabled = !busy, role = Role.Button, onClick = pick).padding(8.dp),
+                    Modifier.clip(RoundedCornerShape(16.dp)).clickable(enabled = !busy, role = Role.Button, onClick = onPick).padding(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -305,8 +364,32 @@ private fun CameraStage(
                 }
             }
             Shutter(enabled = granted && !busy, onClick = shoot)
-            Spacer(Modifier.weight(1f))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                if (granted && hasLight) Light(on = lightOn, enabled = !busy, onToggle = { controller.enableTorch(it) })
+            }
         }
+    }
+}
+
+/** The camera's light, on or off, for a dim shop or a power cut. */
+@Composable
+private fun Light(on: Boolean, enabled: Boolean, onToggle: (Boolean) -> Unit) {
+    val label = stringResource(R.string.scan_light)
+    Box(
+        Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(if (on) OnCamera else Color.White.copy(alpha = 0.12f))
+            .toggleable(value = on, enabled = enabled, role = Role.Switch, onValueChange = onToggle)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            if (on) Lucide.Flashlight else Lucide.FlashlightOff,
+            contentDescription = null,
+            tint = if (on) CameraBar else OnCamera,
+            modifier = Modifier.size(22.dp),
+        )
     }
 }
 
@@ -360,8 +443,9 @@ private fun ReceiptFrame(modifier: Modifier = Modifier) {
     }
 }
 
+/** [blocked]: only the app's settings can allow the camera now, and the button says so. */
 @Composable
-private fun CameraOff(onAllow: () -> Unit, modifier: Modifier = Modifier) {
+private fun CameraOff(blocked: Boolean, onAllow: () -> Unit, modifier: Modifier = Modifier) {
     val type = BudgetWiseTheme.type
     Column(modifier.padding(horizontal = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Lucide.Camera, contentDescription = null, tint = OnCameraMuted, modifier = Modifier.size(32.dp))
@@ -379,7 +463,7 @@ private fun CameraOff(onAllow: () -> Unit, modifier: Modifier = Modifier) {
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp, bottom = 20.dp),
         )
-        PrimaryButton(stringResource(R.string.scan_allow_camera), onAllow, height = 48.dp)
+        PrimaryButton(stringResource(if (blocked) R.string.voice_open_settings else R.string.scan_allow_camera), onAllow, height = 48.dp)
     }
 }
 
@@ -402,9 +486,12 @@ private fun PhotoBackdrop(photo: Bitmap?, onClose: () -> Unit, card: @Composable
     }
 }
 
-/** "Reading the receipt" with a spinner; [onCancel] null while the photo is still being prepared. */
+/**
+ * "Reading the photo" with a spinner (the photo may be a KPay screen). Once [slow], it says a read can take up to a
+ * minute and offers [onEnterYourself]. [onCancel] null while the shutter is still taking the photo.
+ */
 @Composable
-private fun ReadingCard(onCancel: (() -> Unit)?) {
+private fun ReadingCard(slow: Boolean, onCancel: (() -> Unit)?, onEnterYourself: (() -> Unit)?) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     Column(
@@ -423,20 +510,34 @@ private fun ReadingCard(onCancel: (() -> Unit)?) {
             color = colors.ink,
             modifier = Modifier.padding(top = 18.dp),
         )
-        Text(stringResource(R.string.scan_reading_detail), style = type.size15, color = colors.muted, modifier = Modifier.padding(top = 6.dp))
+        Text(
+            stringResource(if (slow) R.string.scan_reading_slow else R.string.scan_reading_detail),
+            style = type.size15,
+            color = colors.muted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        if (slow && onEnterYourself != null) {
+            PrimaryButton(stringResource(R.string.scan_enter_yourself), onEnterYourself, Modifier.fillMaxWidth().padding(top = 20.dp), height = 48.dp)
+        }
         if (onCancel != null) TextAction(stringResource(R.string.action_cancel), onCancel, Modifier.padding(top = 12.dp))
     }
 }
 
 /**
- * Why nothing could be read, with the way on. A photo problem offers Try again (a new photo) before typing it in;
- * no internet keeps the photo and puts typing it in first, since it may be a while.
+ * Why nothing could be read, with the way on. A photo problem offers Try again (a new photo) before typing it in; a
+ * chosen photo that cannot be used offers another; a connection or server problem keeps the photo for Try again; no
+ * internet and too many scans put typing it in first, since it may be a while. [waitMinutes] on too many scans: Try
+ * again waits until then.
  */
 @Composable
 private fun ProblemCard(
     problem: ScanProblem,
+    waitMinutes: Int?,
+    myanmarDigits: Boolean,
     onTryAgain: () -> Unit,
     onRetake: () -> Unit,
+    onPick: () -> Unit,
     onEnterYourself: () -> Unit,
     onSignIn: () -> Unit,
 ) {
@@ -444,13 +545,14 @@ private fun ProblemCard(
     val type = BudgetWiseTheme.type
     val tryAgain = stringResource(R.string.action_try_again)
     val enterYourself = stringResource(R.string.scan_enter_yourself)
+    val chooseAnother = stringResource(R.string.scan_choose_another)
     data class Card(
         val icon: ImageVector,
         val tint: Color,
         val title: String,
         val detail: String,
         val primary: Pair<String, () -> Unit>,
-        val secondary: Pair<String, () -> Unit>,
+        val secondary: Pair<String, () -> Unit>?,
     )
     val card = when (problem) {
         ScanProblem.UNREADABLE -> Card(
@@ -458,15 +560,51 @@ private fun ProblemCard(
             stringResource(R.string.scan_unreadable_title), stringResource(R.string.scan_unreadable_detail),
             tryAgain to onRetake, enterYourself to onEnterYourself,
         )
+        ScanProblem.NOT_A_RECEIPT -> Card(
+            Lucide.Receipt, colors.coralText,
+            stringResource(R.string.scan_not_receipt_title), stringResource(R.string.scan_not_receipt_detail),
+            tryAgain to onRetake, enterYourself to onEnterYourself,
+        )
+        ScanProblem.TOO_DARK -> Card(
+            Lucide.Flashlight, colors.coralText,
+            stringResource(R.string.scan_too_dark_title), stringResource(R.string.scan_too_dark_detail),
+            tryAgain to onRetake, enterYourself to onEnterYourself,
+        )
+        ScanProblem.TOO_LONG -> Card(
+            Lucide.Image, colors.coralText,
+            stringResource(R.string.scan_too_long_title), stringResource(R.string.scan_too_long_detail),
+            chooseAnother to onPick, enterYourself to onEnterYourself,
+        )
+        ScanProblem.CANNOT_OPEN -> Card(
+            Lucide.Image, colors.coralText,
+            stringResource(R.string.scan_cannot_open_title), stringResource(R.string.scan_cannot_open_detail),
+            chooseAnother to onPick, enterYourself to onEnterYourself,
+        )
         ScanProblem.NO_INTERNET -> Card(
             Lucide.CloudOff, colors.blue,
             stringResource(R.string.login_error_needs_internet_title), stringResource(R.string.scan_offline_detail),
             enterYourself to onEnterYourself, tryAgain to onTryAgain,
         )
+        ScanProblem.SLOW -> Card(
+            Lucide.Clock, colors.blue,
+            stringResource(R.string.scan_slow_title), stringResource(R.string.scan_slow_detail),
+            tryAgain to onTryAgain, enterYourself to onEnterYourself,
+        )
         ScanProblem.TOO_MANY -> Card(
             Lucide.Clock, colors.coralText,
-            stringResource(R.string.scan_too_many_title), stringResource(R.string.scan_too_many_detail),
-            enterYourself to onEnterYourself, tryAgain to onTryAgain,
+            stringResource(R.string.scan_too_many_title),
+            if (waitMinutes != null) {
+                pluralStringResource(R.plurals.scan_too_many_wait, waitMinutes, groupDigits(waitMinutes.toLong(), myanmarDigits))
+            } else {
+                stringResource(R.string.scan_too_many_detail)
+            },
+            // Until the server's wait is over, another try would only be refused.
+            enterYourself to onEnterYourself, (tryAgain to onTryAgain).takeIf { waitMinutes == null },
+        )
+        ScanProblem.INTERRUPTED -> Card(
+            Lucide.CircleAlert, colors.coralText,
+            stringResource(R.string.scan_interrupted_title), stringResource(R.string.scan_interrupted_detail),
+            tryAgain to onTryAgain, enterYourself to onEnterYourself,
         )
         ScanProblem.SERVER -> Card(
             Lucide.CloudAlert, colors.coralText,
@@ -498,6 +636,8 @@ private fun ProblemCard(
         )
         Text(card.detail, style = type.size15, color = colors.muted, modifier = Modifier.padding(top = 8.dp, bottom = 20.dp))
         PrimaryButton(card.primary.first, card.primary.second, Modifier.fillMaxWidth())
-        TextAction(card.secondary.first, card.secondary.second, Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp))
+        card.secondary?.let { (label, action) ->
+            TextAction(label, action, Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp))
+        }
     }
 }

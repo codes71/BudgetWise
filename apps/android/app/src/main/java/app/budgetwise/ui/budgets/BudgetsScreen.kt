@@ -189,9 +189,9 @@ private fun MonthSummary(state: BudgetsUiState) {
         )
         Text(
             text = if (over) {
-                pluralStringResource(R.plurals.budgets_over_across, count, formatKyat(spent - limit, state.myanmarDigits), count)
+                pluralStringResource(R.plurals.budgets_over_across, count, formatKyat(spent - limit, state.myanmarDigits), groupDigits(count.toLong(), state.myanmarDigits))
             } else {
-                pluralStringResource(R.plurals.budgets_left_across, count, formatKyat(limit - spent, state.myanmarDigits), count)
+                pluralStringResource(R.plurals.budgets_left_across, count, formatKyat(limit - spent, state.myanmarDigits), groupDigits(count.toLong(), state.myanmarDigits))
             },
             style = type.size14,
             color = if (over) colors.coralText else colors.muted,

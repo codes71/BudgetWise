@@ -5,6 +5,7 @@ import {
   MAX_IMAGE_BYTES,
   decodeImage,
   expenseCategories,
+  historyDate,
   kpayClientId,
   normalizeScan,
   yangonDate,
@@ -310,5 +311,146 @@ describe("normalizeScan", () => {
     );
     expect(out.entries).toHaveLength(1);
     expect(out.entries[0].items).toBeUndefined();
+  });
+
+  describe("unknown and its reason", () => {
+    const read = (raw: Partial<ScanOutput>) => normalizeScan({ kind: "receipt", entries: [entry()], ...raw }, ctx);
+
+    it("passes the model's reason through, and an unknown without one is unclear", () => {
+      expect(read({ kind: "unknown", reason: "not_money", entries: [] })).toEqual({
+        kind: "unknown", reason: "not_money", entries: [],
+      });
+      expect(read({ kind: "unknown", entries: [] })).toEqual({ kind: "unknown", reason: "unclear", entries: [] });
+      expect(read({ kind: "unknown", reason: "unsupported", merchant: "Wave", entries: [entry()] })).toEqual({
+        kind: "unknown", reason: "unsupported", entries: [],
+      });
+    });
+
+    it("treats several receipts, another wallet or a non-money image as unknown even with a readable kind", () => {
+      for (const reason of ["multiple", "unsupported", "not_money"] as const) {
+        expect(read({ reason })).toEqual({ kind: "unknown", reason, entries: [] });
+      }
+      // Entries that were read stand, whatever doubt the model voiced.
+      expect(read({ reason: "unclear" }).entries).toHaveLength(1);
+    });
+
+    it("is unknown and unclear when a readable kind keeps no entries", () => {
+      expect(history([entry({ date: "bad" }), entry({ amount: 0 })])).toEqual([]);
+      expect(normalizeScan({ kind: "history", entries: [entry({ date: "bad" })] }, ctx)).toEqual({
+        kind: "unknown", reason: "unclear", entries: [],
+      });
+      expect(read({ kind: "payment", entries: [entry({ amount: 0 })] })).toEqual({
+        kind: "unknown", reason: "unclear", entries: [],
+      });
+      expect(read({ merchant: "City Mart", entries: [] })).toEqual({ kind: "unknown", reason: "unclear", entries: [] });
+    });
+
+    it("keeps a receipt whose total was read but none of its lines, for the phone to offer that total", () => {
+      expect(read({ merchant: "City Mart", date: "2026-10-20", total: 12500, entries: [] })).toEqual({
+        kind: "receipt", merchant: "City Mart", date: "2026-10-20", total: 12500, entries: [],
+      });
+    });
+  });
+
+  describe("currency", () => {
+    const read = (currency: string | undefined) =>
+      normalizeScan({ kind: "receipt", currency, total: 1000, entries: [entry()] }, ctx);
+
+    it("never passes another currency on as kyat", () => {
+      for (const c of ["USD", "thb", " CNY "]) {
+        expect(read(c)).toEqual({ kind: "unknown", reason: "foreign_currency", currency: c.trim().toUpperCase(), entries: [] });
+      }
+    });
+
+    it("reads kyat, in any of its spellings, and no currency at all as kyat", () => {
+      for (const c of ["MMK", "Ks", "ks.", "K", "Kyats", "ကျပ်", undefined]) {
+        expect(read(c)).toMatchObject({ kind: "receipt", total: 1000, entries: [{ amount: 1000 }] });
+        expect(read(c).reason).toBeUndefined();
+      }
+    });
+  });
+
+  describe("receipt discounts and totals", () => {
+    const receipt = (total: number | undefined, entries: ScanOutput["entries"]) =>
+      normalizeScan({ kind: "receipt", date: "2026-10-20", total, entries }, ctx).entries;
+    const amounts = (total: number | undefined, entries: ScanOutput["entries"]) =>
+      receipt(total, entries).map((e) => e.amount);
+
+    it("leaves a discount line read as an item out, never turning it into something bought", () => {
+      const [out] = receipt(8500, [
+        entry({ amount: 8500, items: [{ name: "Rice", amount: 10000 }, { name: "Member discount", amount: -1500 }] }),
+      ]);
+      expect(out.amount).toBe(8500);
+      expect(out.items).toEqual([{ name: "Rice", amount: 10000, quantity: 1, unitPrice: 10000 }]);
+    });
+
+    it("takes a negative entry off the largest entry instead of adding it", () => {
+      const lines: ScanOutput["entries"] = [
+        entry({ amount: 7000 }),
+        entry({ amount: 3000, category: "Transport" }),
+        entry({ amount: -500, category: "Other", description: "Member discount" }),
+      ];
+      expect(amounts(9500, lines)).toEqual([6500, 3000]);
+      expect(amounts(undefined, lines)).toEqual([6500, 3000]);
+      // Already taken off the items: the entries match the total, so nothing more comes off.
+      expect(amounts(10000, lines)).toEqual([7000, 3000]);
+      // Never more than the largest entry.
+      expect(amounts(undefined, [entry({ amount: 400 }), entry({ amount: -500, category: "Other" })])).toEqual([400]);
+    });
+
+    it("brings entries over the total down by a left-out discount line", () => {
+      expect(amounts(9500, [
+        entry({ amount: 10000, items: [{ name: "Rice", amount: 10000 }, { name: "Discount", amount: -500 }] }),
+      ])).toEqual([9500]);
+    });
+
+    it("drops a tax line the prices already included when it is exactly what the entries are over by", () => {
+      const [first, second] = receipt(10000, [
+        entry({ amount: 8500, items: [{ name: "Rice", amount: 8000 }, { name: "Commercial Tax 5%", amount: 500 }] }),
+        entry({ amount: 2000, category: "Transport", items: [{ name: "Parking", amount: 2000 }] }),
+      ]);
+      expect(first.amount).toBe(8000);
+      expect(first.items!.map((i) => i.name)).toEqual(["Rice"]);
+      expect(second.amount).toBe(2000);
+    });
+
+    it("leaves amounts as read when the excess has no cause it can name, since the total may be misread", () => {
+      expect(amounts(9000, [entry({ amount: 7000 }), entry({ amount: 3000, category: "Transport" })])).toEqual([
+        7000, 3000,
+      ]);
+      // Nor an excess as large as the largest entry, even when it matches a discount line.
+      expect(amounts(1000, [
+        entry({ amount: 3000, items: [{ name: "Rice", amount: 3000 }] }),
+        entry({ amount: 1000, category: "Transport", items: [{ name: "Bus", amount: 1000 }, { name: "Discount", amount: -3000 }] }),
+      ])).toEqual([3000, 1000]);
+    });
+
+    it("keeps the sign rule for KPay: a negative amount there is just the direction", () => {
+      expect(normalizeScan({ kind: "payment", entries: [entry({ amount: -2000 })] }, ctx).entries[0].amount).toBe(2000);
+    });
+  });
+
+  describe("history dates at the turn of the year", () => {
+    const jan = { ...ctx, today: "2027-01-03" };
+    const rows = (...dates: string[]) =>
+      normalizeScan({ kind: "history", entries: dates.map((date) => entry({ date })) }, jan).entries.map((e) => e.date);
+
+    it("moves a row put in this year, in a later month, to last year", () => {
+      expect(historyDate("2027-12-30", jan.today)).toBe("2026-12-30");
+      expect(rows("2027-12-30", "2027-01-02")).toEqual(["2026-12-30", "2027-01-02"]);
+    });
+
+    it("still drops a later date in the same month, another year, or one that is not a date", () => {
+      expect(rows("2027-01-20", "2028-12-30", "2027-13-01")).toEqual([]);
+      expect(historyDate("2027-01-20", jan.today)).toBeUndefined();
+    });
+
+    it("leaves receipts and slips alone: their future date falls back to today, flagged", () => {
+      for (const kind of ["receipt", "payment"] as const) {
+        expect(normalizeScan({ kind, entries: [entry({ date: "2027-12-30" })] }, jan).entries[0]).toMatchObject({
+          date: "2027-01-03", dateGuessed: true,
+        });
+      }
+    });
   });
 });

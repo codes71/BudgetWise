@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as z from "zod/v4";
 
-// The OpenAI client is replaced: responses.create answers with whatever `reply` holds.
+// Both clients are replaced: responses.create and beta.messages.parse answer with what the test sets.
 const create = vi.fn();
+const parse = vi.fn();
 vi.mock("openai", () => ({ default: class { responses = { create }; } }));
-import { toClaudeContent } from "@/ai/claude";
+vi.mock("@anthropic-ai/sdk", () => ({ default: class { beta = { messages: { parse } }; } }));
+import { claudeStructured, toClaudeContent } from "@/ai/claude";
 import { ScanOutputSchema } from "@/ai/flows/scan-image";
 import { VoiceOutputSchema } from "@/ai/flows/parse-voice";
 import { openaiStructured, strictSchema, toOpenAIContent, withoutNulls } from "@/ai/openai";
@@ -105,5 +107,80 @@ describe("openaiStructured", () => {
     await expect(openaiStructured({ schema, content: "x", effort: "low" })).rejects.toThrow("max_output_tokens");
     create.mockResolvedValue({ status: "completed", output: [], output_text: '{"category":7}' });
     await expect(openaiStructured({ schema, content: "x", effort: "low" })).rejects.toThrow();
+  });
+});
+
+// The info lines a provider wrote, parsed.
+function infoLines() {
+  return vi.mocked(console.log).mock.calls.map(([line]) => JSON.parse(String(line)));
+}
+
+describe("claudeStructured", () => {
+  const schema = z.object({ category: z.string() });
+  const answer = (over: object = {}) => ({
+    model: "claude-opus-5-5", stop_reason: "end_turn", usage: { input_tokens: 1200, output_tokens: 80 },
+    parsed_output: { category: "Food" }, ...over,
+  });
+  beforeEach(() => {
+    parse.mockReset();
+    vi.spyOn(console, "log").mockImplementation(() => {}).mockClear();
+  });
+
+  it("passes maxRetries and a signal that also ends when the caller's does", async () => {
+    parse.mockResolvedValue(answer());
+    const caller = new AbortController();
+    await expect(
+      claudeStructured({ schema, content: "x", effort: "low", maxRetries: 0, signal: caller.signal }),
+    ).resolves.toEqual({ category: "Food" });
+    const [, options] = parse.mock.calls[0];
+    expect(options.maxRetries).toBe(0);
+    expect(options.signal.aborted).toBe(false);
+    caller.abort();
+    expect(options.signal.aborted).toBe(true);
+
+    parse.mockClear();
+    await claudeStructured({ schema, content: "x", effort: "low" });
+    expect(parse.mock.calls[0][1]).not.toHaveProperty("maxRetries");
+  });
+
+  it("logs the model, stop reason, tokens and time, but not the content", async () => {
+    parse.mockResolvedValue(answer());
+    await claudeStructured({ schema, content: "secret receipt text", effort: "low", flow: "scan" });
+    const [line] = infoLines();
+    expect(line.message).toBe("Claude answered");
+    expect(line.context).toMatchObject({
+      flow: "scan", ms: expect.any(Number), model: "claude-opus-5-5", stopReason: "end_turn",
+      inputTokens: 1200, outputTokens: 80,
+    });
+    expect(JSON.stringify(line)).not.toContain("secret");
+    expect(JSON.stringify(line)).not.toContain("Food");
+  });
+
+  it("throws a RefusalError when Claude declines, after logging the stop reason", async () => {
+    parse.mockResolvedValue(answer({ stop_reason: "refusal", parsed_output: null }));
+    await expect(claudeStructured({ schema, content: "x", effort: "low" })).rejects.toBeInstanceOf(RefusalError);
+    expect(infoLines()[0].context.stopReason).toBe("refusal");
+  });
+});
+
+describe("openaiStructured signals and logs", () => {
+  const schema = z.object({ category: z.string() });
+  beforeEach(() => {
+    create.mockReset();
+    vi.spyOn(console, "log").mockImplementation(() => {}).mockClear();
+  });
+
+  it("ends with the caller's signal and logs status and tokens, not the content", async () => {
+    create.mockResolvedValue({ status: "completed", model: "gpt-6.1-sol", output: [], output_text: '{"category":"Food"}',
+      usage: { input_tokens: 900, output_tokens: 40 } });
+    const caller = new AbortController();
+    await openaiStructured({ schema, content: "secret", effort: "low", signal: caller.signal, flow: "voice" });
+    const [, options] = create.mock.calls[0];
+    caller.abort();
+    expect(options.signal.aborted).toBe(true);
+    const [line] = infoLines();
+    expect(line).toMatchObject({ message: "OpenAI answered", context: { flow: "voice", status: "completed",
+      inputTokens: 900, outputTokens: 40 } });
+    expect(JSON.stringify(line)).not.toContain("secret");
   });
 });

@@ -1,6 +1,7 @@
 package app.budgetwise.data.text
 
 import android.os.Build
+import com.google.myanmartools.TransliterateZ2U
 import com.google.myanmartools.ZawgyiDetector
 import java.text.Normalizer
 
@@ -9,16 +10,27 @@ fun interface ZawgyiConverter {
     fun convert(text: String): String?
 }
 
-/** `android.icu` "Zawgyi-my" transliterator, available from API 29. Below that nothing is converted. */
+/**
+ * `android.icu` "Zawgyi-my" transliterator from API 29, and myanmar-tools' own converter ([LibraryZawgyiConverter])
+ * below that or where the platform lacks the transform, so every supported phone (API 26 and up) converts.
+ */
 object PlatformZawgyiConverter : ZawgyiConverter {
     override fun convert(text: String): String? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return LibraryZawgyiConverter.convert(text)
         return try {
             android.icu.text.Transliterator.getInstance("Zawgyi-my").transliterate(text)
         } catch (_: IllegalArgumentException) {
-            null
+            LibraryZawgyiConverter.convert(text)
         }
     }
+}
+
+/** myanmar-tools' Zawgyi to Unicode rules, plain Java, so it runs on every API level (and on the JVM in tests). */
+object LibraryZawgyiConverter : ZawgyiConverter {
+    // The library does not say it is thread-safe, and typing, the scan and the sync can convert at once.
+    private val z2u by lazy { TransliterateZ2U("Zawgyi to Unicode") }
+
+    override fun convert(text: String): String = synchronized(this) { z2u.convert(text) }
 }
 
 /**
@@ -36,8 +48,8 @@ object BurmeseTextNormalizer {
         s.isNotBlank() && detector.getZawgyiProbability(s) >= ZAWGYI_THRESHOLD
 
     /**
-     * Converts detected Zawgyi to Unicode; anything else comes back unchanged. When the device has no converter
-     * (API below 29) Zawgyi text also comes back unchanged, so the caller can still compare with [looksLikeZawgyi].
+     * Converts detected Zawgyi to Unicode; anything else comes back unchanged. A [converter] that cannot convert (null)
+     * leaves Zawgyi text unchanged too, so the caller can still compare with [looksLikeZawgyi].
      */
     fun toUnicode(s: String, converter: ZawgyiConverter = PlatformZawgyiConverter): String =
         if (looksLikeZawgyi(s)) converter.convert(s) ?: s else s

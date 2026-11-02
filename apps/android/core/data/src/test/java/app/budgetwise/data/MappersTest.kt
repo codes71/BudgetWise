@@ -49,6 +49,13 @@ class MappersTest {
     }
 
     @Test
+    fun toInput_sendsAWebEntryAsManual() {
+        // The server takes voice, manual and scan from the phone; "web" would be refused for good.
+        assertEquals("manual", tx().copy(source = Source.WEB).toInput().source)
+        assertEquals("scan", tx().copy(source = Source.SCAN).toInput().source)
+    }
+
+    @Test
     fun toInput_omitsNullTranscriptFromJson() {
         val json = WireJson.encodeToString(tx(transcript = null).toInput())
         assertFalse(json.contains("transcript"))

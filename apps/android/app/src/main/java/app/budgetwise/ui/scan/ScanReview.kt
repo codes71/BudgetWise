@@ -1,5 +1,6 @@
 package app.budgetwise.ui.scan
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,9 +12,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
@@ -50,6 +53,7 @@ import app.budgetwise.data.repo.ScanKind
 import app.budgetwise.nlu.TxType
 import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.CategoryBadge
+import app.budgetwise.ui.common.ConfirmDialog
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
@@ -72,15 +76,20 @@ import app.budgetwise.ui.theme.semibold
 import app.budgetwise.ui.theme.tracked
 import java.time.LocalDate
 
+/** How the user asked to leave the review: back (to the camera) or the X (out of scanning). */
+private enum class ReviewExit { BACK, CLOSE }
+
 /**
  * What was read, to check before anything is saved. A receipt: the shop and date, the total, and each category's items
  * with their counts and prices to fix (tap a category to move its items); a KPay slip or history: one line per payment
- * (tap a history row to leave it out).
+ * (tap a history row to leave it out). Back ([onRetake], to the camera) and the X ([onClose]) ask first, as both drop
+ * what a slow, rate-limited read found and every change made to it; while saving they do nothing.
  */
 @Composable
 internal fun ScanReview(
     state: ScanUiState,
     onClose: () -> Unit,
+    onRetake: () -> Unit,
     onMove: (Int, String) -> Unit,
     onAddShort: () -> Unit,
     onToggle: (Int) -> Unit,
@@ -99,8 +108,15 @@ internal fun ScanReview(
     val describe = { line: ReviewLine ->
         state.merchant?.let { pattern.format(it, labels[line.category] ?: line.category) } ?: line.description
     }
+    var leaving by rememberSaveable { mutableStateOf<ReviewExit?>(null) }
+    val saving = state.saving
+    fun leave(exit: ReviewExit) {
+        if (!saving) leaving = exit
+    }
+    BackHandler { leave(ReviewExit.BACK) }
 
-    Column(Modifier.fillMaxSize().background(colors.ground).windowInsetsPadding(WindowInsets.navigationBars)) {
+    // Save stays above the keyboard while a price is typed, and the items scroll above it too.
+    Column(Modifier.fillMaxSize().background(colors.ground).windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))) {
         BackHeader(
             title = stringResource(
                 when (state.kind) {
@@ -109,7 +125,7 @@ internal fun ScanReview(
                     else -> R.string.scan_title_receipt
                 },
             ),
-            onBack = onClose,
+            onBack = { leave(ReviewExit.CLOSE) },
             icon = Lucide.X,
             backLabel = stringResource(R.string.action_close),
         )
@@ -137,6 +153,17 @@ internal fun ScanReview(
                     detail = stringResource(R.string.scan_short_detail, groupDigits(state.totalKyat ?: 0, state.myanmarDigits)),
                     actionLabel = stringResource(R.string.scan_short_add),
                     onAction = onAddShort,
+                    modifier = Modifier.padding(top = 24.dp),
+                )
+            }
+            // More than the printed total: a discount the read missed, or a price misread. The total above is what is
+            // saved, so the user can fix the item or save it as it is.
+            state.overBy?.let {
+                Notice(
+                    tone = NoticeTone.ATTENTION,
+                    icon = Lucide.CircleAlert,
+                    title = stringResource(R.string.scan_over_title, groupDigits(state.shownTotal, state.myanmarDigits)),
+                    detail = stringResource(R.string.scan_over_detail, groupDigits(state.totalKyat ?: 0, state.myanmarDigits)),
                     modifier = Modifier.padding(top = 24.dp),
                 )
             }
@@ -176,13 +203,13 @@ internal fun ScanReview(
                     modifier = Modifier.padding(bottom = 12.dp),
                 )
             }
-            if (receipt && state.keptLines.size > 1) {
+            if (state.canAddAsOne) {
                 val shop = state.merchant ?: labels[state.keptLines.maxBy { it.amountKyat }.category].orEmpty()
                 TextAction(stringResource(R.string.scan_as_one), onClick = { onAddAsOne(shop) }, enabled = !state.saving)
             }
             val count = state.keptLines.size
             PrimaryButton(
-                text = pluralStringResource(R.plurals.scan_add, count, count),
+                text = pluralStringResource(R.plurals.scan_add, count, groupDigits(count.toLong(), state.myanmarDigits)),
                 onClick = { onAddEntries(describe) },
                 enabled = state.canSave,
                 busy = state.saving,
@@ -200,6 +227,7 @@ internal fun ScanReview(
                 category = line.category,
                 items = line.items,
                 categories = state.categories,
+                myanmarDigits = state.myanmarDigits,
                 onPick = { category ->
                     onMove(index, category)
                     moving = null
@@ -207,6 +235,20 @@ internal fun ScanReview(
                 onDismiss = { moving = null },
             )
         }
+    }
+
+    leaving?.let { exit ->
+        ConfirmDialog(
+            title = stringResource(R.string.scan_discard_title),
+            detail = stringResource(R.string.scan_discard_detail),
+            confirmLabel = stringResource(R.string.action_discard),
+            dismissLabel = stringResource(R.string.scan_discard_keep),
+            onConfirm = {
+                leaving = null
+                if (exit == ReviewExit.BACK) onRetake() else onClose()
+            },
+            onDismiss = { leaving = null },
+        )
     }
 }
 
@@ -314,7 +356,14 @@ private fun PaymentLine(line: ReviewLine, myanmarDigits: Boolean, togglable: Boo
 /** "Move 2 items to": the items' names, then every expense category with [category] checked. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun MoveSheet(category: String, items: List<ScanItem>, categories: List<String>, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+internal fun MoveSheet(
+    category: String,
+    items: List<ScanItem>,
+    categories: List<String>,
+    myanmarDigits: Boolean,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     ModalBottomSheet(
@@ -329,7 +378,11 @@ internal fun MoveSheet(category: String, items: List<ScanItem>, categories: List
         Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp)) {
             val count = items.size
             Text(
-                if (count > 0) pluralStringResource(R.plurals.scan_move_title, count, count) else stringResource(R.string.scan_move_title_none),
+                if (count > 0) {
+                    pluralStringResource(R.plurals.scan_move_title, count, groupDigits(count.toLong(), myanmarDigits))
+                } else {
+                    stringResource(R.string.scan_move_title_none)
+                },
                 style = type.size24.semibold.tracked(-0.02f),
                 color = colors.ink,
                 modifier = Modifier.padding(top = 20.dp).semantics { heading() },
