@@ -219,8 +219,8 @@ class TransactionsViewModel @Inject constructor(
     fun delete(line: DayLine) = deleteEntries(line.key, line.clientIds)
 
     /**
-     * [delete] for the entries [clientIds] of the line [key]: a swipe, or Delete this receipt on the receipt's own
-     * screen, which hands its entries back here for the same notice and Undo.
+     * [delete] for the entries [clientIds] of the line [key]: a swipe, or Delete entry in the form (and Delete this
+     * receipt on the receipt's screen), which hands its entries back here for the same notice and Undo.
      */
     fun deleteEntries(key: String, clientIds: List<String>) {
         val previous = local.value.pendingDelete

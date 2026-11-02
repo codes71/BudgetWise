@@ -154,6 +154,11 @@
     <string name="manual_delete">စာရင်း ဖျက်မည်</string>
     <string name="manual_delete_failed">ဤစာရင်းကို ဖျက်၍ မရပါ</string>
     <string name="manual_delete_failed_detail">စာရင်း ရှိနေဆဲ ဖြစ်သည်။ ထပ်ကြိုးစားရန် စာရင်း ဖျက်မည် ကို နှိပ်ပါ။</string>
+    <string name="manual_amount_whole_kyat">ဒသမ မပါဘဲ ကျပ်ပြည့်သာ ထည့်ပါ</string>
+    <string name="manual_category_error_too_long">ဤအမျိုးအစားအမည် ရှည်လွန်း၍ သိမ်းမရပါ။ အခြားတစ်ခု ရွေးပါ။</string>
+    <string name="manual_gone">ဤစာရင်းကို အခြားနေရာတွင် ဖျက်ထားပြီး ဖြစ်သည်</string>
+    <string name="manual_gone_detail">ပြင်ထားသည်များ မပျောက်ပါ။</string>
+    <string name="manual_save_as_new">အသစ်အဖြစ် သိမ်းမည်</string>
 
     <!-- The Add sheet -->
     <string name="add_scan_detail">ပစ္စည်းတိုင်းကို ဖတ်ပြီး အမျိုးအစား ခွဲပေးသည်။\nKPay စခရင်ပုံများလည်း ရသည်။</string>

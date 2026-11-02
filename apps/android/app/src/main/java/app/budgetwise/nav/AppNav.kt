@@ -191,6 +191,20 @@ internal fun NavController.closeReceiptDeleted(list: TransactionsViewModel?, rec
     return true
 }
 
+/**
+ * Closes the form after Delete entry, back to Transactions ([list]), which deletes the entry [clientId] with the
+ * "Entry deleted" notice and Undo, as after a swipe. False, with nothing done, when there is no list under the form:
+ * the form then deletes it at once. A second call (the form is already gone) does nothing.
+ */
+internal fun NavController.closeEntryDeleted(list: TransactionsViewModel?, clientId: String): Boolean {
+    if (currentDestination?.route != Routes.EDIT_ENTRY) return true
+    if (list == null) return false
+    // Hidden before the list draws again, so the entry never shows on the way back. Its line is keyed by its clientId.
+    list.deleteEntries(clientId, listOf(clientId))
+    popBackStack()
+    return true
+}
+
 private fun NavDestination?.isOn(route: String) = this?.hierarchy?.any { it.route == route } == true
 
 /**
@@ -405,8 +419,11 @@ fun AppNav(
             composable(
                 Routes.EDIT_ENTRY,
                 arguments = listOf(navArgument(AddManualViewModel.ARG_CLIENT_ID) { type = NavType.StringType }),
-            ) {
-                AddManualRoute(onDone = navController::closeManual)
+            ) { entry ->
+                // The list an entry is opened from, whose ViewModel deletes it with Undo.
+                val listEntry = remember(entry) { runCatching { navController.getBackStackEntry(Routes.TRANSACTIONS) }.getOrNull() }
+                val list: TransactionsViewModel? = listEntry?.let { hiltViewModel(it) }
+                AddManualRoute(onDone = navController::closeManual, onDelete = { navController.closeEntryDeleted(list, it) })
             }
             composable(Routes.SCAN) {
                 ScanRoute(

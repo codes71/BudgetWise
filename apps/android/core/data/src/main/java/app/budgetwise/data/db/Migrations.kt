@@ -51,6 +51,16 @@ val MIGRATION_3_4: Migration = object : Migration(3, 4) {
 }
 
 /**
+ * Version 5 lets an outbox op belong to an edit ([OutboxEntity.replaceGroup]), so a replaced entry is deleted on the
+ * server only after its replacement is accepted. Queued ops get null: they wait and are sent as before.
+ */
+val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `outbox` ADD COLUMN `replaceGroup` TEXT")
+    }
+}
+
+/**
  * Gives every row without an owner (saved before several accounts) to [owner]: transactions, outbox ops and cached
  * budgets, in one transaction. Nothing is deleted except a cached budget [owner] already has a fresher copy of.
  * Called when the saved session loads and on every online sign-in; once rows have owners it changes nothing.

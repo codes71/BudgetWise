@@ -164,6 +164,14 @@
     <string name="manual_delete">Delete entry</string>
     <string name="manual_delete_failed">Couldn\'t delete this entry</string>
     <string name="manual_delete_failed_detail">It\'s still here. Tap Delete entry to try again.</string>
+    <!-- Under the amount after "150.50" or a typed dot was refused -->
+    <string name="manual_amount_whole_kyat">Whole kyat only, no decimals</string>
+    <!-- A category kept from the web that the phone cannot send (over 60 characters) -->
+    <string name="manual_category_error_too_long">This category name is too long to save. Pick another one.</string>
+    <!-- Save changes found the entry deleted on the web or another phone while the form was open -->
+    <string name="manual_gone">This entry was deleted elsewhere</string>
+    <string name="manual_gone_detail">Your changes are still here.</string>
+    <string name="manual_save_as_new">Save as new</string>
 
     <!-- The Add sheet: how to add an entry -->
     <string name="add_scan_detail">Every item read and sorted.\nKPay screens too.</string>

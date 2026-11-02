@@ -317,6 +317,38 @@ class AppNavTest {
     }
 
     @Test
+    fun aDeletedEntryClosesOntoTheListWhichOffersUndo() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            NavHost(nav, startDestination = Routes.TRANSACTIONS) {
+                composable(Routes.TRANSACTIONS) { Text("list") }
+                composable(Routes.EDIT_ENTRY) { Text("form") }
+            }
+        }
+        val store = FakeTransactionStore()
+        val list = TransactionsViewModel(
+            store, FakeSyncControls(), FakeSettingsStore(), FakeNetworkStatus(), Clock.systemUTC(), CoroutineScope(Dispatchers.Unconfined),
+        )
+        compose.runOnIdle { nav.navigate(Routes.editEntry("c1")) }
+
+        // Opened from somewhere without the list: nothing happens, and the form deletes it itself.
+        assertFalse(compose.runOnIdle { nav.closeEntryDeleted(null, "c1") })
+        assertEquals(Routes.EDIT_ENTRY, compose.runOnIdle { nav.currentDestination?.route })
+
+        assertTrue(compose.runOnIdle { nav.closeEntryDeleted(list, "c1") })
+        assertEquals(Routes.TRANSACTIONS, compose.runOnIdle { nav.currentDestination?.route })
+        // A second tap, the form already gone: handled, and nothing else is popped.
+        assertTrue(compose.runOnIdle { nav.closeEntryDeleted(list, "c1") })
+        assertEquals(listOf(Routes.TRANSACTIONS), compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } })
+
+        // The list holds the delete for its Undo window; it goes through when that ends.
+        assertTrue(store.deleted.isEmpty())
+        list.commitPendingDelete()
+        assertEquals(listOf("c1"), store.deleted)
+    }
+
+    @Test
     fun theFormClosesEvenWhenItsEntryIsNotResumed() {
         lateinit var nav: NavHostController
         compose.setContent {

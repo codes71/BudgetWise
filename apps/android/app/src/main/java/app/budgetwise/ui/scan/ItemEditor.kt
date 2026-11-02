@@ -266,8 +266,8 @@ private fun PriceField(price: Long, name: String, myanmarDigits: Boolean, onPric
         BasicTextField(
             value = typed ?: price.toString(),
             onValueChange = { text ->
-                // A decimal point or an amount too large is refused: the field keeps what it had.
-                val digits = typedKyatDigits(text) ?: return@BasicTextField
+                // A fraction or an amount too large is refused: the field keeps what it had.
+                val digits = typedKyatDigits(text, typed ?: price.toString()) ?: return@BasicTextField
                 typed = digits
                 onPrice(digits.toLongOrNull() ?: 0)
             },

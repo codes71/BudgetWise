@@ -20,6 +20,7 @@ import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.LoginResult
 import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.repo.RegisterResult
+import app.budgetwise.data.repo.ReplaceResult
 import app.budgetwise.data.repo.ScanReading
 import app.budgetwise.data.repo.ScanRepository
 import app.budgetwise.data.repo.TransactionRepository
@@ -97,8 +98,11 @@ interface TransactionStore {
     /** Saves PENDING rows plus their outbox ops and requests a sync; works offline. Returns the new clientIds. */
     suspend fun addAll(inputs: List<NewTransaction>): List<String>
 
-    /** An edit: deletes [old] and saves [inputs] in their place, in one go; works offline. Returns the new clientIds. */
-    suspend fun replace(old: List<String>, inputs: List<NewTransaction>): List<String>
+    /**
+     * An edit: deletes [old] and saves [inputs] in their place, in one go; works offline. [ReplaceResult.Gone], with
+     * nothing written, when an entry to change is gone already (deleted elsewhere while the screen was open).
+     */
+    suspend fun replace(old: List<String>, inputs: List<NewTransaction>): ReplaceResult
 
     /**
      * [replace] for receipt [receiptId]'s entries, only while they are still exactly [old]; null, with nothing written,
@@ -209,7 +213,7 @@ class DefaultTransactionStore @Inject constructor(private val repo: TransactionR
 
     override suspend fun addAll(inputs: List<NewTransaction>) = withContext(NonCancellable) { repo.addAll(inputs) }
 
-    override suspend fun replace(old: List<String>, inputs: List<NewTransaction>) =
+    override suspend fun replace(old: List<String>, inputs: List<NewTransaction>): ReplaceResult =
         withContext(NonCancellable) { repo.replace(old, inputs) }
 
     override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>) =
