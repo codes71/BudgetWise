@@ -142,6 +142,12 @@ object Lucide {
     /** A scanned receipt: the "Scanned" tag and the couldn't-read card. */
     val ScanLine by lazy { lucide("ScanLine", "M3 7V5a2 2 0 0 1 2-2h2", "M17 3h2a2 2 0 0 1 2 2v2", "M21 17v2a2 2 0 0 1-2 2h-2", "M7 21H5a2 2 0 0 1-2-2v-2", "M7 12h10") }
 
+    /** The camera's light, on. */
+    val Flashlight by lazy { lucide("Flashlight", "M18 6c0 2-2 2-2 4v10a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V10c0-2-2-2-2-4V2h12z", "M6 6h12", "M12 12h.01") }
+
+    /** The camera's light, off. */
+    val FlashlightOff by lazy { lucide("FlashlightOff", "M16 16v4a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V10c0-2-2-2-2-4", "M7 2h11v4c0 2-2 2-2 4v1", "M11 6h7", "m2 2 20 20") }
+
     /** Done: entries added. */
     val CircleCheck by lazy { lucide("CircleCheck", "M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0Z", "m9 12 2 2 4-4") }
 

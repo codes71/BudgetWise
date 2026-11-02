@@ -1,8 +1,12 @@
 package app.budgetwise.ui.scan
 
+import android.graphics.Bitmap
+import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.budgetwise.CategorySource
+import app.budgetwise.NetworkStatus
 import app.budgetwise.ReceiptScanner
 import app.budgetwise.TransactionStore
 import app.budgetwise.data.model.Source
@@ -14,6 +18,7 @@ import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.repo.ScanItem
 import app.budgetwise.data.repo.ScanKind
 import app.budgetwise.data.repo.ScanReading
+import app.budgetwise.data.repo.ScanRepository
 import app.budgetwise.data.repo.TransactionRepository
 import app.budgetwise.data.text.BurmeseTextNormalizer
 import app.budgetwise.di.DeviceClock
@@ -25,36 +30,76 @@ import java.time.LocalDate
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
+import kotlinx.serialization.json.put
 
 /** Why a photo gave nothing to check. */
 enum class ScanProblem {
-    /** Not a receipt or KPay screen, blurred, or the AI read failed. */
+    /** A receipt or KPay screen the AI could not read (blurred, cut off), or nothing on it could be used. */
     UNREADABLE,
+
+    /** The server saw no receipt or KPay screen in the photo at all: a computer screen, a document, a person. */
+    NOT_A_RECEIPT,
+
+    /** A camera photo with no bright part at all ([PhotoPrep.tooDark]). Nothing was sent. */
+    TOO_DARK,
+
+    /** A chosen picture far taller than a phone screen ([PhotoPrep.tooLong]). Nothing was sent. */
+    TOO_LONG,
+
+    /** A chosen photo that could not be opened as an image. Nothing was sent. */
+    CANNOT_OPEN,
 
     /** No connection: reading needs the server. The photo is kept for Try again. */
     NO_INTERNET,
 
+    /** Online, but the read took too long or the connection dropped on the way. The photo is kept for Try again. */
+    SLOW,
+
     /** 20 scans an hour. */
     TOO_MANY,
 
-    /** The server failed (5xx). */
+    /** The server failed (5xx), or answered with something the phone cannot use. The photo is kept. */
     SERVER,
+
+    /** The phone closed BudgetWise while the photo was being read. The photo is kept for Try again. */
+    INTERRUPTED,
 
     /** The session has ended; sign in again. */
     SIGN_IN,
 }
 
-/** Where the scan is: aiming the camera, waiting on the server, a problem card, or checking what was read. */
-enum class ScanStage { CAMERA, READING, PROBLEM, REVIEW }
+/**
+ * Where the scan is: aiming the camera, getting a photo ready to send (the viewfinder stays, under a busy card), waiting
+ * on the server, a problem card, or checking what was read.
+ */
+enum class ScanStage { CAMERA, PREPARING, READING, PROBLEM, REVIEW }
 
 /**
  * One line of the review. On a receipt it is one category's share, with its items; on a KPay slip or history it is one
@@ -118,7 +163,20 @@ data class ScanUiState(
     val myanmarDigits: Boolean = false,
     val saving: Boolean = false,
     val saveFailed: Boolean = false,
+    /** The photo being read or last read; the screen shows it behind the reading and problem cards. */
+    val photo: PreparedPhoto? = null,
+    /** The lines as they were read, before any change: [edited] compares with them. */
+    val readLines: List<ReviewLine> = emptyList(),
+    /** The read has taken long enough for the reading card to say it can take up to a minute. */
+    val slow: Boolean = false,
+    /** The last shutter press gave no photo; the camera says so. */
+    val captureFailed: Boolean = false,
+    /** On [ScanProblem.TOO_MANY]: the minutes until scanning opens again, when the server said; Try again waits for it. */
+    val waitMinutes: Int? = null,
 ) {
+    /** The review differs from what was read, so leaving it asks first. Undoing every change makes it false again. */
+    val edited: Boolean get() = lines != readLines
+
     /** The lines to save. A receipt line whose items were all set to 0 is not one. */
     val keptLines: List<ReviewLine> get() = lines.filter { it.kept && it.amountKyat > 0 }
 
@@ -155,7 +213,14 @@ sealed interface ScanEvent {
 
 /**
  * Receipt scanning: a photo goes to `POST /scan`, the reply becomes lines to check, and the kept lines are saved
- * offline-first like the add form. The photo stays in memory until the scan ends, so Try again needs no new photo.
+ * offline-first like the add form. The photo stays until the scan ends, so Try again needs no new photo.
+ *
+ * Getting a photo ready and reading it run here, not in the screen, so turning the phone does not lose them. A read is
+ * cut off after [READ_LIMIT], and the card says it can take a while after [SLOW_NOTICE].
+ *
+ * Process death: the scan's stage, problem and review (with every change) are kept in [SavedStateHandle], and the photo
+ * in [ScanPhotos] (too large for the saved state). A read the phone cut off comes back as [ScanProblem.INTERRUPTED],
+ * never sent again by itself: each send counts toward the 20 scans an hour.
  */
 @HiltViewModel
 class ScanViewModel @Inject constructor(
@@ -163,19 +228,27 @@ class ScanViewModel @Inject constructor(
     private val transactions: TransactionStore,
     categories: CategorySource,
     settings: SettingsStore,
+    private val network: NetworkStatus,
+    private val photos: ScanPhotos,
+    private val saved: SavedStateHandle,
     @DeviceClock clock: Clock,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(ScanUiState(today = LocalDate.now(clock)))
+    private val _state = MutableStateFlow(restore(ScanUiState(today = LocalDate.now(clock))))
     val state: StateFlow<ScanUiState> = _state.asStateFlow()
 
     private val _events = Channel<ScanEvent>(Channel.BUFFERED)
     val events: Flow<ScanEvent> = _events.receiveAsFlow()
 
-    /** The photo being read or last read; the screen shows it behind the reading and problem cards. */
-    var photo: PreparedPhoto? = null
-        private set
+    /** The photo being read or last read. */
+    val photo: PreparedPhoto? get() = _state.value.photo
 
+    /** Getting a photo ready, the read, and the too-many countdown; [cancelWork] stops all three. */
+    private var preparing: Job? = null
     private var reading: Job? = null
+    private var waiting: Job? = null
+
+    /** Set once the entries are saved: nothing about this scan is kept after that. */
+    private var ended = false
 
     init {
         viewModelScope.launch {
@@ -184,64 +257,208 @@ class ScanViewModel @Inject constructor(
             }
         }
         viewModelScope.launch { settings.myanmarDigits.collect { on -> _state.update { it.copy(myanmarDigits = on) } } }
+        if (saved.get<Boolean>(KEY_PHOTO) == true) {
+            viewModelScope.launch {
+                val kept = photos.kept()
+                if (kept != null) {
+                    _state.update { it.copy(photo = kept) }
+                } else {
+                    saved.remove<Boolean>(KEY_PHOTO)
+                    // Try again needs the photo; without it, a new one.
+                    if (_state.value.stage == ScanStage.PROBLEM && _state.value.problem in NEEDS_PHOTO) retake()
+                }
+            }
+        } else {
+            // A photo left by a scan the phone closed, which the user never came back to.
+            photos.drop()
+        }
+        viewModelScope.launch {
+            _state.map { it.toSaved() }.distinctUntilChanged().collect { if (!ended) saved[KEY_SCAN] = it }
+        }
     }
 
+    /** A camera photo, upright, on the main thread. One too dark to read is not sent. */
+    fun captured(bitmap: Bitmap) = prepare(onError = ::captureFailed) {
+        if (photos.tooDark(bitmap)) Prepared.Refused(ScanProblem.TOO_DARK) else Prepared.Ready(photos.prepare(bitmap))
+    }
+
+    /** A photo chosen from the phone. */
+    fun picked(uri: Uri) = prepare(onError = { fail(ScanProblem.CANNOT_OPEN) }) {
+        when (val opened = photos.open(uri)) {
+            is OpenedPhoto.Photo -> Prepared.Ready(photos.prepare(opened.bitmap))
+            OpenedPhoto.TooLong -> Prepared.Refused(ScanProblem.TOO_LONG)
+            OpenedPhoto.CannotOpen -> Prepared.Refused(ScanProblem.CANNOT_OPEN)
+        }
+    }
+
+    /** A photo ready to send, or why it is not sent. */
+    private sealed interface Prepared {
+        class Ready(val photo: PreparedPhoto) : Prepared
+
+        class Refused(val problem: ScanProblem) : Prepared
+    }
+
+    /** The shutter gave no photo (the camera failed, or the capture could not be turned into one). */
+    fun captureFailed() = _state.update {
+        if (it.stage == ScanStage.CAMERA || it.stage == ScanStage.PREPARING) {
+            it.copy(stage = ScanStage.CAMERA, captureFailed = true)
+        } else {
+            it
+        }
+    }
+
+    /**
+     * Gets a photo ready to send with [work], then reads it; [onError] when [work] fails. Only from the camera or a
+     * problem card: a second photo while one is on its way is ignored.
+     */
+    private fun prepare(onError: () -> Unit, work: suspend () -> Prepared) {
+        val stage = _state.value.stage
+        if (stage != ScanStage.CAMERA && stage != ScanStage.PROBLEM) return
+        cancelWork()
+        _state.update { it.copy(stage = ScanStage.PREPARING, problem = null, photo = null, captureFailed = false) }
+        preparing = viewModelScope.launch {
+            val outcome = try {
+                work()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                // Out of memory on a huge picture, or a photo that could not be encoded.
+                null
+            }
+            when (outcome) {
+                is Prepared.Ready -> {
+                    keep(outcome.photo)
+                    _state.update { it.copy(photo = outcome.photo) }
+                    readPhoto()
+                }
+                is Prepared.Refused -> fail(outcome.problem)
+                null -> onError()
+            }
+        }
+    }
+
+    /** On disk too, for after process death. A full disk only means the photo would not survive that. */
+    private suspend fun keep(prepared: PreparedPhoto) {
+        try {
+            photos.keep(prepared.bytes)
+            saved[KEY_PHOTO] = true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            saved.remove<Boolean>(KEY_PHOTO)
+        }
+    }
+
+    /** Reads [prepared] (tests, and a photo already prepared). */
     fun read(prepared: PreparedPhoto) {
-        photo = prepared
+        cancelWork()
+        _state.update { it.copy(photo = prepared) }
         readPhoto()
     }
 
-    /** Reads the kept photo again (No internet, Server); without one, back to the camera. */
+    /** Reads the kept photo again (No internet, Server, Slow); without one, back to the camera. */
     fun tryAgain() = if (photo != null) readPhoto() else retake()
 
-    /** Drops the photo and the reply: back to the camera. Cancels a read in progress. */
+    /** Drops the photo and the reply: back to the camera. Cancels getting a photo ready or a read in progress. */
     fun retake() {
+        cancelWork()
+        dropPhoto()
+        _state.update { ScanUiState(today = it.today, categories = it.categories, myanmarDigits = it.myanmarDigits) }
+    }
+
+    private fun cancelWork() {
+        preparing?.cancel()
+        preparing = null
         reading?.cancel()
         reading = null
-        photo = null
-        _state.update { ScanUiState(today = it.today, categories = it.categories, myanmarDigits = it.myanmarDigits) }
+        waiting?.cancel()
+        waiting = null
+    }
+
+    private fun dropPhoto() {
+        saved.remove<Boolean>(KEY_PHOTO)
+        photos.drop()
     }
 
     private fun readPhoto() {
         val prepared = photo ?: return
         reading?.cancel()
-        _state.update { it.copy(stage = ScanStage.READING, problem = null) }
+        waiting?.cancel()
+        _state.update { it.copy(stage = ScanStage.READING, problem = null, slow = false, waitMinutes = null) }
         reading = viewModelScope.launch {
-            val result = try {
-                scanner.scan(prepared.bytes, prepared.mediaType)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                // A Keystore failure reading the token, not an answer from the server.
-                ApiResult.Failure("local", "Could not send the photo", retryable = true)
+            val notice = launch {
+                delay(SLOW_NOTICE)
+                _state.update { it.copy(slow = true) }
             }
+            // The whole read, upload and AI together: a slow upload that keeps moving never hits a socket timeout.
+            val result = withTimeoutOrNull(READ_LIMIT) {
+                try {
+                    scanner.scan(prepared.bytes, prepared.mediaType)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // A Keystore failure reading the token, not an answer from the server.
+                    ApiResult.Failure("local", "Could not send the photo", retryable = true)
+                }
+            }
+            notice.cancel()
             when (result) {
+                null -> fail(ScanProblem.SLOW)
                 is ApiResult.Ok -> show(result.v)
                 is ApiResult.Unauthorized -> fail(ScanProblem.SIGN_IN)
-                is ApiResult.Failure -> fail(
-                    when {
-                        result.code == NETWORK_ERROR_CODE -> ScanProblem.NO_INTERNET
-                        result.code == "rate_limited" || result.code == "http_429" -> ScanProblem.TOO_MANY
-                        // The AI read failed (the server says to try again): resending the same photo can work.
-                        result.code == "scan_failed" -> ScanProblem.SERVER
-                        result.retryable -> ScanProblem.SERVER
-                        else -> ScanProblem.UNREADABLE
-                    },
-                )
+                is ApiResult.Failure -> {
+                    val problem = problemFor(result)
+                    fail(problem)
+                    if (problem == ScanProblem.TOO_MANY) result.retryAfterSec?.let(::waitOut)
+                }
             }
         }
     }
 
-    /** A chosen photo that could not be opened as an image: the couldn't-read card, nothing sent. */
-    fun cannotOpen() {
-        photo = null
-        fail(ScanProblem.UNREADABLE)
+    private suspend fun problemFor(failure: ApiResult.Failure): ScanProblem = when (failure.code) {
+        // Every IOException is "network": a timeout or a reply cut off on a phone that is online is a slow connection.
+        NETWORK_ERROR_CODE -> if (online()) ScanProblem.SLOW else ScanProblem.NO_INTERNET
+        ScanRepository.RATE_LIMITED, "http_429" -> ScanProblem.TOO_MANY
+        // A photo the server would not take; this phone always sends a JPEG under the limit, so it is an odd photo.
+        "invalid_image", "image_too_large" -> ScanProblem.UNREADABLE
+        // The AI read failed (scan_failed), the server is down, or its reply was not one the phone can use (an HTML
+        // page from a firewall, a deployment without /scan): none of these is the photo's fault, and it is kept.
+        else -> ScanProblem.SERVER
     }
 
-    private fun fail(problem: ScanProblem) = _state.update { it.copy(stage = ScanStage.PROBLEM, problem = problem) }
+    private suspend fun online(): Boolean = try {
+        network.online.first()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        false
+    }
+
+    /** Counts down the minutes on the too-many card; Try again comes back when they are up. */
+    private fun waitOut(seconds: Long) {
+        waiting?.cancel()
+        waiting = viewModelScope.launch {
+            var left = seconds
+            while (left > 0) {
+                val minutes = (left + 59) / 60
+                _state.update { it.copy(waitMinutes = minutes.toInt()) }
+                val step = left - (minutes - 1) * 60
+                delay(step.seconds)
+                left -= step
+            }
+            _state.update { it.copy(waitMinutes = null) }
+        }
+    }
+
+    private fun fail(problem: ScanProblem) =
+        _state.update { it.copy(stage = ScanStage.PROBLEM, problem = problem, slow = false, waitMinutes = null) }
 
     private fun show(reading: ScanReading) {
-        if (reading.kind == ScanKind.UNKNOWN || reading.entries.isEmpty()) return fail(ScanProblem.UNREADABLE)
+        if (reading.kind == ScanKind.UNKNOWN || reading.entries.isEmpty()) {
+            // Only the server's "no receipt in this photo" says so; a receipt it could not read, or an older server's
+            // reply with no reason, keeps the couldn't-read card.
+            return fail(if (reading.kind == ScanKind.UNKNOWN && reading.notMoney) ScanProblem.NOT_A_RECEIPT else ScanProblem.UNREADABLE)
+        }
         val lines = reading.entries.map {
             ReviewLine(it.type, it.amountKyat, it.category, it.description, it.date, it.clientId, it.items)
         }
@@ -249,11 +466,13 @@ class ScanViewModel @Inject constructor(
             it.copy(
                 stage = ScanStage.REVIEW,
                 problem = null,
+                slow = false,
                 kind = reading.kind,
                 merchant = reading.merchant,
                 date = reading.date,
                 totalKyat = reading.totalKyat,
                 lines = lines,
+                readLines = lines,
             )
         }
     }
@@ -355,12 +574,128 @@ class ScanViewModel @Inject constructor(
                 _state.update { it.copy(saving = false, saveFailed = true) }
                 return@launch
             }
-            photo = null
+            // Before Saved: a kill from here on must not bring back a review that is already saved.
+            ended = true
+            saved.remove<String>(KEY_SCAN)
+            dropPhoto()
+            _state.update { it.copy(photo = null) }
             _events.send(ScanEvent.Saved(ids, _state.value.merchant))
+        }
+    }
+
+    override fun onCleared() {
+        // Scanning was closed: the receipt photo goes. Not called on process death, when it must stay.
+        photos.drop()
+    }
+
+    /** The scan as it was when the phone closed BudgetWise, if it was past the camera. */
+    private fun restore(fresh: ScanUiState): ScanUiState {
+        val s = saved.get<String>(KEY_SCAN)?.let { fresh.restoredFrom(it) } ?: return fresh
+        return when (s.stage) {
+            ScanStage.CAMERA, ScanStage.PREPARING -> fresh
+            // The request died with the process; sending it again is the user's call.
+            ScanStage.READING -> s.copy(stage = ScanStage.PROBLEM, problem = ScanProblem.INTERRUPTED)
+            ScanStage.PROBLEM -> if (s.problem == null) fresh else s
+            ScanStage.REVIEW -> if (s.lines.isEmpty()) fresh else s
         }
     }
 
     companion object {
         const val OTHER = "Other"
+
+        /** How long a read runs before the card says it can take up to a minute. */
+        val SLOW_NOTICE = 15.seconds
+
+        /**
+         * The most a whole read may take, upload included: the server's own limit is 60 s, so past this the connection
+         * is the problem.
+         */
+        val READ_LIMIT = 90.seconds
+
+        /** The problems whose Try again sends the same photo. */
+        private val NEEDS_PHOTO = setOf(
+            ScanProblem.NO_INTERNET, ScanProblem.SLOW, ScanProblem.TOO_MANY, ScanProblem.SERVER, ScanProblem.INTERRUPTED,
+        )
+
+        // SavedStateHandle keys: the scan as one JSON string, and whether ScanPhotos holds its photo.
+        private const val KEY_SCAN = "scan"
+        private const val KEY_PHOTO = "photoKept"
     }
 }
+
+/**
+ * What [ScanUiState] keeps across process death, as JSON (Bundle types only, and no serialization plugin in :app).
+ * Not kept: [ScanUiState.today], the categories and digits (they come back from the clock and settings), saving, and
+ * the photo (in [ScanPhotos]).
+ */
+private fun ScanUiState.toSaved(): String = buildJsonObject {
+    put("stage", stage.name)
+    problem?.let { put("problem", it.name) }
+    put("kind", kind.name)
+    merchant?.let { put("merchant", it) }
+    date?.let { put("date", it.toEpochDay()) }
+    totalKyat?.let { put("total", it) }
+    put("lines", lines.linesJson())
+    put("readLines", readLines.linesJson())
+}.toString()
+
+private fun List<ReviewLine>.linesJson() = buildJsonArray {
+    for (line in this@linesJson) {
+        addJsonObject {
+            put("type", line.type.name)
+            put("originalKyat", line.originalKyat)
+            put("category", line.category)
+            put("description", line.description)
+            put("date", line.date.toEpochDay())
+            line.clientId?.let { put("clientId", it) }
+            put("items", line.items.itemsJson())
+            put("kept", line.kept)
+            put("originalItems", line.originalItems.itemsJson())
+        }
+    }
+}
+
+private fun List<ScanItem>.itemsJson() = buildJsonArray {
+    for (item in this@itemsJson) {
+        addJsonObject {
+            put("name", item.name)
+            put("quantity", item.quantity)
+            put("unitPriceKyat", item.unitPriceKyat)
+        }
+    }
+}
+
+/** This state with what [json] kept; null when it cannot be read (an older build's, or damaged). */
+private fun ScanUiState.restoredFrom(json: String): ScanUiState? = try {
+    val o = Json.parseToJsonElement(json).jsonObject
+    copy(
+        stage = ScanStage.valueOf(o.string("stage")!!),
+        problem = o.string("problem")?.let(ScanProblem::valueOf),
+        kind = ScanKind.valueOf(o.string("kind")!!),
+        merchant = o.string("merchant"),
+        date = o["date"]?.jsonPrimitive?.long?.let(LocalDate::ofEpochDay),
+        totalKyat = o["total"]?.jsonPrimitive?.long,
+        lines = o["lines"]!!.jsonArray.map { it.jsonObject.toLine() },
+        readLines = o["readLines"]!!.jsonArray.map { it.jsonObject.toLine() },
+    )
+} catch (_: RuntimeException) {
+    // JSON that is not what this build writes (a missing key, a renamed stage): start the scan afresh.
+    null
+}
+
+private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
+
+private fun JsonObject.toLine() = ReviewLine(
+    type = TxType.valueOf(string("type")!!),
+    originalKyat = this["originalKyat"]!!.jsonPrimitive.long,
+    category = string("category")!!,
+    description = string("description")!!,
+    date = LocalDate.ofEpochDay(this["date"]!!.jsonPrimitive.long),
+    clientId = string("clientId"),
+    items = this["items"]!!.jsonArray.map { it.jsonObject.toItem() },
+    kept = this["kept"]!!.jsonPrimitive.boolean,
+    originalItems = this["originalItems"]!!.jsonArray.map { it.jsonObject.toItem() },
+)
+
+private fun JsonObject.toItem() =
+    ScanItem(string("name")!!, this["quantity"]!!.jsonPrimitive.int, this["unitPriceKyat"]!!.jsonPrimitive.long)
