@@ -113,7 +113,7 @@ class ScanReviewTest {
 
         compose.onAllNodesWithContentDescription(context.getString(R.string.item_fewer))[1].performClick()
 
-        compose.onNodeWithText("not added, was 1").assertIsDisplayed()
+        compose.onNodeWithText("not added").assertIsDisplayed()
         compose.onNodeWithText("Scanned 11,200 Ks. You changed 2 items.").assertIsDisplayed()
     }
 

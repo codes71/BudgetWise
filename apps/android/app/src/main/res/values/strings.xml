@@ -460,7 +460,7 @@
     <string name="item_was_count">was %1$s</string>
     <string name="item_was_price">was %1$s each</string>
     <string name="item_was_both">was %1$s × %2$s</string>
-    <string name="item_not_added">not added, was %1$s</string>
+    <string name="item_not_added">not added</string>
     <string name="item_fewer">One fewer</string>
     <string name="item_more">One more</string>
     <!-- TalkBack, an item's price field: "Price each of Fresh milk 1L". -->
