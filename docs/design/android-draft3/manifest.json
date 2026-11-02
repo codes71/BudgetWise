@@ -1,0 +1,407 @@
+{
+  "version": 1,
+  "paperUrl": "https://app.paper.design/file/01M637VVENYNCKYK0T90TRWSMT/p-4-0",
+  "baseline": "10ec22f96e6fde5b9f5e6f242bae01dc8649cfab",
+  "screens": [
+    {
+      "id": "GGC-0",
+      "name": "Draft 3 \u00b7 01 Transactions \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/01-transactions-light.json",
+      "preview": "previews/01-transactions-light.webp",
+      "sourceSha256": "f58080580e5a1096cf4ce45098d8b726e2a101ec5c2b78cd8bb4858f9d7d1e6e",
+      "previewSha256": "cb293062519dfbc6b68bf089adbfa10d6be88705f299b741e9d4c9ed3eaae347"
+    },
+    {
+      "id": "GQA-0",
+      "name": "Draft 3 \u00b7 02 Add entry \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/02-add-entry-light.json",
+      "preview": "previews/02-add-entry-light.webp",
+      "sourceSha256": "bc922c490b9d8dd19e39200e622b77fbcf21502f9010609f044bdc5c09ec7a2a",
+      "previewSha256": "569c97fd763ae65895a30705b51a8133a2327e5564349717a44e5624205c19f5"
+    },
+    {
+      "id": "GSZ-0",
+      "name": "Draft 3 \u00b7 03 Voice \u00b7 listening \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/03-voice-listening-light.json",
+      "preview": "previews/03-voice-listening-light.webp",
+      "sourceSha256": "d7cb7694eeaafdcac3842893c2f3d99f6085205791102bf87ea37890d25f182f",
+      "previewSha256": "a01f601c3c904825a4468f5a8ccaf2f41e6078489eda3ac7aa73552526dd0e9d"
+    },
+    {
+      "id": "GUM-0",
+      "name": "Draft 3 \u00b7 05 Budgets \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/05-budgets-light.json",
+      "preview": "previews/05-budgets-light.webp",
+      "sourceSha256": "197686efc6aa431e53a82bbb8626138f51766422c4d189bf8b693c6934cc00e9",
+      "previewSha256": "d5c4210331a9254dd1f593d03b34c0000a54ff6a73302c6823cfd2558b3eb08a"
+    },
+    {
+      "id": "GXK-0",
+      "name": "Draft 3 \u00b7 04 Scan \u00b7 receipt camera \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/04-scan-receipt-camera-light.json",
+      "preview": "previews/04-scan-receipt-camera-light.webp",
+      "sourceSha256": "6e467025a76ca06dbeca20cc514b9fe1148ed6be44b761def4bd62e4d2d7f1d2",
+      "previewSha256": "2eefca1ac05e290be3e1ed80582fb29024edfa32ee07a68baa9a10cbff6fa115"
+    },
+    {
+      "id": "GZ4-0",
+      "name": "Draft 3 \u00b7 06 Settings \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/06-settings-light.json",
+      "preview": "previews/06-settings-light.webp",
+      "sourceSha256": "5565dbbea87d76e58aa1aed3dbd60e7860fa77baf2505f247cd728eb8a8f6b81",
+      "previewSha256": "c9108f87fe0b68e8416ef2d23826b56207474b1cd9c8c2782a452e72d1b4a2f3"
+    },
+    {
+      "id": "H1O-0",
+      "name": "Draft 3 \u00b7 07 Language \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/07-language-light.json",
+      "preview": "previews/07-language-light.webp",
+      "sourceSha256": "3024b4302632b1b8a1766c0bc5655e5e4137daa6af0789a3726a09f71eb77984",
+      "previewSha256": "44eb77ca00cbded41fa332eb656d9c1f74a65e7de205b81fa72c8208a4e04c5b"
+    },
+    {
+      "id": "H30-0",
+      "name": "Draft 3 \u00b7 08 Welcome \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/08-welcome-light.json",
+      "preview": "previews/08-welcome-light.webp",
+      "sourceSha256": "1d53e8bbb6770693cc56469d34401b24f960385f3b09c6201cbd7f2053ed5fcc",
+      "previewSha256": "fbf07096ec67055540ecfc40b8897f0dbc2483a4822d16dc75f98d4c2e664475"
+    },
+    {
+      "id": "HK0-0",
+      "name": "Draft 3 \u00b7 09 Create account \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/09-create-account-light.json",
+      "preview": "previews/09-create-account-light.webp",
+      "sourceSha256": "7d8eeabbc7484f2f4fd910e69414c7bbce1ea561f95fb06bb0b206c44d67c49d",
+      "previewSha256": "662a7ffff061ccaefc62372c5eef0cf7914931a143b770fac4a252f380665f82"
+    },
+    {
+      "id": "HLL-0",
+      "name": "Draft 3 \u00b7 10 Sign in \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/10-sign-in-light.json",
+      "preview": "previews/10-sign-in-light.webp",
+      "sourceSha256": "c656985a918d8eb24d553c825026f5f446531532382f9917e3c4f651f6254b73",
+      "previewSha256": "109ca71c77479f803c8235d5a4158d5a9b68eb471d632ecd7dd66b102d52ceb0"
+    },
+    {
+      "id": "HN2-0",
+      "name": "Draft 3 \u00b7 11 First income \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/11-first-income-light.json",
+      "preview": "previews/11-first-income-light.webp",
+      "sourceSha256": "f35c70c4b4faf548d8f474d539849eeecef3d91d3f588fcf126b660ca134ae13",
+      "previewSha256": "065365f20693cb970c6c45b262f457241c7c0c8834e19f65338ba05723c0c697"
+    },
+    {
+      "id": "HOK-0",
+      "name": "Draft 3 \u00b7 12 Voice setup \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/12-voice-setup-light.json",
+      "preview": "previews/12-voice-setup-light.webp",
+      "sourceSha256": "1f8bc388a666251d921c162c56e1a0b7fe0a798e1ad51d6aff2781a1740a18d8",
+      "previewSha256": "b6a05d6a0a2d17153416f475e1e2943fb7bee3768002732bd0c397d8ebe230b3"
+    },
+    {
+      "id": "HQ6-0",
+      "name": "Draft 3 \u00b7 01 Transactions \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/01-transactions-dark.json",
+      "preview": "previews/01-transactions-dark.webp",
+      "sourceSha256": "1bdfe341950be0be8ba4196ef3122572bc69ea4789475f79936ee56ee12bb095",
+      "previewSha256": "1b2ef20dc18f08739df1c6df931d23850812f41e53cf1a543adba98588a68640"
+    },
+    {
+      "id": "HST-0",
+      "name": "Draft 3 \u00b7 02 Add entry \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/02-add-entry-dark.json",
+      "preview": "previews/02-add-entry-dark.webp",
+      "sourceSha256": "bdb4c2f2c836999a1418f3b8985174a67b179f4a2b89fa64052d46e41f12f7af",
+      "previewSha256": "13211d6c37454cfc88891cb69340b24d02f424f251dc35b553610880caed786b"
+    },
+    {
+      "id": "HVB-0",
+      "name": "Draft 3 \u00b7 03 Voice \u00b7 listening \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/03-voice-listening-dark.json",
+      "preview": "previews/03-voice-listening-dark.webp",
+      "sourceSha256": "f1f3db086a6ca836ba2678faca3a2c6632d12887e89e03f6a5b6c4cdc860c42a",
+      "previewSha256": "c47a6b5f1fe8143d9bb1d67c7bcacecf15a62221aa470e8babe2b7dde560ff37"
+    },
+    {
+      "id": "HX9-0",
+      "name": "Draft 3 \u00b7 04 Scan \u00b7 receipt camera \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/04-scan-receipt-camera-dark.json",
+      "preview": "previews/04-scan-receipt-camera-dark.webp",
+      "sourceSha256": "35e1cfa4875318c97928addeef228fb9e26dd7cc84d08e4600f6059e9f483ec4",
+      "previewSha256": "2eefca1ac05e290be3e1ed80582fb29024edfa32ee07a68baa9a10cbff6fa115"
+    },
+    {
+      "id": "HYT-0",
+      "name": "Draft 3 \u00b7 05 Budgets \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/05-budgets-dark.json",
+      "preview": "previews/05-budgets-dark.webp",
+      "sourceSha256": "e99b935a3466235d8ac6c606bc243ee412065a4143dbef51f42ac2e377ea959a",
+      "previewSha256": "1f1adbcaaf57df18e86ae913ad8f1f0e3f9b392ff607621b6d8dc720ee560a33"
+    },
+    {
+      "id": "I11-0",
+      "name": "Draft 3 \u00b7 06 Settings \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/06-settings-dark.json",
+      "preview": "previews/06-settings-dark.webp",
+      "sourceSha256": "d5c7bb9cd44d8ebd5bf56751721c213526125a51d92b891183c25fd27ed77f3b",
+      "previewSha256": "feda3c824d2a0c12aa195a07fbc08df6cef3a293468bddc813fd78c960dfdbbf"
+    },
+    {
+      "id": "I42-0",
+      "name": "Draft 3 \u00b7 07 Language \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/07-language-dark.json",
+      "preview": "previews/07-language-dark.webp",
+      "sourceSha256": "e245784fcb5147772e11261845d02f02a371fd3d532dd79a152bbdddae24ea6b",
+      "previewSha256": "b55f926d01ffbae3a9f0388acacf31fec58caeb5e211a1bd91cc56f60138dd7b"
+    },
+    {
+      "id": "I5E-0",
+      "name": "Draft 3 \u00b7 08 Welcome \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/08-welcome-dark.json",
+      "preview": "previews/08-welcome-dark.webp",
+      "sourceSha256": "908dbb19f11337b1d963bef42689314cf1593c32356adac4eb6739647c655656",
+      "previewSha256": "44d3ab4a68994847ef4f6c0a73d9cc228b4ada7446d3409a0ee2ce7ef27284e2"
+    },
+    {
+      "id": "I6R-0",
+      "name": "Draft 3 \u00b7 09 Create account \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/09-create-account-dark.json",
+      "preview": "previews/09-create-account-dark.webp",
+      "sourceSha256": "659afb44d53337c69533844ee00cd74676f00aabe510d563bfea75d1e8075514",
+      "previewSha256": "803e9058bdee86856905f254654700091ba6829f7d9d96fac12052ebd65de93d"
+    },
+    {
+      "id": "I8C-0",
+      "name": "Draft 3 \u00b7 10 Sign in \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/10-sign-in-dark.json",
+      "preview": "previews/10-sign-in-dark.webp",
+      "sourceSha256": "17d711ecca4c03a04891767a26bcc7545a2e21aa4fb3fcba323d14cef80b87d1",
+      "previewSha256": "4145d781343e5fc6d06dd7df0768375472ea79ffa22ea969876ba1b289e8fc7f"
+    },
+    {
+      "id": "I9T-0",
+      "name": "Draft 3 \u00b7 11 First income \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/11-first-income-dark.json",
+      "preview": "previews/11-first-income-dark.webp",
+      "sourceSha256": "42575d133517e41762d213c5ea5e3f7766ba3cbb771f7c71aba30aeeba8992b8",
+      "previewSha256": "eefe8e4beff062dadc09f84bd67920a86a81fda65fd069f72f82df1b9dd885bc"
+    },
+    {
+      "id": "IBB-0",
+      "name": "Draft 3 \u00b7 12 Voice setup \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/12-voice-setup-dark.json",
+      "preview": "previews/12-voice-setup-dark.webp",
+      "sourceSha256": "010a0833df4833ea0a17ec979e45b965ad80aeb274ae2e70c64d796d6309a794",
+      "previewSha256": "1f3c02b9387f260cad99defcd7c91e2592f60a6426c9e4130aafb20a14f75b46"
+    },
+    {
+      "id": "IDG-0",
+      "name": "Draft 3 \u00b7 13 Add sheet \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/13-add-sheet-light.json",
+      "preview": "previews/13-add-sheet-light.webp",
+      "sourceSha256": "4cb2ac254a373eb8d39afbe14d020fc098f1defd1cf57546e23c2df76cce7a27",
+      "previewSha256": "dea9206a3399f2506383157d64e9a9ac9f91a2cc6856dc3edf422fb93691ec94"
+    },
+    {
+      "id": "IFZ-0",
+      "name": "Draft 3 \u00b7 13 Add sheet \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/13-add-sheet-dark.json",
+      "preview": "previews/13-add-sheet-dark.webp",
+      "sourceSha256": "68a6f93871067d96cf6ca3f89cda6677c524ed7a3dbd7e7195074dc28fa4aead",
+      "previewSha256": "5321cb055c4cac4c3a17be81281319e6a5d23a32048497e6ee83ae7e2a1a3367"
+    },
+    {
+      "id": "III-0",
+      "name": "Draft 3 \u00b7 14 Receipt detail \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/14-receipt-detail-light.json",
+      "preview": "previews/14-receipt-detail-light.webp",
+      "sourceSha256": "310176294a4b1a45e740f9b0a7ce66e8fd62982ee99586d74eb2e273cb2bdd80",
+      "previewSha256": "0515f6cd9b5e1effe51f25f9aea168bf30f86f4253b6b78dc89cdc34b02e1352"
+    },
+    {
+      "id": "IKC-0",
+      "name": "Draft 3 \u00b7 14 Receipt detail \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/14-receipt-detail-dark.json",
+      "preview": "previews/14-receipt-detail-dark.webp",
+      "sourceSha256": "773140ecf05e79b3a37ee8a0a379eef1f5d144019184eda73bee982dd2775483",
+      "previewSha256": "73c379a192d2c406a7dbf180c39dea5a8d581678d0dc663a547a1c38cdedd27e"
+    },
+    {
+      "id": "IM6-0",
+      "name": "Draft 3 \u00b7 15 Check receipt \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/15-check-receipt-light.json",
+      "preview": "previews/15-check-receipt-light.webp",
+      "sourceSha256": "3c54c91f1b2cfa61297080242a5c0fd8cb440242c1e3cbdeac9b76b124715db3",
+      "previewSha256": "03ede6015c50af6e302869da4350be2dba8dfcb0c8a882c37ec7f0b00af7b359"
+    },
+    {
+      "id": "IOW-0",
+      "name": "Draft 3 \u00b7 15 Check receipt \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/15-check-receipt-dark.json",
+      "preview": "previews/15-check-receipt-dark.webp",
+      "sourceSha256": "397bc8ecb5e42885ba9727c5fb2d2824848ef40804521d4f1617db7e81fe7ec9",
+      "previewSha256": "4cc5b59858f1f9f04121c669ab2eae3171254e1fef5cd463c61c4d3e916e4621"
+    },
+    {
+      "id": "ITW-0",
+      "name": "Draft 3 \u00b7 16 Move category \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/16-move-category-light.json",
+      "preview": "previews/16-move-category-light.webp",
+      "sourceSha256": "53a56a132338342273da4176e3094399411fe328777d48568cc5b1338b048cd0",
+      "previewSha256": "d7c7ff22787648bd51d842896175998a73858f03bab54432b68e2349070f6792"
+    },
+    {
+      "id": "IXF-0",
+      "name": "Draft 3 \u00b7 16 Move category \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/16-move-category-dark.json",
+      "preview": "previews/16-move-category-dark.webp",
+      "sourceSha256": "7c2500556bd34bd282c828548c44d97d611dafdcb10422cf439631af8bdff1cf",
+      "previewSha256": "a8eb2225844d5afbaf4d8fe673e3d0a7ce17becd44c9bde40f46020f10d78f68"
+    },
+    {
+      "id": "J0Y-0",
+      "name": "Draft 3 \u00b7 17 Change items \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/17-change-items-light.json",
+      "preview": "previews/17-change-items-light.webp",
+      "sourceSha256": "f56fc00861d3fdc55054bcae8adce094c1b6f18b05348addd44498080aa2501f",
+      "previewSha256": "47de365474f02ff120e8409d2663873a90ae5c2af62046f58823fad301670619"
+    },
+    {
+      "id": "J3K-0",
+      "name": "Draft 3 \u00b7 17 Change items \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/17-change-items-dark.json",
+      "preview": "previews/17-change-items-dark.webp",
+      "sourceSha256": "54d34aeba1a02217d8fd9ca96768c81100daae3701ea13a3a352e92f6f3f6430",
+      "previewSha256": "df7af06e6fb4b1206e99abe43e70fa9e94b28ec6145b6d508ecf1febebad0edc"
+    },
+    {
+      "id": "J66-0",
+      "name": "Draft 3 \u00b7 18 Change entry \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/18-change-entry-light.json",
+      "preview": "previews/18-change-entry-light.webp",
+      "sourceSha256": "068b8a8d2d85e54d5a802e484da7c9324aa99df411dcd8820496d29816d77cf7",
+      "previewSha256": "7c7367ccc772ea5bc95d0dfa0c00b8a364091bf6a247ee1a2b9b4c5a0e6ff62b"
+    },
+    {
+      "id": "J7Z-0",
+      "name": "Draft 3 \u00b7 18 Change entry \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/18-change-entry-dark.json",
+      "preview": "previews/18-change-entry-dark.webp",
+      "sourceSha256": "f9617892689dcc4a132b84fe34beda96e0eb215f08523e35fb5cd66b0469da1b",
+      "previewSha256": "43571b8b8e5d24e20dbf8d5ee0daadfbabc22657706ddc328841f8274ee08274"
+    },
+    {
+      "id": "J9S-0",
+      "name": "Draft 3 \u00b7 19 Check payment \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/19-check-payment-light.json",
+      "preview": "previews/19-check-payment-light.webp",
+      "sourceSha256": "fd7494e7f7a0fed172a3df6d206030679485f17ecca3a69713a44103cdf9cfa2",
+      "previewSha256": "9eceb56baa2a461a0419209777500ac2a3a03b44055ae026ea940d55927d2323"
+    },
+    {
+      "id": "JB1-0",
+      "name": "Draft 3 \u00b7 19 Check payment \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/19-check-payment-dark.json",
+      "preview": "previews/19-check-payment-dark.webp",
+      "sourceSha256": "bceac144028096b6d4e0bd4905243ff5db14edbec72cd634aa9c89c4b9d093b7",
+      "previewSha256": "fbbc846f21ea485fc23da67326d1cfbc51277a3b2af2ce8a6223aeccefbfe8d3"
+    },
+    {
+      "id": "JCA-0",
+      "name": "Draft 3 \u00b7 20 Check payments \u00b7 Light \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/20-check-payments-light.json",
+      "preview": "previews/20-check-payments-light.webp",
+      "sourceSha256": "d025aa60266378e518910a6da7287c999907727ba4dbb5fc1b9ee402c6f2f76d",
+      "previewSha256": "f78fbaae08c264ce90db93c03ed76af08434f34aa0edd1c0f890c0a53629f0ea"
+    },
+    {
+      "id": "JDW-0",
+      "name": "Draft 3 \u00b7 20 Check payments \u00b7 Dark \u00b7 master 10ec22f",
+      "width": 390,
+      "height": 844,
+      "source": "source/20-check-payments-dark.json",
+      "preview": "previews/20-check-payments-dark.webp",
+      "sourceSha256": "4aab849a40034e00a205fade8be3a41ede1cdd73dcd04fb81c28938bde06a21d",
+      "previewSha256": "6b182e7edaed2f32bd0b3a0365118ca848eb17d8c351b6c1ec9a9a223da3911d"
+    }
+  ]
+}
