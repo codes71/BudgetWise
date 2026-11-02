@@ -12,6 +12,7 @@ import app.budgetwise.nlu.TxType
 import app.budgetwise.testing.FakeBudgetSource
 import app.budgetwise.testing.FakeCategorySource
 import app.budgetwise.testing.FakeMicrophone
+import app.budgetwise.testing.FakeNetworkStatus
 import app.budgetwise.testing.FakeSettingsStore
 import app.budgetwise.testing.FakeSpeech
 import app.budgetwise.testing.FakeTransactionStore
@@ -46,12 +47,13 @@ class VoiceViewModelTest {
     private val settings = FakeSettingsStore()
     private val store = FakeTransactionStore()
     private val budgets = FakeBudgetSource()
+    private val network = FakeNetworkStatus(online = false)
 
     private val coffee = VoiceEntry(TxType.EXPENSE, 3000, "Food and Drink Item", "ကော်ဖီ", today, dateGuessed = true)
     private val taxi = VoiceEntry(TxType.EXPENSE, 5000, "Transport", "တက္ကစီ", today.minusDays(1), dateGuessed = false)
 
     private fun TestScope.start(): Pair<VoiceViewModel, MutableList<VoiceEvent>> {
-        val vm = VoiceViewModel(mic, speech, parser, settings, store, budgets, FakeCategorySource(), clock)
+        val vm = VoiceViewModel(mic, speech, parser, settings, store, budgets, FakeCategorySource(), network, clock)
         val events = mutableListOf<VoiceEvent>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events += it } }
         return vm to events
@@ -93,6 +95,17 @@ class VoiceViewModelTest {
         vm.done()
         assertEquals(VoicePhase.Problem(VoiceProblem.NothingHeard), vm.phase)
         assertTrue(parser.calls.isEmpty())
+    }
+
+    @Test
+    fun aTimeoutWhileOnlineIsNotOffline() = runTest {
+        network.online.value = true
+        val (vm, _) = start()
+        // OkHttp's timeout, or a reply cut off: an IOException, so "network", on a phone that is online.
+        parser.reply = ApiResult.Failure(NETWORK_ERROR_CODE, "timeout", retryable = true)
+        vm.listen()
+        vm.done()
+        assertEquals(VoicePhase.Problem(VoiceProblem.Failed), vm.phase)
     }
 
     @Test

@@ -123,7 +123,8 @@ export function normalizeScan(
   raw: ScanOutput,
   { categories, today }: { categories: string[]; today: string },
 ): ScanResultDto {
-  if (raw.kind === "unknown") return { kind: "unknown", entries: [] };
+  // Why nothing was read: the phone tells "not a receipt" apart from "a receipt it could not read".
+  if (raw.kind === "unknown") return raw.reason ? { kind: "unknown", reason: raw.reason, entries: [] } : { kind: "unknown", entries: [] };
 
   const known = new Map(categories.map((name) => [categoryKey(name), name]));
   const merchant = text(raw.merchant);

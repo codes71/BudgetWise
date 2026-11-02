@@ -56,6 +56,8 @@ export interface ScanItemDto extends EntryItemDto {
 
 export interface ScanResultDto {
   kind: "receipt" | "payment" | "history" | "unknown";
+  /** Only with kind "unknown": "not_money" when the photo shows no receipt or KPay screen, "unclear" when it could not be read. */
+  reason?: "not_money" | "unclear";
   merchant?: string;
   date?: string;
   total?: number;

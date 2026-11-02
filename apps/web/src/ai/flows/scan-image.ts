@@ -22,6 +22,10 @@ const ScanEntrySchema = z.object({
 
 export const ScanOutputSchema = z.object({
   kind: z.enum(['receipt', 'payment', 'history', 'unknown']),
+  reason: z
+    .enum(['not_money', 'unclear'])
+    .optional()
+    .describe('Only for kind "unknown": not_money when it shows no receipt or KPay screen, unclear when it does but cannot be read'),
   merchant: z.string().optional(),
   date: z.string().optional().describe('YYYY-MM-DD'),
   total: z.number().optional(),
@@ -44,7 +48,9 @@ First decide the kind of image:
 - "receipt": a shop receipt or bill. merchant is the shop name, date is the receipt date, total is the amount paid. Put each line item in the expense category that fits it best, then return one expense entry per category: items lists that category's line items, amount is what was paid for them, and description is the shop name. For each line item: name as printed; quantity is the count as printed, a whole number (1 when the line shows no count, or sells by weight); unitPrice is the price of one as printed (leave it out when the line shows none); amount is the line total in kyat. Subtract discounts from the items they apply to; add tax or a service charge as its own item under the category with the largest amount, so the entries add up to the total.
 - "payment": one KBZPay (KPay) payment, transfer or receive slip. Return exactly one entry. Money received is income; money paid or transferred out is expense. description is the shop or person on the other side, reference is the transaction ID (Transaction No.).
 - "history": a screenshot of the KPay transaction history list. Return one entry per visible transaction, top to bottom. Money received is income; money paid or transferred out is expense. Skip balance rows, fee-only rows, and failed, cancelled or pending transactions. description is the shop or person on the other side, reference is the transaction ID when the row shows one. When a row shows no year, use the year shown elsewhere in the screenshot (for example a month heading); otherwise use the current year in Myanmar, or the year before if that would put the date after today.
-- "unknown": anything else, or an image too unclear to read. Return no entries.
+- "unknown": anything else. Return no entries, and say why in reason:
+  - "not_money": the image shows no receipt, bill, KPay slip or KPay history at all (for example a computer or phone screen showing something else, a document, a person, a room).
+  - "unclear": it does look like a receipt, bill or KPay screen, but it is too blurred, dark, cut off or small to read.
 
 For every entry:
 - amount: a positive number of kyat, rounded to whole kyat. Ignore the sign; type gives the direction. Read Burmese digits (၀ to ၉) as numbers.
