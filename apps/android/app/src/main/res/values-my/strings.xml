@@ -378,9 +378,6 @@
     <string name="scan_no_date">ယနေ့။ ဘောက်ချာတွင် ရက်စွဲ မပါပါ</string>
     <string name="scan_total">စုစုပေါင်း</string>
     <string name="scan_split">အမျိုးအစားအလိုက်</string>
-    <plurals name="scan_items">
-        <item quantity="other">ပစ္စည်း %d ခု</item>
-    </plurals>
     <string name="scan_split_note">ပြောင်းရန် အမျိုးအစားကို နှိပ်ပါ။ တစ်ခုစီသည် သီးခြား စာရင်းတစ်ခု ဖြစ်ပါမည်။</string>
     <string name="scan_history_note">မထည့်လိုသည့် ငွေပေးချေမှုကို နှိပ်ပါ။</string>
     <string name="scan_short_title">ပစ္စည်းများ %1$s Ks လိုနေသည်</string>

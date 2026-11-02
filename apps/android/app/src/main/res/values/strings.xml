@@ -409,10 +409,6 @@
     <string name="scan_no_date">Today. No date on the receipt</string>
     <string name="scan_total">Total</string>
     <string name="scan_split">Split by category</string>
-    <plurals name="scan_items">
-        <item quantity="one">%d item</item>
-        <item quantity="other">%d items</item>
-    </plurals>
     <string name="scan_split_note">Tap a category to change it. Each one becomes its own entry.</string>
     <string name="scan_history_note">Tap a payment to leave it out.</string>
     <string name="scan_short_title">Items are %1$s Ks short</string>

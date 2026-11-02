@@ -242,28 +242,50 @@ private fun Total(state: ScanUiState, modifier: Modifier = Modifier) {
     }
 }
 
-/** A receipt's category share: badge, name with a chevron (tap to move), its item count, the amount. */
+/** A receipt's category share: badge, name with a chevron (tap to move), the amount, then each item under it. */
 @Composable
 private fun CategoryLine(line: ReviewLine, myanmarDigits: Boolean, onClick: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val name = categoryLabel(line.category)
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 68.dp).clickable(role = Role.Button, onClick = onClick).padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        CategoryBadge(line.category, contentDescription = null)
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(name, style = type.size16.medium.forContent(name), color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Column(Modifier.fillMaxWidth().heightIn(min = 68.dp).clickable(role = Role.Button, onClick = onClick).padding(vertical = 12.dp)) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 44.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            CategoryBadge(line.category, contentDescription = null)
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    name,
+                    style = type.size16.medium.forContent(name),
+                    color = colors.ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
                 Icon(Lucide.ChevronDown, contentDescription = null, tint = colors.muted, modifier = Modifier.size(16.dp))
             }
-            if (line.items.isNotEmpty()) {
-                Text(pluralStringResource(R.plurals.scan_items, line.items.size, line.items.size), style = type.size13, color = colors.muted)
+            Text(formatKyat(line.amountKyat, myanmarDigits), style = type.size16.semibold, color = colors.ink, softWrap = false)
+        }
+        // What the share is made of, read off the receipt, so it can be checked without opening the line.
+        line.items.forEach { item ->
+            Row(
+                // Lined up under the category name: the badge's 38 dp plus the 14 dp gap.
+                Modifier.fillMaxWidth().padding(start = 52.dp, top = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    item.name,
+                    style = type.size14.forContent(item.name),
+                    color = colors.muted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(formatKyat(item.amountKyat, myanmarDigits), style = type.size14, color = colors.muted, softWrap = false)
             }
         }
-        Text(formatKyat(line.amountKyat, myanmarDigits), style = type.size16.semibold, color = colors.ink, softWrap = false)
     }
 }
 
