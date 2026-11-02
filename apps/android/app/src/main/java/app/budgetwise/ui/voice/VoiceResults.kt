@@ -9,12 +9,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -22,12 +29,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -47,15 +51,18 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import app.budgetwise.R
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.TransactionRepository
-import app.budgetwise.data.text.BurmeseTextNormalizer
 import app.budgetwise.data.repo.VoiceEntry
 import app.budgetwise.data.repo.VoiceMetric
 import app.budgetwise.data.repo.VoiceQuestion
+import app.budgetwise.data.text.BurmeseTextNormalizer
 import app.budgetwise.nlu.TxType
+import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.CategoryBadge
 import app.budgetwise.ui.common.FieldLabel
 import app.budgetwise.ui.common.KitTextField
@@ -75,7 +82,10 @@ import app.budgetwise.ui.common.groupDigits
 import app.budgetwise.ui.common.localizedDate
 import app.budgetwise.ui.common.monthName
 import app.budgetwise.ui.common.typedKyatDigits
+import app.budgetwise.ui.manual.CategoryChip
 import app.budgetwise.ui.manual.DateSheet
+import app.budgetwise.ui.manual.DayChip
+import app.budgetwise.ui.manual.TypeSwitch
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.extraBold
 import app.budgetwise.ui.theme.forContent
@@ -208,10 +218,11 @@ private fun EntryRow(entry: VoiceEntry, state: VoiceUiState, enabled: Boolean, o
 }
 
 /**
- * Change an entry before it is saved: expense or income, amount, category (expense only), description and day. Done
- * keeps the change; Remove drops the entry.
+ * Change an entry before it is saved: expense or income, amount, category (expense only), description and day, on a
+ * screen of its own like the entry form. Not a sheet: one as tall as the screen moved with every scroll, more so with
+ * the keyboard up. Done keeps the change; Remove drops the entry.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun EntrySheet(
     entry: VoiceEntry,
@@ -234,103 +245,116 @@ private fun EntrySheet(
     val max = TransactionRepository.MAX_DESCRIPTION
     val tooLong = BurmeseTextNormalizer.prepare(description).length > max
     val canSave = amount != null && filed != null && description.isNotBlank() && !tooLong
-    ModalBottomSheet(
+    Dialog(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = colors.surface,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         Column(
-            Modifier.verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            Modifier
+                .fillMaxSize()
+                .background(colors.ground)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical))
+                .imePadding(),
         ) {
-            Text(
-                stringResource(R.string.voice_edit_title),
-                style = type.size22.extraBold.tracked(-0.02f),
-                color = colors.ink,
-                modifier = Modifier.semantics { heading() },
+            BackHeader(
+                title = stringResource(R.string.voice_edit_title),
+                onBack = onDismiss,
+                icon = Lucide.X,
+                backLabel = stringResource(R.string.action_close),
+                trailing = { TypeSwitch(kind, enabled = true) { kind = it } },
             )
-            Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(TxType.EXPENSE to R.string.manual_expense, TxType.INCOME to R.string.manual_income).forEach { (option, label) ->
-                    Chip(stringResource(label), selected = kind == option) { kind = option }
+            Column(
+                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(28.dp),
+            ) {
+                val transformation = remember(state.myanmarDigits) { KyatGroupingTransformation(state.myanmarDigits) }
+                KitTextField(
+                    value = digits,
+                    onValueChange = { text -> typedKyatDigits(text)?.let { digits = it } },
+                    label = stringResource(R.string.manual_amount),
+                    textStyle = type.size22.extraBold,
+                    trailing = { Text("Ks", style = type.size17.medium, color = colors.muted, modifier = Modifier.padding(end = 18.dp)) },
+                    visualTransformation = transformation,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+                KitTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = stringResource(R.string.manual_description),
+                    textStyle = type.size16.forContent(description),
+                    error = if (tooLong) pluralStringResource(R.plurals.manual_description_error_too_long, max, max) else null,
+                )
+                if (kind == TxType.EXPENSE) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        FieldLabel(stringResource(R.string.manual_category))
+                        FlowRow(
+                            Modifier.selectableGroup(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            val names = (state.categories + listOfNotNull(entry.category.takeIf { it != CategoryRepository.INCOME })).distinct()
+                            names.forEach { name ->
+                                CategoryChip(name, selected = category == name, error = false, enabled = true) { category = name }
+                            }
+                        }
+                    }
                 }
-            }
-            val transformation = remember(state.myanmarDigits) { KyatGroupingTransformation(state.myanmarDigits) }
-            KitTextField(
-                value = digits,
-                onValueChange = { text -> typedKyatDigits(text)?.let { digits = it } },
-                label = stringResource(R.string.manual_amount),
-                textStyle = type.size22.extraBold,
-                trailing = { Text("Ks", style = type.size17.medium, color = colors.muted, modifier = Modifier.padding(end = 18.dp)) },
-                visualTransformation = transformation,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
-            if (kind == TxType.EXPENSE) {
+                val day = LocalDate.ofEpochDay(date)
+                val yesterday = state.today.minusDays(1)
+                val otherDay = day != state.today && day != yesterday
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FieldLabel(stringResource(R.string.manual_category))
+                    FieldLabel(stringResource(R.string.manual_date))
                     FlowRow(
                         Modifier.selectableGroup(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        val names = (state.categories + listOfNotNull(entry.category.takeIf { it != CategoryRepository.INCOME })).distinct()
-                        names.forEach { name -> Chip(categoryLabel(name), selected = category == name) { category = name } }
+                        DayChip(stringResource(R.string.transactions_today), selected = day == state.today, enabled = true, onClick = {
+                            date = state.today.toEpochDay()
+                        })
+                        DayChip(stringResource(R.string.transactions_yesterday), selected = day == yesterday, enabled = true, onClick = {
+                            date = yesterday.toEpochDay()
+                        })
+                        DayChip(
+                            text = if (otherDay) dayLabel(day, state.today, state.myanmarDigits) else stringResource(R.string.manual_day_other),
+                            selected = otherDay,
+                            enabled = true,
+                            icon = Lucide.Calendar,
+                            onClick = { pickingDate = true },
+                        )
                     }
                 }
             }
-            KitTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = stringResource(R.string.manual_description),
-                textStyle = type.size16.forContent(description),
-                error = if (tooLong) pluralStringResource(R.plurals.manual_description_error_too_long, max, max) else null,
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                FieldLabel(stringResource(R.string.manual_date))
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 56.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(colors.ground)
-                        .clickable(role = Role.Button, onClickLabel = stringResource(R.string.manual_date_change)) { pickingDate = true }
-                        .padding(horizontal = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(Lucide.Calendar, contentDescription = null, tint = colors.muted, modifier = Modifier.size(18.dp))
-                    Text(
-                        dayLabel(LocalDate.ofEpochDay(date), state.today, state.myanmarDigits),
-                        style = type.size16,
-                        color = colors.ink,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Icon(Lucide.ChevronDown, contentDescription = null, tint = colors.muted, modifier = Modifier.size(18.dp))
-                }
+            Column(
+                Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                CardLink(stringResource(R.string.voice_remove_entry), colors.coralText, onRemove)
+                PrimaryButton(
+                    text = stringResource(R.string.voice_done),
+                    onClick = {
+                        val ok = amount ?: return@PrimaryButton
+                        val name = filed ?: return@PrimaryButton
+                        onDone(entry.copy(type = kind, amountKyat = ok, category = name, description = description.trim(), date = LocalDate.ofEpochDay(date)))
+                    },
+                    enabled = canSave,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
-            PrimaryButton(
-                text = stringResource(R.string.voice_done),
-                onClick = {
-                    val ok = amount ?: return@PrimaryButton
-                    val name = filed ?: return@PrimaryButton
-                    onDone(entry.copy(type = kind, amountKyat = ok, category = name, description = description.trim(), date = LocalDate.ofEpochDay(date)))
-                },
-                enabled = canSave,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            CardLink(stringResource(R.string.voice_remove_entry), colors.coralText, onRemove)
         }
-    }
-    if (pickingDate) {
-        DateSheet(
-            date = LocalDate.ofEpochDay(date),
-            today = state.today,
-            myanmarDigits = state.myanmarDigits,
-            onPick = {
-                date = it.toEpochDay()
-                pickingDate = false
-            },
-            onDismiss = { pickingDate = false },
-        )
+        if (pickingDate) {
+            DateSheet(
+                date = LocalDate.ofEpochDay(date),
+                today = state.today,
+                myanmarDigits = state.myanmarDigits,
+                onPick = {
+                    date = it.toEpochDay()
+                    pickingDate = false
+                },
+                onDismiss = { pickingDate = false },
+            )
+        }
     }
 }
 

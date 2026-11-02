@@ -270,7 +270,7 @@ private fun FormHeader(state: AddManualUiState, enabled: Boolean, onClose: () ->
 
 /** Expense or income, compact in the header. Expense selects in coral, income in the Income badge's green. */
 @Composable
-private fun TypeSwitch(type: TxType, enabled: Boolean, onTypeChange: (TxType) -> Unit) {
+internal fun TypeSwitch(type: TxType, enabled: Boolean, onTypeChange: (TxType) -> Unit) {
     val colors = BudgetWiseTheme.colors
     val income = categoryColors(CategoryRepository.INCOME)
     SegmentedPill(Modifier.selectableGroup()) {
@@ -526,7 +526,7 @@ private fun CategoryPicker(state: AddManualUiState, enabled: Boolean, onCategory
 
 /** One category: its icon in its color and its name. Chosen, it fills with a tint of that color inside its outline. */
 @Composable
-private fun CategoryChip(name: String, selected: Boolean, error: Boolean, enabled: Boolean, onClick: () -> Unit) {
+internal fun CategoryChip(name: String, selected: Boolean, error: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val label = categoryLabel(name)
@@ -588,7 +588,7 @@ private fun DayPicker(state: AddManualUiState, enabled: Boolean, onDateChange: (
 }
 
 @Composable
-private fun DayChip(text: String, selected: Boolean, enabled: Boolean, onClick: () -> Unit, icon: ImageVector? = null) {
+internal fun DayChip(text: String, selected: Boolean, enabled: Boolean, onClick: () -> Unit, icon: ImageVector? = null) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     Row(
