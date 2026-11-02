@@ -163,6 +163,8 @@ fun ScanRoute(
             onMove = viewModel::move,
             onAddShort = viewModel::addShortAsOther,
             onToggle = viewModel::toggle,
+            onCount = viewModel::setCount,
+            onPrice = viewModel::setPrice,
             onAddEntries = viewModel::addEntries,
             onAddAsOne = viewModel::addAsOne,
         )
