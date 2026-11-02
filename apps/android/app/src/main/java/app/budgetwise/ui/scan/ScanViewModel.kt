@@ -1,5 +1,6 @@
 package app.budgetwise.ui.scan
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.budgetwise.CategorySource
@@ -110,7 +111,7 @@ data class ScanUiState(
     val problem: ScanProblem? = null,
     val kind: ScanKind = ScanKind.UNKNOWN,
     val merchant: String? = null,
-    /** The receipt's date; null when none could be read (the entries then use today). */
+    /** The receipt's date; null when none could be read (the entries then use [receiptDate]). */
     val date: LocalDate? = null,
     val totalKyat: Long? = null,
     val lines: List<ReviewLine> = emptyList(),
@@ -129,23 +130,37 @@ data class ScanUiState(
     val scannedTotal: Long get() = totalKyat ?: lines.sumOf { it.originalKyat }
 
     /**
-     * What the review adds up to: the receipt's printed total when it has one and no item was changed, else what the
-     * kept lines come to. Not shown for a KPay history.
+     * The one date every entry of a receipt is saved with: the receipt's, else the date its lines were given (today,
+     * where the server is). One receipt is one line in the list, on one day.
      */
-    val shownTotal: Long get() = totalKyat?.takeIf { changedItems == 0 } ?: keptLines.sumOf { it.amountKyat }
+    val receiptDate: LocalDate get() = date ?: lines.firstOrNull()?.date ?: today
 
     /**
-     * How much the receipt's lines fall short of its printed total, so the rest can go under Other. Once a count or a
-     * price was changed, the printed total no longer says what is missing.
+     * What the review adds up to. A receipt: what its kept lines come to now, which is what Add saves; when that is not
+     * the printed total, a notice says by how much ([shortBy], [overBy]). A KPay slip: its amount as read. Not shown
+     * for a KPay history.
      */
-    val shortBy: Long?
-        get() {
-            if (kind != ScanKind.RECEIPT || changedItems > 0) return null
-            val total = totalKyat ?: return null
-            return (total - lines.sumOf { it.amountKyat }).takeIf { it > 0 }
-        }
+    val shownTotal: Long
+        get() = keptLines.sumOf { it.amountKyat }.let { kept -> if (kind == ScanKind.RECEIPT) kept else totalKyat ?: kept }
+
+    /**
+     * The receipt's printed total less what its lines come to now; null when they match or there is no printed total.
+     * Read again after each change of a count or a price, so a correction that closes the gap puts its notice away.
+     */
+    private val receiptGap: Long?
+        get() = totalKyat?.takeIf { kind == ScanKind.RECEIPT }?.let { it - keptLines.sumOf { line -> line.amountKyat } }?.takeIf { it != 0L }
+
+    /** How much the receipt's lines fall short of its printed total, so the rest can go under Other. */
+    val shortBy: Long? get() = receiptGap?.takeIf { it > 0 }
+
+    /** How much the receipt's lines come to over its printed total (a discount or a price misread). */
+    val overBy: Long? get() = receiptGap?.takeIf { it < 0 }?.let { -it }
 
     val canSave: Boolean get() = !saving && keptLines.isNotEmpty()
+
+    /** The receipt can be one entry: more than one kept line, and no more items together than an entry keeps. */
+    val canAddAsOne: Boolean
+        get() = kind == ScanKind.RECEIPT && keptLines.size > 1 && keptLines.sumOf { it.savedItems.size } <= TransactionRepository.MAX_ITEMS
 }
 
 sealed interface ScanEvent {
@@ -156,6 +171,8 @@ sealed interface ScanEvent {
 /**
  * Receipt scanning: a photo goes to `POST /scan`, the reply becomes lines to check, and the kept lines are saved
  * offline-first like the add form. The photo stays in memory until the scan ends, so Try again needs no new photo.
+ * The review, with the user's changes, is kept in [saved] until it is saved or dropped, so it outlives the process.
+ * Reading and a problem card are not: after the process ends there is no photo left to read or retry.
  */
 @HiltViewModel
 class ScanViewModel @Inject constructor(
@@ -164,9 +181,13 @@ class ScanViewModel @Inject constructor(
     categories: CategorySource,
     settings: SettingsStore,
     @DeviceClock clock: Clock,
+    private val saved: SavedStateHandle,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(ScanUiState(today = LocalDate.now(clock)))
+    private val _state = MutableStateFlow(restored(ScanUiState(today = LocalDate.now(clock))))
     val state: StateFlow<ScanUiState> = _state.asStateFlow()
+
+    /** The entries are in Room: the review is not kept any more, so it never comes back to be saved twice. */
+    private var savedEntries = false
 
     private val _events = Channel<ScanEvent>(Channel.BUFFERED)
     val events: Flow<ScanEvent> = _events.receiveAsFlow()
@@ -184,7 +205,27 @@ class ScanViewModel @Inject constructor(
             }
         }
         viewModelScope.launch { settings.myanmarDigits.collect { on -> _state.update { it.copy(myanmarDigits = on) } } }
+        viewModelScope.launch {
+            _state.collect { s ->
+                if (s.stage == ScanStage.REVIEW && !savedEntries) saved[REVIEW] = s.toSaved() else saved.remove<SavedReview>(REVIEW)
+            }
+        }
     }
+
+    /** [fresh] with the review kept from before the process ended, if there was one; never a save in progress. */
+    private fun restored(fresh: ScanUiState): ScanUiState {
+        val review = saved.get<SavedReview>(REVIEW) ?: return fresh
+        return fresh.copy(
+            stage = ScanStage.REVIEW,
+            kind = review.kind,
+            merchant = review.merchant,
+            date = review.date,
+            totalKyat = review.totalKyat,
+            lines = review.lines.map { it.toLine() },
+        )
+    }
+
+    private fun ScanUiState.toSaved() = SavedReview(kind, merchant, date, totalKyat, lines.map { it.toSaved() })
 
     fun read(prepared: PreparedPhoto) {
         photo = prepared
@@ -199,6 +240,7 @@ class ScanViewModel @Inject constructor(
         reading?.cancel()
         reading = null
         photo = null
+        saved.remove<SavedReview>(REVIEW)
         _state.update { ScanUiState(today = it.today, categories = it.categories, myanmarDigits = it.myanmarDigits) }
     }
 
@@ -258,13 +300,18 @@ class ScanViewModel @Inject constructor(
         }
     }
 
-    /** A receipt line under another category; it joins the line already there for that category, if any. */
+    /**
+     * A receipt line under another category; it joins the line already there for that category, if any, unless the
+     * two together have more items than an entry keeps. Then it stays a line of its own, so no item is cut.
+     */
     fun move(index: Int, category: String) = _state.update { s ->
         val line = s.lines.getOrNull(index) ?: return@update s
         if (line.category == category) return@update s
         val moved = line.copy(category = category)
         val rest = s.lines.filterIndexed { i, _ -> i != index }
-        val joinAt = rest.indexOfFirst { it.type == moved.type && it.category == category }
+        val joinAt = rest.indexOfFirst {
+            it.type == moved.type && it.category == category && it.items.size + moved.items.size <= TransactionRepository.MAX_ITEMS
+        }
         val lines = if (joinAt < 0) {
             s.lines.toMutableList().also { it[index] = moved }
         } else {
@@ -287,7 +334,7 @@ class ScanViewModel @Inject constructor(
         val lines = if (at >= 0) {
             s.lines.toMutableList().also { it[at] = it[at].copy(originalKyat = it[at].originalKyat + short) }
         } else {
-            s.lines + ReviewLine(TxType.EXPENSE, short, OTHER, s.merchant ?: OTHER, s.date ?: s.today, null, emptyList())
+            s.lines + ReviewLine(TxType.EXPENSE, short, OTHER, s.merchant ?: OTHER, s.receiptDate, null, emptyList())
         }
         s.copy(lines = lines, saveFailed = false)
     }
@@ -306,29 +353,39 @@ class ScanViewModel @Inject constructor(
         s.copy(lines = s.lines.toMutableList().also { it[index] = change(line) }, saveFailed = false)
     }
 
-    /** Each kept line as its own entry. [describe] writes a receipt line's description in the app's language. */
+    /**
+     * Each kept line as its own entry. [describe] writes a receipt line's description in the app's language. A
+     * receipt's entries all take [ScanUiState.receiptDate]; a KPay row keeps its own date.
+     */
     fun addEntries(describe: (ReviewLine) -> String) {
         val s = _state.value
         if (!s.canSave) return
         val receipt = s.receiptOrNull()
-        save(s.keptLines.map { it.toNew(if (s.kind == ScanKind.RECEIPT) describe(it) else it.description, receipt) })
+        save(
+            s.keptLines.map {
+                if (receipt == null) it.toNew(it.description, null) else it.toNew(describe(it), receipt, s.receiptDate)
+            },
+        )
     }
 
-    /** The whole receipt as one entry, under its largest category, for [description] (the shop's name). */
+    /**
+     * The whole receipt as one entry, under its largest category, for [description] (the shop's name): at what the kept
+     * lines come to, the same [ScanUiState.shownTotal] Add would save as separate entries.
+     */
     fun addAsOne(description: String) {
         val s = _state.value
-        if (!s.canSave || s.kind != ScanKind.RECEIPT) return
+        if (!s.canSave || !s.canAddAsOne) return
         val largest = s.keptLines.maxBy { it.amountKyat }
         val items = s.keptLines.flatMap { it.savedItems }
         val all = largest.copy(originalKyat = s.shownTotal, clientId = null, items = items, originalItems = items)
-        save(listOf(all.toNew(description, s.receiptOrNull())))
+        save(listOf(all.toNew(description, s.receiptOrNull(), s.receiptDate)))
     }
 
     /** A receipt's entries share a new id and keep the shop; a KPay slip's payments are separate entries. */
     private fun ScanUiState.receiptOrNull(): Pair<String, String?>? =
         if (kind == ScanKind.RECEIPT) UUID.randomUUID().toString() to merchant else null
 
-    private fun ReviewLine.toNew(description: String, receipt: Pair<String, String?>?) = NewTransaction(
+    private fun ReviewLine.toNew(description: String, receipt: Pair<String, String?>?, date: LocalDate = this.date) = NewTransaction(
         type = type,
         amountKyat = amountKyat,
         category = if (type == TxType.INCOME) CategoryRepository.INCOME else category,
@@ -355,6 +412,8 @@ class ScanViewModel @Inject constructor(
                 _state.update { it.copy(saving = false, saveFailed = true) }
                 return@launch
             }
+            savedEntries = true
+            saved.remove<SavedReview>(REVIEW)
             photo = null
             _events.send(ScanEvent.Saved(ids, _state.value.merchant))
         }
@@ -362,5 +421,8 @@ class ScanViewModel @Inject constructor(
 
     companion object {
         const val OTHER = "Other"
+
+        /** Where [saved] keeps the review. */
+        private const val REVIEW = "scan_review"
     }
 }

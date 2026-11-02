@@ -78,6 +78,21 @@ class TransactionRepositoryTest {
     }
 
     @Test
+    fun aReceiptIsReplacedOnlyWhileItsEntriesAreTheOnesTheEditStartedFrom() = runBlocking {
+        val receipt = UUID.randomUUID().toString()
+        fun line(amount: Long) = input(amount, Source.SCAN).copy(receiptId = receipt, merchant = "Ocean")
+        val (groceries, other) = repo.addAll(listOf(line(11200), line(12000)))
+        // A sync brings another phone's change to the receipt: Other moved to Household, as a new entry.
+        val household = repo.replace(listOf(other), listOf(line(12000).copy(category = "Household"))).single()
+
+        assertEquals(null, repo.replaceReceipt(receipt, setOf(groceries, other), listOf(line(10000))))
+        assertEquals("nothing is written", setOf(groceries, household), repo.observeReceipt(receipt).first().map { it.clientId }.toSet())
+
+        val saved = repo.replaceReceipt(receipt, setOf(groceries, household), listOf(line(10000))).orEmpty()
+        assertEquals(saved, repo.observeReceipt(receipt).first().map { it.clientId })
+    }
+
+    @Test
     fun aFixedClientIdSavedTwiceIsStoredOnce() = runBlocking {
         val kpay = "8757c8d9-1367-4ee0-b09b-80b464aba7a0"
         val first = repo.addAll(listOf(input(150000).copy(clientId = kpay)))

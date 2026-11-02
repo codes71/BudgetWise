@@ -37,16 +37,24 @@ import app.budgetwise.data.auth.SessionState
 import app.budgetwise.data.auth.StoredSession
 import app.budgetwise.data.auth.TokenStore
 import app.budgetwise.data.auth.UserInfo
+import app.budgetwise.testing.FakeNetworkStatus
+import app.budgetwise.testing.FakeSettingsStore
+import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTokenStore
+import app.budgetwise.testing.FakeTransactionStore
 import app.budgetwise.testing.TestUser
+import app.budgetwise.ui.transactions.TransactionsViewModel
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import dagger.hilt.android.testing.UninstallModules
+import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -274,6 +282,38 @@ class AppNavTest {
 
         compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).assertIsDisplayed()
         assertEquals(Routes.WELCOME, compose.runOnIdle { nav.currentDestination?.route })
+    }
+
+    @Test
+    fun aDeletedReceiptClosesOntoTheListWhichOffersUndo() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            NavHost(nav, startDestination = Routes.TRANSACTIONS) {
+                composable(Routes.TRANSACTIONS) { Text("list") }
+                composable(Routes.RECEIPT) { Text("receipt") }
+            }
+        }
+        val store = FakeTransactionStore()
+        val list = TransactionsViewModel(
+            store, FakeSyncControls(), FakeSettingsStore(), FakeNetworkStatus(), Clock.systemUTC(), CoroutineScope(Dispatchers.Unconfined),
+        )
+        compose.runOnIdle { nav.navigate(Routes.receipt("r1")) }
+
+        // Opened from somewhere without the list: nothing happens, and the receipt screen deletes it itself.
+        assertFalse(compose.runOnIdle { nav.closeReceiptDeleted(null, "r1", listOf("a", "b")) })
+        assertEquals(Routes.RECEIPT, compose.runOnIdle { nav.currentDestination?.route })
+
+        assertTrue(compose.runOnIdle { nav.closeReceiptDeleted(list, "r1", listOf("a", "b")) })
+        assertEquals(Routes.TRANSACTIONS, compose.runOnIdle { nav.currentDestination?.route })
+        // A second tap, the screen already gone: handled, and nothing else is popped.
+        assertTrue(compose.runOnIdle { nav.closeReceiptDeleted(list, "r1", listOf("a", "b")) })
+        assertEquals(listOf(Routes.TRANSACTIONS), compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } })
+
+        // The list holds the delete for its Undo window; it goes through when that ends.
+        assertTrue(store.deleted.isEmpty())
+        list.commitPendingDelete()
+        assertEquals(listOf("a", "b"), store.deleted)
     }
 
     @Test

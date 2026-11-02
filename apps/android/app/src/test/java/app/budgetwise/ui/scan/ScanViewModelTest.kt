@@ -1,6 +1,7 @@
 package app.budgetwise.ui.scan
 
 import android.graphics.Bitmap
+import androidx.lifecycle.SavedStateHandle
 import app.budgetwise.ReceiptScanner
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.net.ApiResult
@@ -10,6 +11,7 @@ import app.budgetwise.data.repo.ScanEntry
 import app.budgetwise.data.repo.ScanItem
 import app.budgetwise.data.repo.ScanKind
 import app.budgetwise.data.repo.ScanReading
+import app.budgetwise.data.repo.TransactionRepository
 import app.budgetwise.nlu.TxType
 import app.budgetwise.testing.FakeCategorySource
 import app.budgetwise.testing.FakeSettingsStore
@@ -25,8 +27,10 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,12 +54,13 @@ class ScanViewModelTest {
         reply
     }
 
-    private fun viewModel() = ScanViewModel(
-        scanner, store, FakeCategorySource(), FakeSettingsStore(), Clock.fixed(today.atStartOfDay(zone).toInstant(), zone),
+    /** [saved] stands for what Android keeps of the screen when the process ends; share it to start again from it. */
+    private fun viewModel(saved: SavedStateHandle = SavedStateHandle()) = ScanViewModel(
+        scanner, store, FakeCategorySource(), FakeSettingsStore(), Clock.fixed(today.atStartOfDay(zone).toInstant(), zone), saved,
     )
 
-    private fun entry(category: String, amount: Long, items: Int) = ScanEntry(
-        TxType.EXPENSE, amount, category, "City Mart", day, dateGuessed = false, clientId = null,
+    private fun entry(category: String, amount: Long, items: Int, date: LocalDate = day) = ScanEntry(
+        TxType.EXPENSE, amount, category, "City Mart", date, dateGuessed = false, clientId = null,
         items = List(items) { ScanItem("item $it", amount / items) },
     )
 
@@ -178,15 +183,165 @@ class ScanViewModelTest {
     }
 
     @Test
-    fun aChangedItemPutsTheShortByNoticeAway() = runTest {
+    fun theShortByNoticeFollowsWhatTheItemsComeToNow() = runTest {
         reply = ApiResult.Ok(receipt().copy(entries = receipt().entries.take(2)))
         val vm = viewModel()
         vm.read(photo)
         assertEquals(1550L, vm.state.value.shortBy)
 
-        vm.setPrice(0, 0, 7000)
+        // Changes that leave the lines' sum as it was: still short, and still addable.
+        vm.setCount(0, 0, 2)
+        vm.setCount(0, 1, 0)
+        assertEquals(2, vm.state.value.changedItems)
+        assertEquals(1550L, vm.state.value.shortBy)
 
-        assertNull("the printed total no longer says what is missing", vm.state.value.shortBy)
+        // The misread price corrected (2,850 was 4,400): the lines meet the total, and nothing is left to add.
+        vm.setCount(0, 0, 1)
+        vm.setCount(0, 1, 1)
+        vm.setPrice(1, 0, 4400)
+        assertNull(vm.state.value.shortBy)
+        assertNull(vm.state.value.overBy)
+        vm.addShortAsOther()
+        assertEquals("no Other line", 2, vm.state.value.lines.size)
+    }
+
+    @Test
+    fun linesOverThePrintedTotalSaySoAndTheTotalIsWhatIsSaved() = runTest {
+        // A bill discount the read missed: the items come to 20,650, the receipt says 19,000.
+        reply = ApiResult.Ok(receipt(total = 19000))
+        val vm = viewModel()
+        vm.read(photo)
+
+        val s = vm.state.value
+        assertEquals(1650L, s.overBy)
+        assertNull("nothing to add as Other", s.shortBy)
+        assertEquals(20650L, s.shownTotal)
+
+        vm.addEntries { "City Mart, ${it.category}" }
+        assertEquals(s.shownTotal, store.added.sumOf { it.amountKyat })
+    }
+
+    @Test
+    fun asOneEntryTheAmountIsTheTotalShown() = runTest {
+        reply = ApiResult.Ok(receipt(total = 19000))
+        val vm = viewModel()
+        vm.read(photo)
+
+        vm.addAsOne("City Mart")
+
+        assertEquals(vm.state.value.shownTotal, store.added.single().amountKyat)
+        assertEquals(20650L, store.added.single().amountKyat)
+    }
+
+    @Test
+    fun aReceiptsEntriesAllTakeOneDate() = runTest {
+        // No date on the receipt, and the read gave its lines two (each line dated on its own).
+        val tomorrow = day.plusDays(1)
+        reply = ApiResult.Ok(
+            ScanReading(
+                ScanKind.RECEIPT, "City Mart", null, 20650,
+                listOf(entry("Groceries", 13400, 2), entry("Food and Drink Item", 5700, 2, date = tomorrow)),
+            ),
+        )
+        val vm = viewModel()
+        vm.read(photo)
+
+        // The missing 1,550 as Other takes the receipt's date too, not the phone's today.
+        vm.addShortAsOther()
+        assertEquals(day, vm.state.value.lines.last().date)
+        vm.addEntries { "City Mart, ${it.category}" }
+
+        assertEquals(3, store.added.size)
+        assertEquals(setOf(day), store.added.map { it.date }.toSet())
+    }
+
+    @Test
+    fun asOneEntryTheReceiptKeepsItsDate() = runTest {
+        reply = ApiResult.Ok(
+            ScanReading(
+                ScanKind.RECEIPT, "City Mart", null, null,
+                listOf(entry("Groceries", 13400, 2, date = day.plusDays(1)), entry("Other", 1550, 1)),
+            ),
+        )
+        val vm = viewModel()
+        vm.read(photo)
+
+        vm.addAsOne("City Mart")
+
+        assertEquals(day.plusDays(1), store.added.single().date)
+    }
+
+    @Test
+    fun aReceiptWithMoreItemsThanAnEntryKeepsIsNotOneEntry() = runTest {
+        reply = ApiResult.Ok(
+            ScanReading(
+                ScanKind.RECEIPT, "City Mart", day, null,
+                listOf(entry("Groceries", 40000, 40), entry("Household", 40000, 40), entry("Other", 40000, 40)),
+            ),
+        )
+        val vm = viewModel()
+        vm.read(photo)
+        assertFalse("120 items, more than ${TransactionRepository.MAX_ITEMS}", vm.state.value.canAddAsOne)
+
+        vm.addAsOne("City Mart")
+        assertTrue("nothing is cut down to 100 items", store.added.isEmpty())
+
+        // Every Other item left out: that line is not saved, and the 80 items left fit one entry.
+        repeat(40) { vm.setCount(2, it, 0) }
+        assertTrue(vm.state.value.canAddAsOne)
+    }
+
+    @Test
+    fun aMoveThatWouldMakeALineTooLongKeepsItApart() = runTest {
+        reply = ApiResult.Ok(
+            ScanReading(ScanKind.RECEIPT, "City Mart", day, null, listOf(entry("Groceries", 60000, 60), entry("Household", 60000, 60))),
+        )
+        val vm = viewModel()
+        vm.read(photo)
+
+        vm.move(1, "Groceries")
+
+        val lines = vm.state.value.lines
+        assertEquals(listOf("Groceries", "Groceries"), lines.map { it.category })
+        assertEquals(listOf(60, 60), lines.map { it.items.size })
+        vm.addEntries { "City Mart, ${it.category}" }
+        assertEquals(listOf(60, 60), store.added.map { it.items.size })
+    }
+
+    @Test
+    fun theReviewAndItsChangesOutliveTheProcess() = runTest {
+        val saved = SavedStateHandle()
+        val first = viewModel(saved)
+        first.read(photo)
+        first.setCount(0, 0, 2)
+        first.move(2, "Groceries")
+
+        // The process ended while the user was in another app; the same screen comes back with a new ViewModel.
+        val second = viewModel(saved)
+        val s = second.state.value
+        assertEquals(ScanStage.REVIEW, s.stage)
+        assertEquals(first.state.value.lines, s.lines)
+        assertEquals(1, s.changedItems)
+        assertEquals(20650L, s.totalKyat)
+        assertFalse(s.saving)
+
+        second.addEntries { "City Mart, ${it.category}" }
+        assertEquals("saved once, the review is not kept", ScanStage.CAMERA, viewModel(saved).state.value.stage)
+    }
+
+    @Test
+    fun onlyTheReviewOutlivesTheProcess() = runTest {
+        val saved = SavedStateHandle()
+        val vm = viewModel(saved)
+        vm.read(photo)
+        vm.retake()
+        assertEquals("dropped", ScanStage.CAMERA, viewModel(saved).state.value.stage)
+
+        // A problem card has no photo after the process ends, so it is the camera again.
+        reply = ApiResult.Failure(NETWORK_ERROR_CODE, "offline", retryable = true)
+        vm.read(photo)
+        assertEquals(ScanStage.PROBLEM, vm.state.value.stage)
+        assertEquals(ScanStage.CAMERA, viewModel(saved).state.value.stage)
     }
 
     @Test

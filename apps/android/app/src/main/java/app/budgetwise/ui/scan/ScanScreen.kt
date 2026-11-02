@@ -137,8 +137,9 @@ fun ScanRoute(
         }
     }
 
-    // Back from a card or the review returns to the camera; from the camera it leaves scanning.
-    BackHandler(enabled = state.stage != ScanStage.CAMERA) { viewModel.retake() }
+    // Back from reading or a card returns to the camera; from the camera it leaves scanning. The review asks first
+    // (its own BackHandler), as going back drops what was read.
+    BackHandler(enabled = state.stage == ScanStage.READING || state.stage == ScanStage.PROBLEM) { viewModel.retake() }
 
     when (state.stage) {
         ScanStage.CAMERA -> CameraStage(
@@ -160,6 +161,7 @@ fun ScanRoute(
         ScanStage.REVIEW -> ScanReview(
             state = state,
             onClose = onClose,
+            onRetake = viewModel::retake,
             onMove = viewModel::move,
             onAddShort = viewModel::addShortAsOther,
             onToggle = viewModel::toggle,

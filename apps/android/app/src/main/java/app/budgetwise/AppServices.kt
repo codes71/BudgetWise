@@ -100,6 +100,12 @@ interface TransactionStore {
     /** An edit: deletes [old] and saves [inputs] in their place, in one go; works offline. Returns the new clientIds. */
     suspend fun replace(old: List<String>, inputs: List<NewTransaction>): List<String>
 
+    /**
+     * [replace] for receipt [receiptId]'s entries, only while they are still exactly [old]; null, with nothing written,
+     * when a sync changed them in the meantime.
+     */
+    suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>?
+
     suspend fun delete(clientId: String)
 }
 
@@ -205,6 +211,9 @@ class DefaultTransactionStore @Inject constructor(private val repo: TransactionR
 
     override suspend fun replace(old: List<String>, inputs: List<NewTransaction>) =
         withContext(NonCancellable) { repo.replace(old, inputs) }
+
+    override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>) =
+        withContext(NonCancellable) { repo.replaceReceipt(receiptId, old, inputs) }
 
     override suspend fun delete(clientId: String) = withContext(NonCancellable) { repo.delete(clientId) }
 }
