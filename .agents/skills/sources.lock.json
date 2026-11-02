@@ -1,0 +1,970 @@
+{
+  "canonicalDirectory": ".agents/skills",
+  "claudeDiscoveryLink": ".claude/skills",
+  "installedOn": "2026-11-02",
+  "knownUnresolvedLinks": [
+    {
+      "file": "references/android/guide/navigation/navigation-3/recipes/deeplinks-syntheticbackstack.md",
+      "package": "navigation-3",
+      "reason": "Optional module README absent from pinned upstream package.",
+      "target": "README.md"
+    }
+  ],
+  "packages": [
+    {
+      "addedAttributionFiles": {
+        "LICENSE.txt": {
+          "repositoryPath": "LICENSE.txt",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        }
+      },
+      "commit": "6daa53ef27fa2aa87827d183a85c06cedceca833",
+      "installedFiles": {
+        "LICENSE.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "SKILL.md": "8d33af3253d51260e5b2507d21d48464a7e8ff93c049f39b26f4305d9b28c750",
+        "references/android/develop/ui/compose/custom-modifiers.md": "b4ede8f37dc56c54f3621a5ad21f91a649450a9854bc1bacc1a24eb65fe31b38",
+        "references/android/develop/ui/compose/performance/backwards-write.md": "e9b5b1afa36dca37f9548a8d706cc8474b3f03e61bc77037dfa6ab7b1a2169b7",
+        "references/android/develop/ui/compose/performance/stability/strongskipping.md": "3a69e68553d6d628e8787b3e499766798e73d86779a149c800fff7bb4340cce4",
+        "references/animation.md": "fe21a3bc55b85b807e3655f427f00e3898a7a0da0590a9fe2825a20d43e440fe",
+        "references/effects-and-threading.md": "4a612526c8e9d28d26fb51b1d942d1b34a1fa2316dfe43d2869206dda49bbfa3",
+        "references/graphics-performance.md": "3dc5881c2fb8eb4bcbf59b410008d995321a5fd2583e98194ee42407bdb7d266",
+        "references/layouts.md": "619da0bd169a2a2c1b7e99868ab358a3be8c06f25f2bef0dd15353670ce12c06",
+        "references/lazy-layouts.md": "68a0a4f43d311e4d57238ce745d0de775b1948748ab462608d5cbfe8f07b9bfe",
+        "references/state-and-stability.md": "46aff96f166d19d1b2f5510c35679a0efac4fe9f578b4a1e186f5017a696ba37"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "jetpack-compose-performance",
+      "path": "jetpack-compose/jetpack-compose-performance",
+      "repository": "android/skills",
+      "sourceUrl": "https://github.com/android/skills/tree/6daa53ef27fa2aa87827d183a85c06cedceca833/jetpack-compose/jetpack-compose-performance",
+      "upstreamFiles": {
+        "SKILL.md": "a1680a1ae079faa47fc706bf034b88d4c4c4903dfa4187e98e0af8b056e1848b",
+        "references/android/develop/ui/compose/custom-modifiers.md": "b4ede8f37dc56c54f3621a5ad21f91a649450a9854bc1bacc1a24eb65fe31b38",
+        "references/android/develop/ui/compose/performance/backwards-write.md": "e9b5b1afa36dca37f9548a8d706cc8474b3f03e61bc77037dfa6ab7b1a2169b7",
+        "references/android/develop/ui/compose/performance/stability/strongskipping.md": "3a69e68553d6d628e8787b3e499766798e73d86779a149c800fff7bb4340cce4",
+        "references/animation.md": "fe21a3bc55b85b807e3655f427f00e3898a7a0da0590a9fe2825a20d43e440fe",
+        "references/effects-and-threading.md": "4a612526c8e9d28d26fb51b1d942d1b34a1fa2316dfe43d2869206dda49bbfa3",
+        "references/graphics-performance.md": "3dc5881c2fb8eb4bcbf59b410008d995321a5fd2583e98194ee42407bdb7d266",
+        "references/layouts.md": "619da0bd169a2a2c1b7e99868ab358a3be8c06f25f2bef0dd15353670ce12c06",
+        "references/lazy-layouts.md": "68a0a4f43d311e4d57238ce745d0de775b1948748ab462608d5cbfe8f07b9bfe",
+        "references/state-and-stability.md": "46aff96f166d19d1b2f5510c35679a0efac4fe9f578b4a1e186f5017a696ba37"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE.txt": {
+          "repositoryPath": "LICENSE.txt",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        }
+      },
+      "commit": "6daa53ef27fa2aa87827d183a85c06cedceca833",
+      "installedFiles": {
+        "LICENSE.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "SKILL.md": "4cc9228b374561edb8b46e52e97988e2f963a03b7d018d865b5faadb25ff3c10"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "edge-to-edge",
+      "path": "system/edge-to-edge",
+      "repository": "android/skills",
+      "sourceUrl": "https://github.com/android/skills/tree/6daa53ef27fa2aa87827d183a85c06cedceca833/system/edge-to-edge",
+      "upstreamFiles": {
+        "SKILL.md": "4ca04cb6a5330b96e51410bc815f878b4ca642fba46fe5e1ad724c94e04d6eb8"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE.txt": {
+          "repositoryPath": "LICENSE.txt",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        }
+      },
+      "commit": "6daa53ef27fa2aa87827d183a85c06cedceca833",
+      "installedFiles": {
+        "LICENSE.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "SKILL.md": "8cf40cfedf3e1098a3d1e8c3545adb7a9dc89b64969dd70ecf6515877a98682f",
+        "references/android/develop/ui/compose/layouts/adaptive/flexbox/container-behavior.md": "7a33b15b827dbf21557a2ac808d3e0c2653cf33cc4c58277f2eb94ebfa41aa5f",
+        "references/android/develop/ui/compose/layouts/adaptive/flexbox/get-started.md": "2333ea80100012554a3891048f237b6aeacf9e5f9d8b54d8b10c4cf639897813",
+        "references/android/develop/ui/compose/layouts/adaptive/flexbox/index.md": "952ca4608d36dcb0db9a36aed865f9cdb5e85583480cd85e9e364327be460ecb",
+        "references/android/develop/ui/compose/layouts/adaptive/flexbox/item-behavior.md": "94e894a59857662ed784913774a4d0c5bcec7d16468c4c910962a7d806a0e562",
+        "references/android/develop/ui/compose/layouts/adaptive/grid/container-properties.md": "fb12005053f5f040c26c5b74a93c11825d5a27f1802ec7748859b24ee2c030c7",
+        "references/android/develop/ui/compose/layouts/adaptive/grid/get-started.md": "96a2eeb05283eb5c99b751b4bf68769b59462e2d0bb70170260325004240e673",
+        "references/android/develop/ui/compose/layouts/adaptive/grid/index.md": "f6fb9a8d962dc7053fa5a1a20234d96fd0eeb9d4252fc98c40826353816815ab",
+        "references/android/develop/ui/compose/layouts/adaptive/grid/item-properties.md": "ef0a67039918022d01ac26983b3cc06c798050736d42ffe692c98e3c4517b45a",
+        "references/android/develop/ui/compose/layouts/adaptive/mediaquery/index.md": "1e79df59c053569d5376a618c414b793670fdf35e337d7c8aecce81bf09f90d7",
+        "references/android/guide/navigation/navigation-3/recipes/material-listdetail.md": "e4781cf0fc691f92c202400a07ebc80424666681f9547e757f660388252cdb29",
+        "references/android/guide/navigation/navigation-3/save-state.md": "88f4e8e8831368f58fba9dc28f2cb40a0dcf0a627df5c09eb5b2a837486f9d6f",
+        "references/android/studio/preview/compose-screenshot-testing-with-testsuites.md": "4b4ada7a50201bcf9ab90b0d9f00cc2ceb16513d1de7f63c12d634318a2ec20d",
+        "references/custom_cursors.md": "a6673e5540ea54e73c871a1e28e47c73b5f8e7cbc5a28bde18acd8ff3d6fd2fe",
+        "references/foldable-tabletop.md": "5133e364ce466df05a3c012565f237b6fa27f853dbc92d2d65982045c20f2a79",
+        "references/keyboard_shortcuts.md": "72c2876b4c805f00b00c948f00f0e41d9a3d2c9207a38262f45cd2ab03327513",
+        "references/tooltips.md": "c87d96b2da4488cbbfd097a25a6b4557c48de055df96c7602bd7cb2966d2e4e9"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "adaptive",
+      "path": "jetpack-compose/adaptive",
+      "repository": "android/skills",
+      "sourceUrl": "https://github.com/android/skills/tree/6daa53ef27fa2aa87827d183a85c06cedceca833/jetpack-compose/adaptive",
+      "upstreamFiles": {
+        "SKILL.md": "e7a778745599729973cd6a07f0c90be3355e9785f650680daece8905fe0f617d",
+        "references/android/develop/ui/compose/layouts/adaptive/flexbox/container-behavior.md": "7a33b15b827dbf21557a2ac808d3e0c2653cf33cc4c58277f2eb94ebfa41aa5f",
+        "references/android/develop/ui/compose/layouts/adaptive/flexbox/get-started.md": "2333ea80100012554a3891048f237b6aeacf9e5f9d8b54d8b10c4cf639897813",
+        "references/android/develop/ui/compose/layouts/adaptive/flexbox/index.md": "952ca4608d36dcb0db9a36aed865f9cdb5e85583480cd85e9e364327be460ecb",
+        "references/android/develop/ui/compose/layouts/adaptive/flexbox/item-behavior.md": "94e894a59857662ed784913774a4d0c5bcec7d16468c4c910962a7d806a0e562",
+        "references/android/develop/ui/compose/layouts/adaptive/grid/container-properties.md": "fb12005053f5f040c26c5b74a93c11825d5a27f1802ec7748859b24ee2c030c7",
+        "references/android/develop/ui/compose/layouts/adaptive/grid/get-started.md": "96a2eeb05283eb5c99b751b4bf68769b59462e2d0bb70170260325004240e673",
+        "references/android/develop/ui/compose/layouts/adaptive/grid/index.md": "f6fb9a8d962dc7053fa5a1a20234d96fd0eeb9d4252fc98c40826353816815ab",
+        "references/android/develop/ui/compose/layouts/adaptive/grid/item-properties.md": "ef0a67039918022d01ac26983b3cc06c798050736d42ffe692c98e3c4517b45a",
+        "references/android/develop/ui/compose/layouts/adaptive/mediaquery/index.md": "1e79df59c053569d5376a618c414b793670fdf35e337d7c8aecce81bf09f90d7",
+        "references/android/guide/navigation/navigation-3/recipes/material-listdetail.md": "e4781cf0fc691f92c202400a07ebc80424666681f9547e757f660388252cdb29",
+        "references/android/guide/navigation/navigation-3/save-state.md": "88f4e8e8831368f58fba9dc28f2cb40a0dcf0a627df5c09eb5b2a837486f9d6f",
+        "references/android/studio/preview/compose-screenshot-testing-with-testsuites.md": "4b4ada7a50201bcf9ab90b0d9f00cc2ceb16513d1de7f63c12d634318a2ec20d",
+        "references/custom_cursors.md": "a6673e5540ea54e73c871a1e28e47c73b5f8e7cbc5a28bde18acd8ff3d6fd2fe",
+        "references/foldable-tabletop.md": "5133e364ce466df05a3c012565f237b6fa27f853dbc92d2d65982045c20f2a79",
+        "references/keyboard_shortcuts.md": "72c2876b4c805f00b00c948f00f0e41d9a3d2c9207a38262f45cd2ab03327513",
+        "references/tooltips.md": "c87d96b2da4488cbbfd097a25a6b4557c48de055df96c7602bd7cb2966d2e4e9"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE.txt": {
+          "repositoryPath": "LICENSE.txt",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        }
+      },
+      "commit": "6daa53ef27fa2aa87827d183a85c06cedceca833",
+      "installedFiles": {
+        "LICENSE.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "SKILL.md": "3aad9f0daf5ae2c77c86f85c2526e126ce622e1987f77a6cadcf04434259babd",
+        "references/android/guide/navigation/navigation-event/dispatcher.md": "c7ea58494c01b81554058c04090489a867731ca6cd995541446b22ddb0f42bba",
+        "references/android/guide/navigation/navigation-event/handle-back.md": "83268d85190a87e96f3738bec946d7f920abf2779f78d1f7c81822b4697a251b",
+        "references/android/guide/navigation/navigation-event/index.md": "c6fa437e86e893fba81b80c1667dec134eb9530eea77861e23ec8dc1ac4747a5",
+        "references/android/guide/navigation/navigation-event/setup.md": "c117a8fbffa985a0640fd3a1738e568d6d4e26c2c5a941601146fea687258d84"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "navigation-event",
+      "path": "navigation/navigation-event",
+      "repository": "android/skills",
+      "sourceUrl": "https://github.com/android/skills/tree/6daa53ef27fa2aa87827d183a85c06cedceca833/navigation/navigation-event",
+      "upstreamFiles": {
+        "SKILL.md": "4e9acfb0190cdee56dafb063868965992fdba2ad1694a7fc2524b9046a199609",
+        "references/android/guide/navigation/navigation-event/dispatcher.md": "c7ea58494c01b81554058c04090489a867731ca6cd995541446b22ddb0f42bba",
+        "references/android/guide/navigation/navigation-event/handle-back.md": "83268d85190a87e96f3738bec946d7f920abf2779f78d1f7c81822b4697a251b",
+        "references/android/guide/navigation/navigation-event/index.md": "c6fa437e86e893fba81b80c1667dec134eb9530eea77861e23ec8dc1ac4747a5",
+        "references/android/guide/navigation/navigation-event/setup.md": "c117a8fbffa985a0640fd3a1738e568d6d4e26c2c5a941601146fea687258d84"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE.txt": {
+          "repositoryPath": "LICENSE.txt",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        }
+      },
+      "commit": "6daa53ef27fa2aa87827d183a85c06cedceca833",
+      "installedFiles": {
+        "LICENSE.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "SKILL.md": "f7922b7ab8aebdf71b74567d9fadbe1313532e37dd86eaa9cb03a767a0c7e69d",
+        "references/android/guide/navigation/navigation-3/index.md": "a6170dc40e2769e1034d51a5021b0b6dbc5df9bc9d9bbcae3c576a0647d0b6cf",
+        "references/android/guide/navigation/navigation-3/migration-guide.md": "2ba7d44e4b0b5ab827925354810645da026e9fb721bd9589a4f94b6f5d7bc954",
+        "references/android/guide/navigation/navigation-3/recipes/animations.md": "50c54d09fe14cb28f27d02cd9aaad4204dfe975a14bc8292b0bd40f61ad5300d",
+        "references/android/guide/navigation/navigation-3/recipes/basic.md": "f96b02408f311d07c8df16c1867e25598c4bcc1794b52aaaa290a3b377727495",
+        "references/android/guide/navigation/navigation-3/recipes/basicdsl.md": "d077507172cbf9ed6916899ef2d17b5f9aebcc9d3b46d51725d30166949daa14",
+        "references/android/guide/navigation/navigation-3/recipes/basicsaveable.md": "93f01733db02f06a66c54bc5372a88688831bad14ded07ad181a16a12b848110",
+        "references/android/guide/navigation/navigation-3/recipes/bottomsheet.md": "63d7fe5d044bd0d9c4dbb913b47ecaf2d7677305ac94c51c9295ebabfc1ef76f",
+        "references/android/guide/navigation/navigation-3/recipes/common-ui.md": "835be092ff7114870543b4f7fb1f0893157c0ad07e00d70682a1256e95f5f3db",
+        "references/android/guide/navigation/navigation-3/recipes/conditional-transitions.md": "bb41f81b08f422aaa201d2716f0feaa22705ebc9154d914ade0c25b3d3052063",
+        "references/android/guide/navigation/navigation-3/recipes/conditional.md": "1197b80637b7f670d7f7a426e1c5e47958139954888ddbe5cad68a82dda0fe2f",
+        "references/android/guide/navigation/navigation-3/recipes/deeplinks-custommatcher.md": "96c0a9a617fffc4e5e9113da2b55fd1bd8bbe40593c836425a9dc2984854d0b0",
+        "references/android/guide/navigation/navigation-3/recipes/deeplinks-staticuri.md": "f131fe946f25f108601b66dcdb62be6add8cf685437fc78621d8b92dd67bd201",
+        "references/android/guide/navigation/navigation-3/recipes/deeplinks-syntheticbackstack.md": "12bf69439480fab3111f4b513118be0128ad574dd9d0aecd199ea37d0f75c4b2",
+        "references/android/guide/navigation/navigation-3/recipes/deeplinks-uriarguments.md": "bb8afb2616dfc7202376175752bdb5c99b19a64642b7a1b1f6f651527dfdf129",
+        "references/android/guide/navigation/navigation-3/recipes/dialog.md": "b8ac45054125a6aed66c5df682200c74440336d0584d7e1894078954c719200a",
+        "references/android/guide/navigation/navigation-3/recipes/lifecycle-owner.md": "45e204c1494179deadb56e9b544c78c6f6f17be4d3d660d841a5db5e4245038f",
+        "references/android/guide/navigation/navigation-3/recipes/material-listdetail.md": "e4781cf0fc691f92c202400a07ebc80424666681f9547e757f660388252cdb29",
+        "references/android/guide/navigation/navigation-3/recipes/material-supportingpane.md": "f0dc47a8d0aaceeefc6a48bf73563b3f9449e608c2ef71140acd5dcd13377e6d",
+        "references/android/guide/navigation/navigation-3/recipes/modular-hilt.md": "a11572b32f8a72ea6736db0ccea44eb94f575dd272c9246bdf24d1b76c31f539",
+        "references/android/guide/navigation/navigation-3/recipes/modular-koin.md": "591bd833b2b725d9e2e8f5ca5658a825c7d2f589c6c5d3103066e320a82e4fb9",
+        "references/android/guide/navigation/navigation-3/recipes/multiple-backstacks.md": "ee3300492f924914c649e157f3e72ce67af1b3b2fb356465a86b0b37e7b47d11",
+        "references/android/guide/navigation/navigation-3/recipes/passingarguments.md": "bc53a9bbabb799865bf8bc3130faeae6e6d2b2838c3e44f48574443b6467e0a5",
+        "references/android/guide/navigation/navigation-3/recipes/results-event.md": "e3f3371d6c5f06a3696c2f90f095bd5c530abd1a8dc59e666631b4e1d2926589",
+        "references/android/guide/navigation/navigation-3/recipes/results-state.md": "17fbf45258b3c928e300adfa07ec320ffbd591e3209236499c74bbb736a1acec",
+        "references/android/guide/navigation/navigation-3/recipes/scenes-listdetail.md": "2a19b4d03973c179eb4e4be8f95f9b728af34b55015619dde73dcd72af916e8c",
+        "references/android/guide/navigation/navigation-3/recipes/scenes-twopane.md": "d0cb99ae3054cf463a598fd348d3d9a07aa4b6805ab22121bdc11561a60b1f64",
+        "references/android/guide/navigation/type-safe-destinations.md": "ad5f13e3d5ee1bc849d2da5941d4f99a3e2a5748d52fcdfde96d1bc21bf47acb"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "navigation-3",
+      "path": "navigation/navigation-3",
+      "repository": "android/skills",
+      "sourceUrl": "https://github.com/android/skills/tree/6daa53ef27fa2aa87827d183a85c06cedceca833/navigation/navigation-3",
+      "upstreamFiles": {
+        "SKILL.md": "e2bc8ec434bc104f71ef753ca21665678b00db8f14ef3fd36847ab85b313b4af",
+        "references/android/guide/navigation/navigation-3/index.md": "a6170dc40e2769e1034d51a5021b0b6dbc5df9bc9d9bbcae3c576a0647d0b6cf",
+        "references/android/guide/navigation/navigation-3/migration-guide.md": "2ba7d44e4b0b5ab827925354810645da026e9fb721bd9589a4f94b6f5d7bc954",
+        "references/android/guide/navigation/navigation-3/recipes/animations.md": "50c54d09fe14cb28f27d02cd9aaad4204dfe975a14bc8292b0bd40f61ad5300d",
+        "references/android/guide/navigation/navigation-3/recipes/basic.md": "f96b02408f311d07c8df16c1867e25598c4bcc1794b52aaaa290a3b377727495",
+        "references/android/guide/navigation/navigation-3/recipes/basicdsl.md": "d077507172cbf9ed6916899ef2d17b5f9aebcc9d3b46d51725d30166949daa14",
+        "references/android/guide/navigation/navigation-3/recipes/basicsaveable.md": "93f01733db02f06a66c54bc5372a88688831bad14ded07ad181a16a12b848110",
+        "references/android/guide/navigation/navigation-3/recipes/bottomsheet.md": "63d7fe5d044bd0d9c4dbb913b47ecaf2d7677305ac94c51c9295ebabfc1ef76f",
+        "references/android/guide/navigation/navigation-3/recipes/common-ui.md": "835be092ff7114870543b4f7fb1f0893157c0ad07e00d70682a1256e95f5f3db",
+        "references/android/guide/navigation/navigation-3/recipes/conditional-transitions.md": "bb41f81b08f422aaa201d2716f0feaa22705ebc9154d914ade0c25b3d3052063",
+        "references/android/guide/navigation/navigation-3/recipes/conditional.md": "1197b80637b7f670d7f7a426e1c5e47958139954888ddbe5cad68a82dda0fe2f",
+        "references/android/guide/navigation/navigation-3/recipes/deeplinks-custommatcher.md": "96c0a9a617fffc4e5e9113da2b55fd1bd8bbe40593c836425a9dc2984854d0b0",
+        "references/android/guide/navigation/navigation-3/recipes/deeplinks-staticuri.md": "f131fe946f25f108601b66dcdb62be6add8cf685437fc78621d8b92dd67bd201",
+        "references/android/guide/navigation/navigation-3/recipes/deeplinks-syntheticbackstack.md": "12bf69439480fab3111f4b513118be0128ad574dd9d0aecd199ea37d0f75c4b2",
+        "references/android/guide/navigation/navigation-3/recipes/deeplinks-uriarguments.md": "bb8afb2616dfc7202376175752bdb5c99b19a64642b7a1b1f6f651527dfdf129",
+        "references/android/guide/navigation/navigation-3/recipes/dialog.md": "b8ac45054125a6aed66c5df682200c74440336d0584d7e1894078954c719200a",
+        "references/android/guide/navigation/navigation-3/recipes/lifecycle-owner.md": "45e204c1494179deadb56e9b544c78c6f6f17be4d3d660d841a5db5e4245038f",
+        "references/android/guide/navigation/navigation-3/recipes/material-listdetail.md": "e4781cf0fc691f92c202400a07ebc80424666681f9547e757f660388252cdb29",
+        "references/android/guide/navigation/navigation-3/recipes/material-supportingpane.md": "f0dc47a8d0aaceeefc6a48bf73563b3f9449e608c2ef71140acd5dcd13377e6d",
+        "references/android/guide/navigation/navigation-3/recipes/modular-hilt.md": "a11572b32f8a72ea6736db0ccea44eb94f575dd272c9246bdf24d1b76c31f539",
+        "references/android/guide/navigation/navigation-3/recipes/modular-koin.md": "591bd833b2b725d9e2e8f5ca5658a825c7d2f589c6c5d3103066e320a82e4fb9",
+        "references/android/guide/navigation/navigation-3/recipes/multiple-backstacks.md": "ee3300492f924914c649e157f3e72ce67af1b3b2fb356465a86b0b37e7b47d11",
+        "references/android/guide/navigation/navigation-3/recipes/passingarguments.md": "bc53a9bbabb799865bf8bc3130faeae6e6d2b2838c3e44f48574443b6467e0a5",
+        "references/android/guide/navigation/navigation-3/recipes/results-event.md": "e3f3371d6c5f06a3696c2f90f095bd5c530abd1a8dc59e666631b4e1d2926589",
+        "references/android/guide/navigation/navigation-3/recipes/results-state.md": "17fbf45258b3c928e300adfa07ec320ffbd591e3209236499c74bbb736a1acec",
+        "references/android/guide/navigation/navigation-3/recipes/scenes-listdetail.md": "2a19b4d03973c179eb4e4be8f95f9b728af34b55015619dde73dcd72af916e8c",
+        "references/android/guide/navigation/navigation-3/recipes/scenes-twopane.md": "d0cb99ae3054cf463a598fd348d3d9a07aa4b6805ab22121bdc11561a60b1f64",
+        "references/android/guide/navigation/type-safe-destinations.md": "ad5f13e3d5ee1bc849d2da5941d4f99a3e2a5748d52fcdfde96d1bc21bf47acb"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE.txt": {
+          "repositoryPath": "LICENSE.txt",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        }
+      },
+      "commit": "6daa53ef27fa2aa87827d183a85c06cedceca833",
+      "installedFiles": {
+        "LICENSE.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "SKILL.md": "d5c0ea48e09528239794687998e734ea9f44cb5b0de3399a1b2bf2e634fa6eb8",
+        "references/android/develop/ui/compose/testing/common-patterns.md": "57fc697835d875cae7179d1b164db371e1b8c37881719fb32be51c09fa5c8c35",
+        "references/android/studio/preview/compose-screenshot-testing-with-testsuites.md": "4b4ada7a50201bcf9ab90b0d9f00cc2ceb16513d1de7f63c12d634318a2ec20d",
+        "references/android/studio/preview/compose-screenshot-testing.md": "d9b9c86efe82e0aa841f43435e4a29466794e75dd452e84a29fdc4f332a4d699",
+        "references/android/training/dependency-injection/hilt-testing.md": "5e774a6ab09c0f469b4712ea8c468402b38dd4a19dce9570bacc49ad9af9c814"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "testing-setup",
+      "path": "testing/testing-setup",
+      "repository": "android/skills",
+      "sourceUrl": "https://github.com/android/skills/tree/6daa53ef27fa2aa87827d183a85c06cedceca833/testing/testing-setup",
+      "upstreamFiles": {
+        "SKILL.md": "613970834fedb22c5f85bbc900e600e9a17cd953157af5a7e953e5938d7c2457",
+        "references/android/develop/ui/compose/testing/common-patterns.md": "57fc697835d875cae7179d1b164db371e1b8c37881719fb32be51c09fa5c8c35",
+        "references/android/studio/preview/compose-screenshot-testing-with-testsuites.md": "4b4ada7a50201bcf9ab90b0d9f00cc2ceb16513d1de7f63c12d634318a2ec20d",
+        "references/android/studio/preview/compose-screenshot-testing.md": "d9b9c86efe82e0aa841f43435e4a29466794e75dd452e84a29fdc4f332a4d699",
+        "references/android/training/dependency-injection/hilt-testing.md": "5e774a6ab09c0f469b4712ea8c468402b38dd4a19dce9570bacc49ad9af9c814"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE.txt": {
+          "repositoryPath": "LICENSE.txt",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        }
+      },
+      "commit": "6daa53ef27fa2aa87827d183a85c06cedceca833",
+      "installedFiles": {
+        "LICENSE.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "SKILL.md": "99b92991dbad058254023a0456428643c4c5c80b7e47151c87b389d6f2413a85",
+        "references/camera1-to-camerax.md": "f66838722b779dfe597973f9b612251708d8ea43aaeaa5986fa5e0ced136f911",
+        "references/camera2-to-camerax.md": "539363795cbdcb1e2d361cd3df231ec9b53ba7a903e0f0742d5cbbba1cedd9c9",
+        "references/expert-blueprints.md": "c8bab111ff37ccc4369bd3a88ee3e9932ad1b2f0eea191ebccfde5f01167e50e",
+        "references/foldables.md": "8dc92d22664738c4437133775c2487355b5860694879e5abe553dfffae064b14",
+        "references/immutability.md": "2e510941c469be0ae71ade2e8b7ba300845ef912eb811078a99cbdd6ed347d9b",
+        "references/low-light.md": "63927cc7896848d535b54c3dd56e23304bcef5ffdd33b47c168586c07a3361c3",
+        "references/mlkit-spatial.md": "2bdf0acd7b8a54d5928ee15e45dbdb4d4957246814a81cc03fca6b4b0ee5e5d1",
+        "references/modern-apis.md": "e9a3f77f6c37c55bde47f4b11b19ddb762db5cd7cd3efecabd7959e87f1a39fb",
+        "references/testing.md": "c4ede48673354afcfb6433dfeddec8e741502e3dfd05e3d103dee2e0039ba7a9",
+        "references/thermals.md": "7572166c2e81767092fce274b91b523bbc5a80351b62b294fbac24d28402e162",
+        "references/wear-os.md": "2bb72578d94932b9654478d75631733b93f8aea7fb9daadbe1e61c153896940d",
+        "references/xr.md": "607820bb74b11079bb75860c1567f680ce4bdd2f82fb4c81d3e59f16142590c0"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "camerax",
+      "path": "camera/camerax",
+      "repository": "android/skills",
+      "sourceUrl": "https://github.com/android/skills/tree/6daa53ef27fa2aa87827d183a85c06cedceca833/camera/camerax",
+      "upstreamFiles": {
+        "SKILL.md": "f8cc772cad4d164ef0fae61961d2a9df584ef52929fde9f318a84981cb0c109d",
+        "references/camera1-to-camerax.md": "f66838722b779dfe597973f9b612251708d8ea43aaeaa5986fa5e0ced136f911",
+        "references/camera2-to-camerax.md": "539363795cbdcb1e2d361cd3df231ec9b53ba7a903e0f0742d5cbbba1cedd9c9",
+        "references/expert-blueprints.md": "c8bab111ff37ccc4369bd3a88ee3e9932ad1b2f0eea191ebccfde5f01167e50e",
+        "references/foldables.md": "8dc92d22664738c4437133775c2487355b5860694879e5abe553dfffae064b14",
+        "references/immutability.md": "2e510941c469be0ae71ade2e8b7ba300845ef912eb811078a99cbdd6ed347d9b",
+        "references/low-light.md": "63927cc7896848d535b54c3dd56e23304bcef5ffdd33b47c168586c07a3361c3",
+        "references/mlkit-spatial.md": "2bdf0acd7b8a54d5928ee15e45dbdb4d4957246814a81cc03fca6b4b0ee5e5d1",
+        "references/modern-apis.md": "e9a3f77f6c37c55bde47f4b11b19ddb762db5cd7cd3efecabd7959e87f1a39fb",
+        "references/testing.md": "c4ede48673354afcfb6433dfeddec8e741502e3dfd05e3d103dee2e0039ba7a9",
+        "references/thermals.md": "7572166c2e81767092fce274b91b523bbc5a80351b62b294fbac24d28402e162",
+        "references/wear-os.md": "2bb72578d94932b9654478d75631733b93f8aea7fb9daadbe1e61c153896940d",
+        "references/xr.md": "607820bb74b11079bb75860c1567f680ce4bdd2f82fb4c81d3e59f16142590c0"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      },
+      "commit": "d83f6e289a07a55026e610c797672f22eff3f022",
+      "installedFiles": {
+        "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "SKILL.md": "5183ab5150d9fd0e36b7aa7d3122809e60bdc53d6cf9433e473fad2795772d75",
+        "references/modifier-layout.md": "53de73379e843a649665e5b07a8edab9498d77bf2bcb025bbab7f378cc6db53a",
+        "references/slot-apis.md": "08fd24b6bee03879aaa71f69ebf504e6a0990ff761795a6f1ac99379c8ef79ad"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "compose-component-design",
+      "path": "skills/compose-component-design",
+      "repository": "chrisbanes/skills",
+      "sourceUrl": "https://github.com/chrisbanes/skills/tree/d83f6e289a07a55026e610c797672f22eff3f022/skills/compose-component-design",
+      "upstreamFiles": {
+        "SKILL.md": "1a3599e3d5feb9398ca4dbb5f093ef15cafdf2866f041d02538d3bc35c954c92",
+        "references/modifier-layout.md": "53de73379e843a649665e5b07a8edab9498d77bf2bcb025bbab7f378cc6db53a",
+        "references/slot-apis.md": "08fd24b6bee03879aaa71f69ebf504e6a0990ff761795a6f1ac99379c8ef79ad"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      },
+      "commit": "d83f6e289a07a55026e610c797672f22eff3f022",
+      "installedFiles": {
+        "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "SKILL.md": "4ca0c60708b8ccb52c3cee3e1ef3522c1f43427ebb500b32352870a48b801dbf",
+        "references/animated-content.md": "dcad71b0849571086196e5155ddf352b160c236a5470585fbe7b8121095f13cc"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "compose-animations",
+      "path": "skills/compose-animations",
+      "repository": "chrisbanes/skills",
+      "sourceUrl": "https://github.com/chrisbanes/skills/tree/d83f6e289a07a55026e610c797672f22eff3f022/skills/compose-animations",
+      "upstreamFiles": {
+        "SKILL.md": "eb94fc221017aad7c80b5414847379ac856b2f1c1363d1b67758701df2f5c217",
+        "references/animated-content.md": "dcad71b0849571086196e5155ddf352b160c236a5470585fbe7b8121095f13cc"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      },
+      "commit": "d83f6e289a07a55026e610c797672f22eff3f022",
+      "installedFiles": {
+        "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "SKILL.md": "da6fd149d89ec787737ce9e57d915747b98fdf75c6c19f89c605567c65e787ac"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "compose-focus-navigation",
+      "path": "skills/compose-focus-navigation",
+      "repository": "chrisbanes/skills",
+      "sourceUrl": "https://github.com/chrisbanes/skills/tree/d83f6e289a07a55026e610c797672f22eff3f022/skills/compose-focus-navigation",
+      "upstreamFiles": {
+        "SKILL.md": "1dd608632e6914c0323d832a2c56a04932d9c677901187b7cd26ec70a46e6901"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      },
+      "commit": "d83f6e289a07a55026e610c797672f22eff3f022",
+      "installedFiles": {
+        "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "SKILL.md": "6b19454a591fa76ec89e7c77b0fee39a48bb76ca33de9126b252db5a950a7e89",
+        "references/interaction-state.md": "6f5dc22030d3527249355d71bd44d999f5abe947c910a42d91762672ed9b87cc"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "compose-ui-testing-patterns",
+      "path": "skills/compose-ui-testing-patterns",
+      "repository": "chrisbanes/skills",
+      "sourceUrl": "https://github.com/chrisbanes/skills/tree/d83f6e289a07a55026e610c797672f22eff3f022/skills/compose-ui-testing-patterns",
+      "upstreamFiles": {
+        "SKILL.md": "a2d2d398dfa9f9dfe6ea94f53c3fc9b52e00b38fd203f1d154799f2b5e3ea09a",
+        "references/interaction-state.md": "6f5dc22030d3527249355d71bd44d999f5abe947c910a42d91762672ed9b87cc"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      },
+      "commit": "d83f6e289a07a55026e610c797672f22eff3f022",
+      "installedFiles": {
+        "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "SKILL.md": "5547a4ff31e9bdd16e1900ed0d29b82b788a3f6755270bd0844b313eb18a0999",
+        "references/composition-contracts.md": "003f6d0f4f9fd108635619468d700d8e360f28d9f2e9ea21aed246d508a59852",
+        "references/deferred-reads.md": "c57117e3e95c9a9b72d64c54e9d084cb4eb5bf22ec29792fd7332f2352e44644",
+        "references/diagnosis.md": "f355f396e602dddb8d8821e7162e2dadd59fe58cbb48ca5e4ef211155fb526c8",
+        "references/stability.md": "f2654851d8c1ee81892e45cec26c81eba8bdd5cf73568e028a9a556603a59555"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter",
+        "SKILL.md: optional gradle-run link points to pinned upstream; use existing project build tooling"
+      ],
+      "name": "compose-performance",
+      "path": "skills/compose-performance",
+      "repository": "chrisbanes/skills",
+      "sourceUrl": "https://github.com/chrisbanes/skills/tree/d83f6e289a07a55026e610c797672f22eff3f022/skills/compose-performance",
+      "upstreamFiles": {
+        "SKILL.md": "716bc82c7c36b989f19be7868623da2ccd9fec97b35a803062036aa02adb6a7d",
+        "references/composition-contracts.md": "003f6d0f4f9fd108635619468d700d8e360f28d9f2e9ea21aed246d508a59852",
+        "references/deferred-reads.md": "c57117e3e95c9a9b72d64c54e9d084cb4eb5bf22ec29792fd7332f2352e44644",
+        "references/diagnosis.md": "f355f396e602dddb8d8821e7162e2dadd59fe58cbb48ca5e4ef211155fb526c8",
+        "references/stability.md": "f2654851d8c1ee81892e45cec26c81eba8bdd5cf73568e028a9a556603a59555"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      },
+      "commit": "d83f6e289a07a55026e610c797672f22eff3f022",
+      "installedFiles": {
+        "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "SKILL.md": "2212e81d3ed38b82c25843a8b673c79d30afad51df3beaaf15ae601b0ed94cf0",
+        "references/local-state.md": "c06198d5cd5e9619ee0fc9edbd56c20d99994ed627a8d98cea2aba2e16319377",
+        "references/side-effects.md": "c963f760a257d9340ce91540647499c6e7b0ae163b40c65b954ad82da8561de9",
+        "references/state-hoisting.md": "acf654d62bf71421d0ce1370da882a3746d7991009d57cf0cc697359450a9a5f"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "compose-state-and-effects",
+      "path": "skills/compose-state-and-effects",
+      "repository": "chrisbanes/skills",
+      "sourceUrl": "https://github.com/chrisbanes/skills/tree/d83f6e289a07a55026e610c797672f22eff3f022/skills/compose-state-and-effects",
+      "upstreamFiles": {
+        "SKILL.md": "9930eb2858e3d17fa1ecaf220e20b7bc88b3b1d975d21c9ae4db6f2849c0f0d0",
+        "references/local-state.md": "c06198d5cd5e9619ee0fc9edbd56c20d99994ed627a8d98cea2aba2e16319377",
+        "references/side-effects.md": "c963f760a257d9340ce91540647499c6e7b0ae163b40c65b954ad82da8561de9",
+        "references/state-hoisting.md": "acf654d62bf71421d0ce1370da882a3746d7991009d57cf0cc697359450a9a5f"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        "NOTICE": {
+          "repositoryPath": "NOTICE",
+          "sha256": "dce803c2b43640acc02b215995870c28267b2cf3df7437950955319e6e47124c"
+        }
+      },
+      "commit": "90fab0ac4684333c3374796b50ac2436a25a3754",
+      "installedFiles": {
+        "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "NOTICE": "dce803c2b43640acc02b215995870c28267b2cf3df7437950955319e6e47124c",
+        "SKILL.md": "34bfe50325f145b3da8b27d7f01e79612b1fca3de69352168b43688a1b61dd05",
+        "references/standards.md": "fd9f94a5c32b15e6735e139bcf34f30b2b02898a111e3f4b932adbe044c063b5",
+        "skill-source.json": "7a4f89688f2da965cb103af859770edf8a73ad3cb46dd755a1f0b79b8d71629e"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "animate-compose",
+      "path": "skills/animate-compose",
+      "repository": "rock3r/android-ux-skills",
+      "sourceUrl": "https://github.com/rock3r/android-ux-skills/tree/90fab0ac4684333c3374796b50ac2436a25a3754/skills/animate-compose",
+      "upstreamFiles": {
+        "SKILL.md": "0b5130ce11360bf5ed3f595e032abc02b834e5396740d53fcfdc142142909d7b",
+        "references/standards.md": "fd9f94a5c32b15e6735e139bcf34f30b2b02898a111e3f4b932adbe044c063b5",
+        "skill-source.json": "7a4f89688f2da965cb103af859770edf8a73ad3cb46dd755a1f0b79b8d71629e"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        "NOTICE": {
+          "repositoryPath": "NOTICE",
+          "sha256": "dce803c2b43640acc02b215995870c28267b2cf3df7437950955319e6e47124c"
+        }
+      },
+      "commit": "90fab0ac4684333c3374796b50ac2436a25a3754",
+      "installedFiles": {
+        "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "NOTICE": "dce803c2b43640acc02b215995870c28267b2cf3df7437950955319e6e47124c",
+        "SKILL.md": "4bcfb4574092dbc9fa5f19d7dd591dbcd22951930e9ce347cd7772dd5de722ae",
+        "evals/README.md": "bf9135a91ca9a2e729542ceed07d436c44c0a0bc90b76f4c1cf87e70d387f974",
+        "evals/TAXONOMY.md": "168d5b0a4cb2bf76f641cc62279d9e9db8cc2a827b4839b232cfffcca9b7e84e",
+        "evals/evals.established-language.json": "f904aabf0277671681c68a28e7ff6ef5383b4def79f68c9f4349a5431b35191d",
+        "evals/evals.json": "e9bc862d0d80b9e0d5ffc0d1e857abc637230acddac1c7a5e48a4d7e276a4608",
+        "evals/evals.phantom-language.json": "b2d8f6c30b5da3de17d41ee6b1c926702a58100c5ed238c39114b7e40da5af71",
+        "evals/evals.stale-exception.json": "3aafd263b2acd075acc3faa3d373d9d12f3dca6230548d114ef051802de18733",
+        "evals/files/c10/AppNavigation.kt": "a2e08f659bce82835426ed96a2e5114656f95bf0e6570b0f22649f6dc9665236",
+        "evals/files/c11/AppNavigation.kt": "aa58190ab6a3ef4b9e997c9941e8b82557c88622f3689465b6ba29e607d90895",
+        "evals/files/c12/Kiosk.kt": "f8527871bcbb1251e392f2f3a454d403b7d72a8c18cd3df219ce94d52d3a9222",
+        "evals/files/c20/FilterBar.kt": "6f050516841388af9a8d41ddd50bbc4388d5c49f846a4e75ac17b915507e8936",
+        "evals/files/c21/LoanHistory.kt": "dee56627914fada32f1f529c7e6383a0dff393ee65c18f8abe6d35afea161ebe",
+        "evals/files/c22/ReadingQueue.kt": "847d3f3aa59d61aae3efcebcd1bdbabc5426e4f055c9820f55ffaf2afa272a4d",
+        "evals/files/c23/Artwork.kt": "b77301ca0ce8683e26021999dac442e9d2223007cb3e0307987651e7f14d4c92",
+        "evals/files/c24/ShelfMotion.kt": "79aa2c11be6e90860d0f8a3f0f30a5f40f826b44cdbf6e20a99ee4c15cc79508",
+        "evals/files/c25/ReviewEditors.kt": "4e281970088740861b6cbdf07b07ca6ce8ea09885508560a004f05798572baa0",
+        "evals/files/c26/ShelfCard.kt": "6a673ba8a5ffea5bcd90cd9d515df04ad3c89d33848fb3281b40a87a19666ac6",
+        "evals/files/c27/CoverTransition.kt": "2e5b2601401ded6b86e02cf26730e6fa2080fd97dd37419ba3b60ec89057aa93",
+        "evals/files/c28/Welcome.kt": "85455d5bf10c426b39a9e47af0fa64108f899850cecd82a085a017c833814480",
+        "evals/files/c29/LoanCards.kt": "5301509399019f717cecb953c59fde7e865c34053f78af7f73477fda0c663bb0",
+        "evals/files/c30/SyncStatus.kt": "823701a93866ed6a6e5c64ae240dbf55e0136247a7a02fd74fe4299985fe0cd7",
+        "evals/files/c30/empty_box.json": "3192327fe9ee30b689264e6dc84700580d288cf735bd9d39e1d5f52a8b274853",
+        "evals/files/c30/sync_complete.json": "fdb84935309e750846cb05e38e9e9f0f7fa07e30aa65a5d246efa681e39bdcfe",
+        "evals/files/c31/PageTurn.kt": "94fc857d52e6b37ff5bdba56fd5cb9c7b61364dc532e71504676f79e213d641b",
+        "evals/files/c32/BookGraph.kt": "1ab931b8aa63c8eab61553b26458e167299d106d64b8b311dd48abf295c36297",
+        "evals/files/c33/Loading.kt": "949ac67b9be26729fb404e30a07da39ff19f898b594def2a05b378fc41485427",
+        "evals/files/c34/Navigation.kt": "55dde7c51146d7c60c92336db1e51cbad08f1f0cb9267bd502031be762b8f87e",
+        "evals/files/c35/Holds.kt": "35af92751534ac66d3477e6a201c732ec410a56d7f946f1e3663999cc0d3f661",
+        "evals/files/c36/BookRows.kt": "010ec45cb02428908106ed89132e9ab8f52feb734cb89fb7072052b665b0b238",
+        "evals/files/c37/CatalogueApp.kt": "6db61ae7ea55199b51d0d922fc934da1cd86f89c9481ed8c075a00ed1ebc3133",
+        "evals/files/c38/BookShared.kt": "219eff0900ea796625cca82386bb137f56964b65423b873c6465c67122a1ba21",
+        "evals/files/c39/Tickers.kt": "2cfc6ec6b606f8681aa540afab378af962db4233d4c965f02ea6a9db5b3bb8f3",
+        "evals/files/c40/RatingControl.kt": "a87c50d7c792d697cf7a59c2f65121a5f079ef0b6168490243f37788d0168c0a",
+        "evals/files/c41/Docking.kt": "2bab552450c24c311d5a77d8bc3f07154bf1fede8e3add6b5f18d35d79ebd99b",
+        "evals/files/c42/ReadingStats.kt": "32801eeb3dc171ba4c87ba7da149db67f52320cfc91a2ae5c2f48d38c29a9e10",
+        "evals/files/c43/Badges.kt": "eaf557b743734232b1b9ce1e713a38a1153608bed92016462c81a3842a1886f9",
+        "evals/files/c44/Chips.kt": "b2f9639e58d58e1102ca289aa1bc86861fcf30408cc2474aca1eface71da6424",
+        "evals/files/c45/Toggles.kt": "f9a5ee6e59330facd06d5e4df68669e9b99d0e606feb9e33da3b05270e7cf4de",
+        "evals/files/c46/SyncNotices.kt": "014059b8d49dacd85e9781f9e294c2d025c4e0ea511a7653d4dfb1b771429cb7",
+        "evals/files/c47/Panels.kt": "f56581f30085e707ef08b96ec2582e33f0b1c82f5ff441e3df26e1bf0b7b8d37",
+        "evals/files/c48/BranchBanners.kt": "813c7e20a4a3d6366baebf4ffa0bd6fd68b1f450989fd62532bcc792da283272",
+        "evals/files/c50/CheckoutSummary.kt": "0b96c9e03ac0310c39743feefbfa4a987fc13cf94491ffaadbf4b7402c6b57d6",
+        "evals/files/c51/FilterPanel.kt": "cbb31bd8899506c5683e62661812e3055135ed7b7077fcab5fd494a6f66e412d",
+        "evals/files/c60/ExpandableRow.kt": "0b73f4ed6b92d9332c8e8c8073f8cb24fd88f60b4fd62fca9da91fcf5e105a40",
+        "evals/files/c70/ReaderScreen.kt": "fbde275647f2563ea73959131e8b405f7a9dfe5ed079f5814d5a6a994b1bf6c8",
+        "evals/files/c80/SyncSettings.kt": "3a8692bc6a4cede7803a889fd981989baa3f12fe7b36aa44e0213047383c024d",
+        "evals/files/m1/MOTION.md": "19afaabb0457f45b4bf4b88fb5055045168f28f38eaf4294d13221975af382c5",
+        "evals/files/m2/MOTION.md": "40b65f00c7a1f07c19548a1f29843f31657a14cdf278dc4c769d2c98f9aed5dd",
+        "evals/judge-calibration.json": "3cc66c5e3a8fa2cde9e525a9b88fcfce9127dec686212c8898440033b866a012",
+        "evals/judge-checks.json": "5ea288923902a5b5b6054087c86123ce320dcacf8b47230369fc5922164368a0",
+        "references/standards.md": "fd9f94a5c32b15e6735e139bcf34f30b2b02898a111e3f4b932adbe044c063b5",
+        "skill-source.json": "e752e104feb8cec7d842d76041497e9edd553d50badf283503a89bb97f4617ff"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "review-android-motion",
+      "path": "skills/review-android-motion",
+      "repository": "rock3r/android-ux-skills",
+      "sourceUrl": "https://github.com/rock3r/android-ux-skills/tree/90fab0ac4684333c3374796b50ac2436a25a3754/skills/review-android-motion",
+      "upstreamFiles": {
+        "SKILL.md": "4d8f08bba4d1a6914f83975a011c9f90eab35c6e822f41af00d5de63c289510c",
+        "evals/README.md": "bf9135a91ca9a2e729542ceed07d436c44c0a0bc90b76f4c1cf87e70d387f974",
+        "evals/TAXONOMY.md": "168d5b0a4cb2bf76f641cc62279d9e9db8cc2a827b4839b232cfffcca9b7e84e",
+        "evals/evals.established-language.json": "f904aabf0277671681c68a28e7ff6ef5383b4def79f68c9f4349a5431b35191d",
+        "evals/evals.json": "e9bc862d0d80b9e0d5ffc0d1e857abc637230acddac1c7a5e48a4d7e276a4608",
+        "evals/evals.phantom-language.json": "b2d8f6c30b5da3de17d41ee6b1c926702a58100c5ed238c39114b7e40da5af71",
+        "evals/evals.stale-exception.json": "3aafd263b2acd075acc3faa3d373d9d12f3dca6230548d114ef051802de18733",
+        "evals/files/c10/AppNavigation.kt": "a2e08f659bce82835426ed96a2e5114656f95bf0e6570b0f22649f6dc9665236",
+        "evals/files/c11/AppNavigation.kt": "aa58190ab6a3ef4b9e997c9941e8b82557c88622f3689465b6ba29e607d90895",
+        "evals/files/c12/Kiosk.kt": "f8527871bcbb1251e392f2f3a454d403b7d72a8c18cd3df219ce94d52d3a9222",
+        "evals/files/c20/FilterBar.kt": "6f050516841388af9a8d41ddd50bbc4388d5c49f846a4e75ac17b915507e8936",
+        "evals/files/c21/LoanHistory.kt": "dee56627914fada32f1f529c7e6383a0dff393ee65c18f8abe6d35afea161ebe",
+        "evals/files/c22/ReadingQueue.kt": "847d3f3aa59d61aae3efcebcd1bdbabc5426e4f055c9820f55ffaf2afa272a4d",
+        "evals/files/c23/Artwork.kt": "b77301ca0ce8683e26021999dac442e9d2223007cb3e0307987651e7f14d4c92",
+        "evals/files/c24/ShelfMotion.kt": "79aa2c11be6e90860d0f8a3f0f30a5f40f826b44cdbf6e20a99ee4c15cc79508",
+        "evals/files/c25/ReviewEditors.kt": "4e281970088740861b6cbdf07b07ca6ce8ea09885508560a004f05798572baa0",
+        "evals/files/c26/ShelfCard.kt": "6a673ba8a5ffea5bcd90cd9d515df04ad3c89d33848fb3281b40a87a19666ac6",
+        "evals/files/c27/CoverTransition.kt": "2e5b2601401ded6b86e02cf26730e6fa2080fd97dd37419ba3b60ec89057aa93",
+        "evals/files/c28/Welcome.kt": "85455d5bf10c426b39a9e47af0fa64108f899850cecd82a085a017c833814480",
+        "evals/files/c29/LoanCards.kt": "5301509399019f717cecb953c59fde7e865c34053f78af7f73477fda0c663bb0",
+        "evals/files/c30/SyncStatus.kt": "823701a93866ed6a6e5c64ae240dbf55e0136247a7a02fd74fe4299985fe0cd7",
+        "evals/files/c30/empty_box.json": "3192327fe9ee30b689264e6dc84700580d288cf735bd9d39e1d5f52a8b274853",
+        "evals/files/c30/sync_complete.json": "fdb84935309e750846cb05e38e9e9f0f7fa07e30aa65a5d246efa681e39bdcfe",
+        "evals/files/c31/PageTurn.kt": "94fc857d52e6b37ff5bdba56fd5cb9c7b61364dc532e71504676f79e213d641b",
+        "evals/files/c32/BookGraph.kt": "1ab931b8aa63c8eab61553b26458e167299d106d64b8b311dd48abf295c36297",
+        "evals/files/c33/Loading.kt": "949ac67b9be26729fb404e30a07da39ff19f898b594def2a05b378fc41485427",
+        "evals/files/c34/Navigation.kt": "55dde7c51146d7c60c92336db1e51cbad08f1f0cb9267bd502031be762b8f87e",
+        "evals/files/c35/Holds.kt": "35af92751534ac66d3477e6a201c732ec410a56d7f946f1e3663999cc0d3f661",
+        "evals/files/c36/BookRows.kt": "010ec45cb02428908106ed89132e9ab8f52feb734cb89fb7072052b665b0b238",
+        "evals/files/c37/CatalogueApp.kt": "6db61ae7ea55199b51d0d922fc934da1cd86f89c9481ed8c075a00ed1ebc3133",
+        "evals/files/c38/BookShared.kt": "219eff0900ea796625cca82386bb137f56964b65423b873c6465c67122a1ba21",
+        "evals/files/c39/Tickers.kt": "2cfc6ec6b606f8681aa540afab378af962db4233d4c965f02ea6a9db5b3bb8f3",
+        "evals/files/c40/RatingControl.kt": "a87c50d7c792d697cf7a59c2f65121a5f079ef0b6168490243f37788d0168c0a",
+        "evals/files/c41/Docking.kt": "2bab552450c24c311d5a77d8bc3f07154bf1fede8e3add6b5f18d35d79ebd99b",
+        "evals/files/c42/ReadingStats.kt": "32801eeb3dc171ba4c87ba7da149db67f52320cfc91a2ae5c2f48d38c29a9e10",
+        "evals/files/c43/Badges.kt": "eaf557b743734232b1b9ce1e713a38a1153608bed92016462c81a3842a1886f9",
+        "evals/files/c44/Chips.kt": "b2f9639e58d58e1102ca289aa1bc86861fcf30408cc2474aca1eface71da6424",
+        "evals/files/c45/Toggles.kt": "f9a5ee6e59330facd06d5e4df68669e9b99d0e606feb9e33da3b05270e7cf4de",
+        "evals/files/c46/SyncNotices.kt": "014059b8d49dacd85e9781f9e294c2d025c4e0ea511a7653d4dfb1b771429cb7",
+        "evals/files/c47/Panels.kt": "f56581f30085e707ef08b96ec2582e33f0b1c82f5ff441e3df26e1bf0b7b8d37",
+        "evals/files/c48/BranchBanners.kt": "813c7e20a4a3d6366baebf4ffa0bd6fd68b1f450989fd62532bcc792da283272",
+        "evals/files/c50/CheckoutSummary.kt": "0b96c9e03ac0310c39743feefbfa4a987fc13cf94491ffaadbf4b7402c6b57d6",
+        "evals/files/c51/FilterPanel.kt": "cbb31bd8899506c5683e62661812e3055135ed7b7077fcab5fd494a6f66e412d",
+        "evals/files/c60/ExpandableRow.kt": "0b73f4ed6b92d9332c8e8c8073f8cb24fd88f60b4fd62fca9da91fcf5e105a40",
+        "evals/files/c70/ReaderScreen.kt": "fbde275647f2563ea73959131e8b405f7a9dfe5ed079f5814d5a6a994b1bf6c8",
+        "evals/files/c80/SyncSettings.kt": "3a8692bc6a4cede7803a889fd981989baa3f12fe7b36aa44e0213047383c024d",
+        "evals/files/m1/MOTION.md": "19afaabb0457f45b4bf4b88fb5055045168f28f38eaf4294d13221975af382c5",
+        "evals/files/m2/MOTION.md": "40b65f00c7a1f07c19548a1f29843f31657a14cdf278dc4c769d2c98f9aed5dd",
+        "evals/judge-calibration.json": "3cc66c5e3a8fa2cde9e525a9b88fcfce9127dec686212c8898440033b866a012",
+        "evals/judge-checks.json": "5ea288923902a5b5b6054087c86123ce320dcacf8b47230369fc5922164368a0",
+        "references/standards.md": "fd9f94a5c32b15e6735e139bcf34f30b2b02898a111e3f4b932adbe044c063b5",
+        "skill-source.json": "e752e104feb8cec7d842d76041497e9edd553d50badf283503a89bb97f4617ff"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        "NOTICE": {
+          "repositoryPath": "NOTICE",
+          "sha256": "dce803c2b43640acc02b215995870c28267b2cf3df7437950955319e6e47124c"
+        }
+      },
+      "commit": "90fab0ac4684333c3374796b50ac2436a25a3754",
+      "installedFiles": {
+        "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "NOTICE": "dce803c2b43640acc02b215995870c28267b2cf3df7437950955319e6e47124c",
+        "SKILL.md": "cc3c03ca0f6503e1ae5410d99a109c87a32bce054096637a5e9b166e86b45bcd",
+        "references/PLAN-TEMPLATE.md": "d61991e5ac81ec9dc1657a38d2f05f93048cb0550edf394224053988fa237e7e",
+        "references/motion-md.md": "a2aaba363b125b7f7b9f67cf0b95fa6cd7f363ec7f53ab7ffa0c4b38aadbfcc9",
+        "references/standards.md": "fd9f94a5c32b15e6735e139bcf34f30b2b02898a111e3f4b932adbe044c063b5",
+        "skill-source.json": "5e67e87f2867279d46ad3a88e80441e086def528a40c8b4c0a6181fb68bb0c07"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "improve-android-motion",
+      "path": "skills/improve-android-motion",
+      "repository": "rock3r/android-ux-skills",
+      "sourceUrl": "https://github.com/rock3r/android-ux-skills/tree/90fab0ac4684333c3374796b50ac2436a25a3754/skills/improve-android-motion",
+      "upstreamFiles": {
+        "SKILL.md": "19d9f8ea769e878c7e1c5145b8329b0aa46aec829386c1ee57bd8d79a2e5b832",
+        "references/PLAN-TEMPLATE.md": "d61991e5ac81ec9dc1657a38d2f05f93048cb0550edf394224053988fa237e7e",
+        "references/motion-md.md": "a2aaba363b125b7f7b9f67cf0b95fa6cd7f363ec7f53ab7ffa0c4b38aadbfcc9",
+        "references/standards.md": "fd9f94a5c32b15e6735e139bcf34f30b2b02898a111e3f4b932adbe044c063b5",
+        "skill-source.json": "5e67e87f2867279d46ad3a88e80441e086def528a40c8b4c0a6181fb68bb0c07"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "b8113b6f0ac3874252aa2208180fefb190ad3fbfdd7e6f9cd8c39e58d8f39b9b"
+        }
+      },
+      "commit": "954ef54ea32288fbc90745f012d09d7b791f0d8a",
+      "installedFiles": {
+        "LICENSE": "b8113b6f0ac3874252aa2208180fefb190ad3fbfdd7e6f9cd8c39e58d8f39b9b",
+        "SKILL.md": "9b4d7a4fe61987d867497cf23591be8f689f1c9b02356102863f4ea6c51d9b5e",
+        "agents/openai.yaml": "6e2605da3dc2ac8fa32db1fd3ec220e2645d41dc0591ff71ee53761a63424754",
+        "references/accessibility.md": "5f00f47a677adb208f19fdeb5b37658350a3e1a71a1fa81ae979c50d1a70f167",
+        "references/animation.md": "755ad93ebfb2ed8b3c6142a1246331d0021f86ba9377601b48d6a9ace74faca7",
+        "references/atomic-design.md": "588b926c4359ff718c500e01ca7b8271d8ca54b8b4517a92e7f951cb8b46792e",
+        "references/auto-init.md": "4df3860655fa3568d172c4dbf2290ad0ac703e47076ccf4eeef8a698a06b6b10",
+        "references/composition-locals.md": "185f69a47efd7ca95087097452fff4afdb2483d2117ab1fcf3cd2be9d87fbb62",
+        "references/deprecated-patterns.md": "922e7ff2bb7c2c98e415f46f2daa9b7e4f5ddb547f6345cd3eff6f618d7f7851",
+        "references/design-to-compose.md": "e408c5eb8449155f83945c51a3ed096e29a6ad5e36699e372fb224c433eb633b",
+        "references/lists-scrolling.md": "4d27ea3a5a47ea4451b82bbfdd98ad6288ff2ed99d5caad750adcd1509dcb711",
+        "references/material3-motion.md": "9af60b9f92c210714071e91d7bc5c558db71cbe1c36cd10efe890ffecf870cb8",
+        "references/modifiers.md": "046afcbe7214197c4fc1888c33cae0390a11692fff2170fbf96f1dd7a2174f23",
+        "references/multiplatform.md": "ba3636921f5aa2a1e2a8b359bdc8866679fa00437219afcb1890d41b751accc5",
+        "references/navigation-migration.md": "c8a56d80258382a5c08948ee2e5c20c05b243cae09994676668df21feb881147",
+        "references/navigation.md": "4684a0feacbdb6f313a6799257849af245bb211e65ebce61f7155fefbfb62afe",
+        "references/paging-mvi-testing.md": "e35b20da79915145426653f6206691c662b42843a4525d5e98845d7426f2feaf",
+        "references/paging-offline.md": "bb159f68a93df8ba63a51fb2f83856f3dab026bc5fb4924b072cbc4bdce9b51e",
+        "references/paging.md": "2f015aca6968984caa0de4eab3beb2887ed8c0fee32b1d4ed813cd8f78939524",
+        "references/performance.md": "09dc7f23a828b350cce8e45a1802a776465695aac3b0af2e456b6ced5d04740d",
+        "references/platform-specifics.md": "87cbe9a23a369e725de873ef5d21d63fb9b655a8cc80db018b57720b8887d011",
+        "references/pr-review.md": "0117aae49703c56cdbe35d4f45965d2cafa3367959b904fe4daf3338cc361c6e",
+        "references/production-crash-playbook.md": "57dd661cc9ccb848fcddaacc4951b3c61d9bed28f2179437e3a5ff8a36df2a51",
+        "references/side-effects.md": "5916602af6cbfc0a0dc7bd30bc31f4d9d3f9f843ebd453ffc59f96c67100be5c",
+        "references/source-code/cmp-source.md": "44f1d45f67a82f8fbbcb9c719cc80237a15bd710660f33d0b705e19c77a051ed",
+        "references/source-code/foundation-source.md": "f22ca5356254661d64b1fc87c41114ef4af1c2d2d761bfcf27fa26d5f76ec6aa",
+        "references/source-code/material3-source.md": "5ce270762b631bcd6c8baee30a62207e8a2e7d2245d5ef86eeb06efc897db57e",
+        "references/source-code/navigation-source.md": "fc505cf379737a51892767ff77883c0ffa2fa927b39b5cbbdd658d9e5928cdbc",
+        "references/source-code/runtime-source.md": "ce5f9aa45e68ed905416dba4d58741a86c327dd1cebccb59cc623f3993f87d81",
+        "references/source-code/ui-source.md": "b41bfe5c4a7ff2aed3a8c30a10d2cfe1210af070a9ffc7bbd45753b9d6ee77d3",
+        "references/state-management.md": "11f6f050b5ef62f09f57ff37956dab45a0a183237922e1ac369e5593f7a65b12",
+        "references/styles-experimental.md": "e18606c4854a24f36c5a69e8315901d5bc989af762279f330a10d7ccab1d39a0",
+        "references/theming-material3.md": "7e8b11118a0ce1aa7d96c2ad50fa514d58e0d27440a1119f3f007ffd268dfbe8",
+        "references/tv-compose.md": "5d567f24e1e8c5fa7333d94ebc2fa1c9b99392af7c6da6f224347e850a9b7663",
+        "references/view-composition.md": "618e6d7e45eeb266af503c798e6d378e189b8183476c51d7968deecaf3c524e0"
+      },
+      "license": "MIT; bundled AndroidX Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter",
+        "SKILL.md: repaired malformed upstream migration link to pinned GitHub URL"
+      ],
+      "name": "compose-expert",
+      "path": "skills/compose-expert",
+      "repository": "aldefy/compose-skill",
+      "sourceUrl": "https://github.com/aldefy/compose-skill/tree/954ef54ea32288fbc90745f012d09d7b791f0d8a/skills/compose-expert",
+      "upstreamFiles": {
+        "SKILL.md": "a9f9f1f89bfb59982dd2970bbaa04c0fc337ceaf573b59548cdeae2de1aeca27",
+        "agents/openai.yaml": "6e2605da3dc2ac8fa32db1fd3ec220e2645d41dc0591ff71ee53761a63424754",
+        "references/accessibility.md": "5f00f47a677adb208f19fdeb5b37658350a3e1a71a1fa81ae979c50d1a70f167",
+        "references/animation.md": "755ad93ebfb2ed8b3c6142a1246331d0021f86ba9377601b48d6a9ace74faca7",
+        "references/atomic-design.md": "588b926c4359ff718c500e01ca7b8271d8ca54b8b4517a92e7f951cb8b46792e",
+        "references/auto-init.md": "4df3860655fa3568d172c4dbf2290ad0ac703e47076ccf4eeef8a698a06b6b10",
+        "references/composition-locals.md": "185f69a47efd7ca95087097452fff4afdb2483d2117ab1fcf3cd2be9d87fbb62",
+        "references/deprecated-patterns.md": "922e7ff2bb7c2c98e415f46f2daa9b7e4f5ddb547f6345cd3eff6f618d7f7851",
+        "references/design-to-compose.md": "e408c5eb8449155f83945c51a3ed096e29a6ad5e36699e372fb224c433eb633b",
+        "references/lists-scrolling.md": "4d27ea3a5a47ea4451b82bbfdd98ad6288ff2ed99d5caad750adcd1509dcb711",
+        "references/material3-motion.md": "9af60b9f92c210714071e91d7bc5c558db71cbe1c36cd10efe890ffecf870cb8",
+        "references/modifiers.md": "046afcbe7214197c4fc1888c33cae0390a11692fff2170fbf96f1dd7a2174f23",
+        "references/multiplatform.md": "ba3636921f5aa2a1e2a8b359bdc8866679fa00437219afcb1890d41b751accc5",
+        "references/navigation-migration.md": "c8a56d80258382a5c08948ee2e5c20c05b243cae09994676668df21feb881147",
+        "references/navigation.md": "4684a0feacbdb6f313a6799257849af245bb211e65ebce61f7155fefbfb62afe",
+        "references/paging-mvi-testing.md": "e35b20da79915145426653f6206691c662b42843a4525d5e98845d7426f2feaf",
+        "references/paging-offline.md": "bb159f68a93df8ba63a51fb2f83856f3dab026bc5fb4924b072cbc4bdce9b51e",
+        "references/paging.md": "2f015aca6968984caa0de4eab3beb2887ed8c0fee32b1d4ed813cd8f78939524",
+        "references/performance.md": "09dc7f23a828b350cce8e45a1802a776465695aac3b0af2e456b6ced5d04740d",
+        "references/platform-specifics.md": "87cbe9a23a369e725de873ef5d21d63fb9b655a8cc80db018b57720b8887d011",
+        "references/pr-review.md": "0117aae49703c56cdbe35d4f45965d2cafa3367959b904fe4daf3338cc361c6e",
+        "references/production-crash-playbook.md": "57dd661cc9ccb848fcddaacc4951b3c61d9bed28f2179437e3a5ff8a36df2a51",
+        "references/side-effects.md": "5916602af6cbfc0a0dc7bd30bc31f4d9d3f9f843ebd453ffc59f96c67100be5c",
+        "references/source-code/cmp-source.md": "44f1d45f67a82f8fbbcb9c719cc80237a15bd710660f33d0b705e19c77a051ed",
+        "references/source-code/foundation-source.md": "f22ca5356254661d64b1fc87c41114ef4af1c2d2d761bfcf27fa26d5f76ec6aa",
+        "references/source-code/material3-source.md": "5ce270762b631bcd6c8baee30a62207e8a2e7d2245d5ef86eeb06efc897db57e",
+        "references/source-code/navigation-source.md": "fc505cf379737a51892767ff77883c0ffa2fa927b39b5cbbdd658d9e5928cdbc",
+        "references/source-code/runtime-source.md": "ce5f9aa45e68ed905416dba4d58741a86c327dd1cebccb59cc623f3993f87d81",
+        "references/source-code/ui-source.md": "b41bfe5c4a7ff2aed3a8c30a10d2cfe1210af070a9ffc7bbd45753b9d6ee77d3",
+        "references/state-management.md": "11f6f050b5ef62f09f57ff37956dab45a0a183237922e1ac369e5593f7a65b12",
+        "references/styles-experimental.md": "e18606c4854a24f36c5a69e8315901d5bc989af762279f330a10d7ccab1d39a0",
+        "references/theming-material3.md": "7e8b11118a0ce1aa7d96c2ad50fa514d58e0d27440a1119f3f007ffd268dfbe8",
+        "references/tv-compose.md": "5d567f24e1e8c5fa7333d94ebc2fa1c9b99392af7c6da6f224347e850a9b7663",
+        "references/view-composition.md": "618e6d7e45eeb266af503c798e6d378e189b8183476c51d7968deecaf3c524e0"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "032688e90ca77b75568e8e0d8c4dcd6d541f0a02041877ce0cdca4f3d8c4cc0e"
+        }
+      },
+      "commit": "14385f2bf3804d8779f8b4db2604211f1e70b4c1",
+      "installedFiles": {
+        ".claude-plugin/plugin.json": "41a40aae77b16b75f2143dd3ce9b47f6a470ed14faa5a6d15bf551679dbdb16f",
+        "LICENSE": "032688e90ca77b75568e8e0d8c4dcd6d541f0a02041877ce0cdca4f3d8c4cc0e",
+        "SKILL.md": "383608e7ff6aa0bf2211a4d9904246c2f692280e9df78834f4fd5cb8670c0f13",
+        "references/color-system.md": "f8cd3649ee72710722b2af1c58fdd59b5bca84247f3aa7a41dd718a3610d21d9",
+        "references/component-catalog.md": "3d2c6cfc38ec907062a2c1b1e19c1b9f2b0130e305e424a5a9b4515db079fd51",
+        "references/layout-and-responsive.md": "f3fbeeac71a71a17d56482492f435e53b31a30cdb0d5806b090349997de1c3de",
+        "references/navigation-patterns.md": "5b8775d4f355a830f121051e87743b880241345d18f5b1d894a749cec27889c3",
+        "references/theming-and-dynamic-color.md": "01b36327768ecd2e21b10fc5c01bbd02b5d826370834683d46af70428ec85852",
+        "references/typography-and-shape.md": "d5a04981ee819a9c7b0691707fedd411a2e33fdb47de9b3cf98cd45621d50f03"
+      },
+      "license": "MIT",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "material-3",
+      "path": "skills/material-3",
+      "repository": "hamen/material-3-skill",
+      "sourceUrl": "https://github.com/hamen/material-3-skill/tree/14385f2bf3804d8779f8b4db2604211f1e70b4c1/skills/material-3",
+      "upstreamFiles": {
+        ".claude-plugin/plugin.json": "41a40aae77b16b75f2143dd3ce9b47f6a470ed14faa5a6d15bf551679dbdb16f",
+        "SKILL.md": "5bbd6a903bb3839561c496b6edac04dcdd414fe0669e4910a7dba44acdf0ee7f",
+        "references/color-system.md": "f8cd3649ee72710722b2af1c58fdd59b5bca84247f3aa7a41dd718a3610d21d9",
+        "references/component-catalog.md": "3d2c6cfc38ec907062a2c1b1e19c1b9f2b0130e305e424a5a9b4515db079fd51",
+        "references/layout-and-responsive.md": "f3fbeeac71a71a17d56482492f435e53b31a30cdb0d5806b090349997de1c3de",
+        "references/navigation-patterns.md": "5b8775d4f355a830f121051e87743b880241345d18f5b1d894a749cec27889c3",
+        "references/theming-and-dynamic-color.md": "01b36327768ecd2e21b10fc5c01bbd02b5d826370834683d46af70428ec85852",
+        "references/typography-and-shape.md": "d5a04981ee819a9c7b0691707fedd411a2e33fdb47de9b3cf98cd45621d50f03"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "032688e90ca77b75568e8e0d8c4dcd6d541f0a02041877ce0cdca4f3d8c4cc0e"
+        }
+      },
+      "commit": "f815c31d6cc1a4af4ce2796d08eb7d8b506785c9",
+      "installedFiles": {
+        ".claude-plugin/plugin.json": "783c66a1a8ac60cfdcf4284b9d8c1fdcaa0d15fc8bc74a55fb5b1305f166ccb3",
+        ".cursor-plugin/plugin.json": "783c66a1a8ac60cfdcf4284b9d8c1fdcaa0d15fc8bc74a55fb5b1305f166ccb3",
+        "LICENSE": "032688e90ca77b75568e8e0d8c4dcd6d541f0a02041877ce0cdca4f3d8c4cc0e",
+        "SKILL.md": "f1bf8592a4d1f7770f62563ca030a489af1b3b0544daff11b87a867c738b6232",
+        "evals/evals.json": "cbdcaa8082e29e7fc765bac346a88a4a7a696b839a58b4ba2cd91c37a76d8124",
+        "references/animation.md": "e376a543f73aa25a4e45555231e0dd519ec705ca46bcbe1247762885625688ca",
+        "references/api.md": "a9fef65dd354a38d07438e4ad1224abc909c2f116b0dfff3d7b76319171fd7dc",
+        "references/component-api.md": "bb266517eb0533322e248b908f783a9807198eb3f0c657e343ea22aba8986587",
+        "references/concurrency.md": "57de61bda9becb26ee87fe3f959c81f9dea085612149002f6dbf5ec71e4281b4",
+        "references/effects.md": "94529f4c894c7b0fc6022d844b446f3f119cd7cbd82d24ed0b6740b92ef1a8f5",
+        "references/flows.md": "3bfba49772e39fd9a8efd6b389a70362184e2e0ae4840224a32953903e5abad4",
+        "references/focus.md": "59611df00ff544f15e11c9a5f829e623ac4947c646e6e36cd846b9ba56aa8326",
+        "references/kmp.md": "171992dba14c2e085052c3d7432495b804a660b33b829eaaaa3e2f0fc29d574a",
+        "references/kotlin.md": "6557eba5462a4c1b06d9c49a9024bee2571de87a92696d5f8ab3e15cf399282e",
+        "references/modifiers.md": "c3f6532075d710646bc817983090f770b2cf0d21604f2a284a48c919be22a47e",
+        "references/navigation.md": "49d075233d8d0abe2dbaa11c67081e5225db64f2413ff5bf3609c9370030d2b9",
+        "references/paging.md": "6255568522d4c42b61bd748e422d38365bbafc1081666ac5f54d2a7925e6fb8e",
+        "references/performance.md": "e392213d7ac7f0188cc767239a48b95bfb97f4caf772a022a34dcee799d7f5dc",
+        "references/state.md": "e08def3367f19d17e7a05ef6179962ac575512315814896644c6264854942169",
+        "references/testing.md": "2b9510814c79b04010d0d7a89ebe53b79bf47dffcff3fdbd3aefcbcb9387743a"
+      },
+      "license": "MIT",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "compose-agent",
+      "path": "skills/compose-agent",
+      "repository": "hamen/compose_skill",
+      "sourceUrl": "https://github.com/hamen/compose_skill/tree/f815c31d6cc1a4af4ce2796d08eb7d8b506785c9/skills/compose-agent",
+      "upstreamFiles": {
+        ".claude-plugin/plugin.json": "783c66a1a8ac60cfdcf4284b9d8c1fdcaa0d15fc8bc74a55fb5b1305f166ccb3",
+        ".cursor-plugin/plugin.json": "783c66a1a8ac60cfdcf4284b9d8c1fdcaa0d15fc8bc74a55fb5b1305f166ccb3",
+        "SKILL.md": "7c815dc8f21e4b77f561509f080a0ead20aa5fa8b021aa7e0d38ef886e874ebf",
+        "evals/evals.json": "cbdcaa8082e29e7fc765bac346a88a4a7a696b839a58b4ba2cd91c37a76d8124",
+        "references/animation.md": "e376a543f73aa25a4e45555231e0dd519ec705ca46bcbe1247762885625688ca",
+        "references/api.md": "a9fef65dd354a38d07438e4ad1224abc909c2f116b0dfff3d7b76319171fd7dc",
+        "references/component-api.md": "bb266517eb0533322e248b908f783a9807198eb3f0c657e343ea22aba8986587",
+        "references/concurrency.md": "57de61bda9becb26ee87fe3f959c81f9dea085612149002f6dbf5ec71e4281b4",
+        "references/effects.md": "94529f4c894c7b0fc6022d844b446f3f119cd7cbd82d24ed0b6740b92ef1a8f5",
+        "references/flows.md": "3bfba49772e39fd9a8efd6b389a70362184e2e0ae4840224a32953903e5abad4",
+        "references/focus.md": "59611df00ff544f15e11c9a5f829e623ac4947c646e6e36cd846b9ba56aa8326",
+        "references/kmp.md": "171992dba14c2e085052c3d7432495b804a660b33b829eaaaa3e2f0fc29d574a",
+        "references/kotlin.md": "6557eba5462a4c1b06d9c49a9024bee2571de87a92696d5f8ab3e15cf399282e",
+        "references/modifiers.md": "c3f6532075d710646bc817983090f770b2cf0d21604f2a284a48c919be22a47e",
+        "references/navigation.md": "49d075233d8d0abe2dbaa11c67081e5225db64f2413ff5bf3609c9370030d2b9",
+        "references/paging.md": "6255568522d4c42b61bd748e422d38365bbafc1081666ac5f54d2a7925e6fb8e",
+        "references/performance.md": "e392213d7ac7f0188cc767239a48b95bfb97f4caf772a022a34dcee799d7f5dc",
+        "references/state.md": "e08def3367f19d17e7a05ef6179962ac575512315814896644c6264854942169",
+        "references/testing.md": "2b9510814c79b04010d0d7a89ebe53b79bf47dffcff3fdbd3aefcbcb9387743a"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "f89abb55d9f073f38f1703e4518f0613c788c6174be7f13b8dfe48a1c076c746"
+        }
+      },
+      "commit": "7e2fb559cf4b824b27f1fec49fe88f7511066d26",
+      "installedFiles": {
+        "LICENSE": "f89abb55d9f073f38f1703e4518f0613c788c6174be7f13b8dfe48a1c076c746",
+        "SKILL.md": "cc7a5c1703181bc5b84381ce5288af59f7c5ecf40c0c383d8780defab65d3868",
+        "references/android-navigation.md": "6a28f9a113c4af16f9f8581d9d494ed7b278de8c6258cef58e3ecb822707d190",
+        "references/compose-components.md": "22d9a47cc8ec4c4bbec36f15cb7a5eea33d5a0b5b6c3ba29378fc37197a8a8a0",
+        "references/details.md": "854f692ebe2b6adbf42f1406d0e7e1f7bc895ee34baa4ceff1ef1afc9f2dd962",
+        "references/material3-theming.md": "72ba4c1ef77fba5740b039b3f8b3676902967495141e3f40e0b800df3e85da7c"
+      },
+      "license": "MIT",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "mobile-android-design",
+      "path": "plugins/ui-design/skills/mobile-android-design",
+      "repository": "wshobson/agents",
+      "sourceUrl": "https://github.com/wshobson/agents/tree/7e2fb559cf4b824b27f1fec49fe88f7511066d26/plugins/ui-design/skills/mobile-android-design",
+      "upstreamFiles": {
+        "SKILL.md": "0a209a1c45585ce0056548cc2f0fd352b7fde5980a3b5dd397a9daf5dff19fe7",
+        "references/android-navigation.md": "6a28f9a113c4af16f9f8581d9d494ed7b278de8c6258cef58e3ecb822707d190",
+        "references/compose-components.md": "22d9a47cc8ec4c4bbec36f15cb7a5eea33d5a0b5b6c3ba29378fc37197a8a8a0",
+        "references/details.md": "854f692ebe2b6adbf42f1406d0e7e1f7bc895ee34baa4ceff1ef1afc9f2dd962",
+        "references/material3-theming.md": "72ba4c1ef77fba5740b039b3f8b3676902967495141e3f40e0b800df3e85da7c"
+      }
+    },
+    {
+      "addedAttributionFiles": {},
+      "commit": "9a9f6c4f7afff72a4d38304add19b2eb740693e5",
+      "installedFiles": {
+        "LICENSE": "f016877389f42aca07856395c91afef4b25c14bfa2802d8b2c490b69b5b2dbf3",
+        "README.md": "6bbc03f47e67db21d5d5b670cc14760f68703187ab63b50265dfddd031491586",
+        "SKILL.md": "1223b89caa4d7f26388711fc6fbac6493824a6c6b9535615b70f07401e9797e3",
+        "references/composition.md": "4c5b81491022f926f13be9b3986f27f434144886bd0f0f27aa33f5cf2c45e7b6",
+        "references/motion.md": "8f904ab6c6ad4fc8d5cfc01f78f0f7c95277d23fa1dc54c4d1bc0fb00cd09ecb",
+        "references/theming.md": "bb80a49f698620b02d640afeb66685fc3d2c0baa70b2685294257714409e47b5"
+      },
+      "license": "MIT",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "android-compose-design",
+      "path": ".",
+      "repository": "NI3singh/android-compose-design-skill",
+      "sourceUrl": "https://github.com/NI3singh/android-compose-design-skill/tree/9a9f6c4f7afff72a4d38304add19b2eb740693e5",
+      "upstreamFiles": {
+        "LICENSE": "f016877389f42aca07856395c91afef4b25c14bfa2802d8b2c490b69b5b2dbf3",
+        "README.md": "6bbc03f47e67db21d5d5b670cc14760f68703187ab63b50265dfddd031491586",
+        "SKILL.md": "304dcae45c22d8a3af8b8466e09c4fa0cba71d374c3f6bfa8d0e32c951124471",
+        "references/composition.md": "4c5b81491022f926f13be9b3986f27f434144886bd0f0f27aa33f5cf2c45e7b6",
+        "references/motion.md": "8f904ab6c6ad4fc8d5cfc01f78f0f7c95277d23fa1dc54c4d1bc0fb00cd09ecb",
+        "references/theming.md": "bb80a49f698620b02d640afeb66685fc3d2c0baa70b2685294257714409e47b5"
+      }
+    },
+    {
+      "addedAttributionFiles": {
+        "LICENSE": {
+          "repositoryPath": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      },
+      "commit": "82900eacc8dbe13de93c6310af27b9df4b2bd2f6",
+      "installedFiles": {
+        "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "SKILL.md": "9fa85916545b268ccce3ad03ac17d71dfe58f3d7d0b9089dee4a9de437c3f8a3"
+      },
+      "license": "Apache-2.0",
+      "localModifications": [
+        "SKILL.md: added marked BudgetWise integration notice after frontmatter"
+      ],
+      "name": "android-accessibility",
+      "path": ".github/skills/ui/android-accessibility",
+      "repository": "new-silvermoon/awesome-android-agent-skills",
+      "sourceUrl": "https://github.com/new-silvermoon/awesome-android-agent-skills/tree/82900eacc8dbe13de93c6310af27b9df4b2bd2f6/.github/skills/ui/android-accessibility",
+      "upstreamFiles": {
+        "SKILL.md": "016110473c04b6b4c097a09ad043013f87a1ffde2c878d41c569b5882684f28c"
+      }
+    }
+  ],
+  "schemaVersion": 1,
+  "scope": "project-local Android Compose design and supporting UI workflows"
+}
