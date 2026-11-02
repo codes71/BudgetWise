@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -43,8 +43,8 @@ fun AppHeader(
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.statusBars)
-            .height(68.dp)
-            .padding(start = 24.dp, end = 8.dp, top = 20.dp),
+            .heightIn(min = 56.dp)
+            .padding(start = 24.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -61,12 +61,12 @@ fun AppHeader(
     }
 }
 
-/** A screen's title: 26 bold with tight tracking, the redesign's one display moment above the content. */
+/** A screen's compact title, separate from its primary amount or task heading. */
 @Composable
 fun HeaderTitle(title: String, modifier: Modifier = Modifier) {
     Text(
         text = title,
-        style = BudgetWiseTheme.type.size26.bold.tracked(-0.02f),
+        style = BudgetWiseTheme.type.size24.bold.tracked(-0.02f),
         color = BudgetWiseTheme.colors.ink,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -92,8 +92,8 @@ fun BackHeader(
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.statusBars)
-            .height(64.dp)
-            .padding(start = 8.dp, end = 24.dp, top = 16.dp),
+            .heightIn(min = 64.dp)
+            .padding(start = 8.dp, end = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {

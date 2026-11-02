@@ -34,6 +34,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
 import app.budgetwise.ui.common.KitTextField
+import app.budgetwise.ui.common.KitFieldStyle
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
@@ -93,7 +94,9 @@ fun LoginScreen(
 
     AuthPage(
         title = stringResource(R.string.login_title),
-        subtitle = stringResource(if (state.returning) R.string.login_subtitle_returning else R.string.login_subtitle),
+        subtitle = stringResource(if (state.returning) R.string.login_subtitle_returning else R.string.draft3_login_subtitle),
+        barTitle = stringResource(R.string.login_submit),
+        eyebrow = stringResource(R.string.draft3_login_eyebrow),
         onBack = onClose,
         modifier = modifier,
         button = {
@@ -118,9 +121,10 @@ fun LoginScreen(
             value = state.email,
             onValueChange = onEmailChange,
             label = stringResource(R.string.login_email),
+            fieldStyle = KitFieldStyle.Underlined,
             modifier = Modifier.alpha(fieldsAlpha),
             fieldModifier = Modifier.semantics { contentType = ContentType.Username + ContentType.EmailAddress },
-            leading = Lucide.Mail,
+            trailing = { Icon(Lucide.Mail, contentDescription = null, tint = colors.muted, modifier = Modifier.size(20.dp)) },
             placeholder = stringResource(R.string.login_email_hint),
             enabled = !state.loading,
             keyboardOptions = KeyboardOptions(
@@ -134,9 +138,9 @@ fun LoginScreen(
             value = state.password,
             onValueChange = onPasswordChange,
             label = stringResource(R.string.login_password),
+            fieldStyle = KitFieldStyle.Underlined,
             modifier = Modifier.alpha(fieldsAlpha),
             fieldModifier = Modifier.focusRequester(passwordFocus).semantics { contentType = ContentType.Password },
-            leading = Lucide.Lock,
             placeholder = stringResource(R.string.login_password_hint),
             error = if (wrong) stringResource(R.string.login_error_wrong_credentials) else null,
             enabled = !state.loading,

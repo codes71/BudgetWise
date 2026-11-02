@@ -179,7 +179,7 @@ internal fun NavController.closeScanSaved(saved: ScanEvent.Saved) {
 private fun NavDestination?.isOn(route: String) = this?.hierarchy?.any { it.route == route } == true
 
 /**
- * The app shell: a bottom bar with the two tabs and the Add pill between them, which opens the Add sheet (scan, say,
+ * The app shell: a bottom bar with the two tabs and the Add pill on the right, which opens the Add sheet (scan, say,
  * type, or add income); Settings opens from the gear in each tab's header as a pushed screen. Sign-in, Settings and
  * the add form are full screen. Transactions is the root of the signed-in back stack, so the bottom bar pops back to it.
  */
@@ -453,8 +453,7 @@ fun AppNav(
 }
 
 /**
- * Transactions, the sage Add pill, Budgets, on the ground under a hairline. No floating button anywhere: Add always
- * lives here.
+ * Transactions and Budgets with the anchored Add action on the right, matching the approved Draft 3 shell.
  */
 @Composable
 private fun BottomBar(destination: NavDestination?, onTab: (String) -> Unit, onAdd: () -> Unit) {
@@ -465,13 +464,14 @@ private fun BottomBar(destination: NavDestination?, onTab: (String) -> Unit, onA
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars)
-                .heightIn(min = 83.dp)
+                .heightIn(min = 76.dp)
                 .padding(start = 20.dp, end = 20.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Tab(TopLevels[0], destination.isOn(TopLevels[0].route), onTab, Modifier.width(100.dp))
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { AddPill(onAdd) }
-            Tab(TopLevels[1], destination.isOn(TopLevels[1].route), onTab, Modifier.width(100.dp))
+            Tab(TopLevels[0], destination.isOn(TopLevels[0].route), onTab, Modifier.weight(104f))
+            Tab(TopLevels[1], destination.isOn(TopLevels[1].route), onTab, Modifier.weight(64f))
+            AddPill(onAdd, Modifier.weight(142f))
         }
     }
 }
@@ -490,12 +490,13 @@ private fun Tab(item: TopLevel, selected: Boolean, onTab: (String) -> Unit, modi
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(if (type.burmese) 0.dp else 4.dp, Alignment.CenterVertically),
     ) {
+        Box(Modifier.fillMaxWidth().height(2.dp).background(if (selected) colors.accent else androidx.compose.ui.graphics.Color.Transparent))
         Icon(item.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
         Text(
             text = stringResource(item.label),
             style = if (selected) type.size12.semibold else type.size12.medium,
             color = tint,
-            maxLines = 1,
+            maxLines = 2,
         )
     }
 }
@@ -505,14 +506,15 @@ private fun AddPill(onAdd: () -> Unit, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
     Row(
         modifier = modifier
-            .size(width = 116.dp, height = 52.dp)
-            .clip(CircleShape)
+            .heightIn(min = 52.dp)
+            .clip(RoundedCornerShape(18.dp))
             .background(colors.sageFill)
-            .clickable(role = Role.Button, onClick = onAdd),
+            .clickable(role = Role.Button, onClick = onAdd)
+            .padding(horizontal = 10.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Lucide.PlusBold, contentDescription = null, tint = colors.onSageFill, modifier = Modifier.size(20.dp))
-        Text(stringResource(R.string.action_add), style = BudgetWiseTheme.type.size17.semibold, color = colors.onSageFill, maxLines = 1)
+        Text(stringResource(R.string.manual_title), style = BudgetWiseTheme.type.size15.semibold, color = colors.onSageFill, maxLines = 2)
     }
 }

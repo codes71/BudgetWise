@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -53,7 +56,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.budgetwise.R
 import app.budgetwise.ui.common.Lucide
-import app.budgetwise.ui.common.SegmentedPill
 import app.budgetwise.ui.common.categoryColors
 import app.budgetwise.ui.common.categoryLabel
 import app.budgetwise.ui.common.groupDigits
@@ -75,6 +77,7 @@ private enum class SpendingView { TOTAL, BY_CATEGORY }
  * day (the tick). The block grows or shrinks with the view.
  */
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun SpendingCard(
     pace: MonthPace,
     categories: CategoryBreakdown,
@@ -87,17 +90,19 @@ fun SpendingCard(
     var otherOpen by rememberSaveable { mutableStateOf(false) }
     val lastMonthName = monthName(pace.lastMonth)
     Column(modifier.fillMaxWidth().animateContentSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             Text(
-                text = stringResource(R.string.spending_spent, groupDigits(pace.spent, myanmarDigits)),
-                style = type.size16.semibold,
+                text = stringResource(R.string.draft3_spending_title),
+                style = type.size20.semibold,
                 color = colors.ink,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.padding(top = 10.dp, end = 12.dp),
             )
             val viewLabel = stringResource(R.string.spending_view)
-            SegmentedPill(Modifier.semantics { contentDescription = viewLabel }) {
+            Row(Modifier.semantics { contentDescription = viewLabel }) {
                 ViewTab(stringResource(R.string.spending_total), view == SpendingView.TOTAL) {
                     view = SpendingView.TOTAL
                     otherOpen = false
@@ -108,6 +113,12 @@ fun SpendingCard(
                 }
             }
         }
+        Text(
+            stringResource(R.string.spending_spent, groupDigits(pace.spent, myanmarDigits)),
+            style = type.size16.semibold,
+            color = colors.ink,
+            modifier = Modifier.padding(top = 8.dp),
+        )
         if (view == SpendingView.TOTAL) {
             TotalPanel(pace, lastMonthName, myanmarDigits)
         } else {
@@ -129,17 +140,21 @@ private fun ViewTab(label: String, selected: Boolean, onSelect: () -> Unit) {
     val type = BudgetWiseTheme.type
     Box(
         modifier = Modifier
-            .clip(CircleShape)
-            .background(if (selected) colors.sageContainer else Color.Transparent)
+            .heightIn(min = 48.dp)
+            .drawBehind {
+                if (selected) {
+                    drawLine(colors.accent, Offset(0f, size.height - 1.dp.toPx()), Offset(size.width, size.height - 1.dp.toPx()), 2.dp.toPx())
+                }
+            }
             .selectable(selected = selected, role = Role.Tab, onClick = onSelect)
-            .padding(horizontal = if (type.burmese) 10.dp else 12.dp, vertical = if (type.burmese) 2.dp else 4.dp),
+            .padding(horizontal = if (type.burmese) 10.dp else 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
             style = if (selected) type.size12.semibold else type.size12.medium,
-            color = if (selected) colors.onSageContainer else colors.muted,
-            maxLines = 1,
+            color = if (selected) colors.accent else colors.muted,
+            maxLines = 2,
         )
     }
 }
@@ -165,18 +180,10 @@ private fun TotalPanel(pace: MonthPace, lastMonthName: String, myanmarDigits: Bo
         pace.lastBySameDay?.let { append(' ').append(stringResource(R.string.spending_chart_compare_spoken, lastMonthName, groupDigits(it))) }
     }
     Column(Modifier.fillMaxWidth()) {
-        Text(
-            text = verdict,
-            style = type.size14.medium,
-            color = verdictColor,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 4.dp),
-        )
         PaceChart(
             pace = pace,
             modifier = Modifier
-                .padding(top = 18.dp)
+                .padding(top = 12.dp)
                 .fillMaxWidth()
                 .height(112.dp)
                 .clearAndSetSemantics { contentDescription = spoken },
@@ -187,6 +194,14 @@ private fun TotalPanel(pace: MonthPace, lastMonthName: String, myanmarDigits: Bo
             end = localizedDate(pace.month.atEndOfMonth(), "MMMd", myanmarDigits),
             todayFraction = pace.today.dayOfMonth.toFloat() / pace.month.lengthOfMonth(),
             modifier = Modifier.padding(top = 8.dp).fillMaxWidth().clearAndSetSemantics { },
+        )
+        Text(
+            text = verdict,
+            style = type.size13.medium,
+            color = verdictColor,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 8.dp),
         )
     }
 }

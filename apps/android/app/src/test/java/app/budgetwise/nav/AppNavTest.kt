@@ -108,7 +108,7 @@ class AppNavTest {
 
         // Sign-in opens with the known email filled in, and without the bottom bar.
         compose.onNodeWithText(TestUser.email).assertIsDisplayed()
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
+        compose.onNode(hasText(text(R.string.login_submit), substring = true) and hasClickAction()).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.nav_budgets)).assertDoesNotExist()
     }
 
@@ -126,7 +126,7 @@ class AppNavTest {
     }
 
     private fun openAddSheet() {
-        compose.onNode(hasText(text(R.string.action_add)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.manual_title)) and hasClickAction()).performClick()
         compose.onNodeWithText(text(R.string.add_scan_detail)).assertIsDisplayed()
     }
 
@@ -188,7 +188,7 @@ class AppNavTest {
         compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.nav_transactions)).assertDoesNotExist()
         // Both ways in: the link opens sign-in, and its back arrow returns to the welcome screen.
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_submit), substring = true) and hasClickAction()).performClick()
         compose.onNodeWithText(text(R.string.login_title)).assertIsDisplayed()
         compose.onNodeWithContentDescription(text(R.string.action_back)).performClick()
         compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).assertIsDisplayed()
@@ -203,8 +203,8 @@ class AppNavTest {
         }
 
         // Both languages, each in its own script, and no way back from the first screen.
-        compose.onNodeWithText(text(R.string.language_title_en)).assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.language_title_my)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.draft3_language_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.language_burmese)).assertIsDisplayed()
         compose.onNodeWithContentDescription(text(R.string.action_back)).assertDoesNotExist()
 
         compose.onNode(hasText(text(R.string.language_continue)) and hasClickAction()).performClick()
@@ -218,7 +218,7 @@ class AppNavTest {
         showApp(SessionState.SignedOut)
 
         compose.onNodeWithContentDescription("${text(R.string.settings_language)}, ${text(R.string.language_english)}").performClick()
-        compose.onNodeWithText(text(R.string.language_title_en)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.draft3_language_title)).assertIsDisplayed()
         compose.onNode(hasText(text(R.string.language_done)) and hasClickAction()).performClick()
         compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).assertIsDisplayed()
     }
@@ -235,12 +235,12 @@ class AppNavTest {
             nav.navigate(Routes.FIRST_INCOME) { popUpTo(nav.graph.id) { inclusive = true } }
         }
 
-        compose.onNodeWithText(text(R.string.income_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.draft3_income_title)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.nav_budgets)).assertDoesNotExist()
         compose.onNode(hasText(text(R.string.income_skip)) and hasClickAction()).performClick()
 
         // The last step offers voice, with no way back to the income step.
-        compose.onNodeWithText(text(R.string.setup_voice_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.draft3_setup_title)).assertIsDisplayed()
         assertEquals(listOf(Routes.SETUP_VOICE), compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } })
         compose.onNode(hasText(text(R.string.voice_not_now)) and hasClickAction()).performClick()
 
@@ -257,9 +257,9 @@ class AppNavTest {
         }
 
         compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).performClick()
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).performClick()
-        compose.onNode(hasText(text(R.string.login_make_account)) and hasClickAction()).performClick()
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_submit), substring = true) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_make_account), substring = true) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_submit), substring = true) and hasClickAction()).performClick()
         val stack = compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } }
         assertEquals(listOf(Routes.WELCOME, Routes.CREATE_ACCOUNT, Routes.LOGIN), stack)
     }

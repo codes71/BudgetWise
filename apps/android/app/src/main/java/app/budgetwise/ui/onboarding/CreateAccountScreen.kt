@@ -34,6 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
 import app.budgetwise.ui.common.FieldHint
 import app.budgetwise.ui.common.KitTextField
+import app.budgetwise.ui.common.KitFieldStyle
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
@@ -91,8 +92,10 @@ fun CreateAccountScreen(
     val editable = !state.loading
 
     AuthPage(
-        title = stringResource(R.string.create_title),
-        subtitle = stringResource(R.string.create_subtitle),
+        title = stringResource(R.string.draft3_create_title),
+        subtitle = stringResource(R.string.draft3_create_subtitle),
+        barTitle = stringResource(R.string.draft3_create_header),
+        eyebrow = stringResource(R.string.draft3_create_eyebrow),
         onBack = onBack,
         modifier = modifier,
         step = Step(at = 1, of = steps),
@@ -113,9 +116,10 @@ fun CreateAccountScreen(
             value = state.email,
             onValueChange = onEmailChange,
             label = stringResource(R.string.login_email),
+            fieldStyle = KitFieldStyle.Underlined,
             modifier = Modifier.alpha(fieldsAlpha),
             fieldModifier = Modifier.semantics { contentType = ContentType.NewUsername + ContentType.EmailAddress },
-            leading = Lucide.Mail,
+            trailing = { Icon(Lucide.Mail, contentDescription = null, tint = colors.muted, modifier = Modifier.size(20.dp)) },
             placeholder = stringResource(R.string.login_email_hint),
             error = when (state.error) {
                 CreateAccountError.EmailTaken -> stringResource(R.string.create_error_email_taken)
@@ -135,9 +139,9 @@ fun CreateAccountScreen(
             value = state.password,
             onValueChange = onPasswordChange,
             label = stringResource(R.string.login_password),
+            fieldStyle = KitFieldStyle.Underlined,
             modifier = Modifier.alpha(fieldsAlpha),
             fieldModifier = Modifier.focusRequester(passwordFocus).semantics { contentType = ContentType.NewPassword },
-            leading = Lucide.Lock,
             placeholder = stringResource(R.string.create_password_hint),
             error = if (state.error == CreateAccountError.ShortPassword) stringResource(R.string.create_error_short_password) else null,
             enabled = editable,

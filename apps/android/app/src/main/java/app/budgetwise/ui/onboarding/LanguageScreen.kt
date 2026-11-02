@@ -22,9 +22,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -38,7 +38,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import app.budgetwise.AppLanguage
@@ -49,10 +48,9 @@ import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.BrandMark
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.PrimaryButton
-import app.budgetwise.ui.common.SageRule
+import app.budgetwise.ui.common.groupDigits
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.bold
-import app.budgetwise.ui.theme.extraBold
 import app.budgetwise.ui.theme.kitStyle
 import app.budgetwise.ui.theme.semibold
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -105,7 +103,7 @@ fun LanguageScreen(
     val type = BudgetWiseTheme.type
     Column(modifier.fillMaxSize().background(colors.ground).windowInsetsPadding(WindowInsets.navigationBars)) {
         if (onBack != null) {
-            BackHeader(title = null, onBack = onBack)
+            BackHeader(title = stringResource(R.string.settings_language), onBack = onBack)
         } else {
             BrandMark(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(start = 24.dp, top = 28.dp), size = 40.dp)
         }
@@ -116,28 +114,20 @@ fun LanguageScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
         ) {
-            Spacer(Modifier.height(if (onBack == null) 160.dp else 16.dp))
+            Spacer(Modifier.height(20.dp))
             Text(
-                text = stringResource(R.string.language_title_my),
-                style = scriptStyle(AppLanguage.BURMESE, 32).bold,
-                color = colors.ink,
-                modifier = Modifier.semantics { heading() },
+                text = stringResource(R.string.draft3_language_eyebrow),
+                style = type.size12.semibold,
+                color = colors.muted,
             )
             Text(
-                text = stringResource(R.string.language_title_en),
-                style = scriptStyle(AppLanguage.ENGLISH, 32).extraBold.copy(letterSpacing = (-0.035).em),
+                text = stringResource(R.string.draft3_language_title),
+                style = type.size32.bold,
                 color = colors.ink,
-                modifier = Modifier.semantics { heading() },
+                modifier = Modifier.padding(top = 12.dp).semantics { heading() },
             )
-            SageRule(Modifier.padding(top = 18.dp))
-            Column(Modifier.padding(top = 40.dp).selectableGroup(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                LanguageOption(
-                    language = AppLanguage.BURMESE,
-                    other = stringResource(R.string.language_burmese_in_english),
-                    otherStyle = scriptStyle(AppLanguage.ENGLISH, 14),
-                    selected = selected == AppLanguage.BURMESE,
-                    onClick = { onSelect(AppLanguage.BURMESE) },
-                )
+            Text(stringResource(R.string.draft3_language_subtitle), style = type.size16, color = colors.muted, modifier = Modifier.padding(top = 10.dp))
+            Column(Modifier.padding(top = 24.dp).selectableGroup()) {
                 LanguageOption(
                     language = AppLanguage.ENGLISH,
                     other = stringResource(R.string.language_english_in_burmese),
@@ -145,6 +135,22 @@ fun LanguageScreen(
                     selected = selected == AppLanguage.ENGLISH,
                     onClick = { onSelect(AppLanguage.ENGLISH) },
                 )
+                LanguageOption(
+                    language = AppLanguage.BURMESE,
+                    other = stringResource(R.string.language_burmese_in_english),
+                    otherStyle = scriptStyle(AppLanguage.ENGLISH, 14),
+                    selected = selected == AppLanguage.BURMESE,
+                    onClick = { onSelect(AppLanguage.BURMESE) },
+                )
+            }
+            Column(Modifier.padding(top = 32.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.draft3_language_preview), style = type.size12.semibold, color = colors.muted)
+                Text(
+                    stringResource(if (selected == AppLanguage.BURMESE) R.string.draft3_language_preview_my else R.string.draft3_language_preview_en),
+                    style = scriptStyle(selected, 22),
+                    color = colors.ink,
+                )
+                Text("${groupDigits(663_600)} Ks", style = scriptStyle(selected, 32).bold, color = colors.ink)
             }
         }
         Column(
@@ -183,7 +189,7 @@ internal fun scriptStyle(script: AppLanguage, role: Int): TextStyle {
     }
 }
 
-/** A 76 dp row: the language's own name over its name in the other language, and a round check. */
+/** A line-separated choice, each language in its own script, with a check and underline when selected. */
 @Composable
 private fun LanguageOption(
     language: AppLanguage,
@@ -193,34 +199,29 @@ private fun LanguageOption(
     onClick: () -> Unit,
 ) {
     val colors = BudgetWiseTheme.colors
-    val shape = RoundedCornerShape(16.dp)
     val nameStyle = when (language) {
-        AppLanguage.BURMESE -> scriptStyle(language, 20).bold
-        AppLanguage.ENGLISH -> scriptStyle(language, 18).semibold
+        AppLanguage.BURMESE -> scriptStyle(language, 26).bold
+        AppLanguage.ENGLISH -> scriptStyle(language, 22).semibold
     }
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 76.dp)
-            .clip(shape)
-            .background(colors.surface)
-            .border(1.5.dp, if (selected) colors.accent else colors.surface, shape)
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(language.ownName(), style = nameStyle, color = colors.ink)
-            Text(other, style = otherStyle, color = colors.muted)
-        }
-        if (selected) {
-            Box(Modifier.size(24.dp).clip(CircleShape).background(colors.sageFill), contentAlignment = Alignment.Center) {
-                Icon(Lucide.CheckBold, contentDescription = null, tint = colors.onSageFill, modifier = Modifier.size(14.dp))
+        Row(Modifier.fillMaxWidth().heightIn(min = 92.dp).padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text(language.ownName(), style = nameStyle, color = colors.ink)
+                Text(other, style = otherStyle, color = colors.muted)
             }
-        } else {
-            Box(Modifier.size(24.dp).border(1.5.dp, colors.outline, CircleShape))
+            if (selected) {
+                Box(Modifier.size(26.dp).clip(CircleShape).background(colors.sageFill), contentAlignment = Alignment.Center) {
+                    Icon(Lucide.CheckBold, contentDescription = null, tint = colors.onSageFill, modifier = Modifier.size(16.dp))
+                }
+            } else {
+                Box(Modifier.size(24.dp).border(1.5.dp, colors.muted, CircleShape))
+            }
         }
+        HorizontalDivider(thickness = if (selected) 2.dp else 1.dp, color = if (selected) colors.accent else colors.hairline)
     }
 }
 

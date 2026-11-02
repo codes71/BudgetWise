@@ -8,6 +8,8 @@ Snapshot from 2026-11-02, based on master `10ec22f96e6fde5b9f5e6f242bae01dc8649c
 
 ## UI-only scope
 
+See [native implementation mapping and verification](IMPLEMENTATION.md) for the code changes, supported interactions and remaining review limits.
+
 This PR translates the approved composition into the native Android app using its existing theme, Schibsted Grotesk/Padauk typography, real state and callbacks. It preserves the entries-v3 workflows, whole-kyat amounts, real system keyboard, actual camera preview and existing error/offline states. The sample data and keypad/receipt illustrations in Paper are design references, never production data or substitute controls.
 
 Budget editing is being developed independently on `feat/android-budgets`. Its worktree was dirty when this PR began and has not been modified or copied. That workstream owns budget screens, APIs, persistence, validation, migrations and feature behavior. The budget snapshots here record the read-only master baseline; they are not authority to discard the upcoming editing feature. When that PR exists, integrate its behavior first and apply this shared visual language while keeping every budget action/state. This branch is based directly on master, not on the unfinished budget branch.

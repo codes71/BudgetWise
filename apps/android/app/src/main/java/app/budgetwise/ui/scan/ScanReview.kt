@@ -49,16 +49,12 @@ import app.budgetwise.data.repo.ScanItem
 import app.budgetwise.data.repo.ScanKind
 import app.budgetwise.nlu.TxType
 import app.budgetwise.ui.common.BackHeader
-import app.budgetwise.ui.common.CategoryBadge
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
 import app.budgetwise.ui.common.PrimaryButton
-import app.budgetwise.ui.common.SageRule
 import app.budgetwise.ui.common.SectionLabel
 import app.budgetwise.ui.common.TextAction
-import app.budgetwise.ui.common.categoryColors
-import app.budgetwise.ui.common.categoryIcon
 import app.budgetwise.ui.common.categoryLabel
 import app.budgetwise.ui.common.formatSignedKyat
 import app.budgetwise.ui.common.groupDigits
@@ -125,7 +121,7 @@ internal fun ScanReview(
                 modifier = Modifier.padding(top = 12.dp),
             )
             // A KPay history mixes money in and out and has no printed total: each row shows its own amount.
-            if (state.kind != ScanKind.HISTORY) Total(state.shownTotal, state.myanmarDigits, Modifier.padding(top = 28.dp))
+            if (state.kind != ScanKind.HISTORY) Total(state.shownTotal, state.myanmarDigits, Modifier.padding(top = 12.dp))
             if (state.changedItems > 0) {
                 ChangedNote(R.plurals.scan_changed, state.scannedTotal, state.changedItems, state.myanmarDigits, Modifier.padding(top = 16.dp))
             }
@@ -176,18 +172,23 @@ internal fun ScanReview(
                     modifier = Modifier.padding(bottom = 12.dp),
                 )
             }
-            if (receipt && state.keptLines.size > 1) {
-                val shop = state.merchant ?: labels[state.keptLines.maxBy { it.amountKyat }.category].orEmpty()
-                TextAction(stringResource(R.string.scan_as_one), onClick = { onAddAsOne(shop) }, enabled = !state.saving)
-            }
             val count = state.keptLines.size
             PrimaryButton(
                 text = pluralStringResource(R.plurals.scan_add, count, count),
                 onClick = { onAddEntries(describe) },
                 enabled = state.canSave,
                 busy = state.saving,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
             )
+            if (receipt && state.keptLines.size > 1) {
+                val shop = state.merchant ?: labels[state.keptLines.maxBy { it.amountKyat }.category].orEmpty()
+                TextAction(
+                    stringResource(R.string.scan_as_one),
+                    onClick = { onAddAsOne(shop) },
+                    enabled = !state.saving,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
         }
     }
 
@@ -211,33 +212,21 @@ internal fun ScanReview(
 }
 
 /**
- * The shop and the date on the receipt, with the Scanned tag. [noDate]: a receipt with no date on it, saved as today,
- * says so.
+ * The merchant and date lead the review, without a decorative badge competing with its amount. [noDate] retains
+ * the warning for a receipt that will use today because its date could not be read.
  */
 @Composable
 internal fun SourceRow(shop: String, date: LocalDate?, myanmarDigits: Boolean, noDate: Boolean, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        Box(
-            Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(colors.surface).border(1.dp, colors.hairline, RoundedCornerShape(12.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Lucide.Receipt, contentDescription = null, tint = colors.muted, modifier = Modifier.size(22.dp))
-        }
-        Column(Modifier.weight(1f)) {
-            Text(shop, style = type.size17.semibold.forContent(shop), color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            val day = date?.let { localizedDate(it, "EEEEMMMMd", myanmarDigits) } ?: stringResource(R.string.scan_no_date).takeIf { noDate }
-            if (day != null) Text(day, style = type.size13, color = if (date == null) colors.coralText else colors.muted)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Icon(Lucide.ScanLine, contentDescription = null, tint = colors.accent, modifier = Modifier.size(14.dp))
-            Text(stringResource(R.string.scan_scanned), style = type.size13.medium, color = colors.accent)
-        }
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(shop, style = type.size26.semibold.forContent(shop), color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        val day = date?.let { localizedDate(it, "yMMMMd", myanmarDigits) } ?: stringResource(R.string.scan_no_date).takeIf { noDate }
+        if (day != null) Text(day, style = type.size14, color = if (date == null) colors.coralText else colors.muted)
     }
 }
 
-/** "Total" and the big amount over the sage rule. */
+/** A compact receipt total. The spoken total remains complete even when an unusually long figure is ellipsized. */
 @Composable
 internal fun Total(amountKyat: Long, myanmarDigits: Boolean, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
@@ -251,16 +240,20 @@ internal fun Total(amountKyat: Long, myanmarDigits: Boolean, modifier: Modifier 
                 val figure = groupDigits(amountKyat, myanmarDigits)
                 Text(
                     figure,
-                    style = (if (figure.length > 8) type.size44 else type.size60).extraBold.tracked(-0.035f),
+                    style = when {
+                        figure.length > 16 -> type.size24
+                        figure.length > 10 -> type.size32
+                        else -> type.size40
+                    }.extraBold.tracked(-0.035f),
                     color = colors.ink,
                     maxLines = 1,
                     softWrap = false,
-                    modifier = Modifier.alignByBaseline(),
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false).alignByBaseline(),
                 )
-                Text("Ks", style = type.size24.medium, color = colors.muted, modifier = Modifier.alignByBaseline())
+                Text("Ks", style = type.size20, color = colors.muted, modifier = Modifier.alignByBaseline())
             }
         }
-        SageRule(Modifier.padding(top = 16.dp))
     }
 }
 
@@ -269,14 +262,24 @@ internal fun Total(amountKyat: Long, myanmarDigits: Boolean, modifier: Modifier 
 private fun PaymentLine(line: ReviewLine, myanmarDigits: Boolean, togglable: Boolean, onToggle: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
-    val base = Modifier.fillMaxWidth().heightIn(min = 68.dp)
+    val base = Modifier.fillMaxWidth().heightIn(min = 88.dp)
     Row(
         (if (togglable) base.toggleable(value = line.kept, role = Role.Checkbox, onValueChange = { onToggle() }) else base)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        CategoryBadge(line.category, contentDescription = null)
+        if (togglable) {
+            Box(
+                Modifier
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .then(if (line.kept) Modifier.background(colors.sageFill) else Modifier.border(1.5.dp, colors.outline, RoundedCornerShape(6.dp))),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (line.kept) Icon(Lucide.CheckBold, contentDescription = null, tint = colors.onSageFill, modifier = Modifier.size(14.dp))
+            }
+        }
         Column(Modifier.weight(1f)) {
             Text(
                 line.description,
@@ -285,7 +288,9 @@ private fun PaymentLine(line: ReviewLine, myanmarDigits: Boolean, togglable: Boo
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(localizedDate(line.date, "MMMd"), style = type.size13, color = colors.muted)
+            Text(localizedDate(line.date, "yMMMd", myanmarDigits), style = type.size13, color = colors.muted)
+            val category = categoryLabel(line.category)
+            Text(category, style = type.size14.forContent(category), color = colors.muted)
         }
         Text(
             formatSignedKyat(line.amountKyat, line.type, myanmarDigits),
@@ -297,17 +302,6 @@ private fun PaymentLine(line: ReviewLine, myanmarDigits: Boolean, togglable: Boo
             },
             softWrap = false,
         )
-        if (togglable) {
-            Box(
-                Modifier
-                    .size(22.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .then(if (line.kept) Modifier.background(colors.sageFill) else Modifier.border(1.5.dp, colors.outline, RoundedCornerShape(6.dp))),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (line.kept) Icon(Lucide.CheckBold, contentDescription = null, tint = colors.onSageFill, modifier = Modifier.size(14.dp))
-            }
-        }
     }
 }
 
@@ -320,13 +314,13 @@ internal fun MoveSheet(category: String, items: List<ScanItem>, categories: List
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = colors.raised,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = colors.surface,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
         dragHandle = {
-            Box(Modifier.padding(top = 12.dp).size(width = 32.dp, height = 4.dp).clip(CircleShape).background(colors.disabled))
+            Box(Modifier.padding(top = 12.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(colors.disabled))
         },
     ) {
-        Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 24.dp)) {
             val count = items.size
             Text(
                 if (count > 0) pluralStringResource(R.plurals.scan_move_title, count, count) else stringResource(R.string.scan_move_title_none),
@@ -351,15 +345,14 @@ internal fun MoveSheet(category: String, items: List<ScanItem>, categories: List
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 52.dp)
+                        .heightIn(min = 64.dp)
                         .clickable(role = Role.RadioButton, onClick = { onPick(option) })
                         .semantics { this.selected = selected },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    Icon(categoryIcon(option), contentDescription = null, tint = categoryColors(option).content, modifier = Modifier.size(20.dp))
                     val label = categoryLabel(option)
-                    Text(label, style = type.size16.forContent(label), color = colors.ink, modifier = Modifier.weight(1f))
+                    Text(label, style = type.size18.medium.forContent(label), color = colors.ink, modifier = Modifier.weight(1f))
                     if (selected) Icon(Lucide.Check, contentDescription = null, tint = colors.accent, modifier = Modifier.size(20.dp))
                 }
                 HorizontalDivider(thickness = 1.dp, color = colors.hairline)

@@ -13,9 +13,11 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import app.budgetwise.R
 import app.budgetwise.data.model.Source
+import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.nlu.TxType
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import java.time.LocalDate
@@ -46,6 +48,7 @@ class AddManualScreenTest {
 
     private val picked = mutableListOf<RecentEntry>()
     private val dates = mutableListOf<LocalDate>()
+    private val categories = mutableListOf<String>()
     private var deletes = 0
 
     private fun show(state: AddManualUiState) = compose.setContent {
@@ -55,7 +58,7 @@ class AddManualScreenTest {
                 onClose = {},
                 onTypeChange = {},
                 onAmountChange = {},
-                onCategoryChange = {},
+                onCategoryChange = { categories += it },
                 onDescriptionChange = {},
                 onRecentPick = { picked += it },
                 onDateChange = { dates += it },
@@ -125,7 +128,7 @@ class AddManualScreenTest {
         show(filled())
 
         compose.onNodeWithText(text(R.string.manual_picked_from, "Mohinga")).assertIsDisplayed()
-        compose.onNode(hasText(text(R.string.category_food_and_drink)) and hasClickAction()).assertIsSelected()
+        compose.onNode(hasText(text(R.string.draft3_entry_food_short)) and hasClickAction()).assertIsSelected()
     }
 
     @Test
@@ -145,8 +148,19 @@ class AddManualScreenTest {
         show(filled(type = TxType.INCOME))
 
         compose.onNodeWithText(text(R.string.manual_income_note)).assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.category_food_and_drink)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.draft3_entry_food_short)).assertDoesNotExist()
         compose.onNodeWithText(text(R.string.manual_picked_from, "Mohinga")).assertDoesNotExist()
+    }
+
+    @Test
+    fun moreKeepsCustomCategoriesReachableBeyondTheQuickChoices() {
+        show(filled().copy(categories = CategoryRepository.BUILT_IN + "School fees"))
+
+        compose.onNodeWithText(text(R.string.draft3_entry_more)).performClick()
+        compose.onNodeWithText("School fees").performScrollTo().performClick()
+
+        assertEquals(listOf("School fees"), categories)
+        compose.onNodeWithText("School fees").assertDoesNotExist()
     }
 
     @Test

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="draft3_entry_sheet_title">Add an entry</string>
+    <string name="draft3_entry_more">More</string>
+    <string name="draft3_entry_food_short">Food</string>
+</resources>

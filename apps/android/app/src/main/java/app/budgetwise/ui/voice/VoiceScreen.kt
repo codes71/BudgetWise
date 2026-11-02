@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,7 +34,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,6 +46,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -181,7 +181,7 @@ fun VoiceScreen(state: VoiceUiState, actions: VoiceActions, modifier: Modifier =
 }
 
 /**
- * "Say what you spent": the timer, the microphone in rings that follow the voice's loudness, three examples and Done.
+ * The recording page: a level-driven waveform, one clearly labelled example and the three available actions.
  * Stopped (under a card, or before the microphone starts) the label says so and Done is off.
  */
 @Composable
@@ -193,60 +193,78 @@ private fun ListeningScreen(state: VoiceUiState, actions: VoiceActions) {
         Modifier
             .fillMaxSize()
             .background(colors.ground)
-            .windowInsetsPadding(WindowInsets.statusBars)
             .windowInsetsPadding(WindowInsets.navigationBars),
     ) {
+        BackHeader(
+            title = stringResource(R.string.draft3_voice_entry),
+            onBack = actions.onClose,
+            icon = Lucide.X,
+            backLabel = stringResource(R.string.action_close),
+        )
         Row(
-            Modifier.fillMaxWidth().padding(start = 12.dp, end = 24.dp, top = 12.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = actions.onClose, modifier = Modifier.size(48.dp)) {
-                Box(Modifier.size(40.dp).clip(CircleShape).background(colors.surface), contentAlignment = Alignment.Center) {
-                    Icon(Lucide.X, contentDescription = stringResource(R.string.action_close), tint = colors.ink, modifier = Modifier.size(20.dp))
-                }
-            }
+            val language = stringResource(R.string.draft3_voice_language)
+            Text(language, style = type.size18.semibold.forContent(language), color = colors.ink)
             Box(Modifier.weight(1f))
             val seconds = state.elapsedSeconds
             Text(
                 text = String.format(Locale.US, "%d:%02d", seconds / 60, seconds % 60)
                     .let { if (state.myanmarDigits) toMyanmarDigits(it) else it },
-                style = type.size15.medium.tracked(0.04f),
+                style = type.size14.medium,
                 color = colors.muted,
                 modifier = Modifier.clearAndSetSemantics { },
             )
         }
-        Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(if (listening) colors.accent else colors.disabled))
-                SectionLabel(
-                    stringResource(if (listening) R.string.voice_listening else R.string.voice_stopped),
-                    color = if (listening) colors.accent else colors.muted,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                )
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 20.dp), contentAlignment = Alignment.Center) {
+                MicRings(level = if (listening) state.level else 0f, listening = listening)
             }
             Text(
-                stringResource(R.string.voice_prompt),
-                style = type.size26.extraBold.tracked(-0.02f),
+                stringResource(if (listening) R.string.voice_listening else R.string.voice_stopped),
+                style = type.size32.extraBold.tracked(-0.025f),
                 color = colors.ink,
-                modifier = Modifier.padding(top = 10.dp).semantics { heading() },
+                modifier = Modifier.semantics { heading(); liveRegion = LiveRegionMode.Polite },
+            )
+            Text(
+                stringResource(R.string.voice_prompt),
+                style = type.size14,
+                color = colors.muted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
+            )
+            HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+            SectionLabel(stringResource(R.string.voice_for_example), Modifier.align(Alignment.Start).padding(top = 20.dp, bottom = 12.dp))
+            Example(R.string.voice_example_1, R.string.voice_example_1_gloss)
+            Text(
+                stringResource(R.string.draft3_voice_finish_hint),
+                style = type.size14,
+                color = colors.muted,
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 16.dp),
             )
         }
-        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-            MicRings(level = if (listening) state.level else 0f, listening = listening)
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RecordingAction(Lucide.Trash, stringResource(R.string.draft3_discard), actions.onClose, Modifier.weight(1f))
+            Column(
+                Modifier.weight(1f).clickable(enabled = listening, role = Role.Button, onClick = actions.onDone).padding(vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(Modifier.size(72.dp).clip(CircleShape).background(if (listening) colors.sageFill else colors.raised), contentAlignment = Alignment.Center) {
+                    Icon(Lucide.CheckBold, contentDescription = null, tint = if (listening) colors.onSageFill else colors.disabled, modifier = Modifier.size(28.dp))
+                }
+                Text(stringResource(R.string.voice_done), style = type.size14.semibold, color = if (listening) colors.ink else colors.disabled)
+            }
+            RecordingAction(Lucide.Pencil, stringResource(R.string.voice_type_instead), actions.onTypeInstead, Modifier.weight(1f))
         }
-        Column(Modifier.padding(horizontal = 24.dp)) {
-            SectionLabel(stringResource(R.string.voice_for_example), Modifier.padding(bottom = 10.dp))
-            Example(R.string.voice_example_1, R.string.voice_example_1_gloss)
-            Example(R.string.voice_example_2, R.string.voice_example_2_gloss)
-            Example(R.string.voice_example_3, R.string.voice_example_3_gloss)
-        }
-        PrimaryButton(
-            text = stringResource(R.string.voice_done),
-            onClick = actions.onDone,
-            enabled = listening,
-            modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 20.dp),
-        )
-        StaysOnPhone(Modifier.align(Alignment.CenterHorizontally).padding(top = 12.dp, bottom = 12.dp))
+        StaysOnPhone(Modifier.align(Alignment.CenterHorizontally).padding(start = 24.dp, end = 24.dp, bottom = 12.dp))
     }
 }
 
@@ -254,11 +272,23 @@ private fun ListeningScreen(state: VoiceUiState, actions: VoiceActions) {
 private fun Example(quote: Int, gloss: Int) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
-    HorizontalDivider(thickness = 1.dp, color = colors.hairline)
-    Row(Modifier.fillMaxWidth().heightIn(min = 50.dp).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         val said = stringResource(quote)
-        Text(said, style = type.size16.forContent(said), color = colors.ink, modifier = Modifier.weight(1f))
-        Text(stringResource(gloss), style = type.size13, color = colors.muted, modifier = Modifier.padding(start = 12.dp))
+        Text(said, style = type.size24.forContent(said), color = colors.ink)
+        Text(stringResource(gloss), style = type.size14, color = colors.muted)
+    }
+}
+
+@Composable
+private fun RecordingAction(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = BudgetWiseTheme.colors
+    Column(
+        modifier.heightIn(min = 72.dp).clip(RoundedCornerShape(16.dp)).clickable(role = Role.Button, onClick = onClick).padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(22.dp))
+        Text(label, style = BudgetWiseTheme.type.size13.medium, color = colors.muted, textAlign = TextAlign.Center)
     }
 }
 
@@ -271,26 +301,27 @@ internal fun StaysOnPhone(modifier: Modifier = Modifier) {
     }
 }
 
-/** The sage microphone in two rings that grow with the voice, 260 dp across or less on a short screen. Decorative. */
+/** A still atmospheric field and a level-driven waveform. No perpetual animation or API-specific shader is needed. */
 @Composable
 private fun MicRings(level: Float, listening: Boolean) {
     val colors = BudgetWiseTheme.colors
     val loud by animateFloatAsState(level, tween(120), label = "level")
-    Box(
-        Modifier.heightIn(max = 260.dp).fillMaxHeight().aspectRatio(1f, matchHeightConstraintsFirst = true),
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(Modifier.fillMaxSize()) {
-            val unit = size.minDimension / 260f
-            val ring = colors.sageContainer
-            drawCircle(ring.copy(alpha = if (listening) 0.35f else 0.15f), radius = unit * (100f + 30f * loud))
-            drawCircle(ring.copy(alpha = if (listening) 0.7f else 0.3f), radius = unit * (80f + 12f * loud))
-        }
-        Box(
-            Modifier.fillMaxSize(120f / 260f).clip(CircleShape).background(if (listening) colors.sageFill else colors.raised),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Lucide.MicBold, contentDescription = null, tint = if (listening) colors.onSageFill else colors.muted, modifier = Modifier.size(36.dp))
+    val bars = remember { listOf(16f, 30f, 44f, 26f, 54f, 66f, 42f, 58f, 32f, 48f, 24f, 14f) }
+    val atmosphere = remember(colors.sageContainer) {
+        Brush.radialGradient(listOf(colors.sageContainer.copy(alpha = 0.5f), colors.sageContainer.copy(alpha = 0f)))
+    }
+    Canvas(Modifier.size(190.dp).clearAndSetSemantics { }) {
+        val unit = size.minDimension / 190f
+        drawCircle(brush = atmosphere, radius = size.minDimension / 2f)
+        val strength = if (listening) 0.6f + loud.coerceIn(0f, 1f) * 0.4f else 0.25f
+        bars.forEachIndexed { index, height ->
+            val h = height * strength * unit
+            drawRoundRect(
+                color = if (listening) colors.accent else colors.disabled,
+                topLeft = Offset((37.5f + index * 10f) * unit, center.y - h / 2f),
+                size = Size(5f * unit, h),
+                cornerRadius = CornerRadius(2.5f * unit),
+            )
         }
     }
 }

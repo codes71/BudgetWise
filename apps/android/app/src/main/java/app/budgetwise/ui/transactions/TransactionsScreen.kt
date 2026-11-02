@@ -2,10 +2,14 @@ package app.budgetwise.ui.transactions
 
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,6 +34,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -50,6 +55,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -58,6 +64,8 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -76,7 +84,6 @@ import app.budgetwise.ui.common.NoticeHost
 import app.budgetwise.ui.common.NoticeTone
 import app.budgetwise.ui.common.NoticeVisuals
 import app.budgetwise.ui.common.PrimaryButton
-import app.budgetwise.ui.common.SageRule
 import app.budgetwise.ui.common.SectionLabel
 import app.budgetwise.ui.common.SessionNotice
 import app.budgetwise.ui.common.SkeletonBar
@@ -291,8 +298,7 @@ fun TransactionsScreen(
 }
 
 /**
- * "Left in October" with the big number and the sage rule, then the month's spending; before the first expense, the
- * way to add it instead of an empty chart.
+ * A compact remaining-balance surface, then the month's spending. Before the first expense, show the ways to add it.
  */
 @Composable
 private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit, onSayIt: (() -> Unit)?, onScan: () -> Unit) {
@@ -302,27 +308,48 @@ private fun MonthHead(state: TransactionsUiState, onAddManual: () -> Unit, onSay
     val balance = state.summary.balance
     val spoken = stringResource(R.string.transactions_left_spoken, month, groupDigits(balance))
     val figure = groupDigits(balance, state.myanmarDigits)
-    Column(Modifier.padding(top = 20.dp, bottom = 30.dp)) {
-        Column(Modifier.clearAndSetSemantics { contentDescription = spoken }) {
-            SectionLabel(stringResource(R.string.transactions_left_in, month))
-            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = figure,
-                    // Seven figures and a sign still fit a phone's width at 44.
-                    style = (if (figure.length > 8) type.size44 else type.size60).extraBold.tracked(-0.035f),
-                    color = if (balance < 0) colors.coralText else colors.ink,
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier.alignByBaseline(),
-                )
-                Text("Ks", style = type.size24.medium, color = colors.muted, modifier = Modifier.alignByBaseline())
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    Column(Modifier.padding(top = 8.dp, bottom = 24.dp)) {
+        Surface(
+            color = colors.surface,
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, colors.hairline),
+            modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken },
+        ) {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(stringResource(R.string.draft3_remaining_balance), style = type.size14, color = colors.muted)
+                    Text(month, style = type.size13.medium, color = colors.muted)
+                }
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val currencyStyle = type.size20.medium
+                    val currencyWidth = measurer.measure(AnnotatedString("Ks"), currencyStyle, softWrap = false, maxLines = 1).size.width
+                    val available = constraints.maxWidth - currencyWidth - with(density) { 8.dp.roundToPx() }
+                    val styles = listOf(type.size44, type.size40, type.size32, type.size24, type.size20)
+                        .map { it.extraBold.tracked(-0.04f).copy(fontFeatureSettings = "tnum") }
+                    val amountStyle = styles.firstOrNull {
+                        measurer.measure(AnnotatedString(figure), it, softWrap = false, maxLines = 1).size.width <= available
+                    } ?: styles.last()
+                    // Extreme values remain complete and pannable, rather than being ellipsized or clipped away.
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            figure,
+                            style = amountStyle,
+                            color = if (balance < 0) colors.coralText else colors.ink,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.alignByBaseline(),
+                        )
+                        Text("Ks", style = currencyStyle, color = colors.muted, modifier = Modifier.alignByBaseline())
+                    }
+                }
             }
         }
-        SageRule(Modifier.padding(top = 16.dp))
         if (state.noExpensesYet) {
-            FirstExpense(onAddManual, onSayIt, onScan, Modifier.padding(top = 28.dp))
+            FirstExpense(onAddManual, onSayIt, onScan, Modifier.padding(top = 24.dp))
         } else {
-            SpendingCard(state.pace, state.categories, state.myanmarDigits, Modifier.padding(top = 28.dp))
+            SpendingCard(state.pace, state.categories, state.myanmarDigits, Modifier.padding(top = 24.dp))
         }
     }
 }

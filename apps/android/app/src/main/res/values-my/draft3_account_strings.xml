@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="draft3_step_count">%1$d / %2$d</string>
+    <string name="draft3_create_header">စတင်ပါ</string>
+    <string name="draft3_create_eyebrow">အဆင့် ၁ · အကောင့်</string>
+    <string name="draft3_create_title">သင့်အကောင့် ဖန်တီးပါ။</string>
+    <string name="draft3_create_subtitle">သင့်စာရင်းများကို စက်အမျိုးမျိုးမှာ ဆက်သုံးနိုင်ပါတယ်။</string>
+    <string name="draft3_login_subtitle">အရင်နေရာကနေ ဆက်လက်သုံးပါ။</string>
+    <string name="draft3_income_header">ပထမဆုံး ဝင်ငွေ</string>
+    <string name="draft3_income_eyebrow">အဆင့် ၂ · စတင်ရန်</string>
+    <string name="draft3_income_title">အရင်ဆုံး\nဝင်ငွေထည့်ပါ။</string>
+    <string name="draft3_income_subtitle">သုံးစွဲနိုင်တဲ့ လက်ကျန်ငွေကို သိဖို့ ဝင်ငွေတစ်ခု ထည့်ပါ။</string>
+    <string name="draft3_income_today">ဒီနေ့အတွက် ထည့်သွင်းမှာပါ</string>
+    <string name="draft3_income_amount">ဝင်ငွေပမာဏ</string>
+    <string name="draft3_setup_header">အသံကို ပြင်ဆင်ပါ</string>
+    <string name="draft3_setup_eyebrow">အဆင့် ၃ · စိတ်ကြိုက်</string>
+    <string name="draft3_setup_title">ပြောပါ။\nပြီးရင် စစ်ပါ။</string>
+    <string name="draft3_setup_subtitle">မြန်မာလို ပြောပြီး မသိမ်းခင် ပြန်စစ်ပါ။</string>
+    <string name="draft3_voice_example_coffee">ကော်ဖီ</string>
+    <string name="draft3_welcome_headline">သင့်ငွေ ဘယ်မှာ\nသုံးလဲ သိပါ။</string>
+    <string name="draft3_welcome_body">နေ့တိုင်း ပိုရှင်းလင်းစွာ သိနိုင်ဖို့။</string>
+    <string name="draft3_welcome_offline">အင်တာနက်မရှိလည်း ငွေစာရင်းမှတ်နိုင်ပါတယ်။</string>
+    <string name="draft3_language_eyebrow">သင့်စိတ်ကြိုက်</string>
+    <string name="draft3_language_title">သင့်ဘာသာစကား။</string>
+    <string name="draft3_language_subtitle">နေ့စဉ် သုံးနေကျ ဘာသာစကားကို ရွေးပါ။</string>
+    <string name="draft3_language_preview">နမူနာ</string>
+    <string name="draft3_language_preview_balance">ဒီလ လက်ကျန်ငွေ</string>
+</resources>

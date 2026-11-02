@@ -42,7 +42,6 @@ import app.budgetwise.R
 import app.budgetwise.data.model.EntryItem
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.ui.common.BackHeader
-import app.budgetwise.ui.common.CategoryBadge
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
@@ -59,7 +58,6 @@ import app.budgetwise.ui.scan.SourceRow
 import app.budgetwise.ui.scan.Total
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.forContent
-import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
 
 /**
@@ -123,7 +121,7 @@ private fun ReceiptScreen(
             val count = state.entries.size
             SectionLabel(
                 pluralStringResource(R.plurals.receipt_entries, count, count),
-                Modifier.padding(top = 28.dp, bottom = 10.dp).semantics { heading() },
+                Modifier.padding(top = 16.dp, bottom = 8.dp).semantics { heading() },
             )
             HorizontalDivider(thickness = 1.dp, color = colors.hairline)
             state.entries.forEach { entry ->
@@ -134,11 +132,16 @@ private fun ReceiptScreen(
             Text(note, style = type.size13.forContent(note), color = colors.muted, modifier = Modifier.padding(top = 14.dp))
         },
         actions = {
-            TextAction(stringResource(R.string.receipt_delete), onClick = onDelete, color = colors.coralText)
             PrimaryButton(
                 text = stringResource(R.string.receipt_change_items),
                 onClick = onChangeItems,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TextAction(
+                stringResource(R.string.receipt_delete),
+                onClick = onDelete,
+                color = colors.coralText,
+                modifier = Modifier.padding(top = 4.dp),
             )
         },
     )
@@ -234,7 +237,7 @@ private fun ReceiptFrame(
                 noDate = false,
                 modifier = Modifier.padding(top = 12.dp),
             )
-            Total(total, state.myanmarDigits, Modifier.padding(top = 28.dp))
+            Total(total, state.myanmarDigits, Modifier.padding(top = 12.dp))
             content()
         }
         Column(
@@ -261,17 +264,16 @@ private fun EntryBlock(entry: Transaction, myanmarDigits: Boolean, onClick: () -
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val name = categoryLabel(entry.category)
-    Column(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).padding(top = 12.dp, bottom = 14.dp)) {
+    // One entry remains one TalkBack/action target, including the category, its total and the item breakdown.
+    Column(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).padding(top = 8.dp, bottom = 8.dp)) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 44.dp),
+            Modifier.fillMaxWidth().heightIn(min = 48.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // The category name is written next to the badge, so the badge itself stays silent.
-            CategoryBadge(entry.category, contentDescription = null)
             Text(
                 name,
-                style = type.size16.medium.forContent(name),
+                style = type.size16.semibold.forContent(name),
                 color = colors.ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -280,30 +282,30 @@ private fun EntryBlock(entry: Transaction, myanmarDigits: Boolean, onClick: () -
             Text(formatKyat(entry.amountKyat, myanmarDigits), style = type.size16.semibold, color = colors.ink, softWrap = false)
             Icon(Lucide.ChevronRight, contentDescription = null, tint = colors.muted, modifier = Modifier.size(16.dp))
         }
-        entry.items.forEach { ItemLine(it, myanmarDigits) }
+        entry.items.forEachIndexed { index, item ->
+            ItemLine(item, myanmarDigits)
+            if (index < entry.items.lastIndex) HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+        }
     }
 }
 
 /**
- * An item under its entry: the name (and "2 × 4,500" when more than one was bought) and what it came to. Lined up
- * under the category name (the badge's 38 dp plus the 14 dp gap) and the amount (the chevron's 16 dp plus 14).
+ * An item under its category: the name and total in the same page lanes, then the count and price each.
  */
 @Composable
 private fun ItemLine(item: EntryItem, myanmarDigits: Boolean) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
-    Row(Modifier.fillMaxWidth().padding(start = 52.dp, end = 30.dp, top = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.weight(1f)) {
-            Text(item.name, style = type.size14.forContent(item.name), color = colors.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (item.quantity > 1) {
-                val count = stringResource(
-                    R.string.receipt_item_count,
-                    groupDigits(item.quantity.toLong(), myanmarDigits),
-                    groupDigits(item.unitPriceKyat, myanmarDigits),
-                )
-                Text(count, style = type.size13, color = colors.muted)
-            }
+            Text(item.name, style = type.size16.forContent(item.name), color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            val count = stringResource(
+                R.string.receipt_item_count,
+                groupDigits(item.quantity.toLong(), myanmarDigits),
+                groupDigits(item.unitPriceKyat, myanmarDigits),
+            )
+            Text(count, style = type.size14, color = colors.muted, modifier = Modifier.padding(top = 4.dp))
         }
-        Text(formatKyat(item.amountKyat, myanmarDigits), style = type.size14, color = colors.muted, softWrap = false)
+        Text(formatKyat(item.amountKyat, myanmarDigits), style = type.size16.semibold, color = colors.ink, softWrap = false)
     }
 }

@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -27,13 +27,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -148,9 +146,8 @@ fun SettingsScreen(
                     item(key = "sign-out") { SignOutCard(state.signingOut, onSignOut) }
                 }
                 item(key = "about") {
-                    Column {
-                        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
-                        SettingsRow(Lucide.Info, colors.muted) { Text(version, style = BudgetWiseTheme.type.size15, color = colors.muted) }
+                    Box(Modifier.fillMaxWidth().padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
+                        Text(version, style = BudgetWiseTheme.type.size12, color = colors.muted)
                     }
                 }
             }
@@ -176,17 +173,16 @@ private fun Card(content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth(), content = content)
 }
 
-/** A section's small caps heading over a hairline, then its rows. */
+/** A small section heading, with dividers belonging to the rows below it. */
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
     Column(Modifier.padding(top = 20.dp)) {
-        SectionLabel(title, Modifier.padding(bottom = 10.dp).semantics { heading() })
-        HorizontalDivider(thickness = 1.dp, color = BudgetWiseTheme.colors.hairline)
+        SectionLabel(title, Modifier.padding(bottom = 4.dp).semantics { heading() })
         content()
     }
 }
 
-/** A row in a settings card: a 24 dp icon slot, then the row's text. */
+/** A settings row with an optional fixed icon slot and caller-provided text and action. */
 @Composable
 private fun SettingsRow(
     icon: ImageVector?,
@@ -196,14 +192,16 @@ private fun SettingsRow(
     content: @Composable RowScope.() -> Unit,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 12.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-            when {
-                leading != null -> leading()
-                icon != null -> Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+        if (leading != null || icon != null) {
+            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                when {
+                    leading != null -> leading()
+                    icon != null -> Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+                }
             }
         }
         content()
@@ -214,28 +212,18 @@ private fun SettingsRow(
 private fun AccountCard(account: AccountInfo) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 4.dp)
+            .padding(top = 12.dp, bottom = 12.dp)
             .semantics(mergeDescendants = true) {},
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        val initials = initials(account)
-        Box(
-            modifier = Modifier.size(52.dp).clip(CircleShape).background(colors.sageContainer).clearAndSetSemantics { },
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(initials, style = type.size18.semibold.forContent(initials), color = colors.onSageContainer)
-        }
-        Column(Modifier.weight(1f)) {
-            if (account.name.isNotBlank()) {
-                Text(account.name, style = type.size18.semibold.forContent(account.name), color = colors.ink)
-                Text(account.email, style = type.size13, color = colors.muted)
-            } else {
-                Text(account.email, style = type.size18.semibold, color = colors.ink)
-            }
+        if (account.name.isNotBlank()) {
+            Text(account.name, style = type.size24.bold.forContent(account.name), color = colors.ink)
+            Text(account.email, style = type.size14, color = colors.muted)
+        } else {
+            Text(account.email, style = type.size24.bold, color = colors.ink)
         }
     }
 }
@@ -278,32 +266,28 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
         SyncPhase.NEEDS_SIGN_IN -> stringResource(R.string.settings_sync_needs_sign_in_detail)
         SyncPhase.NEVER -> null
     }
-    val (icon, tint) = when (sync.phase) {
-        SyncPhase.SYNCING -> null to colors.accent
-        SyncPhase.WAITING -> Lucide.CloudOff to colors.blue
-        SyncPhase.SYNCED -> Lucide.CloudCheck to colors.accent
-        SyncPhase.OFFLINE -> Lucide.CloudAlert to colors.coralText
-        SyncPhase.NEEDS_SIGN_IN -> Lucide.Lock to colors.coralText
-        SyncPhase.REJECTED -> Lucide.TriangleAlert to colors.error
-        SyncPhase.NEVER -> Lucide.Refresh to colors.muted
-    }
+
 
     Card {
-        SettingsRow(
-            icon = icon,
-            tint = tint,
-            modifier = Modifier.heightIn(min = 64.dp).semantics(mergeDescendants = true) {},
-            leading = if (sync.phase == SyncPhase.SYNCING) ({ Spinner(size = 20.dp) }) else null,
-        ) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f)) {
-                Text(headline, style = type.size16.medium, color = colors.ink)
+                Text(if (sync.phase == SyncPhase.SYNCED) stringResource(R.string.settings_all_synced) else headline, style = type.size16.semibold, color = colors.ink)
                 if (supporting != null) Text(supporting, style = type.size13, color = colors.muted)
             }
+            if (state.sessionExpired) {
+                PrimaryButton(stringResource(R.string.session_sign_in), onSignIn, Modifier.widthIn(max = 160.dp), height = 48.dp)
+            } else {
+                SecondaryButton(
+                    text = stringResource(R.string.settings_sync_now),
+                    onClick = onSyncNow,
+                    enabled = state.canSyncNow,
+                    modifier = Modifier.widthIn(max = 160.dp),
+                )
+            }
         }
-        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         // Rejected entries count as unsynced too; this line is about every other entry.
         val waiting = if (sync.phase == SyncPhase.REJECTED) state.unsyncedCount - sync.rejectedCount else state.unsyncedCount
-        SettingsRow(
+        if (waiting > 0 || sync.phase == SyncPhase.REJECTED) SettingsRow(
             icon = if (waiting > 0) Lucide.Clock else Lucide.Check,
             tint = if (waiting > 0) colors.blue else colors.accent,
         ) {
@@ -318,19 +302,7 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
                 modifier = Modifier.weight(1f),
             )
         }
-        Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp)) {
-            if (state.sessionExpired) {
-                PrimaryButton(stringResource(R.string.session_sign_in), onSignIn, Modifier.fillMaxWidth(), height = 48.dp)
-            } else {
-                SecondaryButton(
-                    text = stringResource(R.string.settings_sync_now),
-                    onClick = onSyncNow,
-                    enabled = state.canSyncNow,
-                    icon = Lucide.Refresh,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
+        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
     }
 }
 
@@ -369,7 +341,7 @@ private fun VoiceCard(
         return
     }
     Card {
-        SettingsRow(icon = Lucide.Mic, tint = if (voice is ModelState.Ready) colors.accent else colors.muted, modifier = Modifier.heightIn(min = 64.dp)) {
+        SettingsRow(icon = null, tint = colors.muted, modifier = Modifier.heightIn(min = 72.dp)) {
             Column(Modifier.weight(1f)) {
                 val title = when (voice) {
                     is ModelState.Ready -> R.string.settings_voice_ready
@@ -402,10 +374,10 @@ private fun VoiceCard(
         }
         HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         SettingsRow(
-            icon = Lucide.Cloud,
+            icon = null,
             tint = colors.muted,
             // The whole row is the switch (one 48 dp target), as for Myanmar digits.
-            modifier = Modifier.heightIn(min = 64.dp).toggleable(value = state.cloudParse, role = Role.Switch, onValueChange = onCloudParseChange),
+            modifier = Modifier.heightIn(min = 100.dp).toggleable(value = state.cloudParse, role = Role.Switch, onValueChange = onCloudParseChange),
         ) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.settings_cloud_parse), style = type.size16.medium, color = colors.ink)
@@ -439,8 +411,7 @@ private fun DisplayCard(myanmarDigits: Boolean, onChange: (Boolean) -> Unit, onL
             icon = null,
             tint = colors.muted,
             // The whole row is the switch (one 48 dp target), read as "Myanmar digits, switch, on".
-            modifier = Modifier.heightIn(min = 64.dp).toggleable(value = myanmarDigits, role = Role.Switch, onValueChange = onChange),
-            leading = { Text(stringResource(R.string.settings_digits_glyph), style = type.size12.bold, color = colors.muted, maxLines = 1) },
+            modifier = Modifier.heightIn(min = 72.dp).toggleable(value = myanmarDigits, role = Role.Switch, onValueChange = onChange),
         ) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.settings_myanmar_digits), style = type.size16.medium, color = colors.ink)
@@ -458,14 +429,14 @@ private fun SignOutCard(signingOut: Boolean, onSignOut: () -> Unit, modifier: Mo
     Column(modifier.fillMaxWidth()) {
         HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         SettingsRow(
-            icon = Lucide.LogOut,
-            tint = colors.coralText,
+            icon = null,
+            tint = colors.ink,
             modifier = Modifier.clickable(enabled = !signingOut, role = Role.Button, onClick = onSignOut),
         ) {
             Text(
                 stringResource(R.string.settings_sign_out),
-                style = BudgetWiseTheme.type.size16.medium,
-                color = colors.coralText,
+                style = BudgetWiseTheme.type.size16.semibold,
+                color = colors.ink,
                 modifier = Modifier.weight(1f),
             )
             if (signingOut) Spinner(size = 20.dp)
