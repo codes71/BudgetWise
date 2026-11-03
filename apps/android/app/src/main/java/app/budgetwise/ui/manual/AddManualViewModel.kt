@@ -90,6 +90,8 @@ data class AddManualUiState(
     val past: List<RecentEntry> = emptyList(),
     /** Changing a saved entry rather than adding one. */
     val editing: Boolean = false,
+    /** The loaded entry belongs to a receipt; expense date changes apply to that whole receipt. */
+    val editingReceipt: Boolean = false,
     /** How the entry being changed was added, for the header's tag; null until it is read, and for a new entry. */
     val source: Source? = null,
     /** False while the entry being changed is read; the form waits, so a blank is never saved in its place. */
@@ -201,8 +203,9 @@ sealed interface AddManualEvent {
  * The add form, and the same form changing a saved entry. A new entry is one [NewTransaction] with [Source.MANUAL]
  * through [TransactionStore.addAll]; a change goes through [TransactionStore.replace] (entries never change on the
  * server, so the old one is deleted and the changed one saved in its place) and keeps how the entry was added (one from
- * the web becomes typed, as the server takes no web source from the phone), its transcript and its receipt. Both are
- * PENDING rows that work offline; the sync runs when there is a connection.
+ * the web becomes typed, as the server takes no web source from the phone) and its transcript. Receipt expenses keep
+ * their receipt and share one date, so changing that date moves every entry atomically. Converting an expense to income
+ * makes it standalone while keeping its provenance. Writes are PENDING rows that work offline; sync runs when connected.
  *
  * The navigation arguments pick the mode: [ARG_CLIENT_ID] changes that entry, [ARG_INCOME] starts a new one as income.
  * The fields live in [SavedStateHandle] too, so a form left half filled (the user checks an amount in a banking app
@@ -310,7 +313,7 @@ class AddManualViewModel @Inject constructor(
             saved[KEY_FILLED] = true
         }
         // Read on every load, so it is back after process death too.
-        _state.update { it.copy(source = entry.source, loaded = true, keptDate = entry.date) }
+        _state.update { it.copy(source = entry.source, loaded = true, keptDate = entry.date, editingReceipt = entry.receiptId != null) }
     }
 
     /** Every change the user makes goes through here, so the saved copy always matches the form. */
@@ -394,7 +397,12 @@ class AddManualViewModel @Inject constructor(
         viewModelScope.launch {
             val result = try {
                 if (editId != null) {
-                    transactions.replace(listOf(editId), listOf(input))
+                    val receiptId = before?.receiptId
+                    if (receiptId != null && input.receiptId != null && input.date != before.date) {
+                        changeReceiptDate(receiptId, editId, input)
+                    } else {
+                        transactions.replace(listOf(editId), listOf(input))
+                    }
                 } else {
                     ReplaceResult.Saved(transactions.addAll(listOf(input)))
                 }
@@ -402,6 +410,11 @@ class AddManualViewModel @Inject constructor(
                 throw e
             } catch (_: Exception) {
                 // Room failed; nothing was saved (one transaction). The form stays for another try.
+                _state.update { it.copy(saving = false, saveFailed = true) }
+                return@launch
+            }
+            if (result == null) {
+                // A sibling changed while the shared-date edit was being prepared. Nothing was written.
                 _state.update { it.copy(saving = false, saveFailed = true) }
                 return@launch
             }
@@ -423,9 +436,19 @@ class AddManualViewModel @Inject constructor(
         _state.update { it.copy(saving = true, saveFailed = false) }
         viewModelScope.launch {
             try {
-                // A receipt with no entries left is gone too: the entry is saved on its own.
-                val receipt = input.receiptId?.takeIf { transactions.observeReceipt(it).first().isNotEmpty() }
-                transactions.addAll(listOf(input.copy(receiptId = receipt)))
+                val receipt = input.receiptId
+                val siblings = receipt?.let { transactions.observeReceipt(it).first() }.orEmpty()
+                if (receipt == null || siblings.isEmpty()) {
+                    // A receipt with no entries left is gone too: keep this entry on its own.
+                    transactions.addAll(listOf(input.copy(receiptId = null)))
+                } else {
+                    // Reattaching a saved-as-new expense must not introduce a second date to its receipt.
+                    val inputs = siblings.map { it.forReceiptDate(input.date) } + input
+                    if (transactions.replaceReceipt(receipt, siblings.mapTo(HashSet()) { it.clientId }, inputs) == null) {
+                        _state.update { it.copy(saving = false, saveFailed = true) }
+                        return@launch
+                    }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -435,6 +458,31 @@ class AddManualViewModel @Inject constructor(
             _events.send(AddManualEvent.Saved)
         }
     }
+
+    /** The atomic receipt guard refuses a concurrent sibling edit instead of moving only part of the receipt. */
+    private suspend fun changeReceiptDate(receiptId: String, clientId: String, input: NewTransaction): ReplaceResult? {
+        val entries = transactions.observeReceipt(receiptId).first()
+        if (entries.none { it.clientId == clientId }) {
+            return if (transactions.get(clientId) == null) ReplaceResult.Gone else null
+        }
+        val inputs = entries.map { if (it.clientId == clientId) input else it.forReceiptDate(input.date) }
+        val ids = transactions.replaceReceipt(receiptId, entries.mapTo(HashSet()) { it.clientId }, inputs)
+        return if (ids != null) ReplaceResult.Saved(ids) else if (transactions.get(clientId) == null) ReplaceResult.Gone else null
+    }
+
+    /** Preserve the sibling's contents and provenance while moving it with its receipt. */
+    private fun Transaction.forReceiptDate(day: LocalDate) = NewTransaction(
+        type = type,
+        amountKyat = amountKyat,
+        category = category,
+        description = description,
+        date = day,
+        source = source.takeUnless { it == Source.WEB } ?: Source.MANUAL,
+        transcript = transcript,
+        receiptId = receiptId,
+        merchant = merchant,
+        items = items,
+    )
 
     /**
      * Delete entry. The list under the form deletes it, with the same notice and Undo as a swipe ([AddManualEvent.Delete]),
@@ -476,9 +524,10 @@ class AddManualViewModel @Inject constructor(
         // The server takes no "web" source from the phone: an entry from the website changed here is typed now.
         source = before?.source?.takeUnless { it == Source.WEB } ?: Source.MANUAL,
         transcript = before?.transcript,
-        // A KPay payment keeps its id, so scanning the same history again finds it already saved.
-        clientId = before?.takeIf { it.isKPay }?.clientId,
-        receiptId = before?.receiptId,
+        // Standalone scanned entries keep their id, including KPay payments that may be scanned again.
+        clientId = before?.takeIf { it.keepsScanId }?.clientId,
+        // Income stands alone. Receipt grouping and item editing are for the receipt's expenses only.
+        receiptId = before?.receiptId?.takeIf { type == TxType.EXPENSE },
         merchant = before?.merchant,
         items = before?.items.orEmpty(),
     )
@@ -492,10 +541,10 @@ class AddManualViewModel @Inject constructor(
         BurmeseTextNormalizer.prepare(description) == BurmeseTextNormalizer.prepare(input.description)
 
     /**
-     * Scanned with no receipt: a KPay slip or history row, whose clientId the server made from its KPay reference, so
-     * the same payment scanned again is saved once.
+     * A standalone scan keeps its id across edits. KPay slips/history rely on this for repeat-scan deduplication;
+     * a receipt entry converted to standalone income can keep its id on later edits as well.
      */
-    private val Transaction.isKPay: Boolean get() = source == Source.SCAN && receiptId == null
+    private val Transaction.keepsScanId: Boolean get() = source == Source.SCAN && receiptId == null
 
     companion object {
         /** The server's limit for a description, in characters of the prepared text. */

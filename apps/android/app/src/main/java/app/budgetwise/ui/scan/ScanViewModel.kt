@@ -17,6 +17,7 @@ import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.repo.ScanItem
 import app.budgetwise.data.repo.ScanKind
+import app.budgetwise.data.repo.ScanReason
 import app.budgetwise.data.repo.ScanReading
 import app.budgetwise.data.repo.ScanRepository
 import app.budgetwise.data.repo.TransactionRepository
@@ -60,6 +61,18 @@ enum class ScanProblem {
 
     /** The server saw no receipt or KPay screen in the photo at all: a computer screen, a document, a person. */
     NOT_A_RECEIPT,
+
+    /** More than one receipt in the photo; each must be scanned separately. */
+    MULTIPLE_RECEIPTS,
+
+    /** Another wallet or bank app, which the scan route does not support. */
+    UNSUPPORTED_WALLET,
+
+    /** BudgetWise keeps kyat only; no foreign amount is offered for saving. */
+    FOREIGN_CURRENCY,
+
+    /** The receipt's total is readable, but there are no usable entries or items. */
+    TOTAL_ONLY,
 
     /** A camera photo with no bright part at all ([PhotoPrep.tooDark]). Nothing was sent. */
     TOO_DARK,
@@ -152,6 +165,7 @@ data class ScanUiState(
     /** The receipt's date; null when none could be read (the entries then use [receiptDate]). */
     val date: LocalDate? = null,
     val totalKyat: Long? = null,
+    val currency: String? = null,
     val lines: List<ReviewLine> = emptyList(),
     val categories: List<String> = CategoryRepository.BUILT_IN,
     val myanmarDigits: Boolean = false,
@@ -387,7 +401,7 @@ class ScanViewModel @Inject constructor(
         val prepared = photo ?: return
         reading?.cancel()
         waiting?.cancel()
-        _state.update { it.copy(stage = ScanStage.READING, problem = null, slow = false, waitMinutes = null) }
+        _state.update { it.copy(stage = ScanStage.READING, problem = null, slow = false, waitMinutes = null, currency = null) }
         reading = viewModelScope.launch {
             val notice = launch {
                 delay(SLOW_NOTICE)
@@ -457,26 +471,45 @@ class ScanViewModel @Inject constructor(
         _state.update { it.copy(stage = ScanStage.PROBLEM, problem = problem, slow = false, waitMinutes = null) }
 
     private fun show(reading: ScanReading) {
-        if (reading.kind == ScanKind.UNKNOWN || reading.entries.isEmpty()) {
-            // Only the server's "no receipt in this photo" says so; a receipt it could not read, or an older server's
-            // reply with no reason, keeps the couldn't-read card.
-            return fail(if (reading.kind == ScanKind.UNKNOWN && reading.notMoney) ScanProblem.NOT_A_RECEIPT else ScanProblem.UNREADABLE)
-        }
-        val lines = reading.entries.map {
-            ReviewLine(it.type, it.amountKyat, it.category, it.description, it.date, it.clientId, it.items)
+        val problem = when {
+            reading.kind == ScanKind.UNKNOWN -> when (reading.reason) {
+                ScanReason.NOT_MONEY -> ScanProblem.NOT_A_RECEIPT
+                ScanReason.MULTIPLE -> ScanProblem.MULTIPLE_RECEIPTS
+                ScanReason.UNSUPPORTED -> ScanProblem.UNSUPPORTED_WALLET
+                ScanReason.FOREIGN_CURRENCY -> ScanProblem.FOREIGN_CURRENCY
+                else -> if (reading.notMoney) ScanProblem.NOT_A_RECEIPT else ScanProblem.UNREADABLE
+            }
+            reading.entries.isEmpty() && reading.kind == ScanKind.RECEIPT && reading.totalKyat != null -> ScanProblem.TOTAL_ONLY
+            reading.entries.isEmpty() -> ScanProblem.UNREADABLE
+            else -> null
         }
         _state.update {
             it.copy(
-                stage = ScanStage.REVIEW,
-                problem = null,
+                stage = if (problem == null) ScanStage.REVIEW else ScanStage.PROBLEM,
+                problem = problem,
                 slow = false,
                 kind = reading.kind,
                 merchant = reading.merchant,
                 date = reading.date,
-                totalKyat = reading.totalKyat,
-                lines = lines,
+                // A foreign currency amount must never become an amount in kyat, even from a malformed reply.
+                totalKyat = reading.totalKyat.takeUnless { reading.kind == ScanKind.UNKNOWN },
+                currency = reading.currency,
+                lines = if (problem == null) reading.entries.map { entry ->
+                    ReviewLine(entry.type, entry.amountKyat, entry.category, entry.description, entry.date, entry.clientId, entry.items)
+                } else emptyList(),
             )
         }
+    }
+
+    /** The user explicitly chooses to review the printed total as one expense, with no invented items. */
+    fun reviewTotal() = _state.update { s ->
+        val total = s.totalKyat?.takeIf { it in 1..MAX_KYAT } ?: return@update s
+        if (s.problem != ScanProblem.TOTAL_ONLY || s.kind != ScanKind.RECEIPT) return@update s
+        s.copy(
+            stage = ScanStage.REVIEW,
+            problem = null,
+            lines = listOf(ReviewLine(TxType.EXPENSE, total, OTHER, s.merchant ?: OTHER, s.receiptDate, null, emptyList())),
+        )
     }
 
     /**
@@ -652,6 +685,7 @@ private fun ScanUiState.toSaved(): String = buildJsonObject {
     merchant?.let { put("merchant", it) }
     date?.let { put("date", it.toEpochDay()) }
     totalKyat?.let { put("total", it) }
+    currency?.let { put("currency", it) }
     put("lines", lines.linesJson())
 }.toString()
 
@@ -665,6 +699,7 @@ private fun ScanUiState.restoredFrom(json: String): ScanUiState? = try {
         merchant = o.string("merchant"),
         date = o["date"]?.jsonPrimitive?.long?.let(LocalDate::ofEpochDay),
         totalKyat = o["total"]?.jsonPrimitive?.long,
+        currency = o.string("currency"),
         lines = o["lines"]!!.jsonArray.toLines(),
     )
 } catch (_: RuntimeException) {

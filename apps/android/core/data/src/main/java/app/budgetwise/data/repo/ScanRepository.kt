@@ -27,6 +27,9 @@ import kotlinx.coroutines.withContext
 /** What the photo was: a shop receipt, one KPay payment slip, a screenshot of the KPay history, or none of these. */
 enum class ScanKind { RECEIPT, PAYMENT, HISTORY, UNKNOWN }
 
+/** Why the server returned no usable money; unrecognized future reasons use the unreadable fallback. */
+enum class ScanReason { NOT_MONEY, UNCLEAR, MULTIPLE, UNSUPPORTED, FOREIGN_CURRENCY }
+
 /** A receipt line as read: a count and a price each, which the review lets the user change. */
 typealias ScanItem = EntryItem
 
@@ -58,6 +61,8 @@ data class ScanReading(
     val totalKyat: Long?,
     val entries: List<ScanEntry>,
     val notMoney: Boolean = false,
+    val reason: ScanReason? = if (notMoney) ScanReason.NOT_MONEY else null,
+    val currency: String? = null,
 )
 
 /**
@@ -137,6 +142,8 @@ internal fun ScanResponse.toDomain(): ScanReading {
         totalKyat = total?.takeIf { it > 0 },
         entries = read,
         notMoney = seen == ScanKind.UNKNOWN && reason == "not_money",
+        reason = if (seen == ScanKind.UNKNOWN) ScanReason.entries.firstOrNull { it.name.lowercase() == reason } else null,
+        currency = currency?.trim()?.take(12)?.ifEmpty { null }?.takeIf { seen == ScanKind.UNKNOWN && reason == "foreign_currency" },
     )
 }
 

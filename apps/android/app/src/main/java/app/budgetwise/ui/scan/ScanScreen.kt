@@ -40,6 +40,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -90,6 +92,7 @@ import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.Spinner
 import app.budgetwise.ui.common.TextAction
 import app.budgetwise.ui.common.groupDigits
+import app.budgetwise.ui.common.formatKyat
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.bold
 import app.budgetwise.ui.theme.medium
@@ -159,6 +162,9 @@ fun ScanRoute(
                     onPick = pick,
                     onEnterYourself = onEnterYourself,
                     onSignIn = onSignIn,
+                    onReviewTotal = viewModel::reviewTotal,
+                    totalKyat = state.totalKyat,
+                    currency = state.currency,
                 )
             }
         }
@@ -482,7 +488,11 @@ private fun PhotoBackdrop(photo: Bitmap?, onClose: () -> Unit, card: @Composable
             )
         }
         CloseButton(onClose, Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(start = 16.dp, top = 16.dp))
-        Box(Modifier.align(Alignment.Center).padding(horizontal = 24.dp)) { card() }
+        Box(
+            Modifier.align(Alignment.Center).windowInsetsPadding(WindowInsets.statusBars)
+                .windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = 24.dp, vertical = 72.dp)
+                .verticalScroll(rememberScrollState()),
+        ) { card() }
     }
 }
 
@@ -531,7 +541,7 @@ private fun ReadingCard(slow: Boolean, onCancel: (() -> Unit)?, onEnterYourself:
  * again waits until then.
  */
 @Composable
-private fun ProblemCard(
+internal fun ProblemCard(
     problem: ScanProblem,
     waitMinutes: Int?,
     myanmarDigits: Boolean,
@@ -540,6 +550,9 @@ private fun ProblemCard(
     onPick: () -> Unit,
     onEnterYourself: () -> Unit,
     onSignIn: () -> Unit,
+    onReviewTotal: () -> Unit = {},
+    totalKyat: Long? = null,
+    currency: String? = null,
 ) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
@@ -553,6 +566,7 @@ private fun ProblemCard(
         val detail: String,
         val primary: Pair<String, () -> Unit>,
         val secondary: Pair<String, () -> Unit>?,
+        val tertiary: Pair<String, () -> Unit>? = null,
     )
     val card = when (problem) {
         ScanProblem.UNREADABLE -> Card(
@@ -564,6 +578,29 @@ private fun ProblemCard(
             Lucide.Receipt, colors.coralText,
             stringResource(R.string.scan_not_receipt_title), stringResource(R.string.scan_not_receipt_detail),
             tryAgain to onRetake, enterYourself to onEnterYourself,
+        )
+        ScanProblem.MULTIPLE_RECEIPTS -> Card(
+            Lucide.Receipt, colors.coralText,
+            stringResource(R.string.scan_multiple_title), stringResource(R.string.scan_multiple_detail),
+            stringResource(R.string.scan_one_receipt) to onRetake, enterYourself to onEnterYourself,
+        )
+        ScanProblem.UNSUPPORTED_WALLET -> Card(
+            Lucide.Image, colors.coralText,
+            stringResource(R.string.scan_unsupported_title), stringResource(R.string.scan_unsupported_detail),
+            chooseAnother to onPick, enterYourself to onEnterYourself,
+        )
+        ScanProblem.FOREIGN_CURRENCY -> Card(
+            Lucide.CircleAlert, colors.coralText,
+            stringResource(R.string.scan_foreign_title),
+            if (currency != null) stringResource(R.string.scan_foreign_currency_detail, currency)
+            else stringResource(R.string.scan_foreign_detail),
+            enterYourself to onEnterYourself, stringResource(R.string.scan_retake) to onRetake,
+        )
+        ScanProblem.TOTAL_ONLY -> Card(
+            Lucide.Receipt, colors.blue,
+            stringResource(R.string.scan_total_only_title), stringResource(R.string.scan_total_only_detail),
+            stringResource(R.string.scan_review_total) to onReviewTotal, stringResource(R.string.scan_retake) to onRetake,
+            enterYourself to onEnterYourself,
         )
         ScanProblem.TOO_DARK -> Card(
             Lucide.Flashlight, colors.coralText,
@@ -635,9 +672,20 @@ private fun ProblemCard(
             modifier = Modifier.padding(top = 16.dp).semantics { heading() },
         )
         Text(card.detail, style = type.size15, color = colors.muted, modifier = Modifier.padding(top = 8.dp, bottom = 20.dp))
+        if (problem == ScanProblem.TOTAL_ONLY && totalKyat != null) {
+            Text(
+                formatKyat(totalKyat, myanmarDigits),
+                style = type.size24.bold,
+                color = colors.ink,
+                modifier = Modifier.padding(bottom = 20.dp),
+            )
+        }
         PrimaryButton(card.primary.first, card.primary.second, Modifier.fillMaxWidth())
         card.secondary?.let { (label, action) ->
             TextAction(label, action, Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp))
+        }
+        card.tertiary?.let { (label, action) ->
+            TextAction(label, action, Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp))
         }
     }
 }

@@ -61,6 +61,8 @@ import app.budgetwise.R
 import app.budgetwise.data.auth.SessionState
 import app.budgetwise.reminders.MonthEndLink
 import app.budgetwise.ui.budgets.BudgetsRoute
+import app.budgetwise.ui.budgets.BudgetTransactionsRoute
+import app.budgetwise.ui.budgets.BudgetTransactionsViewModel
 import app.budgetwise.ui.budgets.MonthEndRoute
 import app.budgetwise.ui.budgets.PlanEditorRoute
 import app.budgetwise.ui.budgets.PlanEditorViewModel
@@ -112,6 +114,7 @@ object Routes {
     const val SCAN = "scan"
     const val RECEIPT = "receipt/{${ReceiptViewModel.RECEIPT_ID}}"
     const val BUDGETS = "budgets"
+    const val BUDGET_TRANSACTIONS = "budget_entries/{${BudgetTransactionsViewModel.ARG_MONTH}}?${BudgetTransactionsViewModel.ARG_CATEGORY}={${BudgetTransactionsViewModel.ARG_CATEGORY}}"
     const val SETTINGS = "settings"
 
     /** The plan editor for one month (both steps); open it with [budgetPlan]. */
@@ -133,6 +136,10 @@ object Routes {
 
     /** The route that opens the entry [clientId] in the form, to change or delete it. */
     fun editEntry(clientId: String): String = "edit/${Uri.encode(clientId)}"
+
+    /** Entries contributing to one category (empty means Everything else) of this month's plan. */
+    fun budgetTransactions(month: YearMonth, category: String): String =
+        "budget_entries/$month?${BudgetTransactionsViewModel.ARG_CATEGORY}=${Uri.encode(category)}"
 }
 
 /**
@@ -506,10 +513,24 @@ fun AppNav(
                 Routes.EDIT_ENTRY,
                 arguments = listOf(navArgument(AddManualViewModel.ARG_CLIENT_ID) { type = NavType.StringType }),
             ) { entry ->
+                // A budget drill-down owns its Undo rather than the Home screen underneath it.
+                val budgetEntry = remember(entry) { navController.previousBackStackEntry?.takeIf { it.destination.route == Routes.BUDGET_TRANSACTIONS } }
+                val budgetList: BudgetTransactionsViewModel? = budgetEntry?.let { hiltViewModel(it) }
                 // The list an entry is opened from, whose ViewModel deletes it with Undo.
                 val listEntry = remember(entry) { runCatching { navController.getBackStackEntry(Routes.TRANSACTIONS) }.getOrNull() }
                 val list: TransactionsViewModel? = listEntry?.let { hiltViewModel(it) }
-                AddManualRoute(onDone = navController::closeManual, onDelete = { navController.closeEntryDeleted(list, it) })
+                AddManualRoute(
+                    onDone = navController::closeManual,
+                    onDelete = { id ->
+                        if (budgetList != null) {
+                            if (navController.currentDestination?.route == Routes.EDIT_ENTRY) {
+                                budgetList.deleteFromEditor(id)
+                                navController.popBackStack()
+                            }
+                            true
+                        } else navController.closeEntryDeleted(list, id)
+                    },
+                )
             }
             composable(Routes.SCAN) {
                 ScanRoute(
@@ -566,11 +587,28 @@ fun AppNav(
                             navController.navigate(Routes.budgetPlan(month)) { launchSingleTop = true }
                         }
                     },
+                    onOpenCategory = { month, category ->
+                        if (navController.currentDestination?.route == Routes.BUDGETS) {
+                            navController.navigate(Routes.budgetTransactions(month, category)) { launchSingleTop = true }
+                        }
+                    },
                     onCheckMonth = { month ->
                         if (navController.currentDestination?.route == Routes.BUDGETS) {
                             navController.navigate(Routes.monthEnd(month)) { launchSingleTop = true }
                         }
                     },
+                )
+            }
+            composable(
+                Routes.BUDGET_TRANSACTIONS,
+                arguments = listOf(
+                    navArgument(BudgetTransactionsViewModel.ARG_MONTH) { type = NavType.StringType },
+                    navArgument(BudgetTransactionsViewModel.ARG_CATEGORY) { type = NavType.StringType; defaultValue = "" },
+                ),
+            ) {
+                BudgetTransactionsRoute(
+                    onBack = dropUnlessResumed { navController.popBackStack() },
+                    onOpenEntry = { navController.navigate(Routes.editEntry(it)) { launchSingleTop = true } },
                 )
             }
             composable(

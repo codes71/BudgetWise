@@ -522,6 +522,216 @@ class AddManualViewModelTest {
         assertEquals(listOf(AddManualEvent.Saved), events)
     }
 
+    private fun receiptExpense(id: String, amount: Long, category: String, items: List<EntryItem> = emptyList()) =
+        testTransaction("City Mart, $category", amount, today, category = category, clientId = id).copy(
+            source = Source.SCAN, receiptId = "city-mart", merchant = "City Mart", items = items,
+        )
+
+    @Test
+    fun aReceiptEntryKeepsItsSharedDateContextAfterProcessDeath() = runTest {
+        val rice = receiptExpense("rice", 10_000, "Groceries")
+        val saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to rice.clientId))
+        val before = editing(rice, saved)
+        assertTrue(before.state.value.editingReceipt)
+        before.onDateChange(today.minusDays(2))
+
+        val restored = vm(saved = SavedStateHandle(saved.keys().associateWith { saved.get<Any>(it) }))
+        assertTrue(restored.state.value.editingReceipt)
+        assertEquals(today.minusDays(2), restored.state.value.date)
+        assertFalse(editing(lunch).state.value.editingReceipt)
+    }
+
+    @Test
+    fun changingAReceiptExpensesDateMovesTheWholeReceiptAndPreservesEveryCategoryAndItem() = runTest {
+        val rice = receiptExpense("rice", 10_000, "Groceries", listOf(EntryItem("Rice", 2, 5_000)))
+        val taxi = receiptExpense("taxi", 3_000, "Transport", listOf(EntryItem("Delivery", 3_000))).copy(transcript = "delivery note")
+        val otherReceipt = receiptExpense("other", 8_000, "Groceries").copy(receiptId = "other-receipt")
+        val vm = editing(rice)
+        store.rows.value += listOf(taxi, otherReceipt)
+        val movedDay = today.minusMonths(1)
+        vm.onAmountChange("12000")
+        vm.onDateChange(movedDay)
+        vm.save()
+
+        val receipt = store.rows.value.filter { it.receiptId == "city-mart" }
+        assertEquals(2, receipt.size)
+        assertEquals(setOf(movedDay), receipt.map { it.date }.toSet())
+        val groceries = receipt.single { it.category == "Groceries" }
+        assertEquals(12_000L, groceries.amountKyat)
+        assertEquals(rice.items, groceries.items)
+        val delivery = receipt.single { it.category == "Transport" }
+        assertEquals(taxi.amountKyat, delivery.amountKyat)
+        assertEquals(taxi.description, delivery.description)
+        assertEquals(taxi.items, delivery.items)
+        assertEquals(taxi.transcript, delivery.transcript)
+        assertEquals(Source.SCAN, delivery.source)
+        assertEquals("City Mart", delivery.merchant)
+        assertEquals(otherReceipt, store.rows.value.single { it.clientId == otherReceipt.clientId })
+        assertEquals(setOf("rice", "taxi"), store.replaced.single().first.toSet())
+    }
+
+    @Test
+    fun aReceiptExpenseConvertedToIncomeBecomesStandaloneWithoutMovingItsSiblings() = runTest {
+        val rice = receiptExpense("rice", 10_000, "Groceries", listOf(EntryItem("Rice", 10_000)))
+        val taxi = receiptExpense("taxi", 3_000, "Transport")
+        val vm = editing(rice)
+        store.rows.value += taxi
+        vm.onTypeChange(TxType.INCOME)
+        vm.onDateChange(today.minusDays(1))
+        vm.save()
+
+        val converted = store.replaced.single().second.single()
+        assertEquals(listOf("rice"), store.replaced.single().first)
+        assertEquals(TxType.INCOME, converted.type)
+        assertEquals("Income", converted.category)
+        assertNull(converted.receiptId)
+        assertEquals(today.minusDays(1), converted.date)
+        assertEquals(rice.merchant, converted.merchant)
+        assertEquals(rice.items, converted.items)
+        assertEquals(Source.SCAN, converted.source)
+        assertEquals(taxi, store.rows.value.single { it.clientId == "taxi" })
+    }
+
+    @Test
+    fun aConcurrentSiblingChangeRefusesTheWholeDateMoveAndCanBeRetried() = runTest {
+        val rice = receiptExpense("rice", 10_000, "Groceries")
+        val taxi = receiptExpense("taxi", 3_000, "Transport")
+        store.rows.value = listOf(rice, taxi)
+        var race = true
+        val racing = object : TransactionStore by store {
+            override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
+                if (race) {
+                    race = false
+                    store.rows.value = listOf(rice, taxi.copy(clientId = "changed-taxi", amountKyat = 4_000))
+                }
+                return store.replaceReceipt(receiptId, old, inputs)
+            }
+        }
+        val vm = vm(transactions = racing, saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to "rice")))
+        val events = events(vm)
+        val movedDay = today.minusDays(1)
+        vm.onDateChange(movedDay)
+        vm.save()
+
+        assertTrue(vm.state.value.saveFailed)
+        assertFalse(vm.state.value.saving)
+        assertFalse(vm.state.value.gone)
+        assertTrue(store.replaced.isEmpty())
+        assertEquals(setOf(today), store.rows.value.map { it.date }.toSet())
+        assertTrue(events.isEmpty())
+
+        vm.save()
+        assertEquals(setOf(movedDay), store.rows.value.map { it.date }.toSet())
+        assertEquals(4_000L, store.rows.value.single { it.category == "Transport" }.amountKyat)
+        assertEquals(listOf(AddManualEvent.Saved), events)
+    }
+
+    @Test
+    fun aConcurrentDeletionOfTheEditedReceiptEntryOffersSaveAsNewWithoutMovingSiblings() = runTest {
+        val rice = receiptExpense("rice", 10_000, "Groceries")
+        val taxi = receiptExpense("taxi", 3_000, "Transport")
+        store.rows.value = listOf(rice, taxi)
+        val racing = object : TransactionStore by store {
+            override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
+                store.rows.value = listOf(taxi)
+                return store.replaceReceipt(receiptId, old, inputs)
+            }
+        }
+        val vm = vm(transactions = racing, saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to "rice")))
+        vm.onDateChange(today.minusDays(1))
+        vm.save()
+
+        assertTrue(vm.state.value.gone)
+        assertFalse(vm.state.value.saveFailed)
+        assertFalse(vm.state.value.saving)
+        assertTrue(store.replaced.isEmpty())
+        assertEquals(listOf(taxi), store.rows.value)
+    }
+
+    @Test
+    fun savingAMissingReceiptExpenseAsNewMovesItsSurvivingSiblingsToTheSameChosenDate() = runTest {
+        val rice = receiptExpense("rice", 10_000, "Groceries", listOf(EntryItem("Rice", 10_000)))
+        val taxi = receiptExpense("taxi", 3_000, "Transport", listOf(EntryItem("Delivery", 3_000)))
+        val vm = editing(rice)
+        store.rows.value = listOf(taxi)
+        val movedDay = today.minusMonths(1)
+        vm.onDateChange(movedDay)
+        vm.save()
+        assertTrue(vm.state.value.gone)
+
+        vm.saveAsNew()
+        val receipt = store.rows.value.filter { it.receiptId == "city-mart" }
+        assertEquals(2, receipt.size)
+        assertEquals(setOf(movedDay), receipt.map { it.date }.toSet())
+        assertEquals(rice.items, receipt.single { it.category == "Groceries" }.items)
+        assertEquals(taxi.items, receipt.single { it.category == "Transport" }.items)
+        assertTrue(store.added.isEmpty())
+    }
+
+    @Test
+    fun savingAsNewAfterAReceiptIsGoneKeepsTheNewExpenseStandalone() = runTest {
+        val rice = receiptExpense("rice", 10_000, "Groceries", listOf(EntryItem("Rice", 10_000)))
+        val vm = editing(rice)
+        store.rows.value = emptyList()
+        vm.onDateChange(today.minusDays(1))
+        vm.save()
+        assertTrue(vm.state.value.gone)
+
+        vm.saveAsNew()
+        assertNull(store.added.single().receiptId)
+        assertEquals(rice.items, store.added.single().items)
+        assertEquals(today.minusDays(1), store.added.single().date)
+    }
+
+    @Test
+    fun aMissingReceiptExpenseSavedAsNewIncomeStaysStandaloneAndLeavesTheReceiptDateAlone() = runTest {
+        val rice = receiptExpense("rice", 10_000, "Groceries", listOf(EntryItem("Rice", 10_000)))
+        val taxi = receiptExpense("taxi", 3_000, "Transport")
+        val vm = editing(rice)
+        store.rows.value = listOf(taxi)
+        vm.onTypeChange(TxType.INCOME)
+        vm.onDateChange(today.minusDays(1))
+        vm.save()
+        assertTrue(vm.state.value.gone)
+
+        vm.saveAsNew()
+        val income = store.added.single()
+        assertEquals(TxType.INCOME, income.type)
+        assertNull(income.receiptId)
+        assertEquals(rice.items, income.items)
+        assertEquals(today.minusDays(1), income.date)
+        assertEquals(taxi, store.rows.value.single { it.clientId == "taxi" })
+        assertTrue(store.replaced.isEmpty())
+    }
+
+    @Test
+    fun saveAsNewRefusesAConcurrentReceiptChangeWithoutAddingAHalfDatedEntry() = runTest {
+        val rice = receiptExpense("rice", 10_000, "Groceries")
+        val taxi = receiptExpense("taxi", 3_000, "Transport")
+        store.rows.value = listOf(rice, taxi)
+        val racing = object : TransactionStore by store {
+            override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
+                store.rows.value = listOf(taxi.copy(clientId = "changed-taxi"))
+                return store.replaceReceipt(receiptId, old, inputs)
+            }
+        }
+        val vm = vm(transactions = racing, saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to "rice")))
+        val events = events(vm)
+        store.rows.value = listOf(taxi)
+        vm.onDateChange(today.minusDays(1))
+        vm.save()
+        assertTrue(vm.state.value.gone)
+
+        vm.saveAsNew()
+        assertTrue(vm.state.value.saveFailed)
+        assertFalse(vm.state.value.saving)
+        assertTrue(vm.state.value.gone)
+        assertTrue(store.replaced.isEmpty())
+        assertTrue(store.added.isEmpty())
+        assertEquals(listOf(today), store.rows.value.map { it.date })
+        assertTrue(events.isEmpty())
+    }
+
     @Test
     fun aSaidEntryKeepsItsTranscriptAndCanBecomeIncome() = runTest {
         val vm = editing(lunch)
