@@ -3,6 +3,7 @@ package app.budgetwise.data.model
 import app.budgetwise.nlu.TxType
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 
 enum class Source(val wire: String) {
     VOICE("voice"),
@@ -48,3 +49,24 @@ data class DailySpend(val date: LocalDate, val category: String, val amountKyat:
 
 /** A monthly spending limit in whole kyat. */
 data class Budget(val category: String, val limitKyat: Long)
+
+/**
+ * One month's budget for an account: [newMoneyKyat] typed for [month] plus [carriedOverKyat] brought over from the
+ * month before. [shares] are the categories' parts of the total, in the order the user set them.
+ */
+data class MonthPlan(
+    val month: YearMonth,
+    val newMoneyKyat: Long,
+    val carriedOverKyat: Long,
+    val shares: List<Budget>,
+    val endCheck: EndCheck? = null,
+) {
+    val totalKyat: Long get() = newMoneyKyat + carriedOverKyat
+    val splitKyat: Long get() = shares.sumOf { it.limitKyat }
+
+    /** Left to split, shown as "Everything else". Negative when the shares add up to more than the total. */
+    val unsplitKyat: Long get() = totalKyat - splitKyat
+}
+
+/** What the user said was really on hand after the month ended. */
+data class EndCheck(val onHandKyat: Long, val checkedAt: Instant)

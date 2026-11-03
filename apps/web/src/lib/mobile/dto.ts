@@ -1,3 +1,5 @@
+import type { MonthPlan } from "@/lib/budgets";
+
 /** One receipt line: `quantity` of `name` at `unitPrice` whole kyat each. */
 export interface EntryItemDto {
   name: string;
@@ -124,5 +126,28 @@ export function toTransactionDto(doc: LeanTransaction): TransactionDto {
     ...(doc.items?.length ? { items: doc.items } : {}),
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
+  };
+}
+
+/** One month's plan. Total is newMoney + carriedOver; shares keep the order they were sent in. */
+export interface MonthPlanDto {
+  month: string;
+  newMoney: number;
+  carriedOver: number;
+  shares: { category: string; limit: number }[];
+  endCheck: { onHand: number; checkedAt: string } | null;
+  updatedAt: string;
+}
+
+export function toMonthPlanDto(plan: MonthPlan): MonthPlanDto {
+  return {
+    month: plan.month,
+    newMoney: plan.newMoney,
+    carriedOver: plan.carriedOver,
+    shares: plan.shares.map(({ category, limit }) => ({ category, limit })),
+    endCheck: plan.endCheck
+      ? { onHand: plan.endCheck.onHand, checkedAt: plan.endCheck.checkedAt.toISOString() }
+      : null,
+    updatedAt: plan.updatedAt.toISOString(),
   };
 }

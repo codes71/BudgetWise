@@ -161,27 +161,118 @@
     <string name="add_type_it">ရိုက်ထည့်ရန်</string>
     <string name="add_income">ဝင်ငွေ ထည့်ရန်</string>
 
-    <!-- Budgets -->
+    <!-- Budgets: one plan per month. "%1$sလ" is the month of; သိန်း (lakh) goes before its number. -->
+    <string name="lakh_amount">သိန်း %1$s</string>
     <string name="budgets_title">ဘတ်ဂျက်</string>
-    <string name="budgets_empty_title">ဘတ်ဂျက် မရှိသေးပါ</string>
-    <string name="budgets_empty">ဝဘ်ပေါ်ရှိ BudgetWise တွင် ဘတ်ဂျက် သတ်မှတ်ပါ။ ဤနေရာတွင် အလိုအလျောက် ပေါ်လာပါမည်။</string>
     <string name="budgets_loading">ဘတ်ဂျက်များ ဖွင့်နေသည်</string>
-    <string name="budgets_spent_in">%1$sလ ဘတ်ဂျက်ထဲမှ သုံးငွေ</string>
     <string name="budgets_spent_of_limit">%2$s ထဲမှ %1$s</string>
     <string name="budgets_of_limit">%1$s ထဲမှ</string>
-    <plurals name="budgets_left_across">
-        <item quantity="other">ဘတ်ဂျက် %2$d ခုတွင် %1$s ကျန်သည်</item>
-    </plurals>
-    <plurals name="budgets_over_across">
-        <item quantity="other">ဘတ်ဂျက် %2$d ခုတွင် %1$s ကျော်သွားပြီ</item>
-    </plurals>
     <string name="budgets_left">%1$s ကျန်သည်</string>
     <string name="budgets_percent">%1$s%%</string>
     <string name="budgets_over">%1$s ကျော်သွားပြီ</string>
-    <string name="budgets_footer">ဘတ်ဂျက်များကို ဝဘ်ပေါ်ရှိ BudgetWise တွင် သတ်မှတ်ပါသည်။</string>
+    <string name="budgets_all_used">အကုန် သုံးပြီးပြီ</string>
+    <string name="budgets_footer">ကိုယ်ပိုင် ဝေစု မရှိသော အမျိုးအစားတွင် သုံးသည့်ငွေကို ကျန်အရာအားလုံး ထဲမှ နုတ်ပါသည်။</string>
     <string name="budgets_spent_of_limit_spoken">%2$s ကျပ်ထဲမှ %1$s ကျပ် သုံးထားသည်</string>
     <string name="budgets_left_spoken">%1$s ကျပ် ကျန်သည်</string>
     <string name="budgets_over_spoken">ဘတ်ဂျက်ထက် %1$s ကျပ် ကျော်သွားပြီ</string>
+    <string name="budgets_edit_plan">ပြင်မည်</string>
+    <string name="budgets_ks_left">Ks ကျန်သည်</string>
+    <string name="budgets_ks_over">Ks ကျော်သွားပြီ</string>
+    <string name="budgets_spent_of_total">%2$s Ks ထဲမှ %1$s သုံးထားသည်</string>
+    <string name="budgets_everything_else">ကျန်အရာအားလုံး</string>
+    <!-- Word joiners (\u2060) keep each word of the big headline on one line. -->
+    <string name="budgets_first_headline">တစ်\u2060လ\u2060စာ ငွေ\u2060တစ်\u2060ခု\u2060တည်း။ ပြီး\u2060မှ ခွဲ\u2060ပါ။</string>
+    <string name="budgets_first_body">ဥပမာ သိန်း ၂၀ ရှိသည် ဆိုပါစို့။ အိမ်ရာ၊ အစားအသောက်နှင့် ကုန်စုံကို ဝေစု ခွဲပေးပါ။ မခွဲသည့် ငွေက ကျန်အရာအားလုံးအတွက် ဖြစ်ပါမည်။</string>
+    <string name="budgets_first_set">%1$sလ ဘတ်ဂျက် သတ်မှတ်မည်</string>
+    <string name="budgets_first_spent">%2$sလတွင် %1$s သုံးခဲ့သည်</string>
+    <string name="budgets_check_left">%1$sလ ကုန်ဆုံးချိန်တွင် %2$s ကျန်ခဲ့သည်။</string>
+    <string name="budgets_check_over">%1$sလတွင် ဘတ်ဂျက်ထက် %2$s ကျော်ခဲ့သည်။</string>
+    <string name="budgets_check_it">စစ်မည်</string>
+
+    <!-- The plan editor -->
+    <string name="plan_month_budget">%1$sလ ဘတ်ဂျက်</string>
+    <string name="plan_how_much_this_month">ဒီလ ဘယ်လောက် သုံးနိုင်လဲ</string>
+    <string name="plan_how_much">%1$sလတွင် ဘယ်လောက် သုံးနိုင်လဲ</string>
+    <string name="plan_new_money">%1$sလအတွက် ငွေအသစ်</string>
+    <string name="plan_carry_title">%1$sလ လက်ကျန်ကို ထည့်ပေါင်းမည်</string>
+    <string name="plan_carry_checked">%1$s တွင် စစ်ထားသည်</string>
+    <string name="plan_carry_not_checked">မစစ်ရသေးပါ</string>
+    <string name="plan_carry_saved">ဤဘတ်ဂျက်တွင် သိမ်းထားသည့်အတိုင်း</string>
+    <string name="plan_total_note_ticked">%1$s။ %2$sလကို ငွေအသစ်ဖြင့်သာ စလိုလျှင် အမှန်ခြစ်ကို ဖြုတ်ပါ။</string>
+    <string name="plan_total_note_unticked">%1$s။ %2$sလ လက်ကျန်ကို ထည့်ပေါင်းလိုလျှင် အမှန်ခြစ်ပါ။</string>
+    <string name="plan_spent_before">ယခင်လများတွင် သုံးခဲ့သည်</string>
+    <string name="plan_spent_before_note">တစ်လလျှင် %1$s ခန့်။ လတိုင်း ဘတ်ဂျက် အသစ် သတ်မှတ်ရပါသည်။</string>
+    <string name="plan_next">ဆက်ရန်: %1$s ခွဲမည်</string>
+    <string name="plan_split_title">%1$s ခွဲမည်</string>
+    <string name="plan_left_to_split">ခွဲရန် ကျန်သည်</string>
+    <string name="plan_over_by">ခွဲထားသည်မှာ လ ဘတ်ဂျက်ထက် ကျော်နေသည်</string>
+    <string name="plan_too_much">Ks ပိုနေသည်</string>
+    <string name="plan_split_note">မခွဲသည့် ငွေသည် ကျန်အရာအားလုံး ထဲတွင် ရှိနေပါမည်။</string>
+    <string name="plan_split_note_previous">%1$sလ ခွဲပုံအတိုင်း စထားသည်။ ဝေစုတိုင်းကို ပြောင်းနိုင်သည်။</string>
+    <string name="plan_split_note_over">ဝေစု တစ်ခုကို လျှော့ပါ၊ သို့မဟုတ် လ ဘတ်ဂျက်ကို %1$s အထိ တိုးပါ။</string>
+    <string name="plan_spent_in">%2$sလတွင် %1$s</string>
+    <string name="plan_nothing_in">%1$sလတွင် မသုံးခဲ့ပါ</string>
+    <string name="plan_share_spoken">ဝေစု %1$s ကျပ်</string>
+    <string name="plan_share_needs_amount">ပမာဏ မထည့်ရသေးပါ</string>
+    <string name="plan_add_category">အမျိုးအစား ထည့်မည်</string>
+    <string name="plan_rest_two">%1$s၊ %2$s နှင့် ကျန်အရာများ</string>
+    <string name="plan_rest_one">%1$s နှင့် ကျန်အရာများ</string>
+    <string name="plan_rest_none">အခြား သုံးသမျှ</string>
+    <string name="plan_nothing_left">ကျန်အရာများအတွက် မကျန်တော့ပါ</string>
+    <string name="plan_raise">လ ဘတ်ဂျက်ကို %1$s အထိ တိုးမည်</string>
+    <string name="plan_share_missing">%1$s အတွက် ပမာဏ ထည့်ပါ၊ သို့မဟုတ် ခွဲထားသည်ထဲမှ ဖယ်ပါ။</string>
+    <string name="plan_save">%1$sလ ဘတ်ဂျက် သိမ်းမည်</string>
+    <string name="plan_save_failed_network">သိမ်း၍ မရပါ။ အင်တာနက် စစ်ပြီး ထပ်ကြိုးစားပါ။</string>
+    <string name="plan_save_failed">သိမ်း၍ မရပါ။ ထပ်ကြိုးစားပါ။</string>
+    <string name="plan_save_failed_over">ခွဲထားသည်မှာ လ ဘတ်ဂျက်ထက် များနေသည်။ ဝေစု တစ်ခုကို လျှော့ပြီး ထပ်ကြိုးစားပါ။</string>
+    <string name="plan_save_failed_category">ဤအမျိုးအစား တစ်ခု မရှိတော့ပါ။ ခွဲထားသည်ထဲမှ ဖယ်ပြီး ထပ်ကြိုးစားပါ။</string>
+    <string name="plan_save_failed_category_named">%1$s သည် သင့်အမျိုးအစားများထဲတွင် မရှိတော့ပါ။ ခွဲထားသည်ထဲမှ ဖယ်ပြီး ထပ်ကြိုးစားပါ။</string>
+    <string name="plan_stale">နောက်ဆုံး ဘတ်ဂျက်များကို ယူ၍ မရပါ။ ဤအချက်အလက်များ ခေတ်မမီ ဖြစ်နိုင်သည်။</string>
+    <string name="plan_save_failed_sign_in">သိမ်းရန် ပြန်ဝင်ပါ။</string>
+    <string name="plan_share_label">%1$s ဝေစု</string>
+    <string name="plan_leaves">ခွဲရန် %1$s ကျန်မည်</string>
+    <string name="plan_share_over">လ ဘတ်ဂျက်ထက် %1$s ကျော်မည်</string>
+    <string name="plan_average">ပျမ်းမျှ</string>
+    <string name="plan_all_left">ကျန်သမျှ အားလုံး</string>
+    <string name="plan_take_out">%1$s ကို ခွဲထားသည်ထဲမှ ဖယ်မည်</string>
+    <string name="plan_done">ပြီးပါပြီ</string>
+    <string name="plan_add_note">၎င်း၏ ဝေစုကို ခွဲရန် ကျန်သည့် %1$s ထဲမှ ယူပါမည်။</string>
+    <string name="plan_add_one">%1$s ထည့်မည်</string>
+
+    <!-- The end check, after a month ends -->
+    <string name="month_end_title">%1$sလ ကုန်ဆုံးပြီ</string>
+    <string name="month_end_left_in">%1$sလ ဘတ်ဂျက်တွင် ကျန်သည်</string>
+    <string name="month_end_over_in">%1$sလ ဘတ်ဂျက်ထက် ကျော်သွားသည်</string>
+    <string name="month_end_question">ယခု လက်ထဲတွင် ဤမျှခန့် ရှိပါသလား</string>
+    <string name="month_end_hint">လက်ငင်းငွေ၊ KPay နှင့် ဘဏ်ထဲက ငွေကို ရေတွက်ပါ။ နည်းနေလျှင် မှတ်မထားသည့် သုံးငွေ ရှိပါသည်။</string>
+    <string name="month_end_yes">ဟုတ်ကဲ့၊ %1$s ခန့် ရှိသည်</string>
+    <string name="month_end_no">မဟုတ်ပါ၊ အခြား ပမာဏ ရှိသည်</string>
+    <string name="month_end_i_have">ရှိသည့်ငွေ</string>
+    <string name="month_end_gap">%1$s ကို မှတ်မထားဘဲ သုံးခဲ့သည်။</string>
+    <string name="month_end_add_gap">%1$sလတွင် “%2$s” အဖြစ် ထည့်မည်</string>
+    <string name="month_end_add_gap_detail">%1$sလ စာရင်းနှင့် ရှိသည့်ငွေ ကိုက်ညီစေရန်။</string>
+    <string name="month_end_not_recorded">မှတ်မထားသည့် သုံးငွေ</string>
+    <string name="month_end_more">မျှော်မှန်းထားသည်ထက် %1$s ပိုရှိသည်။</string>
+    <string name="month_end_next">ဆက်ရန်: %1$sလ စီစဉ်မည်</string>
+    <string name="month_end_error_not_over">%1$sလ မကုန်သေးပါ။</string>
+    <string name="month_end_error_no_plan">%1$sလတွင် ဘတ်ဂျက် မရှိပါ။</string>
+    <string name="month_end_error_entry">စစ်ထားသည်ကို သိမ်းပြီးပါပြီ၊ သို့သော် စာရင်း ထည့်၍ မရပါ။ ထပ်ကြိုးစားပါ။</string>
+    <string name="month_end_error_account">သိမ်းနေစဉ် ဝင်ထားသည့် အကောင့် ပြောင်းသွားသဖြင့် ၎င်းထဲသို့ ဘာမှ မထည့်ပါ။</string>
+    <string name="month_end_counting">နောက်ဆုံး စာရင်းများကို ယူနေသည်</string>
+    <string name="month_end_pull_failed">နောက်ဆုံး စာရင်းများကို ယူ၍ မရပါ။ အင်တာနက် စစ်ပြီး ထပ်ကြိုးစားပါ။</string>
+    <string name="month_end_pull_sign_in">%1$sလကို စစ်ရန် ပြန်ဝင်ပါ။</string>
+
+    <!-- The month-end notification (board M1). Its Check it action is budgets_check_it. -->
+    <string name="reminders_channel">ဘတ်ဂျက် သတိပေးချက်များ</string>
+    <string name="reminders_title_left">%1$sလ ကုန်ဆုံးပြီ၊ %2$s ကျန်သည်</string>
+    <string name="reminders_title_over">%1$sလ ကုန်ဆုံးပြီ၊ ဘတ်ဂျက်ထက် %2$s ကျော်သွားသည်</string>
+    <string name="reminders_text">လက်ထဲတွင် ဤမျှ တကယ် ရှိပါသလား။ စစ်ပြီး %1$sလထဲ ထည့်ပါ။</string>
+    <string name="reminders_text_over">%1$sလ မစီစဉ်မီ လက်ထဲတွင် တကယ်ရှိသည့် ငွေကို စစ်ပါ။</string>
+    <string name="reminders_remind_tonight">ဒီည ပြန်သတိပေးပါ</string>
+    <string name="reminders_ask_title">လကုန်တိုင်း သတိပေးရမလား</string>
+    <string name="reminders_ask_body">လဆန်း ၁ ရက်နေ့တွင် ကျန်ငွေ လက်ထဲ တကယ်ရှိမရှိ BudgetWise က မေးပါမည်။</string>
+    <string name="reminders_ask_allow">ခွင့်ပြုမည်</string>
+    <string name="reminders_ask_not_now">နောက်မှ</string>
 
     <!-- Settings -->
     <string name="settings_title">ဆက်တင်</string>

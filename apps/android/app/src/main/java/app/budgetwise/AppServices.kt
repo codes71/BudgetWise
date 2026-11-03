@@ -12,12 +12,14 @@ import app.budgetwise.asr.SpeechToText
 import app.budgetwise.asr.VoiceRequirements
 import app.budgetwise.data.model.Budget
 import app.budgetwise.data.model.DailySpend
+import app.budgetwise.data.model.MonthPlan
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.data.net.ApiResult
 import app.budgetwise.data.repo.AuthRepository
 import app.budgetwise.data.repo.BudgetRepository
 import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.LoginResult
+import app.budgetwise.data.repo.MonthPlanRepository
 import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.repo.RegisterResult
 import app.budgetwise.data.repo.ScanReading
@@ -26,10 +28,12 @@ import app.budgetwise.data.repo.TransactionRepository
 import app.budgetwise.data.repo.VoiceParse
 import app.budgetwise.data.repo.VoiceRepository
 import app.budgetwise.data.sync.SyncEngine
+import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncScheduler
 import app.budgetwise.data.sync.SyncStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDate
+import java.time.YearMonth
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.NonCancellable
@@ -79,6 +83,13 @@ interface SyncControls {
 
     /** Pushes the outboxes, then runs a full pull of the active account, as soon as there is a connection. */
     fun syncNow()
+
+    /**
+     * The same run as [syncNow], but now and waited for: for a screen whose numbers must include what was entered on
+     * the web (the end check). Runs are serialized, so it waits for one already going. The pull applied when the
+     * outcome is [SyncOutcome.Success] or [SyncOutcome.PermanentFailure].
+     */
+    suspend fun syncAndWait(): SyncOutcome
 }
 
 /** The ledger as the transaction screens use it: Room flows and offline-first writes ([TransactionRepository]). */
@@ -108,6 +119,26 @@ interface BudgetSource {
     fun observe(): Flow<List<Budget>>
 
     suspend fun refresh(): ApiResult<Unit>
+}
+
+/**
+ * Month plans ([MonthPlanRepository]): one total per month split into category shares, cached per account in Room.
+ * [refresh] replaces the cached months in a range with the server's; [save] and [saveEndCheck] need the network and
+ * write the cache only with the server's answer, so a failed save leaves nothing half saved on the phone.
+ */
+interface MonthPlanSource {
+    fun observe(month: YearMonth): Flow<MonthPlan?>
+
+    /** The cached plans from [from] to [to], both included, oldest first. */
+    fun observeRange(from: YearMonth, to: YearMonth): Flow<List<MonthPlan>>
+
+    suspend fun refresh(from: YearMonth, to: YearMonth): ApiResult<Unit>
+
+    /** Creates or replaces [plan]'s month; online only. */
+    suspend fun save(plan: MonthPlan): ApiResult<MonthPlan>
+
+    /** What is really on hand after [month] ended; online only, and only once the month is over. */
+    suspend fun saveEndCheck(month: YearMonth, onHandKyat: Long): ApiResult<MonthPlan>
 }
 
 /** Whether the phone can reach the internet, for the header's Offline chip. */
@@ -186,6 +217,8 @@ class DefaultSyncControls @Inject constructor(
     override val unsyncedCount: Flow<Int> get() = transactions.observeUnsyncedCount()
 
     override fun syncNow() = scheduler.enqueue(fullPull = true)
+
+    override suspend fun syncAndWait(): SyncOutcome = engine.syncOnce(fullPull = true)
 }
 
 /**
@@ -245,6 +278,23 @@ class DefaultBudgetSource @Inject constructor(private val repo: BudgetRepository
     override fun observe(): Flow<List<Budget>> = repo.observe()
 
     override suspend fun refresh(): ApiResult<Unit> = repo.refresh()
+}
+
+/**
+ * Saves run to the end even when the screen that started them goes away (the user leaves the plan editor while it
+ * saves): the server may already have the plan, so the cache must get its answer too.
+ */
+class DefaultMonthPlanSource @Inject constructor(private val repo: MonthPlanRepository) : MonthPlanSource {
+    override fun observe(month: YearMonth): Flow<MonthPlan?> = repo.observe(month)
+
+    override fun observeRange(from: YearMonth, to: YearMonth): Flow<List<MonthPlan>> = repo.observeRange(from, to)
+
+    override suspend fun refresh(from: YearMonth, to: YearMonth): ApiResult<Unit> = repo.refresh(from, to)
+
+    override suspend fun save(plan: MonthPlan) = withContext(NonCancellable) { repo.save(plan) }
+
+    override suspend fun saveEndCheck(month: YearMonth, onHandKyat: Long) =
+        withContext(NonCancellable) { repo.saveEndCheck(month, onHandKyat) }
 }
 
 class DefaultCategorySource @Inject constructor(private val repo: CategoryRepository) : CategorySource {

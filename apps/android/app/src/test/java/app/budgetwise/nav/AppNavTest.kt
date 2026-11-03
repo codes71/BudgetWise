@@ -37,6 +37,7 @@ import app.budgetwise.data.auth.SessionState
 import app.budgetwise.data.auth.StoredSession
 import app.budgetwise.data.auth.TokenStore
 import app.budgetwise.data.auth.UserInfo
+import app.budgetwise.reminders.MonthEndLink
 import app.budgetwise.testing.FakeTokenStore
 import app.budgetwise.testing.TestUser
 import app.budgetwise.ui.theme.BudgetWiseTheme
@@ -46,6 +47,7 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import dagger.hilt.android.testing.UninstallModules
 import java.time.Instant
+import java.time.YearMonth
 import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -308,14 +310,77 @@ class AppNavTest {
         showApp()
 
         compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
-        // The empty state waits for Room's first answer, which arrives from Room's own thread.
-        compose.waitUntil(5_000) { compose.onAllNodesWithText(text(R.string.budgets_empty)).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText(text(R.string.budgets_empty)).assertIsDisplayed()
+        // The first-plan screen waits for Room's first answer, which arrives from Room's own thread.
+        compose.waitUntil(5_000) { compose.onAllNodesWithText(text(R.string.budgets_first_headline)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(text(R.string.budgets_first_headline)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.transactions_empty_title)).assertDoesNotExist()
 
         compose.onNodeWithText(text(R.string.nav_transactions)).performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText(text(R.string.transactions_empty_title)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText(text(R.string.transactions_empty_title)).assertIsDisplayed()
+    }
+
+    private fun showWithNav(): NavHostController {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme { AppNav(session = session.state.collectAsState().value, navController = nav) }
+        }
+        return nav
+    }
+
+    private fun routes(nav: NavHostController) = compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } }
+
+    @Test
+    fun thePlanEditorIsFullScreenAndClosesBackToBudgets() {
+        val nav = showWithNav()
+        compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
+
+        assertEquals("budget_plan/2026-10", Routes.budgetPlan(YearMonth.of(2026, 10)))
+        compose.runOnIdle { nav.navigate(Routes.budgetPlan(YearMonth.of(2026, 10))) { launchSingleTop = true } }
+
+        assertEquals(Routes.BUDGET_PLAN, compose.runOnIdle { nav.currentDestination?.route })
+        compose.onNodeWithText("October budget").assertIsDisplayed()
+        // No bottom bar on the editor.
+        compose.onNodeWithText(text(R.string.nav_transactions)).assertDoesNotExist()
+
+        compose.onNodeWithContentDescription(text(R.string.action_close)).performClick()
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS), routes(nav))
+        compose.onNodeWithText(text(R.string.nav_transactions)).assertIsDisplayed()
+    }
+
+    @Test
+    fun theEndCheckGoesOnToTheNextMonthsPlanInItsPlaceAndSavingLandsOnBudgets() {
+        val nav = showWithNav()
+        compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
+
+        assertEquals("month_end/2026-10", Routes.monthEnd(YearMonth.of(2026, 10)))
+        compose.runOnIdle { nav.navigate(Routes.monthEnd(YearMonth.of(2026, 10))) }
+        assertEquals(Routes.MONTH_END, compose.runOnIdle { nav.currentDestination?.route })
+        compose.onNodeWithText("End of October").assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.nav_transactions)).assertDoesNotExist()
+
+        compose.runOnIdle { nav.openPlanAfterCheck(YearMonth.of(2026, 11)) }
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS, Routes.BUDGET_PLAN), routes(nav))
+        assertEquals(true, compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getBoolean("tickCarry") })
+        compose.onNodeWithText("November budget").assertIsDisplayed()
+
+        compose.runOnIdle {
+            nav.closePlanEditor()
+            // A second call, the editor already gone, does nothing.
+            nav.closePlanEditor()
+        }
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS), routes(nav))
+    }
+
+    @Test
+    fun savingAnEditorOpenedOutsideBudgetsLandsOnBudgets() {
+        val nav = showWithNav()
+
+        compose.runOnIdle { nav.navigate(Routes.budgetPlan(YearMonth.of(2026, 11))) }
+        compose.runOnIdle { nav.closePlanEditor() }
+
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS), routes(nav))
     }
 
     private fun signedIn(user: UserInfo) = SessionState.SignedIn(user, Instant.now().plusSeconds(86_400 * 20L), false)
@@ -378,5 +443,77 @@ class AppNavTest {
     @Test
     fun theSameAccountSigningInAgainKeepsItsTabs() {
         assertTrue(savedBudgetsComeBack(start = signedIn(TestUser), between = listOf(SessionState.Expired), next = TestUser))
+    }
+
+    @Test
+    fun aMonthEndLinkLeadsToTheEndCheckOnlyForItsOwnAccount() {
+        val october = YearMonth.of(2026, 10)
+        val link = MonthEndLink(TestUser.id, october)
+
+        assertEquals("month_end/2026-10", monthEndRouteFor(link, signedIn(TestUser)))
+        assertEquals("month_end/2026-10", monthEndRouteFor(link, SessionState.SignedInOffline(TestUser)))
+        assertEquals(Routes.BUDGETS, monthEndRouteFor(link, signedIn(otherUser)))
+        assertEquals(Routes.BUDGETS, monthEndRouteFor(link, SessionState.SignedInOffline(otherUser)))
+        // Expired cannot save a check; Budgets asks to sign in through its chip.
+        assertEquals(Routes.BUDGETS, monthEndRouteFor(link, SessionState.Expired))
+        assertEquals(null, monthEndRouteFor(link, SessionState.SignedOut))
+    }
+
+    @Test
+    fun aMonthEndLinkAtLaunchOpensTheEndCheckOverBudgetsAndOneLaterFollowsToo() {
+        val october = YearMonth.of(2026, 10)
+        // A cold start: the link is there from the first frame.
+        var link by mutableStateOf<MonthEndLink?>(MonthEndLink(TestUser.id, october))
+        var handled = 0
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme {
+                AppNav(
+                    session = signedIn(TestUser),
+                    navController = nav,
+                    monthEndLink = link,
+                    onMonthEndLinkHandled = {
+                        handled++
+                        link = null
+                    },
+                )
+            }
+        }
+
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS, Routes.MONTH_END), routes(nav))
+        compose.onNodeWithText("End of October").assertIsDisplayed()
+        assertEquals(1, handled)
+
+        // Back from the check lands on Budgets.
+        compose.onNodeWithContentDescription(text(R.string.action_close)).performClick()
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS), routes(nav))
+
+        // The app already open (onNewIntent): a link for another account on this phone opens Budgets.
+        compose.runOnIdle { nav.navigate(Routes.SETTINGS) }
+        compose.runOnIdle { link = MonthEndLink(otherUser.id, october) }
+        compose.waitForIdle()
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS), routes(nav))
+        assertEquals(2, handled)
+    }
+
+    @Test
+    fun signedOutAMonthEndLinkLeavesTheWelcomeScreen() {
+        var handled = 0
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme {
+                AppNav(
+                    session = SessionState.SignedOut,
+                    navController = nav,
+                    monthEndLink = MonthEndLink(TestUser.id, YearMonth.of(2026, 10)),
+                    onMonthEndLinkHandled = { handled++ },
+                )
+            }
+        }
+
+        assertEquals(listOf(Routes.WELCOME), routes(nav))
+        assertEquals(1, handled)
     }
 }

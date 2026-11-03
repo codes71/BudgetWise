@@ -6,14 +6,17 @@ import app.budgetwise.data.model.SyncState
 import app.budgetwise.nlu.TxType
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 
 /**
- * LocalDate is stored as an ISO string (YYYY-MM-DD) so it sorts lexically. Instant is stored as
+ * LocalDate and YearMonth are stored as ISO strings (YYYY-MM-DD, YYYY-MM) so they sort lexically. Instant is stored as
  * epoch milliseconds so ordering is numeric. Enums are stored by name.
  */
 class Converters {
     @TypeConverter fun dateToString(v: LocalDate): String = v.toString()
     @TypeConverter fun stringToDate(v: String): LocalDate = LocalDate.parse(v)
+    @TypeConverter fun yearMonthToString(v: YearMonth): String = v.toString()
+    @TypeConverter fun stringToYearMonth(v: String): YearMonth = YearMonth.parse(v)
     @TypeConverter fun instantToLong(v: Instant): Long = v.toEpochMilli()
     @TypeConverter fun longToInstant(v: Long): Instant = Instant.ofEpochMilli(v)
     @TypeConverter fun txTypeToString(v: TxType): String = v.name

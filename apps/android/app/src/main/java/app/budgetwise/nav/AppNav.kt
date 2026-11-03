@@ -34,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -58,7 +59,12 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.budgetwise.R
 import app.budgetwise.data.auth.SessionState
+import app.budgetwise.reminders.MonthEndLink
 import app.budgetwise.ui.budgets.BudgetsRoute
+import app.budgetwise.ui.budgets.MonthEndRoute
+import app.budgetwise.ui.budgets.PlanEditorRoute
+import app.budgetwise.ui.budgets.PlanEditorViewModel
+import app.budgetwise.ui.budgets.rememberAskReminders
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.SyncChip
 import app.budgetwise.ui.common.sessionNoticeFor
@@ -84,6 +90,7 @@ import app.budgetwise.ui.transactions.ScanAdded
 import app.budgetwise.ui.transactions.TransactionsRoute
 import app.budgetwise.ui.voice.VoiceRoute
 import java.time.Instant
+import java.time.YearMonth
 
 object Routes {
     const val LANGUAGE = "language"
@@ -106,8 +113,22 @@ object Routes {
     const val BUDGETS = "budgets"
     const val SETTINGS = "settings"
 
+    /** The plan editor for one month (both steps); open it with [budgetPlan]. */
+    const val BUDGET_PLAN =
+        "budget_plan/{${PlanEditorViewModel.ARG_MONTH}}?${PlanEditorViewModel.ARG_TICK_CARRY}={${PlanEditorViewModel.ARG_TICK_CARRY}}"
+
+    /** The end check of a month that is over; open it with [monthEnd]. */
+    const val MONTH_END = "month_end/{${PlanEditorViewModel.ARG_MONTH}}"
+
     /** [RECEIPT] for one scanned receipt, opened from its line in the list. */
     fun receipt(receiptId: String) = "receipt/$receiptId"
+
+    /** [BUDGET_PLAN] for [month] ("budget_plan/2026-11"); [tickCarry] straight after the end check. */
+    fun budgetPlan(month: YearMonth, tickCarry: Boolean = false): String =
+        "budget_plan/$month" + if (tickCarry) "?${PlanEditorViewModel.ARG_TICK_CARRY}=true" else ""
+
+    /** [MONTH_END] for [month]: "month_end/2026-10". */
+    fun monthEnd(month: YearMonth): String = "month_end/$month"
 
     /** The route that opens the entry [clientId] in the form, to change or delete it. */
     fun editEntry(clientId: String): String = "edit/${Uri.encode(clientId)}"
@@ -176,12 +197,62 @@ internal fun NavController.closeScanSaved(saved: ScanEvent.Saved) {
     popBackStack(if (fromManual) Routes.MANUAL else Routes.SCAN, inclusive = true)
 }
 
+/**
+ * Back to Budgets after a plan is saved: the tab when the editor was opened from it, else Budgets in the editor's
+ * place (the editor opened after an end check). A second call (the editor already gone) does nothing.
+ */
+internal fun NavController.closePlanEditor() {
+    if (currentDestination?.route != Routes.BUDGET_PLAN) return
+    if (!popBackStack(Routes.BUDGETS, inclusive = false)) {
+        navigate(Routes.BUDGETS) {
+            popUpTo(Routes.TRANSACTIONS)
+            launchSingleTop = true
+        }
+    }
+}
+
+/**
+ * Where a month-end notification leads ([MonthEndLink]): its end check when [session] is the account it was posted
+ * for, else Budgets (another account, or an expired session, which cannot save a check). Signed out, nowhere: the
+ * welcome screen stays.
+ */
+internal fun monthEndRouteFor(link: MonthEndLink, session: SessionState): String? = when (session) {
+    is SessionState.SignedIn -> if (session.user.id == link.account) Routes.monthEnd(link.month) else Routes.BUDGETS
+    is SessionState.SignedInOffline -> if (session.user.id == link.account) Routes.monthEnd(link.month) else Routes.BUDGETS
+    SessionState.Expired -> Routes.BUDGETS
+    SessionState.SignedOut -> null
+}
+
+/**
+ * Opens [route] from a notification over Budgets, the way saving a plan lands there, so back from the end check (and
+ * the plan editor it goes on to) ends on the Budgets tab.
+ */
+internal fun NavController.openFromReminder(route: String) {
+    navigate(Routes.BUDGETS) {
+        popUpTo(Routes.TRANSACTIONS)
+        launchSingleTop = true
+    }
+    if (route != Routes.BUDGETS) navigate(route) { launchSingleTop = true }
+}
+
+/** After the end check of a month: the plan editor for [next] in the check's place, with the carry ticked. */
+internal fun NavController.openPlanAfterCheck(next: YearMonth) {
+    val check = currentBackStackEntry?.takeIf { it.destination.route == Routes.MONTH_END } ?: return
+    navigate(Routes.budgetPlan(next, tickCarry = true)) {
+        popUpTo(check.destination.id) { inclusive = true }
+        launchSingleTop = true
+    }
+}
+
 private fun NavDestination?.isOn(route: String) = this?.hierarchy?.any { it.route == route } == true
 
 /**
  * The app shell: a bottom bar with the two tabs and the Add pill between them, which opens the Add sheet (scan, say,
  * type, or add income); Settings opens from the gear in each tab's header as a pushed screen. Sign-in, Settings and
  * the add form are full screen. Transactions is the root of the signed-in back stack, so the bottom bar pops back to it.
+ *
+ * [monthEndLink] is a month-end notification the activity was opened with (cold) or handed later (onNewIntent): it is
+ * followed once the graph is set ([monthEndRouteFor]), then [onMonthEndLinkHandled] clears it.
  */
 @Composable
 fun AppNav(
@@ -189,6 +260,8 @@ fun AppNav(
     modifier: Modifier = Modifier,
     askLanguage: Boolean = false,
     navController: NavHostController = rememberNavController(),
+    monthEndLink: MonthEndLink? = null,
+    onMonthEndLinkHandled: () -> Unit = {},
 ) {
     val start = remember { startDestinationFor(session, askLanguage) }
     val backStack by navController.currentBackStackEntryAsState()
@@ -235,6 +308,19 @@ fun AppNav(
             SessionState.Expired -> Unit
         }
     }
+
+    // After the session effect above, so a link never lands in tabs that are about to be cleared.
+    val currentSession by rememberUpdatedState(session)
+    val linkHandled by rememberUpdatedState(onMonthEndLinkHandled)
+    LaunchedEffect(monthEndLink, graphReady) {
+        val link = monthEndLink ?: return@LaunchedEffect
+        if (!graphReady) return@LaunchedEffect
+        monthEndRouteFor(link, currentSession)?.let(navController::openFromReminder)
+        linkHandled()
+    }
+
+    // After a plan is saved, the first time: why BudgetWise would like to post the month-end reminder.
+    val askReminders = rememberAskReminders()
 
     fun openSignIn() = navController.navigate(Routes.LOGIN) { launchSingleTop = true }
     fun openSettings() = navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
@@ -433,7 +519,42 @@ fun AppNav(
                 )
             }
             composable(Routes.BUDGETS) {
-                BudgetsRoute(chip = chip, onChip = { chip?.let(::onChip) }, onSettings = ::openSettings)
+                BudgetsRoute(
+                    chip = chip,
+                    onChip = { chip?.let(::onChip) },
+                    onSettings = ::openSettings,
+                    onEditPlan = { month ->
+                        if (navController.currentDestination?.route == Routes.BUDGETS) {
+                            navController.navigate(Routes.budgetPlan(month)) { launchSingleTop = true }
+                        }
+                    },
+                    onCheckMonth = { month ->
+                        if (navController.currentDestination?.route == Routes.BUDGETS) {
+                            navController.navigate(Routes.monthEnd(month)) { launchSingleTop = true }
+                        }
+                    },
+                )
+            }
+            composable(
+                Routes.BUDGET_PLAN,
+                arguments = listOf(
+                    navArgument(PlanEditorViewModel.ARG_MONTH) { type = NavType.StringType },
+                    navArgument(PlanEditorViewModel.ARG_TICK_CARRY) { type = NavType.BoolType; defaultValue = false },
+                ),
+            ) {
+                PlanEditorRoute(
+                    onClose = dropUnlessResumed { navController.popBackStack() },
+                    onSaved = {
+                        navController.closePlanEditor()
+                        askReminders()
+                    },
+                )
+            }
+            composable(Routes.MONTH_END, arguments = listOf(navArgument(PlanEditorViewModel.ARG_MONTH) { type = NavType.StringType })) {
+                MonthEndRoute(
+                    onClose = dropUnlessResumed { navController.popBackStack() },
+                    onChecked = navController::openPlanAfterCheck,
+                )
             }
             composable(Routes.SETTINGS) {
                 val back = dropUnlessResumed { navController.popBackStack() }

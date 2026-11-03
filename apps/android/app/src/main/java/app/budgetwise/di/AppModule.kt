@@ -7,12 +7,14 @@ import app.budgetwise.DefaultAccountActions
 import app.budgetwise.DefaultBudgetSource
 import app.budgetwise.DefaultCategorySource
 import app.budgetwise.DefaultLanguageStore
+import app.budgetwise.DefaultMonthPlanSource
 import app.budgetwise.DefaultNetworkStatus
 import app.budgetwise.DefaultReceiptScanner
 import app.budgetwise.DefaultSessionLoader
 import app.budgetwise.DefaultSyncControls
 import app.budgetwise.DefaultTransactionStore
 import app.budgetwise.LanguageStore
+import app.budgetwise.MonthPlanSource
 import app.budgetwise.NetworkStatus
 import app.budgetwise.ReceiptScanner
 import app.budgetwise.SessionLoader
@@ -63,6 +65,9 @@ abstract class AppBindingsModule {
 
     @Binds
     abstract fun budgetSource(impl: DefaultBudgetSource): BudgetSource
+
+    @Binds
+    abstract fun monthPlanSource(impl: DefaultMonthPlanSource): MonthPlanSource
 
     @Binds
     abstract fun categorySource(impl: DefaultCategorySource): CategorySource
