@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +53,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -214,7 +217,7 @@ private fun ColumnScope.TotalStep(state: PlanEditorUiState, actions: PlanEditorA
             state.isThisMonth -> stringResource(R.string.plan_how_much_this_month)
             else -> stringResource(R.string.plan_how_much, name)
         }
-        SectionLabel(label)
+        BudgetLabel(label)
         NewMoneyField(state, label, actions.onNewMoneyChange, Modifier.padding(top = 14.dp))
         LakhChipRow(state, actions.onPickLakh, Modifier.padding(top = 24.dp))
         val carry = state.carry
@@ -289,11 +292,10 @@ private fun NewMoneyField(state: PlanEditorUiState, label: String, onChange: (St
 private fun bigStyle(length: Int): TextStyle {
     val type = BudgetWiseTheme.type
     val size = when (length) {
-        in 0..7 -> type.size60
-        in 8..10 -> type.size44
+        in 0..9 -> type.size44
         else -> type.size32
     }
-    return size.extraBold.tracked(-0.035f)
+    return size.extraBold.tracked(-0.03f).copy(fontFeatureSettings = "tnum")
 }
 
 /** An amount field without a box: plain digits shown grouped, "Ks" after it, "0" in muted while it is empty. */
@@ -311,7 +313,12 @@ private fun BigAmountField(
 ) {
     val colors = BudgetWiseTheme.colors
     val transformation = remember(myanmarDigits) { KyatGroupingTransformation(myanmarDigits) }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).drawBehind {
+            drawLine(colors.hairline, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+        }.padding(bottom = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         BasicTextField(
             value = digits,
             onValueChange = onChange,
@@ -323,7 +330,7 @@ private fun BigAmountField(
                 .focusRequester(focus)
                 .semantics { contentDescription = label },
             enabled = enabled,
-            textStyle = style.copy(color = colors.ink),
+            textStyle = style.copy(color = colors.ink, fontFeatureSettings = "tnum"),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { onDone() }),
             singleLine = true,
@@ -351,12 +358,12 @@ private fun LakhChipRow(state: PlanEditorUiState, onPick: (Long) -> Unit, modifi
             val selected = state.newMoneyKyat == lakhs * LAKH
             Box(
                 Modifier
-                    .heightIn(min = 36.dp)
-                    .clip(CircleShape)
+                    .heightIn(min = 48.dp)
+                    .clip(RoundedCornerShape(16.dp))
                     .background(if (selected) colors.accent.copy(alpha = 0.16f) else colors.ground)
-                    .border(1.dp, if (selected) colors.accent else colors.chipBorder, CircleShape)
+                    .border(1.dp, if (selected) colors.accent else colors.chipBorder, RoundedCornerShape(16.dp))
                     .selectable(selected = selected, enabled = state.loaded && !state.saving, role = Role.RadioButton, onClick = { onPick(lakhs) })
-                    .padding(horizontal = 14.dp),
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -376,7 +383,7 @@ private fun CarryCard(state: PlanEditorUiState, carry: Carry, onTicked: (Boolean
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val ticked = state.carryTicked
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(20.dp)
     val detail = when {
         carry.checkedOn != null -> stringResource(R.string.plan_carry_checked, localizedDate(carry.checkedOn, "dMMMM", state.myanmarDigits))
         carry.saved -> stringResource(R.string.plan_carry_saved)
@@ -389,7 +396,7 @@ private fun CarryCard(state: PlanEditorUiState, carry: Carry, onTicked: (Boolean
             .background(if (ticked) colors.accent.copy(alpha = 0.12f) else colors.ground)
             .border(1.dp, if (ticked) colors.accent else colors.hairline, shape)
             .toggleable(value = ticked, enabled = state.loaded && !state.saving, role = Role.Checkbox, onValueChange = onTicked)
-            .padding(16.dp),
+            .padding(20.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -400,7 +407,7 @@ private fun CarryCard(state: PlanEditorUiState, carry: Carry, onTicked: (Boolean
         }
         Text(
             "+" + groupDigits(carry.amountKyat, state.myanmarDigits),
-            style = type.size16.bold,
+            style = type.size16.bold.copy(fontFeatureSettings = "tnum"),
             color = if (ticked) colors.accent else colors.muted,
             maxLines = 1,
         )
@@ -539,20 +546,15 @@ private fun LeftToSplit(state: PlanEditorUiState) {
         "$label ${stringResource(R.string.kyat_amount, groupDigits(state.unsplitKyat))}, " +
             stringResource(R.string.budgets_of_limit, stringResource(R.string.kyat_amount, groupDigits(state.totalKyat)))
     }
-    Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
+    BudgetSurface(Modifier.padding(bottom = 20.dp)) {
         Column(Modifier.clearAndSetSemantics { contentDescription = spoken }) {
-            SectionLabel(label)
-            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    figure,
-                    style = (if (figure.length > 9) type.size32 else type.size44).extraBold.tracked(-0.035f),
-                    color = if (over) colors.coralText else colors.accent,
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier.alignByBaseline(),
-                )
-                Text(suffix, style = type.size18.medium, color = colors.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.alignByBaseline())
-            }
+            BudgetLabel(label)
+            BudgetFigure(
+                figure = figure,
+                color = if (over) colors.coralText else colors.accent,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            Text(suffix, style = type.size18.medium, color = colors.muted, modifier = Modifier.padding(top = 4.dp))
         }
         SplitBar(state, Modifier.padding(top = 16.dp))
         Text(
@@ -650,18 +652,19 @@ private fun ShareRow(state: PlanEditorUiState, share: ShareDraft, first: Boolean
             Box(
                 Modifier
                     .width(124.dp)
-                    .height(44.dp)
+                    .heightIn(min = 48.dp)
                     .clip(shape)
                     .background(colors.surface)
                     .border(if (marked) 2.dp else 1.dp, if (marked) colors.coral else colors.hairline, shape)
-                    .padding(horizontal = 14.dp),
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Text(
                     if (share.missing) groupDigits(0, state.myanmarDigits) else groupDigits(share.amountKyat, state.myanmarDigits),
-                    style = type.size17.semibold,
+                    style = type.size17.semibold.copy(fontFeatureSettings = "tnum"),
                     color = if (share.missing) colors.muted else colors.ink,
                     maxLines = 1,
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
                 )
             }
         }
@@ -732,10 +735,10 @@ private fun RaiseMonth(state: PlanEditorUiState, onClick: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     Row(
         Modifier
-            .heightIn(min = 40.dp)
+            .heightIn(min = 48.dp)
             .clip(CircleShape)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -784,7 +787,7 @@ internal fun ShareSheetContent(state: PlanEditorUiState, share: ShareDraft, acti
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = remember { FocusRequester() }
     LaunchedEffect(share.category) { focus.requestFocus() }
-    Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 28.dp)) {
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 28.dp)) {
         Row(
             Modifier.padding(top = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -793,7 +796,7 @@ internal fun ShareSheetContent(state: PlanEditorUiState, share: ShareDraft, acti
             CategoryBadge(share.category, contentDescription = null)
             Text(
                 name,
-                style = type.size20.bold.tracked(-0.01f).forContent(name),
+                style = type.size24.bold.tracked(-0.02f).forContent(name),
                 color = colors.ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -808,7 +811,7 @@ internal fun ShareSheetContent(state: PlanEditorUiState, share: ShareDraft, acti
                 myanmarDigits = state.myanmarDigits,
                 enabled = !state.saving,
                 focus = focus,
-                style = (if (share.digits.length > 7) type.size32 else type.size44).extraBold.tracked(-0.035f),
+                style = bigStyle(share.digits.length),
                 unitStyle = type.size22.medium,
                 onDone = { keyboard?.hide() },
             )
@@ -880,15 +883,15 @@ private fun AmountChip(label: String, amount: String, setsKyat: Long, onClick: (
     val spoken = "$label, ${stringResource(R.string.kyat_amount, groupDigits(setsKyat))}"
     Row(
         Modifier
-            .heightIn(min = 34.dp)
-            .clip(CircleShape)
-            .border(1.dp, colors.outline, CircleShape)
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, colors.outline, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .clearAndSetSemantics {
                 contentDescription = spoken
                 role = Role.Button
             }
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -912,7 +915,7 @@ internal fun AddCategoryContent(state: PlanEditorUiState, actions: PlanEditorAct
     Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 28.dp)) {
         Text(
             stringResource(R.string.plan_add_category),
-            style = type.size20.bold.tracked(-0.01f),
+            style = type.size24.bold.tracked(-0.02f),
             color = colors.ink,
             modifier = Modifier.padding(top = 20.dp).semantics { heading() },
         )

@@ -22,7 +22,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -127,11 +126,6 @@ fun BudgetsScreen(
             chip = chip,
             onChip = onChip,
             onSettings = onSettings,
-            action = if (state.plan != null) {
-                { EditPlanPill(onEditPlan) }
-            } else {
-                null
-            },
         )
         val pull = rememberPullToRefreshState()
         PullToRefreshBox(
@@ -156,7 +150,7 @@ fun BudgetsScreen(
                 val plan = state.plan
                 when {
                     plan != null -> {
-                        item(key = "summary") { MonthSummary(state, plan) }
+                        item(key = "summary") { MonthSummary(state, plan, onEditPlan) }
                         // Keys apart from the fixed items' keys, whatever a category is called.
                         itemsIndexed(lines, key = { _, line -> "share:${line.category}" }) { index, line ->
                             BudgetRow(line, state.myanmarDigits, first = index == 0)
@@ -181,18 +175,17 @@ fun BudgetsScreen(
     }
 }
 
-/** The header's Edit plan: a small outlined pill with a sage pencil, its touch target 48 dp high. */
+/** Edit plan sits in the summary so the app header has room for its title and sync status. */
 @Composable
 private fun EditPlanPill(onClick: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     Row(
         modifier = Modifier
-            .minimumInteractiveComponentSize()
-            .height(34.dp)
-            .clip(CircleShape)
-            .border(1.dp, colors.hairline, CircleShape)
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, colors.hairline, RoundedCornerShape(16.dp))
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(start = 12.dp, end = 14.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -218,7 +211,7 @@ private fun CheckCard(check: MonthToCheck, myanmarDigits: Boolean, onClick: () -
     } else {
         stringResource(R.string.budgets_check_over, name, formatKyat(-check.leftKyat))
     }
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(20.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -285,7 +278,7 @@ internal fun monthBudgetLabel(month: YearMonth, totalKyat: Long, myanmarDigits: 
 
 /** The month's total: what is left of it, big, then the bar and "spent of total". */
 @Composable
-private fun MonthSummary(state: BudgetsUiState, plan: MonthPlan) {
+private fun MonthSummary(state: BudgetsUiState, plan: MonthPlan, onEditPlan: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val total = plan.totalKyat
@@ -293,45 +286,36 @@ private fun MonthSummary(state: BudgetsUiState, plan: MonthPlan) {
     val left = state.leftKyat
     val over = left < 0
     val monthBudget = stringResource(R.string.plan_month_budget, monthName(state.month))
-    val label = monthBudgetLabel(state.month, total, state.myanmarDigits)
     val spoken = "$monthBudget, ${stringResource(R.string.kyat_amount, groupDigits(total))}. " +
         spentOfLimitSpoken(spent, total) + ", " + leftSpoken(left)
     val figure = groupDigits(abs(left), state.myanmarDigits)
-    Column(
-        Modifier
-            .padding(top = 26.dp, bottom = 22.dp)
-            .clearAndSetSemantics { contentDescription = spoken },
+    BudgetSurface(
+        modifier = Modifier.padding(top = 12.dp, bottom = 12.dp),
+        padding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 16.dp),
     ) {
-        SectionLabel(label)
-        Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = figure,
-                style = (if (figure.length > 8) type.size44 else type.size60).extraBold.tracked(-0.035f),
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            BudgetLabel(monthBudget, Modifier.weight(1f))
+            EditPlanPill(onEditPlan)
+        }
+        Column(Modifier.clearAndSetSemantics { contentDescription = spoken }) {
+            BudgetFigure(
+                figure = figure,
+                suffix = stringResource(if (over) R.string.budgets_ks_over else R.string.budgets_ks_left),
                 color = if (over) colors.coralText else colors.ink,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier.alignByBaseline(),
+            )
+            Bar(
+                progress = if (total > 0) spent.toFloat() / total else if (spent > 0) 1f else 0f,
+                color = if (over) colors.coral else colors.accent,
+                height = 6.dp,
+                modifier = Modifier.padding(top = 18.dp),
             )
             Text(
-                text = stringResource(if (over) R.string.budgets_ks_over else R.string.budgets_ks_left),
-                style = type.size18.medium,
-                color = if (over) colors.coralText else colors.muted,
-                maxLines = 1,
-                modifier = Modifier.alignByBaseline(),
+                text = stringResource(R.string.budgets_spent_of_total, groupDigits(spent, state.myanmarDigits), groupDigits(total, state.myanmarDigits)),
+                style = type.size14,
+                color = colors.muted,
+                modifier = Modifier.padding(top = 10.dp),
             )
         }
-        Bar(
-            progress = if (total > 0) spent.toFloat() / total else if (spent > 0) 1f else 0f,
-            color = if (over) colors.coral else colors.accent,
-            height = 6.dp,
-            modifier = Modifier.padding(top = 18.dp),
-        )
-        Text(
-            text = stringResource(R.string.budgets_spent_of_total, groupDigits(spent, state.myanmarDigits), groupDigits(total, state.myanmarDigits)),
-            style = type.size14,
-            color = colors.muted,
-            modifier = Modifier.padding(top = 10.dp),
-        )
     }
 }
 
@@ -364,7 +348,7 @@ private fun BudgetRow(line: BudgetLine, myanmarDigits: Boolean, first: Boolean, 
     Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken }) {
         if (first) HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 14.dp),
+            Modifier.fillMaxWidth().padding(vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -416,11 +400,11 @@ private fun LoadingSkeleton() {
     val colors = BudgetWiseTheme.colors
     val loading = stringResource(R.string.budgets_loading)
     Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = loading }) {
-        Column(Modifier.padding(top = 26.dp, bottom = 22.dp)) {
-            SkeletonBar(190.dp, 12.dp, color = colors.surface)
-            SkeletonBar(240.dp, 52.dp, Modifier.padding(top = 12.dp), color = colors.surface)
-            Box(Modifier.padding(top = 18.dp).fillMaxWidth().height(6.dp).clip(CircleShape).background(colors.surface))
-            SkeletonBar(170.dp, 12.dp, Modifier.padding(top = 14.dp), color = colors.surface)
+        BudgetSurface(Modifier.padding(top = 12.dp, bottom = 12.dp)) {
+            SkeletonBar(190.dp, 12.dp, color = colors.raised)
+            SkeletonBar(220.dp, 52.dp, Modifier.padding(top = 12.dp), color = colors.raised)
+            Box(Modifier.padding(top = 18.dp).fillMaxWidth().height(6.dp).clip(CircleShape).background(colors.raised))
+            SkeletonBar(170.dp, 12.dp, Modifier.padding(top = 14.dp), color = colors.raised)
         }
         HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         listOf(96.dp, 120.dp, 84.dp, 108.dp).forEach { width ->

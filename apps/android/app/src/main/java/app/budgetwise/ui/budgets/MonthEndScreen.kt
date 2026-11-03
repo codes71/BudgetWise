@@ -35,6 +35,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -60,7 +62,6 @@ import app.budgetwise.ui.common.FieldError
 import app.budgetwise.ui.common.KyatGroupingTransformation
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.PrimaryButton
-import app.budgetwise.ui.common.SectionLabel
 import app.budgetwise.ui.common.SkeletonBar
 import app.budgetwise.ui.common.TextAction
 import app.budgetwise.ui.common.formatKyat
@@ -69,7 +70,6 @@ import app.budgetwise.ui.common.monthName
 import app.budgetwise.ui.common.toMyanmarDigits
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.bold
-import app.budgetwise.ui.theme.extraBold
 import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
 import app.budgetwise.ui.theme.tracked
@@ -140,7 +140,7 @@ fun MonthEndScreen(
             when {
                 state.counted -> {
                     Leftover(state)
-                    Question(state, onAnswer, onOnHandChange, Modifier.padding(top = 40.dp))
+                    Question(state, onAnswer, onOnHandChange, Modifier.padding(top = 28.dp))
                     Gap(state, onAddGap, Modifier.padding(top = 22.dp))
                 }
                 state.plan != null -> Counting(state, onRetry)
@@ -187,8 +187,8 @@ private fun errorText(error: EndCheckError, month: String): String = when (error
 private fun Counting(state: MonthEndUiState, onRetry: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val name = monthName(state.month)
-    Column(Modifier.fillMaxWidth()) {
-        SectionLabel(stringResource(R.string.month_end_left_in, name))
+    BudgetSurface {
+        BudgetLabel(stringResource(R.string.month_end_left_in, name))
         when (state.ledger) {
             LedgerPull.FAILED -> FieldError(
                 stringResource(R.string.month_end_pull_failed),
@@ -199,8 +199,8 @@ private fun Counting(state: MonthEndUiState, onRetry: () -> Unit) {
             else -> {
                 val counting = stringResource(R.string.month_end_counting)
                 Column(Modifier.clearAndSetSemantics { contentDescription = counting }) {
-                    SkeletonBar(220.dp, 56.dp, Modifier.padding(top = 10.dp), color = colors.surface)
-                    SkeletonBar(200.dp, 14.dp, Modifier.padding(top = 12.dp), color = colors.surface)
+                    SkeletonBar(220.dp, 56.dp, Modifier.padding(top = 10.dp), color = colors.raised)
+                    SkeletonBar(200.dp, 14.dp, Modifier.padding(top = 12.dp), color = colors.raised)
                 }
             }
         }
@@ -218,19 +218,14 @@ private fun Leftover(state: MonthEndUiState) {
     val figure = groupDigits(abs(state.leftKyat), state.myanmarDigits)
     val spoken = "$label ${stringResource(R.string.kyat_amount, groupDigits(abs(state.leftKyat)))}, " +
         stringResource(R.string.budgets_spent_of_limit_spoken, groupDigits(state.spentKyat), groupDigits(state.totalKyat))
-    Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken }) {
-        SectionLabel(label)
-        Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                figure,
-                style = (if (figure.length > 8) type.size44 else type.size60).extraBold.tracked(-0.035f),
-                color = if (over) colors.coralText else colors.accent,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier.alignByBaseline(),
-            )
-            Text("Ks", style = type.size18.medium, color = colors.muted, modifier = Modifier.alignByBaseline())
-        }
+    BudgetSurface(Modifier.clearAndSetSemantics { contentDescription = spoken }) {
+        BudgetLabel(label)
+        BudgetFigure(
+            figure = figure,
+            suffix = "Ks",
+            color = if (over) colors.coralText else colors.accent,
+            modifier = Modifier.padding(top = 6.dp),
+        )
         Text(
             stringResource(R.string.budgets_spent_of_total, groupDigits(state.spentKyat, state.myanmarDigits), groupDigits(state.totalKyat, state.myanmarDigits)),
             style = type.size14,
@@ -248,7 +243,7 @@ private fun Question(state: MonthEndUiState, onAnswer: (OnHand) -> Unit, onOnHan
     Column(modifier.fillMaxWidth()) {
         Text(
             stringResource(R.string.month_end_question),
-            style = type.size22.bold.tracked(-0.01f),
+            style = type.size24.bold.tracked(-0.02f),
             color = colors.ink,
             modifier = Modifier.semantics { heading() },
         )
@@ -299,7 +294,7 @@ private fun Choice(text: String, selected: Boolean, enabled: Boolean, onClick: (
     }
 }
 
-/** "I have … Ks": the amount on hand, right aligned in a sage-outlined box. */
+/** The amount actually on hand, using the same underlined field as the plan editor. */
 @Composable
 private fun OnHandField(state: MonthEndUiState, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
@@ -309,15 +304,14 @@ private fun OnHandField(state: MonthEndUiState, onChange: (String) -> Unit, modi
     LaunchedEffect(Unit) { focus.requestFocus() }
     val label = stringResource(R.string.month_end_i_have)
     val transformation = remember(state.myanmarDigits) { KyatGroupingTransformation(state.myanmarDigits) }
-    val shape = RoundedCornerShape(16.dp)
     Row(
         modifier
             .fillMaxWidth()
-            .heightIn(min = 60.dp)
-            .clip(shape)
-            .background(colors.surface)
-            .border(2.dp, colors.accent, shape)
-            .padding(horizontal = 16.dp),
+            .heightIn(min = 64.dp)
+            .drawBehind {
+                drawLine(colors.accent, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+            }
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -327,7 +321,7 @@ private fun OnHandField(state: MonthEndUiState, onChange: (String) -> Unit, modi
             onValueChange = onChange,
             modifier = Modifier.weight(1f).focusRequester(focus).semantics { contentDescription = label },
             enabled = !state.saving,
-            textStyle = type.size22.bold.copy(color = colors.ink, textAlign = TextAlign.End),
+            textStyle = type.size32.bold.copy(color = colors.ink, textAlign = TextAlign.End, fontFeatureSettings = "tnum"),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }),
             singleLine = true,
@@ -336,7 +330,7 @@ private fun OnHandField(state: MonthEndUiState, onChange: (String) -> Unit, modi
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterEnd) {
                     if (state.onHandDigits.isEmpty()) {
-                        Text(if (state.myanmarDigits) toMyanmarDigits("0") else "0", style = type.size22.bold, color = colors.muted)
+                        Text(if (state.myanmarDigits) toMyanmarDigits("0") else "0", style = type.size32.bold, color = colors.muted)
                     }
                     inner()
                 }
@@ -377,6 +371,7 @@ private fun Gap(state: MonthEndUiState, onAddGap: (Boolean) -> Unit, modifier: M
         Row(
             Modifier
                 .fillMaxWidth()
+                .heightIn(min = 48.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .toggleable(value = state.addGap, enabled = !state.saving, role = Role.Checkbox, onValueChange = onAddGap)
                 .padding(vertical = 4.dp),

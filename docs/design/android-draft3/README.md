@@ -12,16 +12,37 @@ See [native implementation mapping and verification](IMPLEMENTATION.md) for the 
 
 This PR translates the approved composition into the native Android app using its existing theme, Schibsted Grotesk/Padauk typography, real state and callbacks. It preserves the entries-v3 workflows, whole-kyat amounts, real system keyboard, actual camera preview and existing error/offline states. The sample data and keypad/receipt illustrations in Paper are design references, never production data or substitute controls.
 
-Budget editing is being developed independently on `feat/android-budgets`. Its worktree was dirty when this PR began and has not been modified or copied. That workstream owns budget screens, APIs, persistence, validation, migrations and feature behavior. The budget snapshots here record the read-only master baseline; they are not authority to discard the upcoming editing feature. When that PR exists, integrate its behavior first and apply this shared visual language while keeping every budget action/state. This branch is based directly on master, not on the unfinished budget branch.
+Monthly budgets are now merged in master through PR #16, and this UI branch integrates master `0fce707`. Draft 3 now covers the budget overview, first plan, monthly total, category split/share sheets, adding categories, oversplit handling, month-end checks and carry-over. All existing budget calculations, APIs, persistence, migrations and feature behavior remain as implemented on master. The separate agent's worktree was not modified. The original two read-only budget snapshots are retained as historical references and superseded by the extension below.
 
 The design-skills and web Paper Shaders installation remain in [PR #10](https://github.com/codes71/BudgetWise/pull/10). They are not duplicated into this UI branch. Native Android uses compatible Compose presentation and approved static shader image output, not a React runtime or new backend dependency.
 
 ## Reference files
 
-- `manifest.json`: all 40 views, dimensions, exact source files and preview filenames.
+- `manifest.json`: the original 40 views, dimensions, exact source files and preview filenames.
+- `budget-extension-manifest.json`: 20 additional budget views, 10 states in both themes, extending the approved Draft 3 direction to current master.
+- `budget-extension-design.json`: the budget presentation contract and source index.
 - `source/*.json`: exact Paper JSX, fetched directly with node IDs excluded. Use the numeric values/tokens to implement; screenshots are for visual comparison.
 - `tokens.json`: the file's ledger token set, preserving the app's light/dark brand roles.
 - `previews/*.webp`: native Paper exports of 20 light and 20 dark views at390×844.
+- `previews/budget-*.webp`: the budget extension. Long scrollable views show the complete composition at 390px wide, up to 935px high.
+- `native-previews/`: nine actual Compose captures with sample state and explicit verification limits.
+
+## Budget extension
+
+The extension sits beside Draft 3 on the same Paper page. It keeps the compact finance hierarchy and light/dark palette, moves Edit plan into the balance card, uses underlined amount fields, and retains all functional states from the completed budget implementation. Larger tap targets and complete category lists can require scrolling; native save/next actions remain pinned above the IME.
+
+| Budget state | Light | Dark |
+| --- | --- | --- |
+| Overview | [Light](previews/budget-01-budget-overview-light.webp) | [Dark](previews/budget-01-budget-overview-dark.webp) |
+| First plan | [Light](previews/budget-02-first-budget-light.webp) | [Dark](previews/budget-02-first-budget-dark.webp) |
+| Monthly total | [Light](previews/budget-03-set-monthly-total-light.webp) | [Dark](previews/budget-03-set-monthly-total-dark.webp) |
+| Category split | [Light](previews/budget-04-split-by-category-light.webp) | [Dark](previews/budget-04-split-by-category-dark.webp) |
+| Change share | [Light](previews/budget-05-change-category-share-light.webp) | [Dark](previews/budget-05-change-category-share-dark.webp) |
+| Add category | [Light](previews/budget-06-add-category-light.webp) | [Dark](previews/budget-06-add-category-dark.webp) |
+| Oversplit | [Light](previews/budget-07-over-allocated-light.webp) | [Dark](previews/budget-07-over-allocated-dark.webp) |
+| Month-end confirmed | [Light](previews/budget-08-month-end-confirmed-light.webp) | [Dark](previews/budget-08-month-end-confirmed-dark.webp) |
+| Month-end shortage | [Light](previews/budget-09-month-end-shortage-light.webp) | [Dark](previews/budget-09-month-end-shortage-dark.webp) |
+| Carry-over | [Light](previews/budget-10-carry-into-next-month-light.webp) | [Dark](previews/budget-10-carry-into-next-month-dark.webp) |
 
 The welcome atmosphere uses the original deterministic MeshGradient stills generated with Paper Shaders0.0.82 (speed0, frame3200, existing sage/forest palette). Native resources are static, decorative and supported on minSdk26. No continuously running shader, API33 requirement or animation is implied.
 

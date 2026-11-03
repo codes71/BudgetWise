@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "baseline": "0fce707",
+  "paperUrl": "https://app.paper.design/file/01M637VVENYNCKYK0T90TRWSMT/p-4-0",
+  "supersedes": [
+    "05-budgets-light",
+    "05-budgets-dark"
+  ],
+  "screens": [
+    {
+      "id": "JNG-0",
+      "name": "Budget overview",
+      "theme": "dark",
+      "width": 390,
+      "height": 935,
+      "source": "source/budget-01-budget-overview-dark.json",
+      "preview": "previews/budget-01-budget-overview-dark.webp",
+      "sourceSha256": "1eed0631301fd1b9217d4d52ef96d6ccf67411a6788bc1e29f15ebc6dee2f734",
+      "previewSha256": "7360e71855090803127f129cb5c193a99bbedaf97e0575c24d66999689811326"
+    },
+    {
+      "id": "JR8-0",
+      "name": "First budget",
+      "theme": "dark",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-02-first-budget-dark.json",
+      "preview": "previews/budget-02-first-budget-dark.webp",
+      "sourceSha256": "91803b92cffac5ed1568e46740fd5fa5d460181cfebfe1ac3e0152bf0dacc061",
+      "previewSha256": "deb6c20072a4264845f71d5f4397c71232d2aeb9cd804daa02d593e9bd7345b7"
+    },
+    {
+      "id": "JSA-0",
+      "name": "Set monthly total",
+      "theme": "dark",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-03-set-monthly-total-dark.json",
+      "preview": "previews/budget-03-set-monthly-total-dark.webp",
+      "sourceSha256": "41dc5561f73ac094ce278e230c7a3b2b0e79990d62301fdfd1d1241775c76a15",
+      "previewSha256": "5e38daed3fa62f55d074e91693227ddbc7863a44c637a33e9f3a7b6b6881f92c"
+    },
+    {
+      "id": "JTH-0",
+      "name": "Split by category",
+      "theme": "dark",
+      "width": 390,
+      "height": 894,
+      "source": "source/budget-04-split-by-category-dark.json",
+      "preview": "previews/budget-04-split-by-category-dark.webp",
+      "sourceSha256": "1e097f5695a800f6159f83b5e663a0683bc313f721ef719271f61d64446c6444",
+      "previewSha256": "e8b1fc565f02c756bdc7b5589add5074e6a1e6cd9a2768eae7fedfccade38161"
+    },
+    {
+      "id": "JVW-0",
+      "name": "Change category share",
+      "theme": "dark",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-05-change-category-share-dark.json",
+      "preview": "previews/budget-05-change-category-share-dark.webp",
+      "sourceSha256": "a3d57e4177c0f580307d005a46a4fcac8601adf2861e94a745c7ede9c0c114b4",
+      "previewSha256": "563c227d8d765b4c8b4d460b92307d73c0daba831630b4dd3d305f810e380ee8"
+    },
+    {
+      "id": "JZ7-0",
+      "name": "Add category",
+      "theme": "dark",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-06-add-category-dark.json",
+      "preview": "previews/budget-06-add-category-dark.webp",
+      "sourceSha256": "9db6caab78db8b7fac85669a18038f07ac1a37e16c10a07ce2c25a3b6f727da9",
+      "previewSha256": "649e0cb962d52ddacfb20e7394fe8fd8fe3417f94974b968fbfd8ff152a6fe41"
+    },
+    {
+      "id": "K2R-0",
+      "name": "Over allocated",
+      "theme": "dark",
+      "width": 390,
+      "height": 898,
+      "source": "source/budget-07-over-allocated-dark.json",
+      "preview": "previews/budget-07-over-allocated-dark.webp",
+      "sourceSha256": "52e2fcd4da28fe1de46f772b370f36bc299d6e4dac16794756056498ec505dad",
+      "previewSha256": "046423efaad35571cfe6aff52cc3236e8ad007bbbb34817192b457d9e9c8967a"
+    },
+    {
+      "id": "K5A-0",
+      "name": "Month-end confirmed",
+      "theme": "dark",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-08-month-end-confirmed-dark.json",
+      "preview": "previews/budget-08-month-end-confirmed-dark.webp",
+      "sourceSha256": "c20b77f65087b9c6a7f3bc87a19412045ed90330a628506db0f8bb2a78c3ef73",
+      "previewSha256": "62f24f338634265f27a9a888c986e8932a9c4e871f30bb9962881b8aa7696680"
+    },
+    {
+      "id": "K63-0",
+      "name": "Month-end shortage",
+      "theme": "dark",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-09-month-end-shortage-dark.json",
+      "preview": "previews/budget-09-month-end-shortage-dark.webp",
+      "sourceSha256": "407a652e4fc6153ff3095e9a711f7c8d4d24c906a655503f9dca396eb624fb20",
+      "previewSha256": "a1432595d307db1a782f87ab5fc9279ba8d0e77d6f2b784679c94522388b3dc3"
+    },
+    {
+      "id": "K79-0",
+      "name": "Carry into next month",
+      "theme": "dark",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-10-carry-into-next-month-dark.json",
+      "preview": "previews/budget-10-carry-into-next-month-dark.webp",
+      "sourceSha256": "93cbcdf51f40d8dd75d7efc052e4ed3bfa2eebe00384d1854246a41bdfffaa49",
+      "previewSha256": "5b5ae5917485f7fae3fcac8bb14c5657b5329d523c97b7958697fdb52ce1a675"
+    },
+    {
+      "id": "KJU-0",
+      "name": "Budget overview",
+      "theme": "light",
+      "width": 390,
+      "height": 935,
+      "source": "source/budget-01-budget-overview-light.json",
+      "preview": "previews/budget-01-budget-overview-light.webp",
+      "sourceSha256": "170065ae924828f0d0d7b5367e175b7ba2560f01c79b6709e39ac322cc3d0832",
+      "previewSha256": "c958f07ba0996ed71429cff63c8217f95ead16217d4a4472d127098d906af329"
+    },
+    {
+      "id": "KNQ-0",
+      "name": "First budget",
+      "theme": "light",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-02-first-budget-light.json",
+      "preview": "previews/budget-02-first-budget-light.webp",
+      "sourceSha256": "ff34850753eb86c1851e736d36f55b0fef6e47d667d19bf288c15f1e8f00df83",
+      "previewSha256": "95e3cdb622a2f0caa6c22c3032a6ec425fb17524925ec55f70bf3ab0587e33e8"
+    },
+    {
+      "id": "KP0-0",
+      "name": "Set monthly total",
+      "theme": "light",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-03-set-monthly-total-light.json",
+      "preview": "previews/budget-03-set-monthly-total-light.webp",
+      "sourceSha256": "a2425861ef116d7cf2f2563f7a154f241ac2ab5bea24980914dc273689ccd999",
+      "previewSha256": "78858b8be5ef03f7dc89dda1c0c6cc59aa436489514eeeba20bbf0515e06ed6f"
+    },
+    {
+      "id": "KQF-0",
+      "name": "Split by category",
+      "theme": "light",
+      "width": 390,
+      "height": 894,
+      "source": "source/budget-04-split-by-category-light.json",
+      "preview": "previews/budget-04-split-by-category-light.webp",
+      "sourceSha256": "531d4e1a1133d65a955ac1d203545ecf3fad56bb8c1c4ea21c8ceb63a9fac5ed",
+      "previewSha256": "c4727d6e66de805970f3ca078471fa51ca55638c7b7a29b5bb175322752ab8ab"
+    },
+    {
+      "id": "KT2-0",
+      "name": "Change category share",
+      "theme": "light",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-05-change-category-share-light.json",
+      "preview": "previews/budget-05-change-category-share-light.webp",
+      "sourceSha256": "fbab03b830ef5c0c679ad8cbf4f412491c093f4624611c826ee8fc9220c5c800",
+      "previewSha256": "63a6fa8bdfda122a001492cbcc3aaa544813b3142a110dacc0a0f0b5778c5173"
+    },
+    {
+      "id": "KWL-0",
+      "name": "Add category",
+      "theme": "light",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-06-add-category-light.json",
+      "preview": "previews/budget-06-add-category-light.webp",
+      "sourceSha256": "d12553a7c0e598da51faf17b2e04e78283e58f283fa91c54e9b8edd92d9884a7",
+      "previewSha256": "5a681810ea688541f0d786a8b54d5c6a27c17fb5af7d7f3871db86fa7c9394b2"
+    },
+    {
+      "id": "L0D-0",
+      "name": "Over allocated",
+      "theme": "light",
+      "width": 390,
+      "height": 898,
+      "source": "source/budget-07-over-allocated-light.json",
+      "preview": "previews/budget-07-over-allocated-light.webp",
+      "sourceSha256": "811e9167deb0c42c3700f3690a2308ae93ec37d848edb6b5cc61d1491a7ad1cb",
+      "previewSha256": "0fa2b33492bf7a0d1cd1e843448d6dfde8dd7bc2160d133825111c8504ed610f"
+    },
+    {
+      "id": "L34-0",
+      "name": "Month-end confirmed",
+      "theme": "light",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-08-month-end-confirmed-light.json",
+      "preview": "previews/budget-08-month-end-confirmed-light.webp",
+      "sourceSha256": "aa009dbe3b4586d6a824e2e29897dc806510b1674d30eb5e531890dace529e9b",
+      "previewSha256": "2da914464b0b9a251a430530f67ad103bb59c579a67984cf38475159ecffeb7c"
+    },
+    {
+      "id": "L45-0",
+      "name": "Month-end shortage",
+      "theme": "light",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-09-month-end-shortage-light.json",
+      "preview": "previews/budget-09-month-end-shortage-light.webp",
+      "sourceSha256": "62190bd229b97752e8e4c0b8fb457a2ca3c08eb7dd2863993d02f9cae9288620",
+      "previewSha256": "64cebc97afb44e8db731f63f74e8f75956ea0baa69ee012b7dd3419969afae9e"
+    },
+    {
+      "id": "L5J-0",
+      "name": "Carry into next month",
+      "theme": "light",
+      "width": 390,
+      "height": 844,
+      "source": "source/budget-10-carry-into-next-month-light.json",
+      "preview": "previews/budget-10-carry-into-next-month-light.webp",
+      "sourceSha256": "51a7c5db0ad9b5d8a33c198134a6dbbacbac0d3972c7048b070a2e0734e32181",
+      "previewSha256": "dca8aa2ba1fdb98de5d5d31c1b9f7a42b4979736ca371cc9dc57fca31e3358ac"
+    }
+  ]
+}
