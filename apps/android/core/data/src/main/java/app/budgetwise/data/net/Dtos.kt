@@ -78,6 +78,10 @@ data class TransactionsRequest(val transactions: List<TransactionInput>)
 @Serializable
 data class SavedResponse(val saved: List<TransactionDto>)
 
+/**
+ * What a CREATE sends. The server takes only voice, manual and scan from the phone, so a row marked [Source.WEB] (an
+ * entry made on the website and changed here, kept as it was) goes up as manual instead of being refused for good.
+ */
 fun Transaction.toInput(): TransactionInput {
     require(amountKyat > 0) { "amountKyat must be positive, was $amountKyat" }
     return TransactionInput(
@@ -87,7 +91,7 @@ fun Transaction.toInput(): TransactionInput {
         category = category,
         description = description,
         date = date.toString(),
-        source = source.wire,
+        source = if (source == Source.WEB) Source.MANUAL.wire else source.wire,
         transcript = transcript,
         receiptId = receiptId,
         merchant = merchant,

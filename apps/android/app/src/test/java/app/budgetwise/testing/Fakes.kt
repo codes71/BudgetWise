@@ -3,6 +3,7 @@ package app.budgetwise.testing
 import app.budgetwise.AccountActions
 import app.budgetwise.BudgetSource
 import app.budgetwise.CategorySource
+import app.budgetwise.MonthPlanSource
 import app.budgetwise.NetworkStatus
 import app.budgetwise.OnDeviceSpeech
 import app.budgetwise.SyncControls
@@ -21,6 +22,8 @@ import app.budgetwise.data.auth.TokenStore
 import app.budgetwise.data.auth.UserInfo
 import app.budgetwise.data.model.Budget
 import app.budgetwise.data.model.DailySpend
+import app.budgetwise.data.model.EndCheck
+import app.budgetwise.data.model.MonthPlan
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
@@ -30,6 +33,7 @@ import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.LoginResult
 import app.budgetwise.data.repo.RegisterResult
 import app.budgetwise.data.repo.NewTransaction
+import app.budgetwise.data.repo.ReplaceResult
 import app.budgetwise.data.repo.VoiceParse
 import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
@@ -40,6 +44,7 @@ import app.budgetwise.voice.Recording
 import app.budgetwise.voice.RecordingEnd
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -123,9 +128,22 @@ class FakeSyncControls : SyncControls {
     override val queued = MutableStateFlow(false)
     override val unsyncedCount = MutableStateFlow(0)
     var syncNowCalls = 0
+    var syncAndWaitCalls = 0
+
+    /** When set, syncAndWait suspends here, so a test can look at the screen while the pull runs. */
+    var syncGate: CompletableDeferred<Unit>? = null
+
+    /** What a waited-for run does (a test can write the pulled rows here) and how it ends. */
+    var onSyncAndWait: suspend () -> SyncOutcome = { SyncOutcome.Success(pushed = 0, pulled = 0) }
 
     override fun syncNow() {
         syncNowCalls++
+    }
+
+    override suspend fun syncAndWait(): SyncOutcome {
+        syncAndWaitCalls++
+        syncGate?.await()
+        return onSyncAndWait()
     }
 
     fun start() {
@@ -226,12 +244,20 @@ class FakeTransactionStore(initial: List<Transaction> = emptyList()) : Transacti
     /** Each replace: the clientIds it removed and what it saved in their place. */
     val replaced = mutableListOf<Pair<List<String>, List<NewTransaction>>>()
 
-    override suspend fun replace(old: List<String>, inputs: List<NewTransaction>): List<String> {
+    /** As the repository: a change ([inputs]) of an entry that is gone writes nothing and says so. */
+    override suspend fun replace(old: List<String>, inputs: List<NewTransaction>): ReplaceResult {
         addFailure?.let { throw it }
+        if (inputs.isNotEmpty() && old.any { id -> rows.value.none { it.clientId == id } }) return ReplaceResult.Gone
         replaced += old to inputs
-        val ids = inputs.map { UUID.randomUUID().toString() }
+        val ids = inputs.map { it.clientId ?: UUID.randomUUID().toString() }
         rows.value = inputs.zip(ids) { input, id -> input.toPendingRow(id) } + rows.value.filterNot { it.clientId in old }
-        return ids
+        return ReplaceResult.Saved(ids)
+    }
+
+    /** As the repository: replaced (and recorded in [replaced]) only while the receipt's entries are [old]. */
+    override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
+        if (rows.value.filter { it.receiptId == receiptId }.map { it.clientId }.toSet() != old) return null
+        return (replace(old.toList(), inputs) as? ReplaceResult.Saved)?.clientIds
     }
 
     private fun NewTransaction.toPendingRow(id: String) = Transaction(
@@ -256,6 +282,63 @@ class FakeBudgetSource(initial: List<Budget> = emptyList()) : BudgetSource {
         refreshes++
         gate?.await()
         return result
+    }
+}
+
+/**
+ * Month plans in memory. [plans] is the cache; a save or an end check answers as [onSave] / [onEndCheck] say (by
+ * default the server takes it) and, like the repository, writes the cache only on Ok. [log] records each call in
+ * order.
+ */
+class FakeMonthPlanSource(initial: List<MonthPlan> = emptyList()) : MonthPlanSource {
+    val plans = MutableStateFlow(initial)
+    val refreshes = mutableListOf<Pair<YearMonth, YearMonth>>()
+    var refreshResult: ApiResult<Unit> = ApiResult.Ok(Unit)
+    val saved = mutableListOf<MonthPlan>()
+    val endChecks = mutableListOf<Pair<YearMonth, Long>>()
+    val log = mutableListOf<String>()
+
+    /** When set, refresh suspends here. */
+    var refreshGate: CompletableDeferred<Unit>? = null
+
+    /** When set, save and saveEndCheck suspend here, so a test can look at the saving state. */
+    var saveGate: CompletableDeferred<Unit>? = null
+
+    var onSave: (MonthPlan) -> ApiResult<MonthPlan> = { ApiResult.Ok(it) }
+
+    var onEndCheck: (YearMonth, Long) -> ApiResult<MonthPlan> = { month, onHand ->
+        plans.value.firstOrNull { it.month == month }?.let { ApiResult.Ok(it.copy(endCheck = EndCheck(onHand, Instant.EPOCH))) }
+            ?: ApiResult.Failure("not_found", "No plan", retryable = false)
+    }
+
+    override fun observe(month: YearMonth): Flow<MonthPlan?> = plans.map { all -> all.firstOrNull { it.month == month } }
+
+    override fun observeRange(from: YearMonth, to: YearMonth): Flow<List<MonthPlan>> =
+        plans.map { all -> all.filter { it.month in from..to }.sortedBy { it.month } }
+
+    override suspend fun refresh(from: YearMonth, to: YearMonth): ApiResult<Unit> {
+        refreshes += from to to
+        log += "refresh $from $to"
+        refreshGate?.await()
+        return refreshResult
+    }
+
+    override suspend fun save(plan: MonthPlan): ApiResult<MonthPlan> {
+        saved += plan
+        log += "save ${plan.month}"
+        saveGate?.await()
+        return onSave(plan).also { if (it is ApiResult.Ok) cache(it.v) }
+    }
+
+    override suspend fun saveEndCheck(month: YearMonth, onHandKyat: Long): ApiResult<MonthPlan> {
+        endChecks += month to onHandKyat
+        log += "endCheck $month $onHandKyat"
+        saveGate?.await()
+        return onEndCheck(month, onHandKyat).also { if (it is ApiResult.Ok) cache(it.v) }
+    }
+
+    private fun cache(plan: MonthPlan) {
+        plans.value = plans.value.filterNot { it.month == plan.month } + plan
     }
 }
 

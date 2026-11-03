@@ -17,6 +17,7 @@ import app.budgetwise.data.auth.SessionState
 import app.budgetwise.data.auth.StoredSession
 import app.budgetwise.data.sync.SyncScheduler
 import app.budgetwise.data.sync.SyncWorker
+import app.budgetwise.reminders.MonthEndScheduler
 import app.budgetwise.testing.FakeTokenStore
 import app.budgetwise.testing.TestUser
 import java.time.Clock
@@ -78,7 +79,7 @@ class AppStartupTest {
 
     private fun startup(store: FakeTokenStore): Pair<AppStartup, SessionManager> {
         val session = SessionManager(store, Clock.systemUTC())
-        return AppStartup(session, { session.load() }, SyncScheduler(context), scope) to session
+        return AppStartup(session, { session.load() }, SyncScheduler(context), MonthEndScheduler(context, Clock.systemDefaultZone()), scope) to session
     }
 
     private fun stored(expiresIn: Duration) = StoredSession("tok", Instant.now().plus(expiresIn), TestUser)
@@ -99,7 +100,7 @@ class AppStartupTest {
     }
 
     @Test
-    fun expiredOrSignedOutLaunchSchedulesNothing() = runBlocking {
+    fun expiredOrSignedOutLaunchSchedulesNoSync() = runBlocking {
         for (store in listOf(FakeTokenStore(stored(Duration.ofSeconds(-1))), FakeTokenStore(null))) {
             val (startup, session) = startup(store)
             startup.start()
@@ -109,6 +110,24 @@ class AppStartupTest {
 
         assertTrue(wm.getWorkInfosForUniqueWork(SyncScheduler.PERIODIC_WORK).get().isEmpty())
         assertTrue(wm.getWorkInfosForUniqueWork(SyncScheduler.UNIQUE_WORK).get().isEmpty())
+    }
+
+    @Test
+    fun everyLaunchKeepsOneDailyMonthEndReminder() = runBlocking {
+        // Signed out too: the run posts nothing then, and an account signed in later needs no launch of its own.
+        val (startup, _) = startup(FakeTokenStore(null))
+        startup.start()
+        startup.onUiLaunch()
+        val first = wm.getWorkInfosForUniqueWork(MonthEndScheduler.DAILY_WORK).get().single()
+
+        startup.onUiLaunch()
+
+        // KEEP: a second launch leaves the first request, and its 9:00, in place. One-time: each run schedules the next.
+        val now = wm.getWorkInfosForUniqueWork(MonthEndScheduler.DAILY_WORK).get().single()
+        assertEquals(first.id, now.id)
+        assertEquals(WorkInfo.State.ENQUEUED, now.state)
+        assertNull(now.periodicityInfo)
+        assertTrue(now.initialDelayMillis in 1..Duration.ofDays(1).toMillis())
     }
 
     @Test

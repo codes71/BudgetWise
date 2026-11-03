@@ -6,6 +6,29 @@ import org.junit.Test
 
 class MoneyFormatTest {
     @Test
+    fun aPastedBankAmountKeepsItsWholeKyat() {
+        assertEquals("5000", typedKyatDigits("5,000.00 Ks", ""))
+        assertEquals("15000", typedKyatDigits("-15,000.00 Ks", ""))
+        assertEquals("3000", typedKyatDigits("Ks. 3,000", ""))
+        assertEquals("3000", typedKyatDigits("3,000 Ks.", ""))
+        assertEquals("15000", typedKyatDigits("၁၅,၀၀၀.၀၀", ""))
+        assertEquals("1200", typedKyatDigits("1200.0", "12"))
+    }
+
+    @Test
+    fun aFractionIsRefusedAndSaysSo() {
+        assertEquals(TypedKyat.Fraction, readTypedKyat("150.50", ""))
+        assertEquals(TypedKyat.Fraction, readTypedKyat("150.5", "150"))
+        // A dot grouping thousands would read as 5.
+        assertEquals(TypedKyat.Fraction, readTypedKyat("5.000", ""))
+        // A dot typed into "5000" after "50" would otherwise cut it to 50.
+        assertEquals(TypedKyat.Fraction, readTypedKyat("50.00", "5000"))
+        assertEquals(TypedKyat.Fraction, readTypedKyat(".", ""))
+        assertEquals(TypedKyat.TooLarge, readTypedKyat("9007199254740992", ""))
+        assertEquals(TypedKyat.Digits("9007199254740991"), readTypedKyat("9,007,199,254,740,991", ""))
+    }
+
+    @Test
     fun formatsGroupingAndSuffix() {
         assertEquals("5,000 Ks", formatKyat(5000))
         assertEquals("1,234,567 Ks", formatKyat(1234567))

@@ -51,8 +51,9 @@ sealed interface DayLine {
     }
 
     /**
-     * A receipt's entries (expenses, largest first) as one line. [scannedTwice]: an earlier receipt that day has the
-     * same shop and total, so this one may be the same paper scanned again.
+     * A receipt's entries (expenses, largest first) as one line. [scannedTwice]: another receipt that day has the same
+     * shop and total, so one of the two may be the same paper scanned again. Both are marked: which of them came first
+     * is not known (a change gives an entry a new time), and once one is deleted the other is plain again.
      */
     data class Receipt(val receiptId: String, val entries: List<Transaction>, val scannedTwice: Boolean = false) : DayLine {
         override val key: String get() = receiptId
@@ -112,15 +113,22 @@ sealed interface TransactionsEvent {
     data object WaitingForNetwork : TransactionsEvent
 }
 
-/** Rows grouped by day, newest day first; within a day the newest change first. */
-internal fun groupByDay(rows: List<Transaction>): List<DaySection> =
-    rows.sortedWith(compareByDescending<Transaction> { it.date }.thenByDescending { it.updatedAt })
-        .groupBy { it.date }
+/**
+ * Rows grouped by day, newest day first; within a day the newest change first. A receipt's entries all go on the day of
+ * its newest one, so a receipt is always one line on one day: entries saved before a receipt kept one date for all of
+ * them may carry two dates, and two lines with one receipt's key would break the list.
+ */
+internal fun groupByDay(rows: List<Transaction>): List<DaySection> {
+    val receiptDays = rows.filter { it.receiptId != null }.groupBy { it.receiptId }.mapValues { (_, entries) -> entries.maxOf { it.date } }
+    fun day(row: Transaction): LocalDate = receiptDays[row.receiptId] ?: row.date
+    return rows.sortedWith(compareByDescending<Transaction> { day(it) }.thenByDescending { it.updatedAt })
+        .groupBy { day(it) }
         .map { (date, dayRows) -> DaySection(date, dayRows) }
+}
 
 /**
- * A day's rows (newest first) as the list shows them: a receipt's entries become one line where its newest entry is. A
- * receipt with the shop (in any case) and the total of an earlier one that day is marked as maybe scanned twice.
+ * A day's rows (newest first) as the list shows them: a receipt's entries become one line where its newest entry is.
+ * Receipts that day with the same shop (in any case) and total are each marked as maybe scanned twice.
  */
 internal fun dayLines(rows: List<Transaction>): List<DayLine> {
     val receipts = rows.groupBy { it.receiptId }
@@ -130,12 +138,11 @@ internal fun dayLines(rows: List<Transaction>): List<DayLine> {
         // The receipt's first row is its newest entry: the line goes there, and its other rows add nothing.
         if (entries.first() === row) DayLine.Receipt(id, entries.sortedByDescending { it.amountKyat }) else null
     }
-    // Oldest first, so the first of two alike stays plain and the later one is marked.
-    val earlier = mutableSetOf<Pair<String, Long>>()
-    return lines.asReversed().map { line ->
-        val shop = (line as? DayLine.Receipt)?.merchant?.trim()?.lowercase(Locale.ROOT)
-        if (line !is DayLine.Receipt || shop == null || earlier.add(shop to line.amountKyat)) line else line.copy(scannedTwice = true)
-    }.asReversed()
+    fun DayLine.Receipt.alike(): Pair<String, Long>? = merchant?.trim()?.lowercase(Locale.ROOT)?.let { it to amountKyat }
+    val counts = lines.filterIsInstance<DayLine.Receipt>().mapNotNull { it.alike() }.groupingBy { it }.eachCount()
+    return lines.map { line ->
+        if (line is DayLine.Receipt && (counts[line.alike()] ?: 0) > 1) line.copy(scannedTwice = true) else line
+    }
 }
 
 internal fun monthSummary(rows: List<Transaction>, month: YearMonth): MonthSummary {
@@ -209,10 +216,16 @@ class TransactionsViewModel @Inject constructor(
      * Swiped away: hide the line (an entry, or every entry of a receipt) and offer Undo. A line still waiting for its
      * Undo window is deleted now.
      */
-    fun delete(line: DayLine) {
+    fun delete(line: DayLine) = deleteEntries(line.key, line.clientIds)
+
+    /**
+     * [delete] for the entries [clientIds] of the line [key]: a swipe, or Delete entry in the form (and Delete this
+     * receipt on the receipt's screen), which hands its entries back here for the same notice and Undo.
+     */
+    fun deleteEntries(key: String, clientIds: List<String>) {
         val previous = local.value.pendingDelete
-        local.update { it.copy(hidden = it.hidden + line.clientIds, pendingDelete = PendingDelete(line.key, line.clientIds)) }
-        if (previous != null && previous.key != line.key) previous.clientIds.forEach(::send)
+        local.update { it.copy(hidden = it.hidden + clientIds, pendingDelete = PendingDelete(key, clientIds)) }
+        if (previous != null && previous.key != key) previous.clientIds.forEach(::send)
     }
 
     /** Undo: the line [key] comes back, all its entries. */

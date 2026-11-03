@@ -15,11 +15,14 @@ import app.budgetwise.data.db.toDomain
 import app.budgetwise.data.db.toEntity
 import app.budgetwise.data.model.Budget
 import app.budgetwise.data.model.DailySpend
+import app.budgetwise.data.model.EndCheck
+import app.budgetwise.data.model.MonthPlan
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.nlu.TxType
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -160,6 +163,34 @@ class DaoTest {
         assertEquals(listOf("theirs-pending"), outbox.head("u2", 10).map { it.clientId })
         assertEquals(listOf("u2"), outbox.owners())
         assertEquals(1, outbox.countFor("u2"))
+    }
+
+    @Test
+    fun monthPlans_keepShareOrderAndTheEndCheck_andReplaceOnlyTheOwnersRange() = runTest {
+        val plans = db.monthPlanDao()
+        fun plan(month: String, newMoney: Long = 1000) = MonthPlan(YearMonth.parse(month), newMoney, 0, emptyList())
+        val checked = MonthPlan(
+            YearMonth.parse("2026-10"), 2_000_000, 280_000, listOf(Budget("Transport", 20_000), Budget("Groceries", 300_000)),
+            EndCheck(280_000, Instant.parse("2026-11-01T02:30:00Z")),
+        )
+        plans.upsert(checked.toEntity("u1"))
+        plans.upsert(plan("2026-09").toEntity("u1"))
+        plans.upsert(plan("2026-12").toEntity("u1"))
+        plans.upsert(plan("2026-10", newMoney = 5).toEntity("u2"))
+
+        assertEquals(checked, plans.observe("u1", checked.month).first()?.toDomain())
+        assertEquals(
+            listOf("2026-09", "2026-10"),
+            plans.observeRange("u1", YearMonth.parse("2026-09"), YearMonth.parse("2026-11")).first().map { it.month.toString() },
+        )
+
+        plans.replaceRange("u1", YearMonth.parse("2026-09"), YearMonth.parse("2026-11"), listOf(plan("2026-11").toEntity("u1")))
+
+        assertEquals(
+            listOf("2026-11", "2026-12"),
+            plans.observeRange("u1", YearMonth.parse("2026-01"), YearMonth.parse("2027-12")).first().map { it.month.toString() },
+        )
+        assertEquals("another account's month is untouched", 5L, plans.observe("u2", checked.month).first()?.newMoneyKyat)
     }
 
     @Test

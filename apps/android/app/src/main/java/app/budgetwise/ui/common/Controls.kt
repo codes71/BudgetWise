@@ -98,6 +98,7 @@ fun Spinner(
 /**
  * The primary action: sage with forest text. Disabled it turns grey; [busy] keeps it disabled (TalkBack says it cannot
  * be pressed again) in the sage container with a spinner, so it reads as working rather than unavailable.
+ * [trailingIcon] follows the text (the arrow of a Next that goes on to another step).
  */
 @Composable
 fun PrimaryButton(
@@ -108,6 +109,7 @@ fun PrimaryButton(
     busy: Boolean = false,
     height: Dp = 56.dp,
     icon: ImageVector? = null,
+    trailingIcon: ImageVector? = null,
 ) {
     val colors = BudgetWiseTheme.colors
     Button(
@@ -134,6 +136,10 @@ fun PrimaryButton(
             }
         }
         Text(text, style = BudgetWiseTheme.type.size17.semibold)
+        if (trailingIcon != null && !busy) {
+            Spacer(Modifier.width(8.dp))
+            Icon(trailingIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
     }
 }
 

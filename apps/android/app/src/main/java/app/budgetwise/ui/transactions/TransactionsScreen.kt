@@ -155,7 +155,7 @@ fun TransactionsRoute(
     var warned by rememberSaveable { mutableStateOf(false) }
     val signIn by rememberUpdatedState(onSignIn)
     val soon = sessionNotice as? SessionNotice.ExpiringSoon
-    val soonTitle = soon?.let { pluralStringResource(R.plurals.session_ending, it.daysLeft, it.daysLeft) }
+    val soonTitle = soon?.let { pluralStringResource(R.plurals.session_ending, it.daysLeft, groupDigits(it.daysLeft.toLong(), state.myanmarDigits)) }
     val soonDetail = stringResource(R.string.session_ending_detail)
     val signInLabel = stringResource(R.string.session_sign_in)
     LaunchedEffect(soonTitle) {
@@ -197,7 +197,7 @@ fun TransactionsRoute(
     // "Added 3 entries" after a scan, with Undo. The shell hands it over from the scan screen; it is forgotten once the
     // notice ends or the screen goes (another tab, a rotation), so a later visit never offers Undo on old entries.
     val addedCount = scanAdded?.clientIds?.size ?: 0
-    val addedTitle = pluralStringResource(R.plurals.scan_added, addedCount, addedCount)
+    val addedTitle = pluralStringResource(R.plurals.scan_added, addedCount, groupDigits(addedCount.toLong(), state.myanmarDigits))
     val addedFrom = scanAdded?.merchant?.let { stringResource(R.string.scan_added_from, it) } ?: stringResource(R.string.scan_added_from_photo)
     val addedShown by rememberUpdatedState(onScanAddedShown)
     LaunchedEffect(scanAdded) {
@@ -563,7 +563,7 @@ private fun RowScope.ReceiptContent(line: DayLine.Receipt, myanmarDigits: Boolea
                 Triple(Lucide.CircleAlert, colors.amber, stringResource(R.string.receipt_scanned_twice))
             } else {
                 val count = line.entries.size
-                Triple(Lucide.ScanLine, colors.accent, pluralStringResource(R.plurals.receipt_row_entries, count, count))
+                Triple(Lucide.ScanLine, colors.accent, pluralStringResource(R.plurals.receipt_row_entries, count, groupDigits(count.toLong(), myanmarDigits)))
             }
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(13.dp))
             Text(text, style = type.size13, color = if (line.scannedTwice) colors.amber else colors.muted, maxLines = 1)

@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
+  endCheckInputSchema,
+  monthCount,
+  monthPlanInputSchema,
+  monthRangeSchema,
+  monthSchema,
   loginSchema,
   transactionInputSchema,
   transactionBatchSchema,
@@ -133,4 +138,57 @@ test("login, voiceParseRequest, updatedSince", () => {
   expect(voiceParseRequestSchema.safeParse({ transcripts: Array(4).fill("hi") }).success).toBe(false);
   expect(updatedSinceSchema.safeParse("2026-10-19T00:00:00.000Z").success).toBe(true);
   expect(updatedSinceSchema.safeParse("yesterday").success).toBe(false);
+});
+
+describe("month plans", () => {
+  const plan = { newMoney: 2000000, carriedOver: 0, shares: [{ category: "Food", limit: 500000 }] };
+
+  test("monthSchema takes YYYY-MM only", () => {
+    for (const ok of ["2026-11", "2026-01", "2026-12", "1999-06"]) expect(monthSchema.safeParse(ok).success).toBe(true);
+    for (const bad of ["2026-13", "2026-00", "2026-1", "26-11", "2026-11-01", " 2026-11", ""]) {
+      expect(monthSchema.safeParse(bad).success).toBe(false);
+    }
+  });
+
+  test("monthCount counts both ends", () => {
+    expect(monthCount("2026-11", "2026-11")).toBe(1);
+    expect(monthCount("2026-01", "2026-12")).toBe(12);
+    expect(monthCount("2025-11", "2026-02")).toBe(4);
+  });
+
+  test("monthRangeSchema: from <= to, at most 24 months", () => {
+    expect(monthRangeSchema.safeParse({ from: "2025-01", to: "2026-12" }).success).toBe(true);
+    expect(monthRangeSchema.safeParse({ from: "2025-01", to: "2027-01" }).success).toBe(false);
+    expect(monthRangeSchema.safeParse({ from: "2026-03", to: "2026-02" }).success).toBe(false);
+    expect(monthRangeSchema.safeParse({ from: null, to: "2026-02" }).success).toBe(false);
+  });
+
+  test("a plan needs a total above 0 and whole amounts", () => {
+    expect(monthPlanInputSchema.safeParse(plan).success).toBe(true);
+    expect(monthPlanInputSchema.safeParse({ ...plan, newMoney: 0, carriedOver: 5, shares: [] }).success).toBe(true);
+    expect(monthPlanInputSchema.safeParse({ ...plan, newMoney: 0, carriedOver: 0 }).success).toBe(false);
+    expect(monthPlanInputSchema.safeParse({ ...plan, newMoney: 10.5 }).success).toBe(false);
+    expect(monthPlanInputSchema.safeParse({ ...plan, carriedOver: -1 }).success).toBe(false);
+    expect(monthPlanInputSchema.safeParse({ ...plan, newMoney: Number.MAX_SAFE_INTEGER, carriedOver: 1 }).success).toBe(false);
+  });
+
+  test("shares: limit above 0, each category once, at most 50", () => {
+    const share = (category: string, limit = 1) => ({ category, limit });
+    expect(monthPlanInputSchema.safeParse({ ...plan, shares: [share("Food", 0)] }).success).toBe(false);
+    expect(monthPlanInputSchema.safeParse({ ...plan, shares: [share("Food"), share("Food")] }).success).toBe(false);
+    expect(monthPlanInputSchema.safeParse({ ...plan, shares: [share("")] }).success).toBe(false);
+    const fifty = Array.from({ length: 50 }, (_, i) => share(`C${i}`));
+    expect(monthPlanInputSchema.safeParse({ ...plan, shares: fifty }).success).toBe(true);
+    expect(monthPlanInputSchema.safeParse({ ...plan, shares: [...fifty, share("C50")] }).success).toBe(false);
+  });
+
+  test("the split is not checked here: it has its own error", () => {
+    expect(monthPlanInputSchema.safeParse({ ...plan, shares: [{ category: "Food", limit: 9000000 }] }).success).toBe(true);
+  });
+
+  test("endCheckInputSchema takes 0 and whole kyat", () => {
+    expect(endCheckInputSchema.safeParse({ onHand: 0 }).success).toBe(true);
+    expect(endCheckInputSchema.safeParse({ onHand: 280000 }).success).toBe(true);
+    for (const onHand of [-1, 1.5, "1", undefined]) expect(endCheckInputSchema.safeParse({ onHand }).success).toBe(false);
+  });
 });

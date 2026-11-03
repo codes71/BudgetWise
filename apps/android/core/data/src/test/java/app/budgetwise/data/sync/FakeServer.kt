@@ -15,8 +15,9 @@ import okhttp3.mockwebserver.SocketPolicy
 
 /**
  * In-memory stand-in for one account on the WS1 mobile API, on MockWebServer. Like the real `saveBatch`, POST is
- * idempotent on clientId (an existing row is returned unchanged) and a batch with any invalid item is refused whole.
- * A request without this account's [token] gets 401.
+ * idempotent on clientId (an existing row is returned unchanged) and a batch with any invalid item is refused whole:
+ * like the real schema, a source other than voice, manual or scan, or a category longer than 60 characters, is
+ * invalid. A request without this account's [token] gets 401.
  */
 class FakeServer(
     val token: String = "test-token-not-a-secret",
@@ -43,6 +44,9 @@ class FakeServer(
 
     /** POSTs answer this status with an HTML page and no error envelope (captive portal, proxy, firewall). */
     var htmlStatusOnPost: Int? = null
+
+    /** DELETEs answer this status with an HTML page and no error envelope (a hosting page for a missing deploy). */
+    var htmlStatusOnDelete: Int? = null
 
     /** Runs while a POST is in flight, after the server stored the rows (a user write racing the push). */
     var duringPost: (() -> Unit)? = null
@@ -99,7 +103,7 @@ class FakeServer(
         htmlStatusOnPost?.let {
             return MockResponse().setResponseCode(it).setHeader("Content-Type", "text/html").setBody("<html>Blocked</html>")
         }
-        if (ids.any { it in invalidClientIds }) {
+        if (ids.any { it in invalidClientIds } || body.transactions.any { !it.isValid() }) {
             return error(invalidStatus, if (invalidStatus == 400) "invalid_json" else "validation_failed", "Invalid request")
         }
         val saved = body.transactions.map { input -> rows.getOrPut(input.clientId) { input.toServerRow() } }
@@ -121,11 +125,17 @@ class FakeServer(
 
     private fun delete(id: String): MockResponse {
         deletes += id
+        htmlStatusOnDelete?.let {
+            return MockResponse().setResponseCode(it).setHeader("Content-Type", "text/html").setBody("<html>Not found</html>")
+        }
         val key = rows.entries.firstOrNull { it.value.id == id }?.key
             ?: return error(404, "not_found", "Transaction not found")
         rows.remove(key)
         return MockResponse().setResponseCode(204)
     }
+
+    /** The parts of the real zod schema the phone could get wrong: the source enum and the category's length. */
+    private fun TransactionInput.isValid() = source in setOf("voice", "manual", "scan") && category.length in 1..60
 
     private fun TransactionInput.toServerRow(): TransactionDto {
         val at = nextStamp()

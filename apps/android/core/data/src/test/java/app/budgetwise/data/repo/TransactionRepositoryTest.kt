@@ -5,6 +5,7 @@ import app.budgetwise.data.model.EntryItem
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.db.OutboxOp
+import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.text.BurmeseTextNormalizer
 import app.budgetwise.nlu.TxType
 import java.time.LocalDate
@@ -13,6 +14,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -64,10 +68,14 @@ class TransactionRepositoryTest {
         assertEquals(listOf(id), repo.observeReceipt(receipt).first().map { it.clientId })
     }
 
+    private fun saved(result: ReplaceResult): List<String> = (result as ReplaceResult.Saved).clientIds
+
+    private suspend fun ops() = h.sync.pendingOps().map { it.op to it.clientId }
+
     @Test
     fun replaceDeletesTheOldEntryAndSavesTheNewOneTogether() = runBlocking {
         val old = repo.addAll(listOf(input(600))).single()
-        val new = repo.replace(listOf(old), listOf(input(700))).single()
+        val new = saved(repo.replace(listOf(old), listOf(input(700)))).single()
 
         val rows = repo.observe().first()
         assertEquals(listOf(new), rows.map { it.clientId })
@@ -75,6 +83,219 @@ class TransactionRepositoryTest {
         // Never synced, the old row and its CREATE are simply gone: one CREATE is left, for the new row.
         assertEquals(listOf(OutboxOp.CREATE), h.sync.pendingOps().map { it.op })
         assertEquals(null, repo.get(old))
+    }
+
+    @Test
+    fun aReceiptIsReplacedOnlyWhileItsEntriesAreTheOnesTheEditStartedFrom() = runBlocking {
+        val receipt = UUID.randomUUID().toString()
+        fun line(amount: Long) = input(amount, Source.SCAN).copy(receiptId = receipt, merchant = "Ocean")
+        val (groceries, other) = repo.addAll(listOf(line(11200), line(12000)))
+        // A sync brings another phone's change to the receipt: Other moved to Household, as a new entry.
+        val household = saved(repo.replace(listOf(other), listOf(line(12000).copy(category = "Household")))).single()
+
+        assertEquals(null, repo.replaceReceipt(receipt, setOf(groceries, other), listOf(line(10000))))
+        assertEquals("nothing is written", setOf(groceries, household), repo.observeReceipt(receipt).first().map { it.clientId }.toSet())
+
+        val saved = repo.replaceReceipt(receipt, setOf(groceries, household), listOf(line(10000))).orEmpty()
+        assertEquals(saved, repo.observeReceipt(receipt).first().map { it.clientId })
+    }
+
+    @Test
+    fun aChangedReceiptGoesUpBeforeItsEntriesAreDeleted() = runBlocking {
+        val receipt = UUID.randomUUID().toString()
+        fun line(amount: Long) = input(amount, Source.SCAN).copy(receiptId = receipt, merchant = "Ocean")
+        h.sync.seedSynced("groceries")
+        h.sync.tx.upsert(h.sync.tx.byClientId("groceries")!!.copy(receiptId = receipt, merchant = "Ocean"))
+
+        val changed = repo.replaceReceipt(receipt, setOf("groceries"), listOf(line(10000))).orEmpty().single()
+
+        // As any change: the new entry first, the original's DELETE behind it, in one edit.
+        assertEquals(listOf(OutboxOp.CREATE to changed, OutboxOp.DELETE to "groceries"), ops())
+        h.sync.server.invalidClientIds = setOf(changed)
+        h.sync.engine.syncOnce()
+        assertTrue("refused, so the original stays on the server", "groceries" in h.sync.server.rows)
+        assertNotNull(repo.get("groceries"))
+    }
+
+    @Test
+    fun changingAWebEntryKeepsItOnTheServerWithTheChange() = runBlocking {
+        val web = h.sync.seedSynced("web-1") // added on the website: source "web"
+        assertEquals(Source.WEB, repo.get(web.clientId)!!.source)
+
+        val changed = saved(repo.replace(listOf(web.clientId), listOf(input(4200, Source.WEB)))).single()
+
+        // The change goes up first; the web copy is deleted only once the server took it.
+        assertEquals(listOf(OutboxOp.CREATE to changed, OutboxOp.DELETE to web.clientId), ops())
+        assertTrue(h.sync.engine.syncOnce(fullPull = true) is SyncOutcome.Success)
+        val row = h.sync.server.rows.values.single()
+        assertEquals(changed, row.clientId)
+        assertEquals("manual", row.source)
+        assertEquals(4200.0, row.amount, 0.0)
+        assertEquals(listOf(changed), repo.observe().first().map { it.clientId })
+        assertTrue(h.sync.pendingOps().isEmpty())
+    }
+
+    @Test
+    fun aChangeTheServerRefusesLeavesTheOriginalOnTheServerAndInTheList() = runBlocking {
+        h.sync.seedSynced("orig")
+        val changed = saved(repo.replace(listOf("orig"), listOf(input(4200)))).single()
+        h.sync.server.invalidClientIds = setOf(changed)
+
+        val outcome = h.sync.engine.syncOnce()
+
+        assertEquals(listOf(changed), (outcome as SyncOutcome.PermanentFailure).clientIds)
+        assertTrue("orig" in h.sync.server.rows)
+        assertTrue(h.sync.server.deletes.isEmpty())
+        val back = h.sync.tx.byClientId("orig")!!
+        assertFalse(back.deleted)
+        assertEquals(SyncState.SYNCED, back.syncState)
+        assertEquals(SyncState.FAILED, h.sync.tx.byClientId(changed)!!.syncState)
+        assertTrue(h.sync.pendingOps().isEmpty())
+        // The server still lists it, so a full pull keeps it.
+        h.sync.engine.syncOnce(fullPull = true)
+        assertNotNull(repo.get("orig"))
+    }
+
+    @Test
+    fun anEntryChangedTwiceBeforeASyncIsDeletedOnlyAfterTheLastChange() = runBlocking {
+        h.sync.seedSynced("orig")
+        val first = saved(repo.replace(listOf("orig"), listOf(input(4200)))).single()
+        val second = saved(repo.replace(listOf(first), listOf(input(4300)))).single()
+
+        // The first change never left the phone, so it is simply gone; the original's DELETE now waits on the second.
+        assertEquals(listOf(OutboxOp.CREATE to second, OutboxOp.DELETE to "orig"), ops())
+        h.sync.server.invalidClientIds = setOf(second)
+        h.sync.engine.syncOnce()
+
+        assertEquals(setOf("orig"), h.sync.server.rows.keys)
+        assertNotNull(repo.get("orig"))
+    }
+
+    @Test
+    fun aChangeUnderAHostingPage404KeepsTheOldEntryOutOfTheList() = runBlocking {
+        h.sync.seedSynced("orig")
+        val changed = saved(repo.replace(listOf("orig"), listOf(input(4200)))).single()
+        h.sync.server.htmlStatusOnDelete = 404
+
+        assertEquals(SyncOutcome.RetryLater, h.sync.engine.syncOnce())
+        assertEquals(setOf("orig", changed), h.sync.server.rows.keys)
+        // A full pull still lists the original, which stays deleted here: the amount never counts twice.
+        h.sync.engine.syncOnce(fullPull = true)
+        assertEquals(listOf(changed), repo.observe().first().map { it.clientId })
+
+        h.sync.server.htmlStatusOnDelete = null
+        h.sync.engine.syncOnce(fullPull = true)
+        assertEquals(setOf(changed), h.sync.server.rows.keys)
+        assertEquals(listOf(changed), repo.observe().first().map { it.clientId })
+        assertTrue(h.sync.pendingOps().isEmpty())
+    }
+
+    @Test
+    fun aChangedKPayEntryKeepsItsIdSoScanningItAgainFindsIt() = runBlocking {
+        val kpay = "8757c8d9-1367-4ee0-b09b-80b464aba7a0"
+        val payment = input(150000, Source.SCAN).copy(clientId = kpay)
+        repo.addAll(listOf(payment))
+        h.sync.engine.syncOnce()
+        val serverId = h.sync.tx.byClientId(kpay)!!.serverId
+
+        assertEquals(listOf(kpay), saved(repo.replace(listOf(kpay), listOf(payment.copy(category = "Transport")))))
+
+        // Rewritten in place: deleted on the server first, then created again under the same id.
+        assertEquals(listOf(OutboxOp.DELETE to kpay, OutboxOp.CREATE to kpay), ops())
+        assertEquals(serverId, h.sync.pendingOps().first().serverId)
+        assertEquals("Transport", repo.get(kpay)!!.category)
+        // The same history scanned again: the payment is saved already, before the sync and after it.
+        assertTrue(repo.addAll(listOf(payment)).isEmpty())
+        assertTrue(h.sync.engine.syncOnce() is SyncOutcome.Success)
+        assertEquals(listOf(serverId), h.sync.server.deletes)
+        assertEquals("Transport", h.sync.server.rows.getValue(kpay).category)
+        assertTrue(repo.addAll(listOf(payment)).isEmpty())
+        assertEquals(1, h.sync.server.rows.size)
+        assertEquals(listOf(kpay), repo.observe().first().map { it.clientId })
+    }
+
+    @Test
+    fun aKPayEntryChangedTwiceOrDeletedBeforeASyncIsStillDeletedOnTheServer() = runBlocking {
+        val kpay = "8757c8d9-1367-4ee0-b09b-80b464aba7a0"
+        val payment = input(150000, Source.SCAN).copy(clientId = kpay)
+        repo.addAll(listOf(payment))
+        h.sync.engine.syncOnce()
+        val serverId = h.sync.tx.byClientId(kpay)!!.serverId
+
+        repo.replace(listOf(kpay), listOf(payment.copy(category = "Transport")))
+        repo.replace(listOf(kpay), listOf(payment.copy(category = "Health")))
+
+        // The second change replaces the unsent first one; the DELETE of what the server has stays first.
+        assertEquals(listOf(OutboxOp.DELETE to kpay, OutboxOp.CREATE to kpay), ops())
+        assertEquals(serverId, h.sync.pendingOps().first().serverId)
+        h.sync.engine.syncOnce(fullPull = true)
+        assertEquals("Health", h.sync.server.rows.getValue(kpay).category)
+        assertEquals(1, h.sync.server.rows.size)
+
+        // Changed, then swiped away before the sync: the server's copy is deleted too, not pulled back later.
+        repo.replace(listOf(kpay), listOf(payment.copy(category = "Transport")))
+        repo.delete(kpay)
+        assertEquals(listOf(OutboxOp.DELETE to kpay), ops())
+        h.sync.engine.syncOnce(fullPull = true)
+        assertTrue(h.sync.server.rows.isEmpty())
+        assertTrue(repo.observe().first().isEmpty())
+    }
+
+    @Test
+    fun aKPayEntryWhoseCreateWentOutWithoutAReplyIsChangedUnderANewId() = runBlocking {
+        val kpay = "8757c8d9-1367-4ee0-b09b-80b464aba7a0"
+        val payment = input(150000, Source.SCAN).copy(clientId = kpay)
+        repo.addAll(listOf(payment))
+        h.sync.server.dropResponseOnPost = 1
+        assertEquals(SyncOutcome.RetryLater, h.sync.engine.syncOnce()) // the server has it, the phone does not know
+
+        val changed = saved(repo.replace(listOf(kpay), listOf(payment.copy(category = "Transport")))).single()
+
+        // In place, the resent CREATE would get the stored payment back over the change.
+        assertTrue(changed != kpay)
+        h.sync.server.dropResponseOnPost = null
+        h.sync.engine.syncOnce()
+        assertEquals(setOf(changed), h.sync.server.rows.keys)
+        assertEquals("Transport", h.sync.server.rows.getValue(changed).category)
+    }
+
+    @Test
+    fun changingAnEntryThatIsGoneWritesNothing() = runBlocking {
+        h.sync.seedSynced("gone")
+        h.sync.server.rows.remove("gone") // deleted on the web
+        h.sync.engine.syncOnce(fullPull = true) // and pulled away while the form was open
+        assertNull(repo.get("gone"))
+
+        assertEquals(ReplaceResult.Gone, repo.replace(listOf("gone"), listOf(input(4200))))
+
+        assertTrue(repo.observe().first().isEmpty())
+        assertTrue(h.sync.pendingOps().isEmpty())
+        assertTrue("no sync is requested for nothing", h.work("sync").isEmpty())
+    }
+
+    @Test
+    fun changingADeletedOrAnotherAccountsEntryWritesNothing() = runBlocking {
+        h.sync.seedSynced("tomb")
+        repo.delete("tomb") // deleted here, waiting for the server
+        val (mine) = repo.addAll(listOf(input(100)))
+
+        assertEquals(ReplaceResult.Gone, repo.replace(listOf("tomb"), listOf(input(4200))))
+        h.sync.signInSecond()
+        assertEquals(ReplaceResult.Gone, repo.replace(listOf(mine), listOf(input(4200))))
+
+        assertEquals(listOf(OutboxOp.DELETE to "tomb", OutboxOp.CREATE to mine), ops())
+        assertTrue(h.sync.pendingOps("u2").isEmpty())
+    }
+
+    @Test
+    fun aReplaceWithNothingNewDeletesWhatIsLeft() = runBlocking {
+        val (a, b) = repo.addAll(listOf(input(100), input(200)))
+        repo.delete(a)
+
+        assertEquals(ReplaceResult.Saved(emptyList()), repo.replace(listOf(a, b), emptyList()))
+
+        assertTrue(repo.observe().first().isEmpty())
+        assertTrue(h.sync.pendingOps().isEmpty())
     }
 
     @Test

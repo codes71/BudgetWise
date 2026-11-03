@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { setBudget } from '@/app/db-actions';
+import { getMonthPlanSummary, setBudget } from '@/app/db-actions';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-context';
 import { AppHeader } from '@/components/layout/app-header';
@@ -29,7 +29,17 @@ export default function BudgetsPage() {
   const { categories } = useAuth();
   const [newCategory, setNewCategory] = useState(categories.length > 0 ? categories[0] : '');
   const [newLimit, setNewLimit] = useState('');
+  // This month's plan from the phone, as one line; null when there is none.
+  const [planSummary, setPlanSummary] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const refreshPlanSummary = () => {
+    getMonthPlanSummary().then(setPlanSummary, () => setPlanSummary(null));
+  };
+
+  useEffect(() => {
+    if (user && !user.isGuest) refreshPlanSummary();
+  }, [user?.userId, user?.isGuest]);
 
   // Removed the local useEffect that fetches budgets, as AuthContext now manages this.
 
@@ -45,8 +55,13 @@ export default function BudgetsPage() {
     }
 
     const updatedBudget = await setBudget({ category, limit: numericLimit });
+    if (updatedBudget && 'error' in updatedBudget) {
+      toast({ variant: 'destructive', title: 'Budget Not Updated', description: updatedBudget.error });
+      return;
+    }
     if (updatedBudget) {
       setBudgets(budgets.map(b => b.category === category ? updatedBudget : b));
+      refreshPlanSummary();
     } 
 
     toast({
@@ -68,8 +83,13 @@ export default function BudgetsPage() {
     }
 
     const newBudget = await setBudget({ category: newCategory, limit: numericLimit });
+    if (newBudget && 'error' in newBudget) {
+      toast({ variant: 'destructive', title: 'Budget Not Set', description: newBudget.error });
+      return;
+    }
     if (newBudget) {
         setBudgets([...budgets, newBudget]);
+        refreshPlanSummary();
     }
     
     setNewLimit('');
@@ -141,6 +161,7 @@ export default function BudgetsPage() {
                     <CardDescription>Your current budget limits.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    {planSummary && <p className="text-sm font-medium">{planSummary}</p>}
                     {budgets.map((budget) => (
                     <div key={budget._id} className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border rounded-lg">
                         <Label className="font-semibold text-lg flex-1">{budget.category}</Label>

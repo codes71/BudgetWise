@@ -28,8 +28,8 @@ import app.budgetwise.ui.theme.bold
 import app.budgetwise.ui.theme.tracked
 
 /**
- * A tab's header: the big bold title on the left, the sync status, and the gear that opens Settings. It scrolls with
- * nothing and never collapses.
+ * A tab's header: the big bold title on the left, the sync status, [action] (Budgets' Edit plan) and the gear that
+ * opens Settings. It scrolls with nothing and never collapses.
  */
 @Composable
 fun AppHeader(
@@ -38,6 +38,7 @@ fun AppHeader(
     onChip: () -> Unit,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -50,6 +51,7 @@ fun AppHeader(
     ) {
         HeaderTitle(title, Modifier.weight(1f))
         if (chip != null) SyncChipView(chip, onClick = onChip)
+        action?.invoke()
         IconButton(onClick = onSettings, modifier = Modifier.size(48.dp)) {
             Icon(
                 Lucide.Settings,

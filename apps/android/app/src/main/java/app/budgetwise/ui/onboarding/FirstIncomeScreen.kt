@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
+import app.budgetwise.ui.common.FieldHint
 import app.budgetwise.ui.common.KitTextField
 import app.budgetwise.ui.common.KitFieldStyle
 import app.budgetwise.ui.common.KyatGroupingTransformation
@@ -128,6 +129,7 @@ fun FirstIncomeScreen(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }),
         )
+        if (state.wholeKyatHint) FieldHint(stringResource(R.string.manual_amount_whole_kyat))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             FlowRow(
                 modifier = Modifier.selectableGroup(),

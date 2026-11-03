@@ -4,6 +4,7 @@ import java.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
+import okhttp3.Headers
 import okhttp3.ResponseBody
 import retrofit2.HttpException
 import retrofit2.Response
@@ -11,7 +12,8 @@ import retrofit2.Response
 sealed interface ApiResult<out T> {
     data class Ok<T>(val v: T) : ApiResult<T>
     data class Unauthorized(val msg: String) : ApiResult<Nothing>
-    data class Failure(val code: String, val msg: String, val retryable: Boolean) : ApiResult<Nothing>
+    /** [retryAfterSec] is the server's Retry-After, in seconds, when it sent one (a 429). */
+    data class Failure(val code: String, val msg: String, val retryable: Boolean, val retryAfterSec: Long? = null) : ApiResult<Nothing>
 }
 
 @Serializable
@@ -29,7 +31,7 @@ suspend fun <T> safeApi(block: suspend () -> T): ApiResult<T> = try {
 } catch (e: CancellationException) {
     throw e
 } catch (e: HttpException) {
-    mapHttp(e.code(), e.response()?.errorBody().readOrNull())
+    mapHttp(e.code(), e.response()?.errorBody().readOrNull(), e.response()?.headers())
 } catch (e: IOException) {
     ApiResult.Failure(NETWORK_ERROR_CODE, e.message ?: "Network error", retryable = true)
 } catch (e: SerializationException) {
@@ -43,7 +45,7 @@ suspend fun <T> safeApi(block: suspend () -> T): ApiResult<T> = try {
 suspend fun safeApiResponse(block: suspend () -> Response<Unit>): ApiResult<Unit> =
     when (val r = safeApi(block)) {
         is ApiResult.Ok ->
-            if (r.v.isSuccessful) ApiResult.Ok(Unit) else mapHttp(r.v.code(), r.v.errorBody().readOrNull())
+            if (r.v.isSuccessful) ApiResult.Ok(Unit) else mapHttp(r.v.code(), r.v.errorBody().readOrNull(), r.v.headers())
         is ApiResult.Unauthorized -> r
         is ApiResult.Failure -> r
     }
@@ -55,7 +57,7 @@ private fun ResponseBody?.readOrNull(): String? = try {
     null
 }
 
-private fun mapHttp(status: Int, rawBody: String?): ApiResult<Nothing> {
+private fun mapHttp(status: Int, rawBody: String?, headers: Headers?): ApiResult<Nothing> {
     val parsed = rawBody?.let {
         try {
             WireJson.decodeFromString<ErrorEnvelope>(it).error
@@ -71,5 +73,7 @@ private fun mapHttp(status: Int, rawBody: String?): ApiResult<Nothing> {
         code = parsed?.code ?: "http_$status",
         msg = message,
         retryable = status >= 500 || status == 429 || status == 408,
+        // Seconds only: the server never sends the HTTP-date form.
+        retryAfterSec = headers?.get("Retry-After")?.trim()?.toLongOrNull()?.takeIf { it >= 0 },
     )
 }

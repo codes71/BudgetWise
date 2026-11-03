@@ -253,7 +253,8 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
         SyncPhase.SYNCED -> stringResource(R.string.settings_sync_synced)
         SyncPhase.OFFLINE -> stringResource(R.string.settings_sync_offline)
         SyncPhase.NEEDS_SIGN_IN -> stringResource(R.string.settings_sync_needs_sign_in)
-        SyncPhase.REJECTED -> pluralStringResource(R.plurals.settings_sync_rejected, sync.rejectedCount, sync.rejectedCount)
+        SyncPhase.REJECTED ->
+            pluralStringResource(R.plurals.settings_sync_rejected, sync.rejectedCount, groupDigits(sync.rejectedCount.toLong(), state.myanmarDigits))
         SyncPhase.NEVER -> stringResource(R.string.settings_sync_never)
     }
     val at = sync.at?.let { relativeTime(it, now) }
@@ -293,7 +294,7 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
         ) {
             Text(
                 text = when {
-                    waiting > 0 -> pluralStringResource(R.plurals.settings_unsynced, waiting, waiting)
+                    waiting > 0 -> pluralStringResource(R.plurals.settings_unsynced, waiting, groupDigits(waiting.toLong(), state.myanmarDigits))
                     sync.phase == SyncPhase.REJECTED -> stringResource(R.string.settings_all_other_synced)
                     else -> stringResource(R.string.settings_all_synced)
                 },
