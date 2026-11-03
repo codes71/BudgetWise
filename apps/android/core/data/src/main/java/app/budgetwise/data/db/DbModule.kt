@@ -17,7 +17,7 @@ object DbModule {
     @Singleton
     fun db(@ApplicationContext context: Context): BudgetWiseDb =
         Room.databaseBuilder(context, BudgetWiseDb::class.java, "budgetwise.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
             .build()
 
     @Provides
@@ -28,4 +28,7 @@ object DbModule {
 
     @Provides
     fun budgetDao(db: BudgetWiseDb): BudgetDao = db.budgetDao()
+
+    @Provides
+    fun monthPlanDao(db: BudgetWiseDb): MonthPlanDao = db.monthPlanDao()
 }

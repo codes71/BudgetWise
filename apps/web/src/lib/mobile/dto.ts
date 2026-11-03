@@ -1,3 +1,15 @@
+import type { MonthPlan } from "@/lib/budgets";
+
+/** One receipt line: `quantity` of `name` at `unitPrice` whole kyat each. */
+export interface EntryItemDto {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+/** "web" is only ever read: rows added on the website, and legacy rows without a source. */
+export type TransactionSource = "voice" | "manual" | "scan" | "web";
+
 export interface TransactionDto {
   id: string;
   clientId: string;
@@ -6,8 +18,11 @@ export interface TransactionDto {
   category: string;
   description: string;
   date: string;
-  source: "voice" | "manual" | "web";
+  source: TransactionSource;
   transcript?: string;
+  receiptId?: string;
+  merchant?: string;
+  items?: EntryItemDto[];
   createdAt: string;
   updatedAt: string;
 }
@@ -33,11 +48,26 @@ export interface ScanEntryDto {
   dateGuessed?: true;
   reference?: string;
   clientId?: string;
-  items?: { name: string; amount: number }[];
+  items?: ScanItemDto[];
 }
+
+/** A receipt line as read: `amount` is the line total, always `quantity * unitPrice`. */
+export interface ScanItemDto extends EntryItemDto {
+  amount: number;
+}
+
+/**
+ * Why a scan gave kind "unknown": not a receipt or KPay screen at all, one that cannot be read, several receipts
+ * in one photo, another wallet or bank app's screen, or amounts in another currency (`currency` then says which).
+ */
+export type ScanReason = "not_money" | "unclear" | "multiple" | "unsupported" | "foreign_currency";
 
 export interface ScanResultDto {
   kind: "receipt" | "payment" | "history" | "unknown";
+  /** Only with kind "unknown", which always has one. */
+  reason?: ScanReason;
+  /** Only with reason "foreign_currency": the currency printed, as the model read it (USD, THB). */
+  currency?: string;
   merchant?: string;
   date?: string;
   total?: number;
@@ -76,8 +106,11 @@ export interface LeanTransaction {
   category: string;
   type: "income" | "expense";
   clientId?: string;
-  source?: "voice" | "manual" | "web";
+  source?: TransactionSource;
   transcript?: string;
+  receiptId?: string;
+  merchant?: string;
+  items?: EntryItemDto[];
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }
@@ -98,7 +131,33 @@ export function toTransactionDto(doc: LeanTransaction): TransactionDto {
     date: doc.date.slice(0, 10),
     source: doc.source ?? "web",
     ...(doc.transcript ? { transcript: doc.transcript } : {}),
+    ...(doc.receiptId ? { receiptId: doc.receiptId } : {}),
+    ...(doc.merchant ? { merchant: doc.merchant } : {}),
+    ...(doc.items?.length ? { items: doc.items } : {}),
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
+  };
+}
+
+/** One month's plan. Total is newMoney + carriedOver; shares keep the order they were sent in. */
+export interface MonthPlanDto {
+  month: string;
+  newMoney: number;
+  carriedOver: number;
+  shares: { category: string; limit: number }[];
+  endCheck: { onHand: number; checkedAt: string } | null;
+  updatedAt: string;
+}
+
+export function toMonthPlanDto(plan: MonthPlan): MonthPlanDto {
+  return {
+    month: plan.month,
+    newMoney: plan.newMoney,
+    carriedOver: plan.carriedOver,
+    shares: plan.shares.map(({ category, limit }) => ({ category, limit })),
+    endCheck: plan.endCheck
+      ? { onHand: plan.endCheck.onHand, checkedAt: plan.endCheck.checkedAt.toISOString() }
+      : null,
+    updatedAt: plan.updatedAt.toISOString(),
   };
 }

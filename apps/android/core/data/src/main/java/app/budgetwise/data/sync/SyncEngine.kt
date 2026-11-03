@@ -107,7 +107,16 @@ sealed interface SyncStatus {
  * - Delete of a never-synced row ([enqueueDelete]): remove it locally and drop its outbox CREATE, send nothing.
  *   If a push already claimed that CREATE (it may reach the server while its reply is lost), the row is
  *   tombstoned and the CREATE kept instead, so the push learns the server id and deletes the row there as well.
- * - Delete of a synced row: tombstone it and queue a DELETE by serverId; 404 counts as success.
+ *   An entry rewritten in place (same clientId) is never-synced in its new version while the DELETE of its old
+ *   one is still queued; that DELETE stays and goes out.
+ * - Delete of a synced row: tombstone it and queue a DELETE by serverId. The server's own 404 (`not_found`: the row
+ *   is gone already, deleted on the web) counts as success; any other 404 (a hosting page for a missing deploy or
+ *   route) says nothing about the row and is [SyncOutcome.RetryLater], so the row is never forgotten while the server
+ *   still has it.
+ * - An edit ([OutboxEntity.replaceGroup]) queues the changed entries' CREATEs before the DELETEs of the entries they
+ *   replace, so the originals are deleted on the server only after their replacements were accepted. When the server
+ *   refuses one of the edit's entries, its DELETEs are dropped and the originals come back as SYNCED rows: a change
+ *   the server will not take never loses what it already had.
  * - Only the WS1 server's own rejection marks rows FAILED: error code `validation_failed` (422) or
  *   `invalid_json` (400). The server refuses the whole batch for one bad item, so the batch is resent one item
  *   at a time; only the rejected rows become FAILED (their ops removed, never retried silently) and the rest
@@ -169,23 +178,30 @@ class SyncEngine @Inject constructor(
 
     /**
      * Local half of a user delete; the caller schedules a sync afterwards. Safe to call while a sync runs.
-     * See the class KDoc for the never-synced and synced cases. A queued DELETE belongs to the row's owner.
+     * See the class KDoc for the never-synced and synced cases. A queued DELETE belongs to the row's owner, and to the
+     * edit [replaceGroup] when the row is being replaced.
      */
-    suspend fun enqueueDelete(clientId: String) {
+    suspend fun enqueueDelete(clientId: String, replaceGroup: String? = null) {
         db.withTransaction {
             val row = tx.byClientId(clientId)
             when {
-                row == null -> outbox.dropFor(clientId)
+                row == null -> outbox.dropCreatesFor(clientId)
                 row.deleted -> Unit // already on its way out
                 row.serverId != null -> {
                     tx.upsert(row.copy(deleted = true, syncState = SyncState.PENDING))
                     outbox.enqueue(
-                        OutboxEntity(op = OutboxOp.DELETE, clientId = clientId, serverId = row.serverId, ownerId = row.ownerId),
+                        OutboxEntity(
+                            op = OutboxOp.DELETE,
+                            clientId = clientId,
+                            serverId = row.serverId,
+                            ownerId = row.ownerId,
+                            replaceGroup = replaceGroup,
+                        ),
                     )
                 }
                 outbox.wasSent(clientId) -> tx.upsert(row.copy(deleted = true))
                 else -> {
-                    outbox.dropFor(clientId)
+                    outbox.dropCreatesFor(clientId)
                     tx.deleteByClientId(clientId)
                 }
             }
@@ -388,15 +404,20 @@ class SyncEngine @Inject constructor(
         return null
     }
 
-    /** 404 means the row is already gone (for example deleted on the web), which is what a DELETE wants. */
+    /**
+     * The server's own 404 (its `not_found` error) means the row is already gone (for example deleted on the web),
+     * which is what a DELETE wants. Any other 404 (an HTML page from the hosting layer) is a failure like the rest.
+     */
     private suspend fun deleteOnServer(auth: String, serverId: String): ApiResult<Unit> =
-        when (val r = safeApi { api.delete(auth, serverId) }) {
-            is ApiResult.Ok -> if (r.v.code() == HTTP_NOT_FOUND) ApiResult.Ok(Unit) else safeApiResponse { r.v }
-            is ApiResult.Unauthorized -> r
-            is ApiResult.Failure -> r
+        when (val r = safeApiResponse { api.delete(auth, serverId) }) {
+            is ApiResult.Failure -> if (r.code == SERVER_NOT_FOUND_CODE) ApiResult.Ok(Unit) else r
+            else -> r
         }
 
-    /** Removes the op and marks the row FAILED; a deleted row the server never stored is simply removed. */
+    /**
+     * Removes the op and marks the row FAILED; a deleted row the server never stored is simply removed. A refused entry
+     * of an edit brings back the entries it was to replace ([restoreReplaced]).
+     */
     private suspend fun markRejected(op: OutboxEntity, tally: Tally) {
         val kept = db.withTransaction {
             outbox.ack(listOf(op.seq))
@@ -406,10 +427,27 @@ class SyncEngine @Inject constructor(
                 false
             } else {
                 tx.upsert(local.copy(syncState = SyncState.FAILED, deleted = false))
+                if (op.op == OutboxOp.CREATE) op.replaceGroup?.let { restoreReplaced(it) }
                 true
             }
         }
         if (kept) tally.failed += op.clientId
+    }
+
+    /**
+     * The edit [group] will not reach the server whole, so the entries it replaces stay: their DELETEs (queued after the
+     * edit's CREATEs, so not sent yet) are dropped and their tombstones become SYNCED rows again. A DELETE already tried
+     * may have reached the server, so it is left to finish. The caller holds the Room transaction.
+     */
+    private suspend fun restoreReplaced(group: String) {
+        for (delete in outbox.deletesIn(group)) {
+            if (delete.attempts > 0) continue
+            outbox.ack(listOf(delete.seq))
+            val original = tx.byClientId(delete.clientId) ?: continue
+            if (original.deleted && original.serverId != null && !outbox.hasPendingFor(delete.clientId)) {
+                tx.upsert(original.copy(deleted = false, syncState = SyncState.SYNCED))
+            }
+        }
     }
 
     /** A 401 expires only the session that sent the request. */
@@ -480,7 +518,9 @@ class SyncEngine @Inject constructor(
         /** Server maximum per POST /transactions. */
         const val BATCH_SIZE = 50
         val CURSOR_OVERLAP: Duration = Duration.ofMinutes(2)
-        private const val HTTP_NOT_FOUND = 404
+
+        /** The error code of the server's own 404: the row is not there. */
+        private const val SERVER_NOT_FOUND_CODE = "not_found"
 
         /**
          * Error envelope codes with which the WS1 server itself rejects the request body (zod 422, unparseable JSON

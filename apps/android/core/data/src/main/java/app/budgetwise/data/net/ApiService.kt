@@ -7,6 +7,7 @@ import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -39,6 +40,33 @@ interface ApiService {
     @GET("budgets")
     suspend fun budgets(@Header(AUTHORIZATION) auth: String): BudgetsResponse
 
+    /** Plans of the months [from] to [to] (`YYYY-MM`, both included, at most 24), oldest first; only months with one. */
+    @GET("budget-months")
+    suspend fun monthPlans(
+        @Header(AUTHORIZATION) auth: String,
+        @Query("from") from: String,
+        @Query("to") to: String,
+    ): MonthPlansResponse
+
+    /**
+     * Creates or replaces the plan of [month] (`YYYY-MM`); the server keeps its end check. 422 `split_over_total` or
+     * `unknown_category`.
+     */
+    @PUT("budget-months/{month}")
+    suspend fun saveMonthPlan(
+        @Header(AUTHORIZATION) auth: String,
+        @Path("month") month: String,
+        @Body body: MonthPlanBody,
+    ): MonthPlanResponse
+
+    /** 404 `not_found` when [month] has no plan, 422 `month_not_over` before it has ended. Saving again replaces it. */
+    @PUT("budget-months/{month}/end-check")
+    suspend fun saveEndCheck(
+        @Header(AUTHORIZATION) auth: String,
+        @Path("month") month: String,
+        @Body body: EndCheckBody,
+    ): MonthPlanResponse
+
     /**
      * What the phone's speech models heard, as text (never audio), read into entries or a spending question. Nothing
      * is saved. When Claude fails the server asks OpenAI, so an answer can take up to its 60 s limit.
@@ -69,7 +97,7 @@ annotation class SlowCall(val readSeconds: Int, val writeSeconds: Int = 0)
 data class ScanBody(val image: String, val mediaType: String)
 
 @Serializable
-data class ScanItemDto(val name: String, val amount: Long)
+data class ScanItemDto(val name: String, val amount: Long, val quantity: Int = 1, val unitPrice: Long? = null)
 
 @Serializable
 data class ScanEntryDto(
@@ -84,9 +112,11 @@ data class ScanEntryDto(
     val items: List<ScanItemDto> = emptyList(),
 )
 
+/** [reason] comes only with kind "unknown": "not_money" (no receipt or KPay screen in the photo) or "unclear". */
 @Serializable
 data class ScanResponse(
     val kind: String,
+    val reason: String? = null,
     val merchant: String? = null,
     val date: String? = null,
     val total: Long? = null,
@@ -119,6 +149,38 @@ data class BudgetDto(val category: String, val limit: Double)
 
 @Serializable
 data class BudgetsResponse(val budgets: List<BudgetDto>)
+
+/**
+ * A month's plan on the wire. Amounts are Doubles for the same reason as [BudgetDto.limit]; each share is a category
+ * and limit like a [BudgetDto]. `updatedAt` is not read.
+ */
+@Serializable
+data class MonthPlanDto(
+    val month: String,
+    val newMoney: Double,
+    val carriedOver: Double,
+    val shares: List<BudgetDto> = emptyList(),
+    val endCheck: EndCheckDto? = null,
+)
+
+@Serializable
+data class EndCheckDto(val onHand: Double, val checkedAt: String)
+
+@Serializable
+data class MonthPlansResponse(val months: List<MonthPlanDto>)
+
+@Serializable
+data class MonthPlanResponse(val month: MonthPlanDto)
+
+/** Whole kyat; at most 50 shares, each category once. */
+@Serializable
+data class MonthPlanBody(val newMoney: Long, val carriedOver: Long, val shares: List<ShareBody>)
+
+@Serializable
+data class ShareBody(val category: String, val limit: Long)
+
+@Serializable
+data class EndCheckBody(val onHand: Long)
 
 /** One to three transcripts of the same words, up to 500 characters each. */
 @Serializable

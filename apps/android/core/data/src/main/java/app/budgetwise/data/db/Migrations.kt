@@ -38,6 +38,44 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
 }
 
 /**
+ * Version 4 lets an entry remember the receipt it was scanned from: the id its entries share, the shop, and its lines
+ * (JSON). Existing rows get nulls and keep every value.
+ */
+val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `tx` ADD COLUMN `receiptId` TEXT")
+        db.execSQL("ALTER TABLE `tx` ADD COLUMN `merchant` TEXT")
+        db.execSQL("ALTER TABLE `tx` ADD COLUMN `items` TEXT")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tx_receiptId` ON `tx` (`receiptId`)")
+    }
+}
+
+/**
+ * Version 5 lets an outbox op belong to an edit ([OutboxEntity.replaceGroup]), so a replaced entry is deleted on the
+ * server only after its replacement is accepted. Queued ops get null: they wait and are sent as before.
+ */
+val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `outbox` ADD COLUMN `replaceGroup` TEXT")
+    }
+}
+
+/**
+ * Version 6 adds the cache of month plans, one row per account and month (`YYYY-MM`). Plans only come from the server
+ * for a signed-in account, so the owner is never null and [claimUnowned] leaves the table alone. Existing tables are
+ * untouched.
+ */
+val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `budget_month` (`ownerId` TEXT NOT NULL, `month` TEXT NOT NULL, " +
+                "`newMoneyKyat` INTEGER NOT NULL, `carriedOverKyat` INTEGER NOT NULL, `shares` TEXT NOT NULL, " +
+                "`endCheckOnHandKyat` INTEGER, `endCheckAt` INTEGER, PRIMARY KEY(`ownerId`, `month`))",
+        )
+    }
+}
+
+/**
  * Gives every row without an owner (saved before several accounts) to [owner]: transactions, outbox ops and cached
  * budgets, in one transaction. Nothing is deleted except a cached budget [owner] already has a fresher copy of.
  * Called when the saved session loads and on every online sign-in; once rows have owners it changes nothing.

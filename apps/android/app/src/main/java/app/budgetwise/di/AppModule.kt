@@ -7,12 +7,14 @@ import app.budgetwise.DefaultAccountActions
 import app.budgetwise.DefaultBudgetSource
 import app.budgetwise.DefaultCategorySource
 import app.budgetwise.DefaultLanguageStore
+import app.budgetwise.DefaultMonthPlanSource
 import app.budgetwise.DefaultNetworkStatus
 import app.budgetwise.DefaultReceiptScanner
 import app.budgetwise.DefaultSessionLoader
 import app.budgetwise.DefaultSyncControls
 import app.budgetwise.DefaultTransactionStore
 import app.budgetwise.LanguageStore
+import app.budgetwise.MonthPlanSource
 import app.budgetwise.NetworkStatus
 import app.budgetwise.ReceiptScanner
 import app.budgetwise.SessionLoader
@@ -26,6 +28,7 @@ import dagger.hilt.components.SingletonComponent
 import java.time.Clock
 import javax.inject.Qualifier
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -46,6 +49,11 @@ annotation class ApplicationScope
 @Retention(AnnotationRetention.BINARY)
 annotation class DeviceClock
 
+/** Where a screen does work too heavy for the main thread, such as reading every entry. Tests pass their own. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class WorkDispatcher
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class AppBindingsModule {
@@ -63,6 +71,9 @@ abstract class AppBindingsModule {
 
     @Binds
     abstract fun budgetSource(impl: DefaultBudgetSource): BudgetSource
+
+    @Binds
+    abstract fun monthPlanSource(impl: DefaultMonthPlanSource): MonthPlanSource
 
     @Binds
     abstract fun categorySource(impl: DefaultCategorySource): CategorySource
@@ -89,4 +100,8 @@ object AppModule {
     @Provides
     @DeviceClock
     fun deviceClock(): Clock = Clock.systemDefaultZone()
+
+    @Provides
+    @WorkDispatcher
+    fun workDispatcher(): CoroutineDispatcher = Dispatchers.Default
 }

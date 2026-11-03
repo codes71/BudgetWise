@@ -55,8 +55,8 @@
 
     <!-- The notice on Transactions before a session ends -->
     <plurals name="session_ending">
-        <item quantity="one">You\'ll be signed out in %d day</item>
-        <item quantity="other">You\'ll be signed out in %d days</item>
+        <item quantity="one">You\'ll be signed out in %1$s day</item>
+        <item quantity="other">You\'ll be signed out in %1$s days</item>
     </plurals>
     <string name="session_ending_detail">Sign in again to keep your entries syncing.</string>
     <string name="session_sign_in">Sign in</string>
@@ -118,7 +118,7 @@
     <string name="spending_other_collapsed">Collapsed</string>
 
     <!-- Add entry -->
-    <string name="manual_title">Add entry</string>
+    <string name="manual_title">New entry</string>
     <string name="action_close">Close</string>
     <string name="action_ok">OK</string>
     <string name="manual_expense">Expense</string>
@@ -138,7 +138,6 @@
     </plurals>
     <string name="manual_description_count">%1$s/%2$s</string>
     <string name="manual_date">Date</string>
-    <string name="manual_date_change">Change date</string>
     <string name="manual_date_error_future">The date can\'t be in the future</string>
     <string name="manual_previous_month">Previous month</string>
     <string name="manual_next_month">Next month</string>
@@ -148,30 +147,177 @@
     <string name="manual_saving">Saving…</string>
     <string name="manual_save_failed">Couldn\'t save this entry</string>
     <string name="manual_save_failed_detail">Nothing was lost. Tap Save to try again.</string>
+    <string name="manual_edit_title">Edit entry</string>
+    <!-- How a saved entry was added, under the Edit entry title -->
+    <string name="manual_source_voice">Said</string>
+    <string name="manual_source_scan">Scanned</string>
+    <string name="manual_source_manual">Typed</string>
+    <string name="manual_source_web">From the web</string>
+    <string name="manual_description_clear">Clear</string>
+    <!-- %1$s is the past entry's description: Picked from “Mohinga” -->
+    <string name="manual_picked_from">Picked from “%1$s”</string>
+    <string name="manual_day_other">Other day</string>
+    <!-- %1$s is the amount: Save 4,500 Ks -->
+    <string name="manual_save_amount">Save %1$s Ks</string>
+    <string name="manual_save_changes">Save changes</string>
+    <string name="manual_delete">Delete entry</string>
+    <string name="manual_delete_failed">Couldn\'t delete this entry</string>
+    <string name="manual_delete_failed_detail">It\'s still here. Tap Delete entry to try again.</string>
+    <!-- Under the amount after "150.50" or a typed dot was refused -->
+    <string name="manual_amount_whole_kyat">Whole kyat only, no decimals</string>
+    <!-- A category kept from the web that the phone cannot send (over 60 characters) -->
+    <string name="manual_category_error_too_long">This category name is too long to save. Pick another one.</string>
+    <!-- Save changes found the entry deleted on the web or another phone while the form was open -->
+    <string name="manual_gone">This entry was deleted elsewhere</string>
+    <string name="manual_gone_detail">Your changes are still here.</string>
+    <string name="manual_save_as_new">Save as new</string>
 
-    <!-- Budgets (%1$s is a month's name in budgets_spent_in) -->
+    <!-- The Add sheet: how to add an entry -->
+    <string name="add_scan_detail">Every item read and sorted.\nKPay screens too.</string>
+    <string name="add_say_it_example">“Bus to Sule, 600”</string>
+    <string name="add_type_it">Type it</string>
+    <string name="add_income">Add income</string>
+
+    <!-- Budgets: one plan per month (%1$s is a month's name: "October"). 1 lakh = 100,000 Ks. -->
+    <!-- %1$s is a number of lakh, already grouped and with at most one decimal: "22.8 lakh". -->
+    <string name="lakh_amount">%1$s lakh</string>
     <string name="budgets_title">Budgets</string>
-    <string name="budgets_empty_title">No budgets yet</string>
-    <string name="budgets_empty">Set budgets in BudgetWise on the web. They show up here on their own.</string>
     <string name="budgets_loading">Loading budgets</string>
-    <string name="budgets_spent_in">Spent on budgets in %1$s</string>
     <string name="budgets_spent_of_limit">%1$s of %2$s</string>
     <string name="budgets_of_limit">of %1$s</string>
-    <plurals name="budgets_left_across">
-        <item quantity="one">%1$s left in %2$d budget</item>
-        <item quantity="other">%1$s left across %2$d budgets</item>
-    </plurals>
-    <plurals name="budgets_over_across">
-        <item quantity="one">%1$s over in %2$d budget</item>
-        <item quantity="other">%1$s over across %2$d budgets</item>
-    </plurals>
     <string name="budgets_left">%1$s left</string>
     <string name="budgets_percent">%1$s%%</string>
     <string name="budgets_over">%1$s over</string>
-    <string name="budgets_footer">Budgets are set on BudgetWise on the web.</string>
+    <string name="budgets_all_used">All used</string>
+    <string name="budgets_footer">Spending in a category without its own share counts against Everything else.</string>
     <string name="budgets_spent_of_limit_spoken">%1$s kyat spent of %2$s kyat</string>
     <string name="budgets_left_spoken">%1$s kyat left</string>
     <string name="budgets_over_spoken">%1$s kyat over budget</string>
+    <string name="budgets_edit_plan">Edit plan</string>
+    <!-- After the big amount left of the month's budget -->
+    <string name="budgets_ks_left">Ks left</string>
+    <string name="budgets_ks_over">Ks over</string>
+    <!-- "1,456,500 of 2,000,000 Ks spent" -->
+    <string name="budgets_spent_of_total">%1$s of %2$s Ks spent</string>
+    <!-- The part of a month's budget no category has a share of -->
+    <string name="budgets_everything_else">Everything else</string>
+    <!-- Before the month's first plan -->
+    <string name="budgets_first_headline">One amount for the month. Then split it.</string>
+    <string name="budgets_first_body">Say you have 20 lakh. Give Housing, Food and Groceries their share, and whatever you don\'t split covers everything else.</string>
+    <string name="budgets_first_set">Set %1$s\'s budget</string>
+    <!-- %1$s is an amount ("1,842,300 Ks"), %2$s last month's name -->
+    <string name="budgets_first_spent">You spent %1$s in %2$s</string>
+    <!-- The card for last month's end check (%2$s is an amount: "343,500 Ks") -->
+    <string name="budgets_check_left">%1$s ended with %2$s left.</string>
+    <string name="budgets_check_over">%1$s ended %2$s over budget.</string>
+    <string name="budgets_check_it">Check it</string>
+
+    <!-- The plan editor. Step 1: the month's total; step 2: its split into shares. -->
+    <string name="plan_month_budget">%1$s budget</string>
+    <string name="plan_how_much_this_month">How much can you spend this month?</string>
+    <string name="plan_how_much">How much can you spend in %1$s?</string>
+    <string name="plan_new_money">New money for %1$s</string>
+    <string name="plan_carry_title">Add what\'s left from %1$s</string>
+    <!-- %1$s is a date: "1 November" -->
+    <string name="plan_carry_checked">You checked it on %1$s</string>
+    <string name="plan_carry_not_checked">Not checked yet</string>
+    <!-- Under the carry when it is the amount this month's plan was saved with -->
+    <string name="plan_carry_saved">As saved in this plan</string>
+    <!-- %1$s is the total in lakh ("22.8 lakh"), %2$s a month -->
+    <string name="plan_total_note_ticked">%1$s. Untick the box to start %2$s with new money only.</string>
+    <string name="plan_total_note_unticked">%1$s. Tick the box to add what\'s left from %2$s.</string>
+    <string name="plan_spent_before">What you spent before</string>
+    <!-- %1$s is an average in lakh: "18.4 lakh" -->
+    <string name="plan_spent_before_note">About %1$s a month. You set a new budget each month.</string>
+    <!-- %1$s is an amount in lakh: "Next: split 20 lakh" -->
+    <string name="plan_next">Next: split %1$s</string>
+    <string name="plan_split_title">Split %1$s</string>
+    <string name="plan_left_to_split">Left to split</string>
+    <string name="plan_over_by">Split is over the month by</string>
+    <string name="plan_too_much">Ks too much</string>
+    <string name="plan_split_note">What you don\'t split stays in Everything else.</string>
+    <string name="plan_split_note_previous">Started from %1$s\'s split. Change any share.</string>
+    <!-- %1$s is the split in lakh -->
+    <string name="plan_split_note_over">Lower a share, or raise the month to %1$s.</string>
+    <!-- Under a share: "500,000 in September" -->
+    <string name="plan_spent_in">%1$s in %2$s</string>
+    <string name="plan_nothing_in">Nothing in %1$s</string>
+    <string name="plan_share_spoken">share %1$s kyat</string>
+    <string name="plan_share_needs_amount">no amount yet</string>
+    <string name="plan_add_category">Add a category</string>
+    <!-- Under Everything else: the categories it covers -->
+    <string name="plan_rest_two">%1$s, %2$s, the rest</string>
+    <string name="plan_rest_one">%1$s, the rest</string>
+    <string name="plan_rest_none">Anything else you spend on</string>
+    <string name="plan_nothing_left">Nothing left for the rest</string>
+    <string name="plan_raise">Raise the month to %1$s</string>
+    <string name="plan_share_missing">Give %1$s an amount, or take it out of the split.</string>
+    <string name="plan_save">Save %1$s budget</string>
+    <string name="plan_save_failed_network">Couldn\'t save. Check your connection and try again.</string>
+    <string name="plan_save_failed">Couldn\'t save. Try again.</string>
+    <string name="plan_save_failed_over">The split is more than the month\'s budget. Lower a share and try again.</string>
+    <string name="plan_save_failed_category">One of these categories no longer exists. Take it out of the split and try again.</string>
+    <!-- %1$s is the category the server no longer has -->
+    <string name="plan_save_failed_category_named">%1$s isn\'t one of your categories any more. Take it out of the split and try again.</string>
+    <!-- The plans could not be fetched when the editor opened -->
+    <string name="plan_stale">Couldn\'t get the latest budgets. This may be out of date.</string>
+    <string name="plan_save_failed_sign_in">Sign in again to save.</string>
+    <!-- The share sheet -->
+    <string name="plan_share_label">%1$s share</string>
+    <!-- %1$s is an amount, drawn in sage: "Leaves 370,000 to split" -->
+    <string name="plan_leaves">Leaves %1$s to split</string>
+    <string name="plan_share_over">Over the month by %1$s</string>
+    <string name="plan_average">Average</string>
+    <string name="plan_all_left">All that\'s left</string>
+    <string name="plan_take_out">Take %1$s out of the split</string>
+    <string name="plan_done">Done</string>
+    <!-- The Add a category sheet (%1$s is an amount: "400,000") -->
+    <string name="plan_add_note">Its share comes out of the %1$s left to split.</string>
+    <string name="plan_add_one">Add %1$s</string>
+
+    <!-- The end check, after a month ends -->
+    <string name="month_end_title">End of %1$s</string>
+    <string name="month_end_left_in">Left in %1$s\'s budget</string>
+    <string name="month_end_over_in">Over %1$s\'s budget by</string>
+    <string name="month_end_question">Do you have about this much on hand right now?</string>
+    <string name="month_end_hint">Count your cash, KPay and bank. If it\'s less, some spending wasn\'t recorded.</string>
+    <!-- %1$s is the amount left: "Yes, about 343,500" -->
+    <string name="month_end_yes">Yes, about %1$s</string>
+    <string name="month_end_no">No, I have a different amount</string>
+    <string name="month_end_i_have">I have</string>
+    <!-- %1$s is an amount, drawn in coral: "63,500 Ks went somewhere that wasn't recorded." -->
+    <string name="month_end_gap">%1$s went somewhere that wasn\'t recorded.</string>
+    <!-- %2$s is month_end_not_recorded -->
+    <string name="month_end_add_gap">Add it to %1$s as “%2$s”</string>
+    <string name="month_end_add_gap_detail">So %1$s\'s numbers match what you have.</string>
+    <!-- The description of the entry for money that went unrecorded -->
+    <string name="month_end_not_recorded">Not recorded</string>
+    <string name="month_end_more">That\'s %1$s more than expected.</string>
+    <string name="month_end_next">Next: plan %1$s</string>
+    <string name="month_end_error_not_over">%1$s isn\'t over yet.</string>
+    <string name="month_end_error_no_plan">%1$s has no budget.</string>
+    <string name="month_end_error_entry">The check is saved, but the entry couldn\'t be added. Try again.</string>
+    <string name="month_end_error_account">The signed-in account changed while saving, so nothing was added to it.</string>
+    <!-- While the ledger is pulled before the check (TalkBack) -->
+    <string name="month_end_counting">Getting the latest entries</string>
+    <string name="month_end_pull_failed">Couldn\'t get the latest entries. Check your connection and try again.</string>
+    <string name="month_end_pull_sign_in">Sign in again to check %1$s.</string>
+
+    <!-- The month-end notification (board M1). Its Check it action is budgets_check_it. -->
+    <!-- The notification channel's name in the phone's settings -->
+    <string name="reminders_channel">Budget reminders</string>
+    <!-- %1$s is the month that ended ("October"), %2$s an amount ("343,500 Ks") -->
+    <string name="reminders_title_left">%1$s is over: %2$s left</string>
+    <string name="reminders_title_over">%1$s is over: %2$s over budget</string>
+    <!-- %1$s is the next month: "November" -->
+    <string name="reminders_text">Do you really have this much on hand? Check it and add it to %1$s.</string>
+    <string name="reminders_text_over">Check what you really have on hand before you plan %1$s.</string>
+    <string name="reminders_remind_tonight">Remind me tonight</string>
+    <!-- Asked once, after the first plan is saved, before Android asks to allow notifications -->
+    <string name="reminders_ask_title">Remind you when a month ends?</string>
+    <string name="reminders_ask_body">On the 1st, BudgetWise asks if what\'s left of the month is really on hand.</string>
+    <string name="reminders_ask_allow">Allow</string>
+    <string name="reminders_ask_not_now">Not now</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
@@ -189,8 +335,8 @@
     <string name="settings_sync_needs_sign_in">Sign in again to sync</string>
     <string name="settings_sync_needs_sign_in_detail">Your session ended.</string>
     <plurals name="settings_sync_rejected">
-        <item quantity="one">%d entry couldn\'t sync</item>
-        <item quantity="other">%d entries couldn\'t sync</item>
+        <item quantity="one">%1$s entry couldn\'t sync</item>
+        <item quantity="other">%1$s entries couldn\'t sync</item>
     </plurals>
     <string name="settings_sync_never">Not synced yet</string>
     <string name="settings_sync_last_synced">Last synced %1$s</string>
@@ -198,8 +344,8 @@
     <string name="settings_sync_rejected_detail">The server refused them. They stay on this phone.</string>
     <string name="settings_sync_waiting_detail">Runs as soon as you\'re online.</string>
     <plurals name="settings_unsynced">
-        <item quantity="one">%d entry waiting to sync</item>
-        <item quantity="other">%d entries waiting to sync</item>
+        <item quantity="one">%1$s entry waiting to sync</item>
+        <item quantity="other">%1$s entries waiting to sync</item>
     </plurals>
     <string name="settings_all_synced">Every entry is synced</string>
     <string name="settings_all_other_synced">Every other entry is synced</string>
@@ -384,8 +530,6 @@
     <string name="setup_voice_download_on_wifi">Download on Wi-Fi</string>
     <!-- Receipt scanning: camera, reading, problems, and Check the receipt. -->
     <string name="scan_entry">Scan a receipt</string>
-    <!-- The add form's half-width button, beside Say it. -->
-    <string name="scan_short">Scan</string>
     <string name="first_expense_scan_detail">Shop receipts and KPay slips</string>
     <string name="scan_hint">Fit the whole receipt in the frame</string>
     <string name="scan_choose_photo">Choose a photo</string>
@@ -393,22 +537,41 @@
     <string name="scan_camera_off_title">BudgetWise can\'t use the camera</string>
     <string name="scan_camera_off_detail">Allow the camera to photograph a receipt, or choose a photo you already have.</string>
     <string name="scan_allow_camera">Allow camera</string>
-    <string name="scan_reading_title">Reading the receipt</string>
+    <string name="scan_reading_title">Reading the photo</string>
     <string name="scan_reading_detail">Finding the shop, date and items</string>
-    <string name="scan_unreadable_title">Couldn\'t read the receipt</string>
-    <string name="scan_unreadable_detail">Try again with the whole receipt flat and in good light, or enter it yourself.</string>
+    <string name="scan_unreadable_title">Couldn\'t read the photo</string>
+    <string name="scan_unreadable_detail">Try again with the whole receipt or screen in the frame, flat and in good light, or enter it yourself.</string>
     <string name="scan_enter_yourself">Enter it yourself</string>
     <string name="scan_offline_detail">Reading a receipt needs the internet. Your photo is kept, so you can try again when you\'re online.</string>
     <string name="scan_too_many_title">Too many scans</string>
     <string name="scan_too_many_detail">You can read 20 photos an hour. Try again later, or enter it yourself.</string>
     <string name="scan_sign_in_title">Sign in again to read receipts</string>
+    <string name="scan_reading_slow">Still reading. This can take up to a minute.</string>
+    <string name="scan_capture_failed">Couldn\'t take the photo. Try again.</string>
+    <string name="scan_light">Camera light</string>
+    <string name="scan_choose_another">Choose another photo</string>
+    <string name="scan_not_receipt_title">This doesn\'t look like a receipt</string>
+    <string name="scan_not_receipt_detail">Point the camera at a shop receipt, a KPay slip or the KPay history screen, or enter it yourself.</string>
+    <string name="scan_too_dark_title">Too dark to read</string>
+    <string name="scan_too_dark_detail">Move somewhere brighter, or turn on the camera\'s light, then take it again.</string>
+    <string name="scan_too_long_title">This screenshot is too long</string>
+    <string name="scan_too_long_detail">A long screenshot can\'t be read in one go. Send one screen at a time, or enter it yourself.</string>
+    <string name="scan_cannot_open_title">This photo couldn\'t be opened</string>
+    <string name="scan_cannot_open_detail">Choose another photo, or enter it yourself.</string>
+    <string name="scan_slow_title">This is taking too long</string>
+    <string name="scan_slow_detail">Your connection may be slow. Your photo is kept, so you can try again, or enter it yourself.</string>
+    <plurals name="scan_too_many_wait">
+        <item quantity="one">You can read 20 photos an hour. Try again in %s minute, or enter it yourself.</item>
+        <item quantity="other">You can read 20 photos an hour. Try again in %s minutes, or enter it yourself.</item>
+    </plurals>
+    <string name="scan_interrupted_title">The reading stopped</string>
+    <string name="scan_interrupted_detail">BudgetWise was closed while it read your photo. The photo is kept, so you can try again.</string>
     <string name="scan_title_receipt">Check the receipt</string>
     <string name="scan_title_payment">Check the payment</string>
     <string name="scan_title_history">Check the payments</string>
     <string name="scan_scanned">Scanned</string>
     <string name="scan_no_date">Today. No date on the receipt</string>
     <string name="scan_total">Total</string>
-    <string name="scan_split">Split by category</string>
     <string name="scan_split_note">Tap a category to change it. Each one becomes its own entry.</string>
     <string name="scan_history_note">Tap a payment to leave it out.</string>
     <string name="scan_short_title">Items are %1$s Ks short</string>
@@ -416,22 +579,76 @@
     <string name="scan_short_add">Add as Other</string>
     <string name="scan_as_one">Add as one entry instead</string>
     <plurals name="scan_add">
-        <item quantity="one">Add %d entry</item>
-        <item quantity="other">Add %d entries</item>
+        <item quantity="one">Add %1$s entry</item>
+        <item quantity="other">Add %1$s entries</item>
     </plurals>
     <plurals name="scan_move_title">
-        <item quantity="one">Move %d item to</item>
-        <item quantity="other">Move %d items to</item>
+        <item quantity="one">Move %1$s item to</item>
+        <item quantity="other">Move %1$s items to</item>
     </plurals>
     <string name="scan_move_title_none">Move to</string>
     <!-- A receipt line's description: the shop, then the category. -->
     <string name="scan_entry_description">%1$s, %2$s</string>
     <plurals name="scan_added">
-        <item quantity="one">Added %d entry</item>
-        <item quantity="other">Added %d entries</item>
+        <item quantity="one">Added %1$s entry</item>
+        <item quantity="other">Added %1$s entries</item>
     </plurals>
     <string name="scan_added_from">From your %1$s receipt</string>
     <string name="scan_added_from_photo">From your photo</string>
+    <!-- Changing a receipt's items, on Check the receipt and from a saved receipt's Change items. -->
+    <plurals name="scan_changed">
+        <item quantity="one">Scanned %1$s Ks. You changed %2$s item.</item>
+        <item quantity="other">Scanned %1$s Ks. You changed %2$s items.</item>
+    </plurals>
+    <!-- What an item was before it was changed: "was 2", "was 802 each", "was 2 × 802". -->
+    <string name="item_was_count">was %1$s</string>
+    <string name="item_was_price">was %1$s each</string>
+    <string name="item_was_both">was %1$s × %2$s</string>
+    <string name="item_not_added">not added</string>
+    <string name="item_fewer">One fewer</string>
+    <string name="item_more">One more</string>
+    <!-- TalkBack, an item's price field: "Price each of Fresh milk 1L". -->
+    <string name="item_price">Price each of %1$s</string>
+    <!-- A scanned receipt: one row in the list, and its own screen. -->
+    <string name="receipt_title">Receipt</string>
+    <plurals name="receipt_row_entries">
+        <item quantity="one">Receipt · %1$s entry</item>
+        <item quantity="other">Receipt · %1$s entries</item>
+    </plurals>
+    <string name="receipt_scanned_twice">Scanned twice?</string>
+    <string name="receipt_deleted">Receipt deleted</string>
+    <!-- TalkBack, the mic before an entry's category. -->
+    <string name="transactions_by_voice">Added by voice</string>
+    <plurals name="receipt_entries">
+        <item quantity="one">%1$s entry from this receipt</item>
+        <item quantity="other">%1$s entries from this receipt</item>
+    </plurals>
+    <!-- An item bought more than once: "2 × 4,500". -->
+    <string name="receipt_item_count">%1$s × %2$s</string>
+    <string name="receipt_note">Tap an entry to change its category. Change items to fix a count or a price; the entries follow.</string>
+    <string name="receipt_delete">Delete this receipt</string>
+    <string name="receipt_change_items">Change items</string>
+    <plurals name="receipt_changed">
+        <item quantity="one">Saved as %1$s Ks. You changed %2$s item.</item>
+        <item quantity="other">Saved as %1$s Ks. You changed %2$s items.</item>
+    </plurals>
+    <string name="receipt_save">Save changes</string>
+    <string name="scan_over_title">Items come to %1$s Ks</string>
+    <string name="scan_over_detail">The receipt total is %1$s Ks.</string>
+    <!-- Leaving Check the receipt (back or the X) asks first. -->
+    <string name="scan_discard_title">Discard this scan?</string>
+    <string name="scan_discard_detail">What was read and your changes are lost. Reading it again takes a new photo.</string>
+    <string name="action_discard">Discard</string>
+    <string name="scan_discard_keep">Keep checking</string>
+    <!-- Leaving Change items with a changed item asks first. -->
+    <string name="receipt_discard_title">Discard changes?</string>
+    <string name="receipt_discard_detail">Your changes to the items are not saved.</string>
+    <string name="receipt_discard_keep">Keep changing</string>
+    <!-- Change items, when a sync brought another device's change to the receipt. -->
+    <string name="receipt_changed_elsewhere_title">This receipt changed on another device</string>
+    <string name="receipt_changed_elsewhere_detail">Check it again. The changes you made here are dropped.</string>
+    <string name="receipt_changed_elsewhere_action">Check again</string>
+    <string name="receipt_all_left_out">Every item is at 0. To remove this receipt, delete it.</string>
     <string name="voice_unsupported_title">Voice isn\'t available on this phone</string>
     <string name="voice_unsupported_body">Voice works out what you say on the phone itself, which needs at least %1$s GB of memory. This phone has less, so voice is off. You can still type every entry.</string>
     <string name="settings_voice_unsupported_detail">Voice needs at least %1$s GB of memory, more than this phone has.</string>

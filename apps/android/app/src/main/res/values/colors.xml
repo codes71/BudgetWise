@@ -2,4 +2,6 @@
 <resources>
     <!-- Window background before Compose draws: BudgetWiseTheme's light background (BrandBackgroundLight). -->
     <color name="window_background">#F3FCF8</color>
+    <!-- The month-end notification's icon circle (board M1): the brand sage. -->
+    <color name="notification_accent">#6CB299</color>
 </resources>

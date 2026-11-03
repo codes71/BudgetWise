@@ -72,6 +72,60 @@ describe("POST /api/v1/transactions", () => {
     expect(stored.transcript).toBe("kafe 101");
   });
 
+  const receiptId = "9f1c2b3a-4d5e-4f60-8a7b-1c2d3e4f5a6b";
+  const lines = [
+    { name: "Milk", quantity: 2, unitPrice: 1250 },
+    { name: "Bag", quantity: 1, unitPrice: 0 },
+  ];
+
+  it("stores and returns a scanned entry's receipt id, merchant and items", async () => {
+    const res = await post(tokenA, [
+      item(1, { source: "scan", receiptId, merchant: " City Mart ", items: lines.map((l) => ({ ...l, extra: 1 })) }),
+      item(2, { source: "scan", receiptId, merchant: "City Mart" }),
+    ]);
+    expect(res.status).toBe(200);
+    const { saved } = await res.json();
+    expect(saved[0]).toMatchObject({ source: "scan", receiptId, merchant: "City Mart", items: lines });
+    expect(saved[1]).toMatchObject({ source: "scan", receiptId, merchant: "City Mart" });
+    expect(saved[1]).not.toHaveProperty("items");
+
+    const stored = (await txCol(userA).doc(uuid(1)).get()).data()!;
+    expect(Object.keys(stored).sort()).toEqual(
+      ["amount", "category", "clientId", "createdAt", "date", "description", "items", "merchant", "receiptId", "source", "type", "updatedAt", "userId"],
+    );
+    expect(stored).toMatchObject({ receiptId, merchant: "City Mart", items: lines });
+
+    const { transactions } = await (await GET(req("GET", "/api/v1/transactions", { token: tokenA }))).json();
+    expect(transactions.find((t: any) => t.clientId === uuid(1))).toMatchObject({ receiptId, merchant: "City Mart", items: lines });
+  });
+
+  it("an old client's entry stores and returns none of the receipt fields", async () => {
+    const { saved } = await (await post(tokenA, [item(1), item(2, { items: [] })])).json();
+    for (const t of saved) {
+      for (const key of ["receiptId", "merchant", "items", "transcript"]) expect(t).not.toHaveProperty(key);
+    }
+    for (const n of [1, 2]) {
+      expect(Object.keys((await txCol(userA).doc(uuid(n)).get()).data()!).sort()).toEqual(
+        ["amount", "category", "clientId", "createdAt", "date", "description", "source", "type", "updatedAt", "userId"],
+      );
+    }
+  });
+
+  it("rejects bad receipt fields with 422 and stores nothing", async () => {
+    for (const over of [
+      { receiptId: "not-a-uuid" },
+      { merchant: "  " },
+      { items: [{ name: "Milk", quantity: 0, unitPrice: 100 }] },
+      { items: Array(101).fill(lines[0]) },
+      { source: "camera" },
+    ]) {
+      const res = await post(tokenA, [item(1, over)]);
+      expect(res.status).toBe(422);
+      expect((await res.json()).error.code).toBe("validation_failed");
+    }
+    expect(await count(userA)).toBe(0);
+  });
+
   it("resubmitting same clientId returns existing row, count stays 1", async () => {
     const first = await (await post(tokenA, [item(1)])).json();
     await new Promise((r) => setTimeout(r, 25));

@@ -14,8 +14,10 @@ import app.budgetwise.data.auth.AuthBindingsModule
 import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.auth.StoredSession
 import app.budgetwise.data.auth.TokenStore
+import app.budgetwise.data.model.EntryItem
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
+import app.budgetwise.data.model.Transaction
 import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.data.repo.TransactionRepository
@@ -27,6 +29,7 @@ import app.budgetwise.testing.FakeTokenStore
 import app.budgetwise.testing.FakeTransactionStore
 import app.budgetwise.testing.MainDispatcherRule
 import app.budgetwise.testing.TestUser
+import app.budgetwise.testing.testTransaction
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -49,6 +52,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -99,7 +103,17 @@ class AddManualViewModelTest {
         transactions: TransactionStore = store,
         sessionManager: SessionManager = session,
         saved: SavedStateHandle = SavedStateHandle(),
-    ) = AddManualViewModel(transactions, categories, settings, sessionManager, clock, saved)
+        clock: Clock = this.clock,
+    ) = AddManualViewModel(transactions, categories, settings, sessionManager, clock, main.dispatcher, saved)
+
+    /** The phone's clock, moved on by a test (a form left open over midnight). */
+    private class MovableClock(var now: Instant, private val zone: ZoneId) : Clock() {
+        override fun getZone(): ZoneId = zone
+
+        override fun withZone(zone: ZoneId): Clock = MovableClock(now, zone)
+
+        override fun instant(): Instant = now
+    }
 
     private fun TestScope.events(vm: AddManualViewModel): List<AddManualEvent> {
         val events = mutableListOf<AddManualEvent>()
@@ -366,5 +380,404 @@ class AddManualViewModelTest {
         // No network in the test: the sync waits in WorkManager for a connection instead of running.
         val work = WorkManager.getInstance(context).getWorkInfosForUniqueWork(SyncScheduler.UNIQUE_WORK).get()
         assertEquals(listOf(WorkInfo.State.ENQUEUED), work.map { it.state })
+    }
+
+    /** The user's ledger, newest first as Room lists it. */
+    private val history = listOf(
+        testTransaction("Tea shop", 1_200, today, category = "Food and Drink Item"),
+        testTransaction("Bus to Sule", 600, today, category = "Transport"),
+        // An older entry of the same description: only the newest one is offered.
+        testTransaction("tea  shop", 1_500, today.minusDays(1), category = "Other"),
+        testTransaction("Top-up", 5_000, today.minusDays(2), category = "Utilities"),
+        testTransaction("Mohinga", 1_500, today.minusDays(3), category = "Food and Drink Item"),
+        testTransaction("Salary", 850_000, today.minusDays(4), type = TxType.INCOME, category = CategoryRepository.INCOME),
+    )
+
+    private fun AddManualUiState.recentDescriptions() = recent.map { it.description }
+
+    @Test
+    fun recentEntriesAreTheNewestDescriptionsOfTheTypeMatchingWhatIsTyped() = runTest {
+        store.rows.value = history
+        val vm = vm()
+
+        assertEquals(listOf("Tea shop", "Bus to Sule", "Top-up"), vm.state.value.recentDescriptions())
+
+        // Case does not matter, and only entries with what is typed in them are left.
+        vm.onDescriptionChange("U")
+        assertEquals(listOf("Bus to Sule", "Top-up"), vm.state.value.recentDescriptions())
+
+        vm.onDescriptionChange("")
+        vm.onTypeChange(TxType.INCOME)
+        assertEquals(listOf("Salary"), vm.state.value.recentDescriptions())
+    }
+
+    @Test
+    fun aDescriptionUsedBeforePicksItsCategoryUntilTheUserPicksOne() = runTest {
+        store.rows.value = history
+        val vm = vm()
+
+        vm.onDescriptionChange(" mohinga ")
+        assertEquals("Food and Drink Item", vm.state.value.category)
+        assertEquals("Mohinga", vm.state.value.categoryFrom)
+
+        // The pick stays while the user goes on typing; another match replaces it.
+        vm.onDescriptionChange("Mohinga with Ko Aung")
+        assertEquals("Food and Drink Item", vm.state.value.category)
+        assertEquals("Mohinga", vm.state.value.categoryFrom)
+        vm.onDescriptionChange("bus to SULE")
+        assertEquals("Transport", vm.state.value.category)
+        assertEquals("Bus to Sule", vm.state.value.categoryFrom)
+
+        // The user's tap wins, now and for whatever is typed next.
+        vm.onCategoryChange("Other")
+        assertNull(vm.state.value.categoryFrom)
+        vm.onDescriptionChange("Tea shop")
+        assertEquals("Other", vm.state.value.category)
+        assertNull(vm.state.value.categoryFrom)
+    }
+
+    @Test
+    fun aRecentEntryFillsInTheForm() = runTest {
+        store.rows.value = history
+        val vm = vm()
+
+        vm.onRecentPick(vm.state.value.recent.single { it.description == "Bus to Sule" })
+
+        val s = vm.state.value
+        assertEquals("Bus to Sule", s.description)
+        assertEquals("600", s.amountDigits)
+        assertEquals("Transport", s.category)
+        assertEquals("Bus to Sule", s.categoryFrom)
+        assertTrue(s.canSave)
+        // Filled in already: it is not offered again.
+        assertTrue(s.recent.isEmpty())
+        vm.save()
+        assertEquals(NewTransaction(TxType.EXPENSE, 600, "Transport", "Bus to Sule", today, Source.MANUAL, transcript = null), store.added.single())
+    }
+
+    @Test
+    fun addIncomeStartsTheFormAsIncome() = runTest {
+        val vm = vm(saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_INCOME to true)))
+
+        assertEquals(TxType.INCOME, vm.state.value.type)
+        assertFalse(vm.state.value.editing)
+    }
+
+    private val lunch = testTransaction("Lunch with Ko Aung", 3_600, today.minusDays(2), category = "Food and Drink Item")
+        .copy(source = Source.VOICE, transcript = "နေ့လယ်စာ သုံးထောင့်ခြောက်ရာ")
+
+    private fun editing(entry: Transaction, saved: SavedStateHandle = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to entry.clientId))): AddManualViewModel {
+        store.rows.value = listOf(entry) + history
+        return vm(saved = saved)
+    }
+
+    @Test
+    fun anEntryOpensInTheFormAsItIs() = runTest {
+        val s = editing(lunch).state.value
+
+        assertTrue(s.editing)
+        assertTrue(s.loaded)
+        assertEquals(Source.VOICE, s.source)
+        assertEquals(TxType.EXPENSE, s.type)
+        assertEquals("3600", s.amountDigits)
+        assertEquals("Food and Drink Item", s.category)
+        assertEquals("Lunch with Ko Aung", s.description)
+        assertEquals(today.minusDays(2), s.date)
+        assertTrue(s.canSave)
+        // Nothing is offered over an entry that is filled in, and its description picks no category.
+        assertTrue(s.recent.isEmpty())
+        assertNull(s.categoryFrom)
+    }
+
+    @Test
+    fun savingAChangeReplacesTheEntryAndKeepsHowItWasAdded() = runTest {
+        val scanned = testTransaction("Ocean Supercenter, Groceries", 46_307, today, category = "Groceries").copy(
+            source = Source.SCAN,
+            receiptId = "receipt-1",
+            merchant = "Ocean Supercenter",
+            items = listOf(EntryItem("Rice", 2, 15_000), EntryItem("Eggs", 16_307)),
+        )
+        val vm = editing(scanned)
+        val events = events(vm)
+
+        vm.onAmountChange("46000")
+        vm.onCategoryChange("Food and Drink Item")
+        vm.onDateChange(today.minusDays(1))
+        vm.save()
+
+        val changed = NewTransaction(
+            type = TxType.EXPENSE,
+            amountKyat = 46_000,
+            category = "Food and Drink Item",
+            description = "Ocean Supercenter, Groceries",
+            date = today.minusDays(1),
+            source = Source.SCAN,
+            transcript = null,
+            receiptId = "receipt-1",
+            merchant = "Ocean Supercenter",
+            items = scanned.items,
+        )
+        assertEquals(listOf(listOf(scanned.clientId) to listOf(changed)), store.replaced)
+        assertTrue(store.added.isEmpty())
+        assertEquals(listOf(AddManualEvent.Saved), events)
+    }
+
+    @Test
+    fun aSaidEntryKeepsItsTranscriptAndCanBecomeIncome() = runTest {
+        val vm = editing(lunch)
+        vm.onTypeChange(TxType.INCOME)
+        vm.save()
+
+        val (old, new) = store.replaced.single()
+        assertEquals(listOf(lunch.clientId), old)
+        assertEquals(
+            NewTransaction(TxType.INCOME, 3_600, CategoryRepository.INCOME, lunch.description, lunch.date, Source.VOICE, transcript = lunch.transcript),
+            new.single(),
+        )
+    }
+
+    @Test
+    fun savingWithNothingChangedLeavesTheEntryAlone() = runTest {
+        val vm = editing(lunch)
+        val events = events(vm)
+
+        vm.save()
+
+        assertTrue(store.replaced.isEmpty())
+        assertEquals(listOf(AddManualEvent.Saved), events)
+    }
+
+    @Test
+    fun deleteHandsTheEntryToTheListForUndo() = runTest {
+        val vm = editing(lunch)
+        val events = events(vm)
+
+        vm.delete()
+        vm.delete() // a double tap hands it over once
+
+        // The list deletes it, with its notice and Undo; the form deletes nothing itself.
+        assertEquals(listOf(AddManualEvent.Delete(lunch.clientId)), events)
+        assertTrue(store.deleted.isEmpty())
+        assertTrue(vm.state.value.deleting)
+    }
+
+    @Test
+    fun withNoListToHandItToDeleteNowDeletesTheEntryAndCloses() = runTest {
+        val vm = editing(lunch)
+        val events = events(vm)
+
+        vm.delete()
+        vm.deleteNow()
+
+        assertEquals(listOf(lunch.clientId), store.deleted)
+        assertEquals(listOf(AddManualEvent.Delete(lunch.clientId), AddManualEvent.Gone), events)
+    }
+
+    private val webLunch = testTransaction("Lunch ", 3_600, today.minusDays(1), category = "Food and Drink Item")
+        .copy(source = Source.WEB)
+
+    @Test
+    fun aWebEntryChangedHereIsSavedAsTyped() = runTest {
+        val vm = editing(webLunch)
+        assertEquals(Source.WEB, vm.state.value.source)
+
+        vm.onAmountChange("4200")
+        vm.save()
+
+        // The server takes no "web" source from the phone, so it would refuse the change for good.
+        val new = store.replaced.single().second.single()
+        assertEquals(Source.MANUAL, new.source)
+        assertEquals(4_200L, new.amountKyat)
+        assertEquals("Lunch", new.description)
+    }
+
+    @Test
+    fun savingAWebEntryWhoseDescriptionHasSpacesWritesNothing() = runTest {
+        // The web stores "Lunch " as typed; the form shows it as it is and saves it trimmed.
+        val vm = editing(webLunch)
+        val events = events(vm)
+
+        vm.save()
+
+        assertTrue(store.replaced.isEmpty())
+        assertEquals(listOf(AddManualEvent.Saved), events)
+    }
+
+    @Test
+    fun aWebCategoryTooLongForTheServerIsChangedBeforeSaving() = runTest {
+        val long = "Groceries and household things for the whole family this month" // 62 characters
+        assertTrue(long.length > AddManualViewModel.MAX_CATEGORY)
+        val vm = editing(webLunch.copy(category = long))
+        vm.onAmountChange("4200")
+
+        assertEquals(CategoryError.TOO_LONG, vm.state.value.categoryError)
+        assertTrue(long in vm.state.value.categoryChoices)
+        assertFalse(vm.state.value.canSave)
+        vm.save()
+        assertTrue(store.replaced.isEmpty())
+
+        vm.onCategoryChange("Groceries")
+        assertNull(vm.state.value.categoryError)
+        vm.save()
+        assertEquals("Groceries", store.replaced.single().second.single().category)
+    }
+
+    @Test
+    fun aKPayEntryKeepsItsIdWhenChanged() = runTest {
+        // Scanned with no receipt: a KPay payment, whose id lets a later scan of the same history find it.
+        val payment = testTransaction("KPay to Ko Aung", 150_000, today, category = "Other").copy(source = Source.SCAN)
+        val vm = editing(payment)
+
+        vm.onCategoryChange("Transport")
+        vm.save()
+
+        assertEquals(payment.clientId, store.replaced.single().second.single().clientId)
+    }
+
+    @Test
+    fun aFutureDatedEntryCanBeChangedWithoutMovingItsDate() = runTest {
+        // Rent dated next week on the web: the form keeps that day, and still refuses any other future one.
+        val rent = testTransaction("Rent", 300_000, today.plusDays(3), category = "Other").copy(source = Source.WEB)
+        val vm = editing(rent)
+        assertNull(vm.state.value.dateError)
+        assertTrue(vm.state.value.canSave)
+
+        vm.onDateChange(today.plusDays(1))
+        assertEquals(DateError.FUTURE, vm.state.value.dateError)
+        vm.onDateChange(today.plusDays(3))
+        vm.onAmountChange("320000")
+        vm.save()
+
+        assertEquals(today.plusDays(3), store.replaced.single().second.single().date)
+    }
+
+    @Test
+    fun aFutureDatedEntryKeepsItsDayAfterProcessDeath() = runTest {
+        val rent = testTransaction("Rent", 300_000, today.plusDays(3), category = "Other")
+        val saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to rent.clientId))
+        editing(rent, saved).onAmountChange("320000")
+
+        val restored = vm(saved = SavedStateHandle(saved.keys().associateWith { saved.get<Any>(it) }))
+
+        assertEquals(today.plusDays(3), restored.state.value.date)
+        assertNull(restored.state.value.dateError)
+        assertTrue(restored.state.value.canSave)
+    }
+
+    @Test
+    fun anEntryDeletedElsewhereWhileOpenIsNotBroughtBackOnItsOwn() = runTest {
+        val vm = editing(lunch)
+        val events = events(vm)
+        store.rows.value = history // deleted on the web, and pulled away while the form was open
+
+        vm.onAmountChange("4200")
+        vm.save()
+
+        assertTrue(vm.state.value.gone)
+        assertFalse(vm.state.value.saving)
+        assertFalse(vm.state.value.canSave)
+        assertTrue(store.replaced.isEmpty())
+        assertTrue(store.added.isEmpty())
+        assertTrue(events.isEmpty())
+
+        // The user decides: Save as new keeps the change as a new entry.
+        vm.saveAsNew()
+        val new = store.added.single()
+        assertEquals(4_200L, new.amountKyat)
+        assertEquals(lunch.description, new.description)
+        assertEquals(Source.VOICE, new.source)
+        assertEquals(listOf(AddManualEvent.Saved), events)
+    }
+
+    @Test
+    fun aPastedBankAmountIsTakenAndAFractionSaysWholeKyatOnly() = runTest {
+        val vm = vm()
+
+        vm.onAmountChange("-15,000.00 Ks")
+        assertEquals("15000", vm.state.value.amountDigits)
+        vm.onAmountChange("Ks. 3,000")
+        assertEquals("3000", vm.state.value.amountDigits)
+
+        vm.onAmountChange("3000.50")
+        assertEquals("3000", vm.state.value.amountDigits)
+        assertTrue(vm.state.value.wholeKyatHint)
+        // A dot typed after "30" would cut the amount to 30.
+        vm.onAmountChange("30.00")
+        assertEquals("3000", vm.state.value.amountDigits)
+
+        vm.onAmountChange("30000")
+        assertFalse(vm.state.value.wholeKyatHint)
+    }
+
+    @Test
+    fun aFormLeftOpenOverMidnightSavesUnderTheNewDay() = runTest {
+        val moving = MovableClock(today.atTime(23, 55).atZone(zone).toInstant(), zone)
+        val vm = vm(clock = moving)
+        vm.fill()
+
+        moving.now = today.plusDays(1).atTime(0, 10).atZone(zone).toInstant()
+        vm.refreshToday() // the screen comes back
+        assertEquals(today.plusDays(1), vm.state.value.today)
+        assertEquals(today.plusDays(1), vm.state.value.date)
+        vm.save()
+
+        assertEquals(today.plusDays(1), store.added.single().date)
+    }
+
+    @Test
+    fun aPickedDayStaysOverMidnight() = runTest {
+        val moving = MovableClock(today.atTime(23, 55).atZone(zone).toInstant(), zone)
+        val vm = vm(clock = moving)
+        vm.fill()
+        vm.onDateChange(today.minusDays(1))
+
+        moving.now = today.plusDays(1).atTime(0, 10).atZone(zone).toInstant()
+        vm.save() // no resume in between: Save reads the clock too
+
+        assertEquals(today.minusDays(1), store.added.single().date)
+    }
+
+    @Test
+    fun aNewEntryRestoredAfterMidnightIsForTheNewToday() = runTest {
+        val saved = SavedStateHandle()
+        vm(saved = saved).fill() // the form saves its date with every change: today, not picked
+
+        val tomorrow = Clock.fixed(today.plusDays(1).atTime(0, 10).atZone(zone).toInstant(), zone)
+        val after = vm(saved = SavedStateHandle(saved.keys().associateWith { saved.get<Any>(it) }), clock = tomorrow)
+
+        assertEquals(today.plusDays(1), after.state.value.date)
+        assertEquals("5000", after.state.value.amountDigits)
+    }
+
+    @Test
+    fun anEntryThatIsGoneClosesTheForm() = runTest {
+        val vm = vm(saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to "gone")))
+        val events = events(vm)
+
+        assertEquals(listOf(AddManualEvent.Gone), events)
+        assertFalse(vm.state.value.loaded)
+        assertFalse(vm.state.value.canSave)
+        vm.delete()
+        vm.save()
+        assertTrue(store.deleted.isEmpty())
+        assertTrue(store.replaced.isEmpty())
+    }
+
+    @Test
+    fun aChangeInProgressSurvivesProcessDeath() = runTest {
+        val saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to lunch.clientId))
+        val before = editing(lunch, saved)
+        before.onAmountChange("4200")
+
+        val restoredHandle = SavedStateHandle(saved.keys().associateWith { saved.get<Any>(it) })
+        val after = vm(saved = restoredHandle)
+
+        // The user's change stays; the entry is read again only for what the form does not show.
+        assertEquals("4200", after.state.value.amountDigits)
+        assertEquals(Source.VOICE, after.state.value.source)
+        after.save()
+        assertNotNull(store.replaced.singleOrNull())
+        assertEquals(4_200L, store.replaced.single().second.single().amountKyat)
+        assertEquals(lunch.transcript, store.replaced.single().second.single().transcript)
     }
 }

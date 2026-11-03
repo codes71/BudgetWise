@@ -22,7 +22,7 @@ class BudgetAndCategoryRepositoryTest {
     @Before
     fun setUp() {
         h = RepoHarness()
-        budgets = BudgetRepository(h.sync.db.budgetDao(), h.api, h.sync.session)
+        budgets = BudgetRepository(h.sync.db.budgetDao(), h.api, h.sync.session, h.writes)
         categories = CategoryRepository(h.dataStore, h.api, h.sync.session)
     }
 

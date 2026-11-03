@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -43,6 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
@@ -102,7 +105,8 @@ data class ScanAdded(val clientIds: List<String>, val merchant: String?)
 
 /**
  * The home screen: what is left this month, the month chart, and every entry by day. The shell gives it the header's
- * [chip] and the session notice (the early warning before a session ends), and opens `manual` for Add.
+ * [chip] and the session notice (the early warning before a session ends), and opens `manual` for Add. A tap on an
+ * entry opens it ([onOpenEntry], by clientId); on a scanned receipt's line, the receipt ([onOpenReceipt], by its id).
  */
 @Composable
 fun TransactionsRoute(
@@ -114,6 +118,8 @@ fun TransactionsRoute(
     onAddManual: () -> Unit,
     onOpenVoice: () -> Unit,
     onOpenScan: () -> Unit,
+    onOpenEntry: (String) -> Unit,
+    onOpenReceipt: (String) -> Unit,
     scanAdded: ScanAdded?,
     onScanAddedShown: () -> Unit,
     viewModel: TransactionsViewModel = hiltViewModel(),
@@ -142,7 +148,7 @@ fun TransactionsRoute(
     var warned by rememberSaveable { mutableStateOf(false) }
     val signIn by rememberUpdatedState(onSignIn)
     val soon = sessionNotice as? SessionNotice.ExpiringSoon
-    val soonTitle = soon?.let { pluralStringResource(R.plurals.session_ending, it.daysLeft, it.daysLeft) }
+    val soonTitle = soon?.let { pluralStringResource(R.plurals.session_ending, it.daysLeft, groupDigits(it.daysLeft.toLong(), state.myanmarDigits)) }
     val soonDetail = stringResource(R.string.session_ending_detail)
     val signInLabel = stringResource(R.string.session_sign_in)
     LaunchedEffect(soonTitle) {
@@ -152,13 +158,20 @@ fun TransactionsRoute(
         if (notices.showSnackbar(visuals) == SnackbarResult.ActionPerformed) signIn()
     }
 
-    // One notice per swiped row. A new swipe restarts this effect (the ViewModel has already deleted the row before
-    // it); Undo restores the row, anything else (timeout, swipe away) deletes it.
-    val deleted = stringResource(R.string.transactions_deleted)
+    // One notice per swiped line. A new swipe restarts this effect (the ViewModel has already deleted the line before
+    // it); Undo restores the line, anything else (timeout, swipe away) deletes it. A receipt's line is all its entries.
     val undo = stringResource(R.string.transactions_undo)
     val pending = state.pendingDelete
-    val pendingDetail = state.pendingDeleteRow?.let {
-        stringResource(R.string.transactions_deleted_detail, it.description, formatKyat(it.amountKyat, state.myanmarDigits))
+    val pendingRows = state.pendingDeleteRows
+    val receipt = pendingRows.firstOrNull()?.receiptId != null
+    val deleted = stringResource(if (receipt) R.string.receipt_deleted else R.string.transactions_deleted)
+    val pendingName = if (receipt) {
+        pendingRows.firstNotNullOfOrNull { it.merchant } ?: stringResource(R.string.receipt_title)
+    } else {
+        pendingRows.firstOrNull()?.description
+    }
+    val pendingDetail = pendingName?.let {
+        stringResource(R.string.transactions_deleted_detail, it, formatKyat(pendingRows.sumOf { row -> row.amountKyat }, state.myanmarDigits))
     }
     LaunchedEffect(pending) {
         if (pending == null) return@LaunchedEffect
@@ -177,7 +190,7 @@ fun TransactionsRoute(
     // "Added 3 entries" after a scan, with Undo. The shell hands it over from the scan screen; it is forgotten once the
     // notice ends or the screen goes (another tab, a rotation), so a later visit never offers Undo on old entries.
     val addedCount = scanAdded?.clientIds?.size ?: 0
-    val addedTitle = pluralStringResource(R.plurals.scan_added, addedCount, addedCount)
+    val addedTitle = pluralStringResource(R.plurals.scan_added, addedCount, groupDigits(addedCount.toLong(), state.myanmarDigits))
     val addedFrom = scanAdded?.merchant?.let { stringResource(R.string.scan_added_from, it) } ?: stringResource(R.string.scan_added_from_photo)
     val addedShown by rememberUpdatedState(onScanAddedShown)
     LaunchedEffect(scanAdded) {
@@ -199,6 +212,12 @@ fun TransactionsRoute(
         onAddManual = onAddManual,
         onSayIt = sayIt,
         onScan = onOpenScan,
+        onOpen = { line ->
+            when (line) {
+                is DayLine.Entry -> onOpenEntry(line.row.clientId)
+                is DayLine.Receipt -> onOpenReceipt(line.receiptId)
+            }
+        },
         onDelete = viewModel::delete,
         onRefresh = viewModel::refresh,
     )
@@ -216,7 +235,8 @@ fun TransactionsScreen(
     /** Null on a phone without the memory for voice: the first-day home offers typing and scanning only. */
     onSayIt: (() -> Unit)?,
     onScan: () -> Unit,
-    onDelete: (String) -> Unit,
+    onOpen: (DayLine) -> Unit,
+    onDelete: (DayLine) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -261,7 +281,7 @@ fun TransactionsScreen(
                     }
                     else -> {
                         item(key = "month", contentType = "month") { MonthHead(state, onAddManual, onSayIt, onScan) }
-                        days(state, onDelete)
+                        days(state, onOpen, onDelete)
                     }
                 }
             }
@@ -364,23 +384,24 @@ private fun WayRow(icon: ImageVector, title: String, detail: String, onClick: ()
     }
 }
 
-/** Each day: a header with the day's net over a hairline, then its rows divided by hairlines. */
-private fun LazyListScope.days(state: TransactionsUiState, onDelete: (String) -> Unit) {
+/** Each day: a header with the day's net over a hairline, then its lines divided by hairlines. */
+private fun LazyListScope.days(state: TransactionsUiState, onOpen: (DayLine) -> Unit, onDelete: (DayLine) -> Unit) {
     state.days.forEachIndexed { dayIndex, day ->
         item(key = "day-${day.date}", contentType = "day") {
             DayHeader(day, state.today, state.myanmarDigits, Modifier.padding(top = if (dayIndex == 0) 0.dp else 18.dp))
         }
         itemsIndexed(
-            items = day.rows,
-            // A row brought back by Undo gets a new key: a new item, not the one that was swiped away.
-            key = { _, row -> "${row.clientId}:${state.restored[row.clientId] ?: 0}" },
+            items = day.lines,
+            // A line brought back by Undo gets a new key: a new item, not the one that was swiped away.
+            key = { _, line -> "${line.key}:${state.restored[line.key] ?: 0}" },
             contentType = { _, _ -> "row" },
-        ) { index, row ->
+        ) { index, line ->
             TransactionRow(
-                row = row,
-                last = index == day.rows.lastIndex,
+                line = line,
+                last = index == day.lines.lastIndex,
                 myanmarDigits = state.myanmarDigits,
-                onDelete = onDelete,
+                onOpen = { onOpen(line) },
+                onDelete = { onDelete(line) },
                 // No fade out: a swiped row has already slid off screen.
                 modifier = Modifier.animateItem(fadeOutSpec = null),
             )
@@ -407,25 +428,29 @@ private fun DayHeader(day: DaySection, today: LocalDate, myanmarDigits: Boolean,
     }
 }
 
+/**
+ * An entry, or a scanned receipt's entries as one line: tap to open it, swipe left to delete it (with Undo). Under an
+ * entry's description, a mic or a scan mark says it was said or read off a KPay screen; typed ones have none.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionRow(
-    row: Transaction,
+    line: DayLine,
     last: Boolean,
     myanmarDigits: Boolean,
-    onDelete: (String) -> Unit,
+    onOpen: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val dismissState = rememberSwipeToDismissBoxState()
     val deleteLabel = stringResource(R.string.transactions_delete)
-    val spoken = spokenAmount(row.amountKyat, row.type)
     SwipeToDismissBox(
         state = dismissState,
         modifier = modifier,
         enableDismissFromStartToEnd = false,
-        onDismiss = { onDelete(row.clientId) },
+        onDismiss = { onDelete() },
         backgroundContent = {
             // Drawn only while the row moves.
             if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
@@ -445,38 +470,98 @@ private fun TransactionRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 64.dp)
+                    .clickable(role = Role.Button, onClick = onOpen)
                     // TalkBack cannot swipe a row; Delete is offered as an action on it instead.
                     .semantics(mergeDescendants = true) {
-                        customActions = listOf(CustomAccessibilityAction(deleteLabel) { onDelete(row.clientId); true })
+                        customActions = listOf(CustomAccessibilityAction(deleteLabel) { onDelete(); true })
                     }
                     .padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                // The category name is written next to the badge, so the badge itself stays silent.
-                CategoryBadge(row.category, contentDescription = null)
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = row.description,
-                        style = type.size16.medium.forContent(row.description),
-                        color = colors.ink,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    val category = categoryLabel(row.category)
-                    Text(category, style = type.size13.forContent(category), color = colors.muted, maxLines = 1)
+                when (line) {
+                    is DayLine.Entry -> EntryContent(line.row, myanmarDigits)
+                    is DayLine.Receipt -> ReceiptContent(line, myanmarDigits)
                 }
-                Text(
-                    text = formatSignedKyat(row.amountKyat, row.type, myanmarDigits),
-                    style = type.size16.semibold,
-                    color = if (row.type == TxType.INCOME) colors.accent else colors.ink,
-                    softWrap = false,
-                    modifier = Modifier.semantics { contentDescription = spoken },
-                )
             }
             if (!last) HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         }
     }
+}
+
+@Composable
+private fun RowScope.EntryContent(row: Transaction, myanmarDigits: Boolean) {
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
+    // The category name is written next to the badge, so the badge itself stays silent.
+    CategoryBadge(row.category, contentDescription = null)
+    Column(Modifier.weight(1f)) {
+        Text(
+            text = row.description,
+            style = type.size16.medium.forContent(row.description),
+            color = colors.ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            when (row.source) {
+                Source.VOICE -> SourceMark(Lucide.Mic, colors.muted, stringResource(R.string.transactions_by_voice))
+                // A receipt's entries are a receipt line; a scanned entry here came from a KPay screen.
+                Source.SCAN -> SourceMark(Lucide.ScanLine, colors.accent, stringResource(R.string.scan_scanned))
+                Source.MANUAL, Source.WEB -> Unit
+            }
+            val category = categoryLabel(row.category)
+            Text(category, style = type.size13.forContent(category), color = colors.muted, maxLines = 1)
+        }
+    }
+    Amount(row.amountKyat, row.type, myanmarDigits)
+}
+
+/** The shop, "Receipt · 2 entries" (or "Scanned twice?" in amber), and what its entries add up to. */
+@Composable
+private fun RowScope.ReceiptContent(line: DayLine.Receipt, myanmarDigits: Boolean) {
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
+    Box(
+        Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(colors.accent.copy(alpha = 0.14f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Lucide.ReceiptText, contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
+    }
+    Column(Modifier.weight(1f)) {
+        val shop = line.merchant ?: stringResource(R.string.receipt_title)
+        Text(shop, style = type.size16.medium.forContent(shop), color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            val (icon, tint, text) = if (line.scannedTwice) {
+                Triple(Lucide.CircleAlert, colors.amber, stringResource(R.string.receipt_scanned_twice))
+            } else {
+                val count = line.entries.size
+                Triple(Lucide.ScanLine, colors.accent, pluralStringResource(R.plurals.receipt_row_entries, count, groupDigits(count.toLong(), myanmarDigits)))
+            }
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(13.dp))
+            Text(text, style = type.size13, color = if (line.scannedTwice) colors.amber else colors.muted, maxLines = 1)
+        }
+    }
+    Amount(line.amountKyat, TxType.EXPENSE, myanmarDigits)
+}
+
+/** How an entry was added, before its category. No text beside it says so, so TalkBack reads the icon. */
+@Composable
+private fun SourceMark(icon: ImageVector, tint: Color, label: String) {
+    Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(13.dp))
+}
+
+/** The signed amount, read the way it is meant ("1,500 kyat spent"). */
+@Composable
+private fun Amount(amountKyat: Long, type: TxType, myanmarDigits: Boolean) {
+    val spoken = spokenAmount(amountKyat, type)
+    Text(
+        text = formatSignedKyat(amountKyat, type, myanmarDigits),
+        style = BudgetWiseTheme.type.size16.semibold,
+        color = if (type == TxType.INCOME) BudgetWiseTheme.colors.accent else BudgetWiseTheme.colors.ink,
+        softWrap = false,
+        modifier = Modifier.semantics { contentDescription = spoken },
+    )
 }
 
 /** The month head and one day group, as grey blocks of the same size, while Room answers the first time. */
@@ -519,15 +604,19 @@ private fun LoadingSkeleton() {
 @Composable
 private fun TransactionsScreenPreview() {
     val today = LocalDate.parse("2026-10-23")
-    fun row(description: String, amount: Long, date: LocalDate, type: TxType, category: String) =
+    fun row(description: String, amount: Long, date: LocalDate, type: TxType, category: String, source: Source = Source.MANUAL) =
         Transaction(
             clientId = description, serverId = null, type = type, amountKyat = amount, category = category,
-            description = description, date = date, source = Source.MANUAL, transcript = null,
+            description = description, date = date, source = source, transcript = null,
             updatedAt = Instant.EPOCH, syncState = SyncState.SYNCED,
         )
-    val rows = listOf(
+    val receipt = listOf(
+        row("Ocean Supercenter, Groceries", 16307, today, TxType.EXPENSE, "Groceries", Source.SCAN),
+        row("Ocean Supercenter, Other", 30000, today, TxType.EXPENSE, "Other", Source.SCAN),
+    ).map { it.copy(receiptId = "ocean", merchant = "Ocean Supercenter") }
+    val rows = receipt + listOf(
         row("လက်ဖက်ရည်နှင့် မုန့်ဟင်းခါး", 3500, today, TxType.EXPENSE, "Food and Drink Item"),
-        row("Bus to Sule", 600, today, TxType.EXPENSE, "Transport"),
+        row("Bus to Sule", 600, today, TxType.EXPENSE, "Transport", Source.VOICE),
         row("October salary", 850000, today.minusDays(1), TxType.INCOME, "Income"),
         row("Electricity bill", 24500, today.minusDays(2), TxType.EXPENSE, "Utilities"),
     )
@@ -555,6 +644,7 @@ private fun TransactionsScreenPreview() {
             onAddManual = {},
             onSayIt = {},
             onScan = {},
+            onOpen = {},
             onDelete = {},
             onRefresh = {},
         )

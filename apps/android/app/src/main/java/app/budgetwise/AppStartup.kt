@@ -10,6 +10,7 @@ import app.budgetwise.data.auth.SessionState
 import app.budgetwise.data.sync.SyncScheduler
 import app.budgetwise.data.text.BurmeseTextNormalizer
 import app.budgetwise.di.ApplicationScope
+import app.budgetwise.reminders.MonthEndScheduler
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,6 +34,7 @@ class AppStartup @Inject constructor(
     private val session: SessionManager,
     private val loader: SessionLoader,
     private val scheduler: SyncScheduler,
+    private val reminders: MonthEndScheduler,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val started = AtomicBoolean(false)
@@ -63,6 +65,9 @@ class AppStartup @Inject constructor(
      * A UI launch (not a background wake-up for a worker): a signed-in session gets the periodic sync and a full pull
      * (spec amendment 1: the full pull is what brings web deletes to the phone). Also loads the Zawgyi detector now,
      * so the first save does not pay for it.
+     *
+     * The daily month-end reminder is enqueued at every launch, signed in or not (KEEP: it stays at its 9:00): a run
+     * with no account posts nothing, and an account signed in later needs no launch of its own to get it.
      */
     suspend fun onUiLaunch() {
         awaitSession()
@@ -70,6 +75,7 @@ class AppStartup @Inject constructor(
             scheduler.periodic()
             scheduler.enqueue(fullPull = true)
         }
+        reminders.daily()
         withContext(Dispatchers.Default) { BurmeseTextNormalizer.looksLikeZawgyi(WARM_UP_TEXT) }
     }
 

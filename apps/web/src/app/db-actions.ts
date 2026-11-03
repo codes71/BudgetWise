@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { listBudgets, setBudgetLimit } from '@/lib/budgets';
+import { getMonthPlan, listBudgets, monthPlanSummary, setBudgetLimit, SplitOverTotalError, yangonMonth } from '@/lib/budgets';
 import type { LeanTransaction } from '@/lib/mobile/dto';
 import { getCategoriesForUser } from '@/lib/mobile/reference-data';
 import { removeOne, toLeanTransaction, transactionsCol } from '@/lib/mobile/transactions-service';
@@ -94,9 +94,10 @@ export async function addTransaction(
   }
 }
 
+// `error` when this month's plan (set on the phone) has too little left to split for the new limit.
 export async function setBudget(
   budget: Omit<Budget, 'userId' | '_id'>
-): Promise<Budget | null> {
+): Promise<Budget | { error: string } | null> {
   try {
     const userId = await getUserId();
     if (!isWholeKyat(budget.limit)) return null;
@@ -109,7 +110,20 @@ export async function setBudget(
 
     return updatedBudget;
   } catch (error) {
+    if (error instanceof SplitOverTotalError) return { error: error.message };
     logger.error('Error setting budget', error as Error);
+    return null;
+  }
+}
+
+// The line the Budgets page shows above the list when this month has a plan; null when it has none.
+export async function getMonthPlanSummary(): Promise<string | null> {
+  try {
+    const userId = await getUserId();
+    const plan = await getMonthPlan(userId, yangonMonth(new Date()));
+    return plan ? monthPlanSummary(plan) : null;
+  } catch (error) {
+    logger.error('Error loading this month\'s budget', error as Error);
     return null;
   }
 }

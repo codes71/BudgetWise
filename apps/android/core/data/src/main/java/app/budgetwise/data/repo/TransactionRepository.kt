@@ -3,11 +3,13 @@ package app.budgetwise.data.repo
 import androidx.room.withTransaction
 import app.budgetwise.data.auth.SessionManager
 import app.budgetwise.data.db.BudgetWiseDb
+import app.budgetwise.data.db.ItemsJson
 import app.budgetwise.data.db.OutboxEntity
 import app.budgetwise.data.db.OutboxOp
 import app.budgetwise.data.db.TransactionEntity
 import app.budgetwise.data.db.toDomain
 import app.budgetwise.data.model.DailySpend
+import app.budgetwise.data.model.EntryItem
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
@@ -36,7 +38,23 @@ data class NewTransaction(
     val transcript: String?,
     /** A fixed id, so saving the same thing twice stores it once (a KPay transaction); null gets a new one. */
     val clientId: String? = null,
+    /** Shared by the entries saved from one scanned receipt. */
+    val receiptId: String? = null,
+    val merchant: String? = null,
+    val items: List<EntryItem> = emptyList(),
 )
+
+/** What [TransactionRepository.replace] did. */
+sealed interface ReplaceResult {
+    /** The old entries are deleted and the inputs saved in their place: the clientIds it stored. */
+    data class Saved(val clientIds: List<String>) : ReplaceResult
+
+    /**
+     * An entry to change was gone already (deleted here, or on the web and then pulled away, or another account's):
+     * nothing was written, so a change never brings back on its own an entry deleted elsewhere.
+     */
+    data object Gone : ReplaceResult
+}
 
 /**
  * The UI reads Room through this class and never the network. Writes go to Room and the outbox first. Reads show the
@@ -63,6 +81,17 @@ class TransactionRepository @Inject constructor(
         if (owner == null) flowOf(emptyList()) else tx.observeDailySpend(owner, from, to)
     }
 
+    /** The active account's entries from one scanned receipt; empty once they are all deleted. */
+    fun observeReceipt(receiptId: String): Flow<List<Transaction>> = session.activeUserId.flatMapLatest { owner ->
+        if (owner == null) flowOf(emptyList()) else tx.observeReceipt(owner, receiptId).map { rows -> rows.map { it.toDomain() } }
+    }
+
+    /** One of the active account's entries, or null when it is gone (deleted, or another account's). */
+    suspend fun get(clientId: String): Transaction? {
+        val owner = session.activeUserId.value ?: return null
+        return tx.byClientId(clientId)?.takeIf { it.ownerId == owner && !it.deleted }?.toDomain()
+    }
+
     /** The active account's rows not yet confirmed by the server (queued, rejected, or awaiting delete). */
     fun observeUnsyncedCount(): Flow<Int> = session.activeUserId.flatMapLatest { owner ->
         if (owner == null) flowOf(0) else tx.observeUnsyncedCount(owner)
@@ -77,6 +106,94 @@ class TransactionRepository @Inject constructor(
      */
     suspend fun addAll(inputs: List<NewTransaction>): List<String> {
         if (inputs.isEmpty()) return emptyList()
+        val ids = db.withTransaction { store(inputs) }
+        if (ids.isNotEmpty()) syncScheduler.requestAfterWrite()
+        return ids
+    }
+
+    /**
+     * An edit: deletes [old] (as [delete] does) and saves [inputs] in their place, in one Room transaction, then syncs.
+     * Entries are never changed on the server, so a changed entry is a new one. Its CREATE is queued before the DELETEs,
+     * as one edit ([OutboxEntity.replaceGroup]): the server deletes an original only after it took the change, and the
+     * original stays when it refuses the change ([SyncEngine]). An input with the fixed id of the entry it replaces (a
+     * KPay payment, so scanning it again still finds it saved) is that entry rewritten in place instead: deleted on the
+     * server, then created again under the same id.
+     *
+     * With [inputs] it is a change, and [ReplaceResult.Gone] when any of [old] is gone already; without, it deletes what
+     * is left of [old]. [ReplaceResult.Saved] has the stored clientIds as [addAll] gives them, the new ones first.
+     */
+    suspend fun replace(old: List<String>, inputs: List<NewTransaction>): ReplaceResult {
+        val result = db.withTransaction { replaceHeld(old, inputs) }
+        if (result is ReplaceResult.Saved) syncScheduler.requestAfterWrite()
+        return result
+    }
+
+    /**
+     * [replace] for the entries of receipt [receiptId], only while they are still exactly [old]: checked in the same Room
+     * transaction, so a sync that changed the receipt in the meantime (another phone moved an entry) is never written
+     * over. Null, with nothing written, when they are not. Otherwise it is [replace], with its order: the new entries'
+     * CREATEs before the originals' DELETEs, as one edit, so a refused change never loses the receipt on the server.
+     */
+    suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
+        val owner = checkNotNull(session.activeUserId.value) { "no account is signed in" }
+        val result = db.withTransaction {
+            if (tx.receiptClientIds(owner, receiptId).toSet() != old) null else replaceHeld(old.toList(), inputs)
+        }
+        if (result !is ReplaceResult.Saved) return null
+        syncScheduler.requestAfterWrite()
+        return result.clientIds
+    }
+
+    /** [replace]'s writes; the caller holds the Room transaction and requests the sync. */
+    private suspend fun replaceHeld(old: List<String>, inputs: List<NewTransaction>): ReplaceResult {
+        if (inputs.isEmpty()) {
+            old.forEach { syncEngine.enqueueDelete(it) }
+            return ReplaceResult.Saved(emptyList())
+        }
+        val owner = checkNotNull(session.activeUserId.value) { "no account is signed in" }
+        // As get() sees it: a tombstone, or another account's row after a switch while the form was open, is gone.
+        val rows = old.associateWith { tx.byClientId(it) }
+        if (rows.values.any { it == null || it.deleted || it.ownerId != owner }) return ReplaceResult.Gone
+        // Not while a CREATE of it went out without a reply: the server may hold it as it was, and the resent CREATE
+        // would bring that back over the change. That one gets a new id like any other change.
+        val inPlace = inputs.mapNotNullTo(HashSet()) { input ->
+            input.clientId?.takeIf { id -> id in rows && !(rows.getValue(id)?.serverId == null && outbox.wasSent(id)) }
+        }
+        val fresh = inputs.filter { it.clientId !in inPlace }.map { if (it.clientId in rows) it.copy(clientId = null) else it }
+        val group = joinedGroup(old) ?: UUID.randomUUID().toString()
+        val ids = store(fresh, group)
+        old.forEach { syncEngine.enqueueDelete(it, group.takeIf { _ -> it !in inPlace }) }
+        val kept = store(inputs.filter { it.clientId in inPlace }, group, reuse = inPlace)
+        requeueDeletes(group)
+        return ReplaceResult.Saved(ids + kept)
+    }
+
+    /**
+     * The edit a change joins: an entry changed again before its first change was sent is part of that edit, and the
+     * DELETEs waiting on it must now wait on this change. Several become one. Null when there is none. Read before the
+     * old entries' ops are dropped.
+     */
+    private suspend fun joinedGroup(old: List<String>): String? {
+        val groups = old.flatMap { outbox.groupsOf(it) }.distinct()
+        val group = groups.firstOrNull() ?: return null
+        if (groups.size > 1) outbox.mergeGroups(groups.drop(1), group)
+        return group
+    }
+
+    /** Queues [group]'s DELETEs again, behind every CREATE of it, so none goes out before the change it waits on. */
+    private suspend fun requeueDeletes(group: String) {
+        val deletes = outbox.deletesIn(group)
+        if (deletes.isEmpty()) return
+        outbox.ack(deletes.map { it.seq })
+        deletes.forEach { outbox.enqueue(it.copy(seq = 0)) }
+    }
+
+    /**
+     * [addAll]'s rows and CREATE ops, part of the edit [group] when there is one; the caller holds the Room transaction.
+     * [reuse] are tombstones of entries rewritten in place: an input with one of those ids takes it over.
+     */
+    private suspend fun store(inputs: List<NewTransaction>, group: String? = null, reuse: Set<String> = emptySet()): List<String> {
+        if (inputs.isEmpty()) return emptyList()
         val owner = checkNotNull(session.activeUserId.value) { "no account is signed in" }
         val now = clock.instant()
         // Converting Zawgyi to Unicode can lengthen the text, so the server's limit is checked on what is stored.
@@ -84,36 +201,38 @@ class TransactionRepository @Inject constructor(
         require(descriptions.all { it.length <= MAX_DESCRIPTION }) {
             "description is longer than $MAX_DESCRIPTION characters once prepared"
         }
-        val ids = db.withTransaction {
-            inputs.mapIndexedNotNull { index, input ->
-                // A fixed id this account already has is the same entry saved again: the one there stays, untouched.
-                // Another account's (two people scanning one KPay slip on a shared phone), or a row deleted here and
-                // waiting for the server, keeps its id: this entry gets a new one instead.
-                val existing = input.clientId?.let { tx.byClientId(it) }
-                if (existing != null && existing.ownerId == owner && !existing.deleted) return@mapIndexedNotNull null
-                val clientId = input.clientId?.takeIf { existing == null } ?: UUID.randomUUID().toString()
-                tx.upsert(
-                    TransactionEntity(
-                        clientId = clientId,
-                        ownerId = owner,
-                        serverId = null,
-                        type = input.type,
-                        amountKyat = input.amountKyat,
-                        category = input.category,
-                        description = descriptions[index],
-                        date = input.date,
-                        source = input.source,
-                        transcript = input.transcript?.let(BurmeseTextNormalizer::prepare),
-                        updatedAt = now,
-                        syncState = SyncState.PENDING,
+        return inputs.mapIndexedNotNull { index, input ->
+            // A fixed id this account already has is the same entry saved again: the one there stays, untouched.
+            // Another account's (two people scanning one KPay slip on a shared phone), or a row deleted here and
+            // waiting for the server, keeps its id: this entry gets a new one instead.
+            val existing = input.clientId?.let { tx.byClientId(it) }
+            if (existing != null && existing.ownerId == owner && !existing.deleted) return@mapIndexedNotNull null
+            val replacing = existing != null && existing.clientId in reuse && existing.ownerId == owner
+            val clientId = input.clientId?.takeIf { existing == null || replacing } ?: UUID.randomUUID().toString()
+            tx.upsert(
+                TransactionEntity(
+                    clientId = clientId,
+                    ownerId = owner,
+                    serverId = null,
+                    type = input.type,
+                    amountKyat = input.amountKyat,
+                    category = input.category,
+                    description = descriptions[index],
+                    date = input.date,
+                    source = input.source,
+                    transcript = input.transcript?.let(BurmeseTextNormalizer::prepare),
+                    updatedAt = now,
+                    syncState = SyncState.PENDING,
+                    receiptId = input.receiptId,
+                    merchant = input.merchant?.let(BurmeseTextNormalizer::prepare)?.take(MAX_MERCHANT)?.ifEmpty { null },
+                    itemsJson = ItemsJson.encode(
+                        input.items.take(MAX_ITEMS).map { it.copy(name = BurmeseTextNormalizer.prepare(it.name).take(MAX_ITEM_NAME)) },
                     ),
-                )
-                outbox.enqueue(OutboxEntity(op = OutboxOp.CREATE, clientId = clientId, ownerId = owner))
-                clientId
-            }
+                ),
+            )
+            outbox.enqueue(OutboxEntity(op = OutboxOp.CREATE, clientId = clientId, ownerId = owner, replaceGroup = group))
+            clientId
         }
-        if (ids.isNotEmpty()) syncScheduler.requestAfterWrite()
-        return ids
     }
 
     /** Deletes locally at once ([SyncEngine.enqueueDelete] handles never-synced and synced rows), then syncs. */
@@ -125,5 +244,13 @@ class TransactionRepository @Inject constructor(
     companion object {
         /** The server's limit for a description, in characters, measured on the stored (prepared) text. */
         const val MAX_DESCRIPTION = 200
+
+        /** The server's limit for a category name, in characters. The web takes longer ones, which the phone cannot send. */
+        const val MAX_CATEGORY = 60
+
+        /** The server's limits for a receipt's shop name, a line's name, and an entry's lines. */
+        const val MAX_MERCHANT = 100
+        const val MAX_ITEM_NAME = 120
+        const val MAX_ITEMS = 100
     }
 }

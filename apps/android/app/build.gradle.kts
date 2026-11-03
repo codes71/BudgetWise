@@ -111,8 +111,12 @@ dependencies {
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    // HiltWorkerFactory for the WorkManager configuration (SyncWorker is built through Hilt).
+    // HiltWorkerFactory for the WorkManager configuration (SyncWorker is built through Hilt), and the processor for
+    // this module's own worker (MonthEndWorker).
     implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
+    // The month-end reminder remembers what it posted in the app's Preferences DataStore (provided by :core:data).
+    implementation(libs.androidx.datastore.preferences)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

@@ -37,16 +37,26 @@ import app.budgetwise.data.auth.SessionState
 import app.budgetwise.data.auth.StoredSession
 import app.budgetwise.data.auth.TokenStore
 import app.budgetwise.data.auth.UserInfo
+import app.budgetwise.reminders.MonthEndLink
+import app.budgetwise.testing.FakeNetworkStatus
+import app.budgetwise.testing.FakeSettingsStore
+import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTokenStore
+import app.budgetwise.testing.FakeTransactionStore
 import app.budgetwise.testing.TestUser
+import app.budgetwise.ui.transactions.TransactionsViewModel
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import dagger.hilt.android.testing.UninstallModules
+import java.time.Clock
 import java.time.Instant
+import java.time.YearMonth
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -125,13 +135,60 @@ class AppNavTest {
         compose.onNodeWithText(text(R.string.nav_budgets)).assertIsDisplayed()
     }
 
+    private fun openAddSheet() {
+        compose.onNode(hasText(text(R.string.action_add)) and hasClickAction()).performClick()
+        compose.onNodeWithText(text(R.string.add_scan_detail)).assertIsDisplayed()
+    }
+
     @Test
-    fun theAddPillOpensTheForm() {
+    fun theAddPillOpensTheSheetAndTypeItOpensTheForm() {
         showApp()
 
-        compose.onNode(hasText(text(R.string.action_add)) and hasClickAction()).performClick()
+        openAddSheet()
+        // This phone has the memory for voice, so Say it is offered.
+        compose.onNodeWithText(text(R.string.add_say_it_example)).assertIsDisplayed()
+        compose.onNode(hasText(text(R.string.add_type_it)) and hasClickAction()).performClick()
+
         compose.onNodeWithText(text(R.string.manual_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.add_scan_detail)).assertDoesNotExist()
         compose.onNodeWithText(text(R.string.nav_budgets)).assertDoesNotExist()
+    }
+
+    @Test
+    fun addIncomeOpensTheFormAsIncomeAndClosingItLeavesTheSheetClosed() {
+        showApp()
+
+        openAddSheet()
+        compose.onNode(hasText(text(R.string.add_income)) and hasClickAction()).performClick()
+        compose.onNodeWithText(text(R.string.manual_income_note)).assertIsDisplayed()
+
+        compose.onNodeWithContentDescription(text(R.string.action_close)).performClick()
+        compose.onNodeWithText(text(R.string.nav_budgets)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.add_scan_detail)).assertDoesNotExist()
+    }
+
+    @Test
+    fun theAddPillWorksFromBudgetsToo() {
+        showApp()
+
+        compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
+        openAddSheet()
+        compose.onNode(hasText(text(R.string.scan_entry)) and hasClickAction()).assertIsDisplayed()
+    }
+
+    @Test
+    fun anEntryThatIsGoneClosesTheEditForm() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme { AppNav(session = session.state.collectAsState().value, navController = nav) }
+        }
+
+        assertEquals("edit/a%20b", Routes.editEntry("a b"))
+        compose.runOnIdle { nav.navigate(Routes.editEntry("gone")) }
+        // Room answers on its own thread that there is no such entry, and the form closes.
+        compose.waitUntil(5_000) { compose.runOnIdle { nav.currentDestination?.route } == Routes.TRANSACTIONS }
+        assertEquals(listOf(Routes.TRANSACTIONS), compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } })
     }
 
     @Test
@@ -230,6 +287,70 @@ class AppNavTest {
     }
 
     @Test
+    fun aDeletedReceiptClosesOntoTheListWhichOffersUndo() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            NavHost(nav, startDestination = Routes.TRANSACTIONS) {
+                composable(Routes.TRANSACTIONS) { Text("list") }
+                composable(Routes.RECEIPT) { Text("receipt") }
+            }
+        }
+        val store = FakeTransactionStore()
+        val list = TransactionsViewModel(
+            store, FakeSyncControls(), FakeSettingsStore(), FakeNetworkStatus(), Clock.systemUTC(), CoroutineScope(Dispatchers.Unconfined),
+        )
+        compose.runOnIdle { nav.navigate(Routes.receipt("r1")) }
+
+        // Opened from somewhere without the list: nothing happens, and the receipt screen deletes it itself.
+        assertFalse(compose.runOnIdle { nav.closeReceiptDeleted(null, "r1", listOf("a", "b")) })
+        assertEquals(Routes.RECEIPT, compose.runOnIdle { nav.currentDestination?.route })
+
+        assertTrue(compose.runOnIdle { nav.closeReceiptDeleted(list, "r1", listOf("a", "b")) })
+        assertEquals(Routes.TRANSACTIONS, compose.runOnIdle { nav.currentDestination?.route })
+        // A second tap, the screen already gone: handled, and nothing else is popped.
+        assertTrue(compose.runOnIdle { nav.closeReceiptDeleted(list, "r1", listOf("a", "b")) })
+        assertEquals(listOf(Routes.TRANSACTIONS), compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } })
+
+        // The list holds the delete for its Undo window; it goes through when that ends.
+        assertTrue(store.deleted.isEmpty())
+        list.commitPendingDelete()
+        assertEquals(listOf("a", "b"), store.deleted)
+    }
+
+    @Test
+    fun aDeletedEntryClosesOntoTheListWhichOffersUndo() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            NavHost(nav, startDestination = Routes.TRANSACTIONS) {
+                composable(Routes.TRANSACTIONS) { Text("list") }
+                composable(Routes.EDIT_ENTRY) { Text("form") }
+            }
+        }
+        val store = FakeTransactionStore()
+        val list = TransactionsViewModel(
+            store, FakeSyncControls(), FakeSettingsStore(), FakeNetworkStatus(), Clock.systemUTC(), CoroutineScope(Dispatchers.Unconfined),
+        )
+        compose.runOnIdle { nav.navigate(Routes.editEntry("c1")) }
+
+        // Opened from somewhere without the list: nothing happens, and the form deletes it itself.
+        assertFalse(compose.runOnIdle { nav.closeEntryDeleted(null, "c1") })
+        assertEquals(Routes.EDIT_ENTRY, compose.runOnIdle { nav.currentDestination?.route })
+
+        assertTrue(compose.runOnIdle { nav.closeEntryDeleted(list, "c1") })
+        assertEquals(Routes.TRANSACTIONS, compose.runOnIdle { nav.currentDestination?.route })
+        // A second tap, the form already gone: handled, and nothing else is popped.
+        assertTrue(compose.runOnIdle { nav.closeEntryDeleted(list, "c1") })
+        assertEquals(listOf(Routes.TRANSACTIONS), compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } })
+
+        // The list holds the delete for its Undo window; it goes through when that ends.
+        assertTrue(store.deleted.isEmpty())
+        list.commitPendingDelete()
+        assertEquals(listOf("c1"), store.deleted)
+    }
+
+    @Test
     fun theFormClosesEvenWhenItsEntryIsNotResumed() {
         lateinit var nav: NavHostController
         compose.setContent {
@@ -261,14 +382,77 @@ class AppNavTest {
         showApp()
 
         compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
-        // The empty state waits for Room's first answer, which arrives from Room's own thread.
-        compose.waitUntil(5_000) { compose.onAllNodesWithText(text(R.string.budgets_empty)).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText(text(R.string.budgets_empty)).assertIsDisplayed()
+        // The first-plan screen waits for Room's first answer, which arrives from Room's own thread.
+        compose.waitUntil(5_000) { compose.onAllNodesWithText(text(R.string.budgets_first_headline)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(text(R.string.budgets_first_headline)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.transactions_empty_title)).assertDoesNotExist()
 
         compose.onNodeWithText(text(R.string.nav_transactions)).performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText(text(R.string.transactions_empty_title)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText(text(R.string.transactions_empty_title)).assertIsDisplayed()
+    }
+
+    private fun showWithNav(): NavHostController {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme { AppNav(session = session.state.collectAsState().value, navController = nav) }
+        }
+        return nav
+    }
+
+    private fun routes(nav: NavHostController) = compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } }
+
+    @Test
+    fun thePlanEditorIsFullScreenAndClosesBackToBudgets() {
+        val nav = showWithNav()
+        compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
+
+        assertEquals("budget_plan/2026-10", Routes.budgetPlan(YearMonth.of(2026, 10)))
+        compose.runOnIdle { nav.navigate(Routes.budgetPlan(YearMonth.of(2026, 10))) { launchSingleTop = true } }
+
+        assertEquals(Routes.BUDGET_PLAN, compose.runOnIdle { nav.currentDestination?.route })
+        compose.onNodeWithText("October budget").assertIsDisplayed()
+        // No bottom bar on the editor.
+        compose.onNodeWithText(text(R.string.nav_transactions)).assertDoesNotExist()
+
+        compose.onNodeWithContentDescription(text(R.string.action_close)).performClick()
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS), routes(nav))
+        compose.onNodeWithText(text(R.string.nav_transactions)).assertIsDisplayed()
+    }
+
+    @Test
+    fun theEndCheckGoesOnToTheNextMonthsPlanInItsPlaceAndSavingLandsOnBudgets() {
+        val nav = showWithNav()
+        compose.onNodeWithText(text(R.string.nav_budgets)).performClick()
+
+        assertEquals("month_end/2026-10", Routes.monthEnd(YearMonth.of(2026, 10)))
+        compose.runOnIdle { nav.navigate(Routes.monthEnd(YearMonth.of(2026, 10))) }
+        assertEquals(Routes.MONTH_END, compose.runOnIdle { nav.currentDestination?.route })
+        compose.onNodeWithText("End of October").assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.nav_transactions)).assertDoesNotExist()
+
+        compose.runOnIdle { nav.openPlanAfterCheck(YearMonth.of(2026, 11)) }
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS, Routes.BUDGET_PLAN), routes(nav))
+        assertEquals(true, compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getBoolean("tickCarry") })
+        compose.onNodeWithText("November budget").assertIsDisplayed()
+
+        compose.runOnIdle {
+            nav.closePlanEditor()
+            // A second call, the editor already gone, does nothing.
+            nav.closePlanEditor()
+        }
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS), routes(nav))
+    }
+
+    @Test
+    fun savingAnEditorOpenedOutsideBudgetsLandsOnBudgets() {
+        val nav = showWithNav()
+
+        compose.runOnIdle { nav.navigate(Routes.budgetPlan(YearMonth.of(2026, 11))) }
+        compose.runOnIdle { nav.closePlanEditor() }
+
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS), routes(nav))
     }
 
     private fun signedIn(user: UserInfo) = SessionState.SignedIn(user, Instant.now().plusSeconds(86_400 * 20L), false)
@@ -331,5 +515,77 @@ class AppNavTest {
     @Test
     fun theSameAccountSigningInAgainKeepsItsTabs() {
         assertTrue(savedBudgetsComeBack(start = signedIn(TestUser), between = listOf(SessionState.Expired), next = TestUser))
+    }
+
+    @Test
+    fun aMonthEndLinkLeadsToTheEndCheckOnlyForItsOwnAccount() {
+        val october = YearMonth.of(2026, 10)
+        val link = MonthEndLink(TestUser.id, october)
+
+        assertEquals("month_end/2026-10", monthEndRouteFor(link, signedIn(TestUser)))
+        assertEquals("month_end/2026-10", monthEndRouteFor(link, SessionState.SignedInOffline(TestUser)))
+        assertEquals(Routes.BUDGETS, monthEndRouteFor(link, signedIn(otherUser)))
+        assertEquals(Routes.BUDGETS, monthEndRouteFor(link, SessionState.SignedInOffline(otherUser)))
+        // Expired cannot save a check; Budgets asks to sign in through its chip.
+        assertEquals(Routes.BUDGETS, monthEndRouteFor(link, SessionState.Expired))
+        assertEquals(null, monthEndRouteFor(link, SessionState.SignedOut))
+    }
+
+    @Test
+    fun aMonthEndLinkAtLaunchOpensTheEndCheckOverBudgetsAndOneLaterFollowsToo() {
+        val october = YearMonth.of(2026, 10)
+        // A cold start: the link is there from the first frame.
+        var link by mutableStateOf<MonthEndLink?>(MonthEndLink(TestUser.id, october))
+        var handled = 0
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme {
+                AppNav(
+                    session = signedIn(TestUser),
+                    navController = nav,
+                    monthEndLink = link,
+                    onMonthEndLinkHandled = {
+                        handled++
+                        link = null
+                    },
+                )
+            }
+        }
+
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS, Routes.MONTH_END), routes(nav))
+        compose.onNodeWithText("End of October").assertIsDisplayed()
+        assertEquals(1, handled)
+
+        // Back from the check lands on Budgets.
+        compose.onNodeWithContentDescription(text(R.string.action_close)).performClick()
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS), routes(nav))
+
+        // The app already open (onNewIntent): a link for another account on this phone opens Budgets.
+        compose.runOnIdle { nav.navigate(Routes.SETTINGS) }
+        compose.runOnIdle { link = MonthEndLink(otherUser.id, october) }
+        compose.waitForIdle()
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS), routes(nav))
+        assertEquals(2, handled)
+    }
+
+    @Test
+    fun signedOutAMonthEndLinkLeavesTheWelcomeScreen() {
+        var handled = 0
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            BudgetWiseTheme {
+                AppNav(
+                    session = SessionState.SignedOut,
+                    navController = nav,
+                    monthEndLink = MonthEndLink(TestUser.id, YearMonth.of(2026, 10)),
+                    onMonthEndLinkHandled = { handled++ },
+                )
+            }
+        }
+
+        assertEquals(listOf(Routes.WELCOME), routes(nav))
+        assertEquals(1, handled)
     }
 }

@@ -16,6 +16,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.LocalDate
 import java.time.YearMonth
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -33,8 +34,34 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** One day of entries, newest first. */
-data class DaySection(val date: LocalDate, val rows: List<Transaction>)
+/** One day of entries, newest first. [lines] is what the list shows: a receipt's entries are one line. */
+data class DaySection(val date: LocalDate, val rows: List<Transaction>, val lines: List<DayLine> = dayLines(rows))
+
+/** A line of a day's list: one entry, or the entries saved from one scanned receipt. */
+sealed interface DayLine {
+    /** The line's id in the list and for Undo: the entry's clientId, or the receipt's id. */
+    val key: String
+
+    /** The entries a swipe deletes. */
+    val clientIds: List<String>
+
+    data class Entry(val row: Transaction) : DayLine {
+        override val key: String get() = row.clientId
+        override val clientIds: List<String> get() = listOf(row.clientId)
+    }
+
+    /**
+     * A receipt's entries (expenses, largest first) as one line. [scannedTwice]: another receipt that day has the same
+     * shop and total, so one of the two may be the same paper scanned again. Both are marked: which of them came first
+     * is not known (a change gives an entry a new time), and once one is deleted the other is plain again.
+     */
+    data class Receipt(val receiptId: String, val entries: List<Transaction>, val scannedTwice: Boolean = false) : DayLine {
+        override val key: String get() = receiptId
+        override val clientIds: List<String> get() = entries.map { it.clientId }
+        val merchant: String? get() = entries.firstNotNullOfOrNull { it.merchant }
+        val amountKyat: Long get() = entries.sumOf { it.amountKyat }
+    }
+}
 
 /** Totals for [month]. [balance] is negative when more went out than came in. */
 data class MonthSummary(val month: YearMonth, val spent: Long = 0, val income: Long = 0) {
@@ -53,11 +80,14 @@ data class TransactionsUiState(
      * after a save, on reconnect) stay out of sight, or the spinner drops into the screen for no visible reason.
      */
     val refreshing: Boolean = false,
-    /** The row swiped away whose notice (with Undo) is showing; it is deleted when the notice ends. */
+    /**
+     * The line swiped away whose notice (with Undo) is showing, by its [DayLine.key]; its entries are deleted when the
+     * notice ends.
+     */
     val pendingDelete: String? = null,
-    /** [pendingDelete]'s row, for the notice to name it; null once Room has dropped it. */
-    val pendingDeleteRow: Transaction? = null,
-    /** How often Undo brought each row back. Part of the row's list key, so it returns with its swipe reset. */
+    /** [pendingDelete]'s rows, for the notice to name them; empty once Room has dropped them. */
+    val pendingDeleteRows: List<Transaction> = emptyList(),
+    /** How often Undo brought each line back, by key. Part of the line's list key, so it returns with its swipe reset. */
     val restored: Map<String, Int> = emptyMap(),
     /** No internet. Entries still save on the phone and sync later; the header's chip says so. */
     val offline: Boolean = false,
@@ -83,11 +113,37 @@ sealed interface TransactionsEvent {
     data object WaitingForNetwork : TransactionsEvent
 }
 
-/** Rows grouped by day, newest day first; within a day the newest change first. */
-internal fun groupByDay(rows: List<Transaction>): List<DaySection> =
-    rows.sortedWith(compareByDescending<Transaction> { it.date }.thenByDescending { it.updatedAt })
-        .groupBy { it.date }
+/**
+ * Rows grouped by day, newest day first; within a day the newest change first. A receipt's entries all go on the day of
+ * its newest one, so a receipt is always one line on one day: entries saved before a receipt kept one date for all of
+ * them may carry two dates, and two lines with one receipt's key would break the list.
+ */
+internal fun groupByDay(rows: List<Transaction>): List<DaySection> {
+    val receiptDays = rows.filter { it.receiptId != null }.groupBy { it.receiptId }.mapValues { (_, entries) -> entries.maxOf { it.date } }
+    fun day(row: Transaction): LocalDate = receiptDays[row.receiptId] ?: row.date
+    return rows.sortedWith(compareByDescending<Transaction> { day(it) }.thenByDescending { it.updatedAt })
+        .groupBy { day(it) }
         .map { (date, dayRows) -> DaySection(date, dayRows) }
+}
+
+/**
+ * A day's rows (newest first) as the list shows them: a receipt's entries become one line where its newest entry is.
+ * Receipts that day with the same shop (in any case) and total are each marked as maybe scanned twice.
+ */
+internal fun dayLines(rows: List<Transaction>): List<DayLine> {
+    val receipts = rows.groupBy { it.receiptId }
+    val lines = rows.mapNotNull { row ->
+        val id = row.receiptId ?: return@mapNotNull DayLine.Entry(row)
+        val entries = receipts.getValue(id)
+        // The receipt's first row is its newest entry: the line goes there, and its other rows add nothing.
+        if (entries.first() === row) DayLine.Receipt(id, entries.sortedByDescending { it.amountKyat }) else null
+    }
+    fun DayLine.Receipt.alike(): Pair<String, Long>? = merchant?.trim()?.lowercase(Locale.ROOT)?.let { it to amountKyat }
+    val counts = lines.filterIsInstance<DayLine.Receipt>().mapNotNull { it.alike() }.groupingBy { it }.eachCount()
+    return lines.map { line ->
+        if (line is DayLine.Receipt && (counts[line.alike()] ?: 0) > 1) line.copy(scannedTwice = true) else line
+    }
+}
 
 internal fun monthSummary(rows: List<Transaction>, month: YearMonth): MonthSummary {
     var spent = 0L
@@ -114,10 +170,13 @@ class TransactionsViewModel @Inject constructor(
     @DeviceClock private val clock: Clock,
     @ApplicationScope private val appScope: CoroutineScope,
 ) : ViewModel() {
+    /** A line swiped away and waiting for its Undo window: its key and the entries it takes with it. */
+    private data class PendingDelete(val key: String, val clientIds: List<String>)
+
     private data class Local(
         /** Rows swiped away: pending Undo, or deleted and waiting for Room to drop them. Ids are never reused. */
         val hidden: Set<String> = emptySet(),
-        val pendingDelete: String? = null,
+        val pendingDelete: PendingDelete? = null,
         val refreshRequested: Boolean = false,
         val restored: Map<String, Int> = emptyMap(),
     )
@@ -144,8 +203,8 @@ class TransactionsViewModel @Inject constructor(
                 summary = monthSummary(visible, YearMonth.from(today)),
                 myanmarDigits = digits,
                 refreshing = l.refreshRequested,
-                pendingDelete = l.pendingDelete,
-                pendingDeleteRow = l.pendingDelete?.let { id -> hidden.firstOrNull { it.clientId == id } },
+                pendingDelete = l.pendingDelete?.key,
+                pendingDeleteRows = l.pendingDelete?.let { pending -> hidden.filter { it.clientId in pending.clientIds } }.orEmpty(),
                 restored = l.restored,
                 offline = !online,
                 pace = monthPace(spending, today),
@@ -153,34 +212,44 @@ class TransactionsViewModel @Inject constructor(
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TransactionsUiState(today = LocalDate.now(clock)))
 
-    /** Swiped away: hide it and offer Undo. A row still waiting for its Undo window is deleted now. */
-    fun delete(clientId: String) {
+    /**
+     * Swiped away: hide the line (an entry, or every entry of a receipt) and offer Undo. A line still waiting for its
+     * Undo window is deleted now.
+     */
+    fun delete(line: DayLine) = deleteEntries(line.key, line.clientIds)
+
+    /**
+     * [delete] for the entries [clientIds] of the line [key]: a swipe, or Delete entry in the form (and Delete this
+     * receipt on the receipt's screen), which hands its entries back here for the same notice and Undo.
+     */
+    fun deleteEntries(key: String, clientIds: List<String>) {
         val previous = local.value.pendingDelete
-        local.update { it.copy(hidden = it.hidden + clientId, pendingDelete = clientId) }
-        if (previous != null && previous != clientId) send(previous)
+        local.update { it.copy(hidden = it.hidden + clientIds, pendingDelete = PendingDelete(key, clientIds)) }
+        if (previous != null && previous.key != key) previous.clientIds.forEach(::send)
     }
 
-    fun undoDelete(clientId: String) {
-        if (local.value.pendingDelete != clientId) return
+    /** Undo: the line [key] comes back, all its entries. */
+    fun undoDelete(key: String) {
+        val pending = local.value.pendingDelete?.takeIf { it.key == key } ?: return
         local.update {
             it.copy(
-                hidden = it.hidden - clientId,
+                hidden = it.hidden - pending.clientIds.toSet(),
                 pendingDelete = null,
-                restored = it.restored + (clientId to (it.restored[clientId] ?: 0) + 1),
+                restored = it.restored + (key to (it.restored[key] ?: 0) + 1),
             )
         }
     }
 
-    /** The notice for [clientId] ended without Undo. Ignored when that row was already undone or committed. */
-    fun commitDelete(clientId: String) {
-        if (local.value.pendingDelete != clientId) return
+    /** The notice for the line [key] ended without Undo. Ignored when that line was already undone or committed. */
+    fun commitDelete(key: String) {
+        val pending = local.value.pendingDelete?.takeIf { it.key == key } ?: return
         local.update { it.copy(pendingDelete = null) }
-        send(clientId)
+        pending.clientIds.forEach(::send)
     }
 
     /** The screen is going away while a notice shows: the delete happens, as if the notice had timed out. */
     fun commitPendingDelete() {
-        local.value.pendingDelete?.let(::commitDelete)
+        local.value.pendingDelete?.let { commitDelete(it.key) }
     }
 
     override fun onCleared() {

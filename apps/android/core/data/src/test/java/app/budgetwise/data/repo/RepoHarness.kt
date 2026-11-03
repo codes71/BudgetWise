@@ -51,6 +51,9 @@ class RepoHarness : Closeable {
     }
 
     val scheduler = SyncScheduler(context)
+
+    /** Shared by the budget and plan repositories a test builds, as the app's singleton is. */
+    val writes = CacheWrites()
     val transactions = TransactionRepository(sync.db, sync.session, sync.engine, scheduler, sync.clock)
 
     fun work(name: String): List<WorkInfo> = WorkManager.getInstance(context).getWorkInfosForUniqueWork(name).get()

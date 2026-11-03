@@ -10,6 +10,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAccessor
+import java.util.Locale
 
 /**
  * [value] in the phone's language, with that language's own order for the fields in [skeleton] (for example
@@ -28,8 +29,11 @@ fun localizedDate(value: TemporalAccessor, skeleton: String, myanmarDigits: Bool
 @Composable
 fun monthName(month: YearMonth): String {
     val locale = LocalConfiguration.current.locales[0]
-    return remember(month, locale) { DateTimeFormatter.ofPattern("LLLL", locale).format(month) }
+    return remember(month, locale) { monthName(month, locale) }
 }
+
+/** [monthName] outside a screen (a notification), in [locale]. */
+fun monthName(month: YearMonth, locale: Locale): String = DateTimeFormatter.ofPattern("LLLL", locale).format(month)
 
 /** "Today", "Yesterday", else the weekday and date (with the year when it is not this year). */
 @Composable

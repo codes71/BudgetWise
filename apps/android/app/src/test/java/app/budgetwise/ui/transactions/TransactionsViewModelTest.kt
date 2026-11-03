@@ -1,5 +1,6 @@
 package app.budgetwise.ui.transactions
 
+import app.budgetwise.data.model.Source
 import app.budgetwise.data.sync.SyncOutcome
 import app.budgetwise.data.sync.SyncStatus
 import app.budgetwise.nlu.TxType
@@ -69,14 +70,14 @@ class TransactionsViewModelTest {
         assertEquals(listOf("Groceries", "Transport"), vm.state.value.categories.top.map { it.category })
 
         // Swiped away: gone from the chart at once, and the notice can name it.
-        vm.delete(rice.clientId)
+        vm.delete(DayLine.Entry(rice))
         assertEquals(4_000L, vm.state.value.pace.spent)
         assertEquals(listOf("Transport"), vm.state.value.categories.top.map { it.category })
-        assertEquals(rice, vm.state.value.pendingDeleteRow)
+        assertEquals(listOf(rice), vm.state.value.pendingDeleteRows)
 
         vm.undoDelete(rice.clientId)
         assertEquals(24_000L, vm.state.value.pace.spent)
-        assertNull(vm.state.value.pendingDeleteRow)
+        assertTrue(vm.state.value.pendingDeleteRows.isEmpty())
     }
 
     @Test
@@ -119,7 +120,7 @@ class TransactionsViewModelTest {
         store.rows.value = listOf(tea, rice)
         val vm = vm()
 
-        vm.delete(tea.clientId)
+        vm.delete(DayLine.Entry(tea))
         runCurrent()
 
         assertEquals(listOf(rice.clientId), vm.state.value.visibleIds())
@@ -140,7 +141,7 @@ class TransactionsViewModelTest {
         store.rows.value = listOf(tea)
         val vm = vm()
 
-        vm.delete(tea.clientId)
+        vm.delete(DayLine.Entry(tea))
         vm.undoDelete(tea.clientId)
         // A late "dismissed" for the same row (the snackbar closing) must not delete it after Undo.
         vm.commitDelete(tea.clientId)
@@ -161,8 +162,8 @@ class TransactionsViewModelTest {
         store.rows.value = listOf(tea, rice)
         val vm = vm()
 
-        vm.delete(tea.clientId)
-        vm.delete(rice.clientId)
+        vm.delete(DayLine.Entry(tea))
+        vm.delete(DayLine.Entry(rice))
         runCurrent()
 
         assertEquals(listOf(tea.clientId), store.deleted)
@@ -171,16 +172,173 @@ class TransactionsViewModelTest {
     }
 
     @Test
+    fun aDeleteFromTheFormIsHiddenWithUndoLikeASwipe() = runTest {
+        val tea = testTransaction("tea", 1500, today)
+        val rice = testTransaction("rice", 20000, today)
+        store.rows.value = listOf(tea, rice)
+        val vm = vm()
+
+        // Delete entry in the form hands the entry over by its line's key.
+        vm.deleteEntries(tea.clientId, listOf(tea.clientId))
+        runCurrent()
+
+        assertEquals(listOf(rice.clientId), vm.state.value.visibleIds())
+        assertEquals(tea.clientId, vm.state.value.pendingDelete)
+        assertEquals(listOf(tea), vm.state.value.pendingDeleteRows)
+        assertTrue(store.deleted.isEmpty())
+
+        vm.undoDelete(tea.clientId)
+        runCurrent()
+        assertEquals(setOf(tea.clientId, rice.clientId), vm.state.value.visibleIds().toSet())
+        assertTrue(store.deleted.isEmpty())
+    }
+
+    @Test
     fun leavingTheScreenCommitsThePendingDelete() = runTest {
         val tea = testTransaction("tea", 1500, today)
         store.rows.value = listOf(tea)
         val vm = vm()
 
-        vm.delete(tea.clientId)
+        vm.delete(DayLine.Entry(tea))
         vm.commitPendingDelete()
         runCurrent()
 
         assertEquals(listOf(tea.clientId), store.deleted)
+    }
+
+    /** An entry saved from receipt [receiptId], changed at [hour] o'clock today. */
+    private fun scanned(
+        description: String,
+        amount: Long,
+        receiptId: String,
+        merchant: String?,
+        hour: Int,
+        category: String = "Groceries",
+        date: LocalDate = today,
+    ) = testTransaction(description, amount, date, category = category)
+        .copy(source = Source.SCAN, receiptId = receiptId, merchant = merchant, updatedAt = at(hour))
+
+    private fun at(hour: Int): Instant = today.atTime(hour, 0).atZone(zone).toInstant()
+
+    @Test
+    fun aReceiptsEntriesAreOneLineWhereItsNewestEntryIs() = runTest {
+        val milk = scanned("Ocean Supercenter, Groceries", 16307, "r1", "Ocean Supercenter", hour = 9)
+        val soap = scanned("Ocean Supercenter, Other", 30000, "r1", "Ocean Supercenter", hour = 7, category = "Other")
+        val tea = testTransaction("tea", 1500, today).copy(updatedAt = at(8))
+        val bus = testTransaction("bus", 600, today).copy(updatedAt = at(6))
+        store.rows.value = listOf(tea, soap, bus, milk)
+
+        val day = vm().state.value.days.single()
+
+        assertEquals(listOf("r1", tea.clientId, bus.clientId), day.lines.map { it.key })
+        val receipt = day.lines[0] as DayLine.Receipt
+        assertEquals("Ocean Supercenter", receipt.merchant)
+        assertEquals(46307L, receipt.amountKyat)
+        assertEquals("largest first", listOf(soap, milk), receipt.entries)
+        assertFalse(receipt.scannedTwice)
+        // The day keeps every entry, so its total is what it was.
+        assertEquals(4, day.rows.size)
+    }
+
+    @Test
+    fun receiptsWithTheSameShopAndTotalOnADayAreBothMarked() {
+        val first = listOf(
+            scanned("a", 16307, "r1", "Ocean Supercenter", hour = 7),
+            scanned("b", 30000, "r1", "Ocean Supercenter", hour = 7, category = "Other"),
+        )
+        // The same paper again, saved as one entry, the shop read in other letters.
+        val again = scanned("c", 46307, "r2", "OCEAN SUPERCENTER ", hour = 9)
+        val otherTotal = scanned("d", 46000, "r3", "Ocean Supercenter", hour = 10)
+        val noShop = listOf(scanned("e", 500, "r4", null, hour = 11), scanned("f", 500, "r5", null, hour = 12))
+        // Yesterday's receipt is not compared with today's.
+        val yesterday = scanned("g", 46307, "r6", "Ocean Supercenter", hour = 8, date = today.minusDays(1))
+
+        val days = groupByDay(first + again + otherTotal + noShop + yesterday)
+
+        val twice = days.flatMap { it.lines }.filterIsInstance<DayLine.Receipt>().associate { it.receiptId to it.scannedTwice }
+        assertEquals(mapOf("r1" to true, "r2" to true, "r3" to false, "r4" to false, "r5" to false, "r6" to false), twice)
+    }
+
+    @Test
+    fun changingTheFirstReceiptKeepsTheMarkOnBoth() {
+        // The first receipt's entry was moved to another category after the second was scanned: it is the newer now.
+        val first = scanned("a", 46307, "r1", "Ocean Supercenter", hour = 11)
+        val again = scanned("b", 46307, "r2", "Ocean Supercenter", hour = 9)
+
+        val lines = groupByDay(listOf(first, again)).single().lines.filterIsInstance<DayLine.Receipt>()
+
+        assertEquals(listOf("r1" to true, "r2" to true), lines.map { it.receiptId to it.scannedTwice })
+        // One of the two deleted: the other is plain again.
+        assertFalse((groupByDay(listOf(again)).single().lines.single() as DayLine.Receipt).scannedTwice)
+    }
+
+    @Test
+    fun aReceiptSavedAcrossTwoDaysIsOneLineOnItsNewerDay() {
+        val milk = scanned("Ocean Supercenter, Groceries", 16307, "r1", "Ocean Supercenter", hour = 9)
+        val soap = scanned("Ocean Supercenter, Other", 30000, "r1", "Ocean Supercenter", hour = 9, category = "Other", date = today.minusDays(1))
+        val taxi = testTransaction("taxi", 4000, today.minusDays(1), category = "Transport")
+
+        val days = groupByDay(listOf(milk, soap, taxi))
+
+        assertEquals(listOf(today, today.minusDays(1)), days.map { it.date })
+        val receipt = days[0].lines.single() as DayLine.Receipt
+        assertEquals(setOf(milk, soap), receipt.entries.toSet())
+        // The day's total is what its lines show.
+        assertEquals(setOf(milk, soap), days[0].rows.toSet())
+        assertEquals(listOf(taxi.clientId), days[1].lines.map { it.key })
+        val keys = days.flatMap { day -> day.lines.map { it.key } }
+        assertEquals("every line has its own key", keys.distinct(), keys)
+    }
+
+    @Test
+    fun aReceiptDeletedOnItsOwnScreenWaitsForUndoLikeASwipe() = runTest {
+        val milk = scanned("Ocean Supercenter, Groceries", 16307, "r1", "Ocean Supercenter", hour = 9)
+        val soap = scanned("Ocean Supercenter, Other", 30000, "r1", "Ocean Supercenter", hour = 9, category = "Other")
+        val tea = testTransaction("tea", 1500, today)
+        store.rows.value = listOf(milk, soap, tea)
+        val vm = vm()
+
+        vm.deleteEntries("r1", listOf(milk.clientId, soap.clientId))
+        runCurrent()
+
+        assertEquals(listOf(tea.clientId), vm.state.value.visibleIds())
+        assertEquals("r1", vm.state.value.pendingDelete)
+        assertEquals(setOf(milk, soap), vm.state.value.pendingDeleteRows.toSet())
+        assertTrue(store.deleted.isEmpty())
+
+        vm.undoDelete("r1")
+        assertEquals(setOf(milk.clientId, soap.clientId, tea.clientId), vm.state.value.visibleIds().toSet())
+        assertTrue(store.deleted.isEmpty())
+    }
+
+    @Test
+    fun swipingAReceiptDeletesAllItsEntriesAndUndoBringsThemBack() = runTest {
+        val milk = scanned("Ocean Supercenter, Groceries", 16307, "r1", "Ocean Supercenter", hour = 9)
+        val soap = scanned("Ocean Supercenter, Other", 30000, "r1", "Ocean Supercenter", hour = 9, category = "Other")
+        val tea = testTransaction("tea", 1500, today)
+        store.rows.value = listOf(milk, soap, tea)
+        val vm = vm()
+        val receipt = vm.state.value.days.single().lines.first { it is DayLine.Receipt }
+
+        vm.delete(receipt)
+        runCurrent()
+
+        assertEquals(listOf(tea.clientId), vm.state.value.visibleIds())
+        assertEquals("r1", vm.state.value.pendingDelete)
+        assertEquals(setOf(milk, soap), vm.state.value.pendingDeleteRows.toSet())
+        assertEquals("the chart leaves the receipt out too", 1_500L, vm.state.value.pace.spent)
+
+        vm.undoDelete("r1")
+        assertEquals(setOf(milk.clientId, soap.clientId, tea.clientId), vm.state.value.visibleIds().toSet())
+        assertEquals(mapOf("r1" to 1), vm.state.value.restored)
+        assertTrue(store.deleted.isEmpty())
+
+        vm.delete(receipt)
+        vm.commitDelete("r1")
+        runCurrent()
+
+        assertEquals(setOf(milk.clientId, soap.clientId), store.deleted.toSet())
+        assertEquals(listOf(tea.clientId), vm.state.value.visibleIds())
     }
 
     @Test

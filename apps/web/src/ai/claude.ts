@@ -1,13 +1,17 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import type * as z from 'zod/v4';
-import { RefusalError, type Content, type StructuredRequest } from '@/ai/structured';
+import {
+  CLAUDE_TIMEOUT_MS,
+  RefusalError,
+  requestSignal,
+  type Content,
+  type StructuredRequest,
+} from '@/ai/structured';
+import { logger } from '@/lib/logger';
 
 // Claude, the first choice for every AI flow. Reads ANTHROPIC_API_KEY from the environment (.env.local).
 export const CLAUDE_MODEL = 'claude-opus-5-5';
-
-// How long Claude gets, its own retries included, before the request moves to OpenAI.
-const DEADLINE_MS = 25_000;
 
 let client: Anthropic | undefined;
 
@@ -30,8 +34,12 @@ export async function claudeStructured<Schema extends z.ZodType>({
   schema,
   content,
   effort,
-  timeoutMs = DEADLINE_MS,
+  timeoutMs = CLAUDE_TIMEOUT_MS,
+  signal,
+  maxRetries,
+  flow,
 }: StructuredRequest<Schema>): Promise<z.infer<Schema>> {
+  const started = Date.now();
   const response = await getClient().beta.messages.parse(
     {
       model: CLAUDE_MODEL,
@@ -42,8 +50,17 @@ export async function claudeStructured<Schema extends z.ZodType>({
       output_config: { effort, format: betaZodOutputFormat(schema) },
       messages: [{ role: 'user', content: toClaudeContent(content) }],
     },
-    { signal: AbortSignal.timeout(timeoutMs) },
+    { signal: requestSignal(timeoutMs, signal), ...(maxRetries === undefined ? {} : { maxRetries }) },
   );
+  // Timings, codes and token counts only, never the content. model shows when the fallback model answered.
+  logger.info('Claude answered', {
+    flow,
+    ms: Date.now() - started,
+    model: response.model,
+    stopReason: response.stop_reason,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+  });
 
   if (response.stop_reason === 'refusal') {
     throw new RefusalError('Claude declined this request.');

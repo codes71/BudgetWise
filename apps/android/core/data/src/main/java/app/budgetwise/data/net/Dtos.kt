@@ -1,5 +1,6 @@
 package app.budgetwise.data.net
 
+import app.budgetwise.data.model.EntryItem
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
@@ -43,7 +44,14 @@ data class TransactionDto(
     val transcript: String? = null,
     val createdAt: String,
     val updatedAt: String,
+    val receiptId: String? = null,
+    val merchant: String? = null,
+    val items: List<ItemWire> = emptyList(),
 )
+
+/** A receipt line on the wire: [quantity] of [name] at [unitPrice] kyat each. */
+@Serializable
+data class ItemWire(val name: String, val quantity: Int, val unitPrice: Long)
 
 @Serializable
 data class TransactionInput(
@@ -55,6 +63,10 @@ data class TransactionInput(
     val date: String,
     val source: String,
     val transcript: String? = null,
+    val receiptId: String? = null,
+    val merchant: String? = null,
+    /** Null rather than empty, so an entry with no lines sends no `items` (older servers reject unknown shapes). */
+    val items: List<ItemWire>? = null,
 )
 
 @Serializable
@@ -66,6 +78,10 @@ data class TransactionsRequest(val transactions: List<TransactionInput>)
 @Serializable
 data class SavedResponse(val saved: List<TransactionDto>)
 
+/**
+ * What a CREATE sends. The server takes only voice, manual and scan from the phone, so a row marked [Source.WEB] (an
+ * entry made on the website and changed here, kept as it was) goes up as manual instead of being refused for good.
+ */
 fun Transaction.toInput(): TransactionInput {
     require(amountKyat > 0) { "amountKyat must be positive, was $amountKyat" }
     return TransactionInput(
@@ -75,8 +91,11 @@ fun Transaction.toInput(): TransactionInput {
         category = category,
         description = description,
         date = date.toString(),
-        source = source.wire,
+        source = if (source == Source.WEB) Source.MANUAL.wire else source.wire,
         transcript = transcript,
+        receiptId = receiptId,
+        merchant = merchant,
+        items = items.takeIf { it.isNotEmpty() }?.map { ItemWire(it.name, it.quantity, it.unitPriceKyat) },
     )
 }
 
@@ -100,6 +119,10 @@ fun TransactionDto.toDomain(): Transaction {
             transcript = transcript,
             updatedAt = Instant.parse(updatedAt),
             syncState = SyncState.SYNCED,
+            receiptId = receiptId,
+            merchant = merchant,
+            // A line the phone cannot show (no count, a negative price) is left out; the entry itself still counts.
+            items = items.filter { it.quantity > 0 && it.unitPrice >= 0 }.map { EntryItem(it.name, it.quantity, it.unitPrice) },
         )
     } catch (e: DateTimeParseException) {
         bad("bad date/timestamp", e)

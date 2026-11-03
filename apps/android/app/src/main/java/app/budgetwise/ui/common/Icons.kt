@@ -88,6 +88,9 @@ object Lucide {
     /** Transactions (bottom bar). */
     val Receipt by lazy { lucide("Receipt", "M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z", "M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8", "M12 17.5v-11") }
 
+    /** A scanned receipt's entries, as one row of the list. */
+    val ReceiptText by lazy { lucide("ReceiptText", "M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z", "M14 8H8", "M16 12H8", "M13 16H8") }
+
     /** Budgets (bottom bar). */
     val Pie by lazy { lucide("Pie", "M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z", "M21.21 15.89A10 10 0 1 1 8 2.83") }
 
@@ -102,6 +105,21 @@ object Lucide {
 
     /** Selected, done. */
     val Check by lazy { lucide("Check", "M20 6 9 17l-5-5") }
+
+    /** Arrow right: a primary button that goes on to the next step. */
+    val ArrowRightBold by lazy { lucide("ArrowRightBold", "M5 12h14", "m13 6 6 6-6 6", strokeWidth = 2.25f) }
+
+    /** Arrow up: raise the month's budget. */
+    val ArrowUpBold by lazy { lucide("ArrowUpBold", "M12 19V5", "m5 12 7-7 7 7", strokeWidth = 2.25f) }
+
+    /** Wallet: Everything else, the part of a month's budget no category has. */
+    val Wallet by lazy {
+        lucide(
+            "Wallet",
+            "M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1",
+            "M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4",
+        )
+    }
 
     /** Opens a picker or a collapsed row. */
     val ChevronDown by lazy { lucide("ChevronDown", "m6 9 6 6 6-6") }
@@ -127,6 +145,9 @@ object Lucide {
     /** Type an entry in. */
     val Pencil by lazy { lucide("Pencil", "M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z") }
 
+    /** The Add sheet's Type it, and an entry that was typed in. */
+    val Keyboard by lazy { lucide("Keyboard", "M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-16a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2Z", "M6 9h.01", "M10 9h.01", "M14 9h.01", "M18 9h.01", "M8 15h8") }
+
     /** Take a photo of a receipt. */
     val Camera by lazy { lucide("Camera", "M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z", "M9 13a3 3 0 1 0 6 0a3 3 0 1 0 -6 0Z") }
 
@@ -135,6 +156,12 @@ object Lucide {
 
     /** A scanned receipt: the "Scanned" tag and the couldn't-read card. */
     val ScanLine by lazy { lucide("ScanLine", "M3 7V5a2 2 0 0 1 2-2h2", "M17 3h2a2 2 0 0 1 2 2v2", "M21 17v2a2 2 0 0 1-2 2h-2", "M7 21H5a2 2 0 0 1-2-2v-2", "M7 12h10") }
+
+    /** The camera's light, on. */
+    val Flashlight by lazy { lucide("Flashlight", "M18 6c0 2-2 2-2 4v10a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V10c0-2-2-2-2-4V2h12z", "M6 6h12", "M12 12h.01") }
+
+    /** The camera's light, off. */
+    val FlashlightOff by lazy { lucide("FlashlightOff", "M16 16v4a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V10c0-2-2-2-2-4", "M7 2h11v4c0 2-2 2-2 4v1", "M11 6h7", "m2 2 20 20") }
 
     /** Done: entries added. */
     val CircleCheck by lazy { lucide("CircleCheck", "M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0Z", "m9 12 2 2 4-4") }
@@ -177,6 +204,9 @@ object Lucide {
 
     /** The Add pill's plus, drawn heavier (2.25) as on the boards. */
     val PlusBold by lazy { lucide("PlusBold", "M5 12h14", "M12 5v14", strokeWidth = 2.25f) }
+
+    /** A receipt item's count stepper, with [PlusBold]. */
+    val MinusBold by lazy { lucide("MinusBold", "M5 12h14", strokeWidth = 2.25f) }
 
     /** The type selector's arrows and the selected category's check, drawn at 2 as on the boards. */
     val ArrowUpRightBold by lazy { lucide("ArrowUpRightBold", "M7 7h10v10", "M7 17 17 7", strokeWidth = 2f) }

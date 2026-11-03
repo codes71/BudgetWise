@@ -6,6 +6,7 @@ import { req } from "../helpers/request";
 vi.mock("@/ai/generate", () => ({ generateStructured: vi.fn() }));
 import { generateStructured } from "@/ai/generate";
 import type { VoiceOutput } from "@/ai/flows/parse-voice";
+import { DeadlineError, RefusalError } from "@/ai/structured";
 
 const claude = vi.mocked(generateStructured);
 
@@ -213,5 +214,36 @@ describe("POST /api/v1/voice/parse", () => {
     const body = await res.json();
     expect(body.error.code).toBe("parse_failed");
     expect(JSON.stringify(body)).not.toContain("upstream detail");
+  });
+
+  it("gives the model one deadline, 50 s from arrival, and the request's signal", async () => {
+    hears({});
+    const before = Date.now();
+    await parse(tokenA);
+    const [{ deadlineAt, signal, flow }] = claude.mock.calls[0] as unknown as [
+      { deadlineAt: number; signal: AbortSignal; flow: string },
+    ];
+    expect(deadlineAt).toBeGreaterThanOrEqual(before + 50_000);
+    expect(deadlineAt).toBeLessThanOrEqual(Date.now() + 50_000);
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(flow).toBe("voice");
+  });
+
+  it("422 parse_declined when the model declines, instead of a retryable 502", async () => {
+    const quiet = vi.spyOn(console, "warn").mockImplementation(() => {});
+    claude.mockRejectedValue(new RefusalError("Claude declined this request."));
+    const res = await parse(tokenA);
+    quiet.mockRestore();
+    expect(res.status).toBe(422);
+    expect((await res.json()).error.code).toBe("parse_declined");
+  });
+
+  it("504 parse_timeout as JSON when the deadline runs out", async () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    claude.mockRejectedValue(new DeadlineError("no time left"));
+    const res = await parse(tokenA);
+    quiet.mockRestore();
+    expect(res.status).toBe(504);
+    expect((await res.json()).error.code).toBe("parse_timeout");
   });
 });
