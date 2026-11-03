@@ -34,6 +34,15 @@ and web commands and preserve the command's working directory. Native Android
 work uses the supported Gradle checks in `CLAUDE.md`; web work runs from
 `apps/web`. This repository has no root npm package.
 
+The plugin targets this machine's installed OpenCode 1.18.29 V1 plugin contract:
+`{ id, server }` returning named hooks. It uses `client.mcp.status()` and native
+message/tool records. Interface prompts receive the checked-in skill as a
+synthetic text part; verification reminders use the native system hook. The
+[versioned loader](https://github.com/anomalyco/opencode/blob/v1.18.29/packages/opencode/src/plugin/shared.ts)
+and [hook types](https://github.com/anomalyco/opencode/blob/v1.18.29/packages/plugin/src/index.ts)
+are the compatibility references. It does not depend on the unreleased
+`{ id, setup }` API.
+
 The plugin was copied from the existing local Better Design installation and
 modified for this repository. Its original SHA-256 was
 `e0c2f0b16a8cda39a9697474358e4ed9b5d5b51386679792bb09b35b5edc4cd3`.
@@ -46,5 +55,7 @@ Run the tooling regression checks without starting the app or contacting MCP:
 node --test scripts/tests/design-tooling-config.test.mjs scripts/tests/better-design-plugin.test.mjs
 ```
 
-These checks validate configuration references and plugin hook behavior. They
-do not verify a fresh authenticated MCP connection or native UI acceptance.
+These checks validate configuration references, the installed runtime's export
+contract, native hook inputs, and verification behavior. Design tooling CI runs
+them on relevant pull requests and master pushes. They do not verify a fresh
+authenticated MCP connection, live OpenCode interaction, or native UI acceptance.

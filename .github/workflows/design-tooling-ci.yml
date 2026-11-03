@@ -1,0 +1,36 @@
+name: Design tooling CI
+
+on:
+  pull_request:
+    paths:
+      - ".mcp.json"
+      - ".vscode/mcp.json"
+      - "opencode.json"
+      - ".opencode/**"
+      - "scripts/tests/*design*.test.mjs"
+      - ".github/workflows/design-tooling-ci.yml"
+  push:
+    branches: [master]
+    paths:
+      - ".mcp.json"
+      - ".vscode/mcp.json"
+      - "opencode.json"
+      - ".opencode/**"
+      - "scripts/tests/*design*.test.mjs"
+      - ".github/workflows/design-tooling-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  design-tooling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+      - run: node --check .opencode/plugins/better-design.js
+      - run: node --test scripts/tests/design-tooling-config.test.mjs scripts/tests/better-design-plugin.test.mjs

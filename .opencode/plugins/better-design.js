@@ -1,6 +1,10 @@
 // Better Design: attaches the better-design skill to a prompt that asks for
 // interface work, and holds that prompt until the better-design MCP server has
 // connected, so the model has our tools on its first turn.
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+
 const UI_WORK = /\b(ui|ux|user interface|web ?app|mobile app|website|web page|page|screen|component|onboarding|frontend|front-end|react|swiftui|expo|react native|vite|next\.?js|tailwind|css|html|styl(e|ing)|theme|layout|form|dashboard|landing|button|modal|dialog)\b/i;
 const WAIT_MS = 15000;
 // Keep every server tool available on every provider. Workflow requirements
@@ -14,13 +18,13 @@ async function waitForServer(ctx) {
   while (Date.now() < deadline) {
     let servers;
     try {
-      servers = (await ctx.mcp.list()).data ?? [];
+      servers = (await ctx.client.mcp.status()).data ?? {};
     } catch {
-      // An OpenCode without the MCP list API: send the prompt unchanged.
+      // A failed status request must not prevent the user from submitting work.
       return;
     }
-    const ours = servers.find((server) => server.name === "better-design");
-    if (ours?.status?.status !== "pending") return;
+    const ours = servers["better-design"];
+    if (ours?.status !== "pending") return;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 }
@@ -133,6 +137,28 @@ function buildState(messages) {
   return { state, output, callsAfter, lastVerification, editedKind };
 }
 
+// OpenCode 1.18.29 supplies persisted Message/Part records, not model tool-call
+// messages. Completed tools contain both their input and result. Use their
+// timestamps so a result cannot validate an edit made while its command ran.
+function nativeMessages(messages) {
+  const events = [];
+  for (const message of messages) {
+    for (const part of message.parts ?? []) {
+      if (part.type !== "tool") continue;
+      const state = part.state;
+      events.push({ time: state.time?.start ?? message.info.time?.created ?? 0,
+        part: { type: "tool-call", id: part.callID, name: part.tool, input: state.input } });
+      if (state.status === "completed" || state.status === "error") {
+        events.push({ time: state.time?.end ?? state.time?.start ?? 0,
+          part: { type: "tool-result", id: part.callID,
+            result: { ...state, value: state.output } } });
+      }
+    }
+  }
+  events.sort((a, b) => a.time - b.time);
+  return [{ content: events.map((event) => event.part) }];
+}
+
 function finishNudge(turn) {
   const { state, output, callsAfter, lastVerification, editedKind } = buildState(turn.messages);
   const invocation = lastVerification ? `\`${lastVerification.command}\` (working directory: ${lastVerification.cwd})` : null;
@@ -160,19 +186,39 @@ function finishNudge(turn) {
 
 export default {
   id: "better-design",
-  async setup(ctx) {
-    await ctx.session.hook("prompt", async (event) => {
-      if (!UI_WORK.test(event.prompt.text ?? "")) return;
-      const skills = event.prompt.skills ?? [];
-      if (!skills.some((skill) => skill.id === "better-design")) {
-        event.prompt.skills = [...skills, { id: "better-design", name: "better-design" }];
-      }
-      if (ctx.mcp?.list) await waitForServer(ctx);
-    });
-    await ctx.session.hook("context", (turn) => {
-      if (!LOCAL_PROVIDERS.has(turn.model?.providerID)) return;
-      const nudge = finishNudge(turn);
-      if (nudge) turn.messages.push({ role: "user", content: [{ type: "text", text: nudge }] });
-    });
+  // V1 PluginModule contract, supported by the installed OpenCode 1.18.29.
+  // https://github.com/anomalyco/opencode/blob/v1.18.29/packages/opencode/src/plugin/shared.ts
+  async server(ctx) {
+    const conversations = new Map();
+    return {
+      "chat.message": async (input, output) => {
+        if (!output.parts.some((part) => part.type === "text" && UI_WORK.test(part.text))) return;
+        if (!output.parts.some((part) => part.type === "text" && part.metadata?.betterDesignSkill)) {
+          let skill;
+          try {
+            skill = await readFile(join(ctx.directory, ".agents/skills/better-design/SKILL.md"), "utf8");
+          } catch {
+            skill = "Load the project's better-design skill before working on this interface.";
+          }
+          output.parts.push({ id: `prt_${randomUUID().replaceAll("-", "")}`,
+            sessionID: input.sessionID, messageID: output.message.id,
+            type: "text", synthetic: true, text: skill,
+            metadata: { betterDesignSkill: true } });
+        }
+        if (ctx.client?.mcp?.status) await waitForServer(ctx);
+      },
+      "experimental.chat.messages.transform": async (_input, output) => {
+        const sessionID = output.messages[0]?.info.sessionID;
+        if (sessionID) conversations.set(sessionID, nativeMessages(output.messages));
+      },
+      "experimental.chat.system.transform": async (input, output) => {
+        if (!input.sessionID || !LOCAL_PROVIDERS.has(input.model?.providerID)) return;
+        const messages = conversations.get(input.sessionID);
+        if (!messages) return;
+        const nudge = finishNudge({ sessionID: input.sessionID, messages });
+        if (nudge) output.system.push(nudge);
+      },
+      dispose: async () => { conversations.clear(); nudges.clear(); doneNudges.clear(); },
+    };
   },
 };
