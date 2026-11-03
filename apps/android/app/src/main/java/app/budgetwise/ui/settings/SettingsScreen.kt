@@ -71,6 +71,7 @@ import app.budgetwise.ui.theme.bold
 import app.budgetwise.ui.theme.forContent
 import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
+import app.budgetwise.ui.updates.AppUpdateSection
 import java.text.BreakIterator
 import java.time.Instant
 
@@ -103,6 +104,7 @@ fun SettingsRoute(
         onSignIn = onSignIn,
         onLanguage = onLanguage,
         version = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+        updateContent = { AppUpdateSection(state.myanmarDigits) },
     )
 }
 
@@ -123,6 +125,7 @@ fun SettingsScreen(
     onLanguage: () -> Unit,
     version: String,
     modifier: Modifier = Modifier,
+    updateContent: @Composable () -> Unit = {},
 ) {
     val colors = BudgetWiseTheme.colors
     Column(modifier.fillMaxSize().background(colors.ground)) {
@@ -147,6 +150,7 @@ fun SettingsScreen(
                 if (state.account != null) {
                     item(key = "sign-out") { SignOutCard(state.signingOut, onSignOut) }
                 }
+                item(key = "updates") { updateContent() }
                 item(key = "about") {
                     Box(Modifier.fillMaxWidth().padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
                         Text(version, style = BudgetWiseTheme.type.size12, color = colors.muted)

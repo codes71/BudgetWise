@@ -8,3 +8,4 @@
 
 # Leftover dependency folders, for example from the old root layout.
 node_modules/
+__pycache__/

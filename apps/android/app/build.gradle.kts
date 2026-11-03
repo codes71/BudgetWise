@@ -22,6 +22,9 @@ check(releaseApiBaseUrl.startsWith("https://")) {
 // Release signing comes from the environment (android-release.yml decodes the keystore from secrets); no
 // keystore or password is committed. Without ANDROID_KEYSTORE_FILE the release build stays unsigned.
 val releaseKeystoreFile = providers.environmentVariable("ANDROID_KEYSTORE_FILE").orNull
+val updateManifestUrl = providers.gradleProperty("budgetwise.updateManifestUrl")
+    .getOrElse("https://budgetwis3.vercel.app/updates/friends.json")
+check(updateManifestUrl.startsWith("https://")) { "Update manifest must use HTTPS" }
 
 android {
     namespace = "app.budgetwise"
@@ -45,6 +48,8 @@ android {
         // Play rejects an upload whose versionCode is not higher than the last one; android-release.yml sets it.
         versionCode = providers.gradleProperty("budgetwise.versionCode").map(String::toInt).getOrElse(1)
         versionName = providers.gradleProperty("budgetwise.versionName").getOrElse("0.1.0")
+        buildConfigField("boolean", "DIRECT_UPDATES", "false")
+        buildConfigField("String", "UPDATE_MANIFEST_URL", "\"$updateManifestUrl\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -65,6 +70,7 @@ android {
     buildTypes {
         debug {
             buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
+            buildConfigField("boolean", "DIRECT_UPDATES", "true")
         }
         release {
             buildConfigField("String", "API_BASE_URL", "\"$releaseApiBaseUrl\"")
@@ -84,6 +90,12 @@ android {
             initWith(getByName("release"))
             buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
             signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
+        // Direct-distribution APKs update through Android's installer. Play release builds never self-update.
+        create("friends") {
+            initWith(getByName("release"))
+            buildConfigField("boolean", "DIRECT_UPDATES", "true")
             matchingFallbacks += listOf("release")
         }
     }
@@ -108,6 +120,7 @@ dependencies {
     // Voice entry: on-device speech recognition and the microphone.
     implementation(project(":asr"))
     implementation(project(":feature:voice"))
+    implementation(libs.okhttp)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
