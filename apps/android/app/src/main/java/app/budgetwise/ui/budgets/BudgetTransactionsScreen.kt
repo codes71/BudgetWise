@@ -51,6 +51,7 @@ import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.nlu.TxType
+import app.budgetwise.ui.common.BudgetMotion
 import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.EmptyState
 import app.budgetwise.ui.common.Lucide
@@ -209,7 +210,7 @@ fun BudgetTransactionsScreen(
                     }
                     state.days.forEachIndexed { dayIndex, day ->
                         item(key = "day:${day.date}", contentType = "day") {
-                            DayHeader(day, state.today, state.myanmarDigits, Modifier.padding(top = if (dayIndex == 0) 0.dp else 18.dp))
+                            DayHeader(day, state.today, state.myanmarDigits, Modifier.animateItem(fadeInSpec = BudgetMotion.effects(), placementSpec = BudgetMotion.change(), fadeOutSpec = null).padding(top = if (dayIndex == 0) 0.dp else 18.dp))
                         }
                         itemsIndexed(day.rows, key = { _, row -> "entry:${row.clientId}:${state.restored[row.clientId] ?: 0}" }, contentType = { _, _ -> "entry" }) { index, row ->
                             TransactionRow(
@@ -218,6 +219,7 @@ fun BudgetTransactionsScreen(
                                 myanmarDigits = state.myanmarDigits,
                                 onOpen = { onOpenEntry(row.clientId) },
                                 onDelete = { onDelete(row.clientId) },
+                                modifier = Modifier.animateItem(fadeInSpec = BudgetMotion.effects(), placementSpec = BudgetMotion.change(), fadeOutSpec = null),
                             )
                         }
                     }

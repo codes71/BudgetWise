@@ -2,6 +2,7 @@ package app.budgetwise.ui.common
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -10,8 +11,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -104,7 +112,7 @@ fun SyncChipView(chip: SyncChip, onClick: () -> Unit, modifier: Modifier = Modif
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         when (chip) {
-            SyncChip.SYNCING -> Spinner(size = 16.dp, color = colors.muted)
+            SyncChip.SYNCING -> QuietSyncIndicator(color = colors.muted)
             else -> Icon(
                 imageVector = when (chip) {
                     SyncChip.SYNCED -> Lucide.CloudCheck
@@ -119,5 +127,20 @@ fun SyncChipView(chip: SyncChip, onClick: () -> Unit, modifier: Modifier = Modif
             )
         }
         Text(label, style = BudgetWiseTheme.type.size13.medium, color = content, maxLines = 1)
+    }
+}
+
+
+/** Background work may continue, but automatic motion beside the ledger has a finite run. */
+@Composable
+internal fun QuietSyncIndicator(color: Color, modifier: Modifier = Modifier) {
+    var rotating by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        delay(BudgetMotion.BACKGROUND_ROTATION_MS)
+        rotating = false
+    }
+    Box(modifier.size(18.dp), contentAlignment = Alignment.Center) {
+        if (rotating) Spinner(modifier = Modifier.testTag("sync-motion"), size = 16.dp, color = color)
+        else Icon(Lucide.Cloud, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
     }
 }

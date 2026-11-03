@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -60,7 +62,9 @@ import app.budgetwise.asr.VoicePack
 import app.budgetwise.asr.VoiceRequirements
 import app.budgetwise.data.prefs.SettingsStore
 import app.budgetwise.di.DeviceClock
+import app.budgetwise.ui.common.BudgetMotion
 import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.MotionContent
 import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.SecondaryButton
 import app.budgetwise.ui.common.TextAction
@@ -349,12 +353,23 @@ fun VoiceSetupCards(
     onDismiss: () -> Unit,
     onCancelDownload: () -> Unit,
 ) {
-    val card = state.card ?: return
+    if (state.card == null) return
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
-            when (card) {
-                VoiceCard.SETUP -> SetupCard(state, onDownload, onDismiss)
-                VoiceCard.DOWNLOADING -> DownloadingCard(state, onUseMobileData, onDismiss, onCancelDownload)
+            MotionContent(targetState = state, contentKey = { it.card }, label = "voiceSetupCard") { target ->
+                val active = target.card == state.card
+                Box(if (active) Modifier else Modifier.clearAndSetSemantics { }) {
+                    when (target.card) {
+                        VoiceCard.SETUP -> SetupCard(target, { if (active) onDownload() }, { if (active) onDismiss() })
+                        VoiceCard.DOWNLOADING -> DownloadingCard(
+                            target,
+                            { if (active) onUseMobileData() },
+                            { if (active) onDismiss() },
+                            { if (active) onCancelDownload() },
+                        )
+                        null -> Unit
+                    }
+                }
             }
         }
     }
@@ -425,13 +440,34 @@ private fun DownloadingCard(
             modifier = Modifier.padding(top = 10.dp).semantics { heading() },
         )
         DownloadProgress(progress, state.myanmarDigits, Modifier.padding(top = 4.dp))
-        when {
-            downloading != null && waitsForWifi(downloading, state.onWifi) -> WifiWaitNotice(state.myanmarDigits, onUseMobileData)
-            state.minutesLeft != null -> Text(
-                pluralStringResource(R.plurals.voice_minutes_left, state.minutesLeft, groupDigits(state.minutesLeft.toLong(), state.myanmarDigits)),
-                style = type.size13,
-                color = colors.muted,
-            )
+        if ((downloading != null && waitsForWifi(downloading, state.onWifi)) || state.minutesLeft != null) {
+            MotionContent(
+                targetState = state,
+                contentKey = { target ->
+                    when {
+                        (target.model as? ModelState.Downloading)?.let { waitsForWifi(it, target.onWifi) } == true -> "wifi"
+                        target.minutesLeft != null -> "estimate"
+                        else -> "none"
+                    }
+                },
+                label = "voiceDownloadStatus",
+            ) { target ->
+                val download = target.model as? ModelState.Downloading
+                when {
+                    download != null && waitsForWifi(download, target.onWifi) -> WifiWaitNotice(
+                        target.myanmarDigits,
+                        onUseMobileData = {
+                            val current = state.model as? ModelState.Downloading
+                            if (current != null && waitsForWifi(current, state.onWifi)) onUseMobileData()
+                        },
+                    )
+                    target.minutesLeft != null -> Text(
+                        pluralStringResource(R.plurals.voice_minutes_left, target.minutesLeft, groupDigits(target.minutesLeft.toLong(), target.myanmarDigits)),
+                        style = type.size13,
+                        color = colors.muted,
+                    )
+                }
+            }
         }
         InfoBox(Lucide.Bell, colors.muted, stringResource(R.string.voice_download_note))
         SecondaryButton(
@@ -496,6 +532,11 @@ fun DownloadProgress(progress: Float, myanmarDigits: Boolean, modifier: Modifier
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val total = VoicePack.downloadBytes
+    val displayedProgress = animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = BudgetMotion.change(),
+        label = "voiceDownloadProgress",
+    )
     val done = voiceSize((total * progress.toDouble()).toLong(), myanmarDigits)
     val line = stringResource(R.string.voice_downloaded_of, done, voiceSize(total, myanmarDigits))
     val percent = "${(progress * 100).toInt()}%".let { if (myanmarDigits) toMyanmarDigits(it) else it }
@@ -513,9 +554,10 @@ fun DownloadProgress(progress: Float, myanmarDigits: Boolean, modifier: Modifier
             )
             Text(percent, style = type.size14.semibold, color = colors.accent)
         }
-        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(colors.raised)) {
-            Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(colors.accent))
-        }
+        Box(
+            Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(colors.raised)
+                .drawBehind { drawRect(colors.accent, size = Size(size.width * displayedProgress.value, size.height)) },
+        )
     }
 }
 
@@ -579,7 +621,7 @@ internal fun CardLink(text: String, color: Color, onClick: () -> Unit) {
         textAlign = TextAlign.Center,
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 44.dp)
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .padding(vertical = 10.dp),

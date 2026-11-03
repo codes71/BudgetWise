@@ -3,6 +3,7 @@ package app.budgetwise.ui.receipt
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -144,6 +145,27 @@ class ReceiptScreenTest {
     }
 
     @Test
+    fun openingChangeItemsCanBeReversedBeforeTheReceiptFadeFinishes() {
+        show()
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithText(text(R.string.receipt_change_items)).performClick()
+        compose.mainClock.advanceTimeBy(64)
+
+        // The outgoing receipt and incoming editor keep their own state and actions during the overlap.
+        compose.onNodeWithContentDescription("2 entries from this receipt").assertExists()
+        compose.onNodeWithText(text(R.string.receipt_save)).assertExists()
+        compose.onNodeWithContentDescription(text(R.string.action_close)).performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.mainClock.autoAdvance = true
+
+        compose.onNodeWithContentDescription("2 entries from this receipt").assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.receipt_save)).assertDoesNotExist()
+        compose.onNode(hasContentDescription("Total, 23,200 kyat")).assertIsDisplayed()
+        assertEquals(0, closed)
+    }
+
+    @Test
     fun backFromChangeItemsWithAChangeAsksFirst() {
         show()
         compose.onNodeWithText(text(R.string.receipt_change_items)).performClick()
@@ -175,6 +197,31 @@ class ReceiptScreenTest {
         compose.onNodeWithText(text(R.string.receipt_save)).assertIsNotEnabled()
         compose.onNodeWithText(text(R.string.receipt_delete)).performClick()
         compose.runOnIdle { assertTrue(deletes == 1) }
+    }
+
+    @Test
+    fun restoringAnItemDisablesTheExitingDeleteActionAndRejectsItsRetainedCallback() {
+        var deletes = 0
+        val store = show(onDelete = { _, _ -> deletes++; true })
+        compose.onNodeWithText(text(R.string.receipt_change_items)).performClick()
+        repeat(4) { compose.onAllNodesWithContentDescription(text(R.string.item_fewer)).filter(isEnabled()).onFirst().performClick() }
+        val delete = compose.onNodeWithText(text(R.string.receipt_delete))
+        val retainedDelete = delete.fetchSemanticsNode().config[SemanticsActions.OnClick].action!!
+        compose.mainClock.autoAdvance = false
+
+        compose.onAllNodesWithContentDescription(text(R.string.item_more)).onFirst().performClick()
+        compose.mainClock.advanceTimeByFrame()
+        // It still exists for the exit, but its old semantics action cannot delete restored items.
+        delete.assertExists().assertIsNotEnabled()
+        compose.runOnIdle { retainedDelete() }
+        compose.mainClock.advanceTimeBy(500)
+        compose.mainClock.autoAdvance = true
+
+        compose.onNodeWithText(text(R.string.receipt_delete)).assertDoesNotExist()
+        compose.runOnIdle {
+            assertEquals(0, deletes)
+            assertEquals(ocean.toSet(), store.rows.value.toSet())
+        }
     }
 
     @Test

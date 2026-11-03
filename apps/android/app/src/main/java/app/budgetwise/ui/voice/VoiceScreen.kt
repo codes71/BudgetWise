@@ -9,7 +9,6 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,8 +37,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -71,7 +72,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
 import app.budgetwise.data.repo.VoiceEntry
 import app.budgetwise.ui.common.BackHeader
+import app.budgetwise.ui.common.BudgetMotion
 import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.MotionContent
 import app.budgetwise.ui.common.PermissionMemory
 import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.SageRule
@@ -176,18 +179,35 @@ class VoiceActions(
 
 @Composable
 fun VoiceScreen(state: VoiceUiState, actions: VoiceActions, modifier: Modifier = Modifier) {
-    when (val phase = state.phase) {
-        is VoicePhase.Review -> ReviewScreen(state, phase.review, actions, modifier)
-        is VoicePhase.Answer -> AnswerScreen(state, phase, actions, modifier)
-        else -> Box(modifier.fillMaxSize()) {
-            ListeningScreen(state, actions)
-            when (phase) {
-                is VoicePhase.Working -> Overlay { WorkingCard(phase.step, actions.onClose) }
-                is VoicePhase.Problem -> Overlay { ProblemCard(phase.problem, actions) }
-                else -> Unit
+    MotionContent(
+        targetState = state,
+        modifier = modifier.fillMaxSize(),
+        contentKey = { voicePhaseKey(it.phase) },
+        label = "voicePhase",
+    ) { target ->
+        // The outgoing tree keeps its own payload, but must not operate on the incoming recording/review.
+        val active = voicePhaseKey(target.phase) == voicePhaseKey(state.phase)
+        val currentActions = if (active) actions else VoiceActions()
+        when (val phase = target.phase) {
+            is VoicePhase.Review -> ReviewScreen(target, phase.review, currentActions, active = active)
+            is VoicePhase.Answer -> AnswerScreen(target, phase, currentActions)
+            else -> Box(Modifier.fillMaxSize()) {
+                ListeningScreen(target, currentActions)
+                when (phase) {
+                    is VoicePhase.Working -> Overlay { WorkingCard(phase.step, currentActions.onClose) }
+                    is VoicePhase.Problem -> Overlay { ProblemCard(phase.problem, currentActions) }
+                    else -> Unit
+                }
             }
         }
     }
+}
+
+/** Payload changes update an existing review form; a different answer remains a different content identity. */
+internal fun voicePhaseKey(phase: VoicePhase): Any = when (phase) {
+    is VoicePhase.Review -> "review"
+    is VoicePhase.Answer -> phase.copy(showEntries = false)
+    else -> phase
 }
 
 /**
@@ -311,21 +331,30 @@ internal fun StaysOnPhone(modifier: Modifier = Modifier) {
     }
 }
 
-/** A still atmospheric field and a level-driven waveform. No perpetual animation or API-specific shader is needed. */
+/** Actual observed levels, bounded to twelve bars. Silence rests as dots instead of a decorative wave. */
 @Composable
 private fun MicRings(level: Float, listening: Boolean) {
     val colors = BudgetWiseTheme.colors
-    val loud by animateFloatAsState(level, tween(120), label = "level")
-    val bars = remember { listOf(16f, 30f, 44f, 26f, 54f, 66f, 42f, 58f, 32f, 48f, 24f, 14f) }
+    var history by remember(listening) { mutableStateOf(emptyList<Float>()) }
+    LaunchedEffect(level, listening) {
+        history = if (listening) observedWaveform(history, level) else emptyList()
+    }
+    // Keep animation State objects here; their frame-rate values are read only by the Canvas draw block.
+    val bars = List(VOICE_WAVEFORM_BARS) { index ->
+        animateFloatAsState(
+            targetValue = history.getOrElse(index - (VOICE_WAVEFORM_BARS - history.size)) { 0f },
+            animationSpec = BudgetMotion.response(),
+            label = "voiceLevel$index",
+        )
+    }
     val atmosphere = remember(colors.sageContainer) {
         Brush.radialGradient(listOf(colors.sageContainer.copy(alpha = 0.5f), colors.sageContainer.copy(alpha = 0f)))
     }
     Canvas(Modifier.size(190.dp).clearAndSetSemantics { }) {
         val unit = size.minDimension / 190f
         drawCircle(brush = atmosphere, radius = size.minDimension / 2f)
-        val strength = if (listening) 0.6f + loud.coerceIn(0f, 1f) * 0.4f else 0.25f
-        bars.forEachIndexed { index, height ->
-            val h = height * strength * unit
+        bars.forEachIndexed { index, sample ->
+            val h = (2f + sample.value * 64f) * unit
             drawRoundRect(
                 color = if (listening) colors.accent else colors.disabled,
                 topLeft = Offset((37.5f + index * 10f) * unit, center.y - h / 2f),

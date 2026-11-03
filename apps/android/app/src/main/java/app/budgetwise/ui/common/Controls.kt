@@ -1,12 +1,8 @@
 package app.budgetwise.ui.common
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -44,10 +40,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -81,10 +78,10 @@ fun Spinner(
     val turn by rememberInfiniteTransition(label = "spinner").animateFloat(
         initialValue = 0f,
         targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart),
+        animationSpec = BudgetMotion.rotation(),
         label = "turn",
     )
-    Canvas(modifier.size(size).rotate(turn)) {
+    Canvas(modifier.size(size).graphicsLayer { rotationZ = turn }) {
         // The kit's SVG: r 9 and stroke 3 in a 24 box.
         val stroke = this.size.minDimension * 3f / 24f
         val radius = this.size.minDimension * 9f / 24f
@@ -201,23 +198,23 @@ fun TextAction(
 @Composable
 fun KitSwitch(checked: Boolean, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
-    val knob by animateDpAsState(if (checked) 24.dp else 16.dp, label = "knob")
-    val offset by animateDpAsState(if (checked) 24.dp else 6.dp, label = "offset")
-    Box(
-        modifier = modifier
-            .size(width = 52.dp, height = 32.dp)
-            .clip(CircleShape)
-            .background(if (checked) colors.sageFill else colors.raised)
-            .then(if (checked) Modifier else Modifier.border(2.dp, colors.disabled, CircleShape)),
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        // Off, the 16 dp knob sits 6 dp in from the edge; on, the 24 dp knob sits 4 dp from the far end.
-        Box(
-            Modifier
-                .padding(start = offset)
-                .size(knob)
-                .clip(CircleShape)
-                .background(if (checked) colors.onSageFill else colors.disabled),
+    val radius = animateFloatAsState(if (checked) 12f else 8f, BudgetMotion.effects(), label = "knobRadius")
+    val center = animateFloatAsState(if (checked) 36f else 14f, BudgetMotion.effects(), label = "knobCenter")
+    Canvas(modifier.size(width = 52.dp, height = 32.dp)) {
+        val round = CornerRadius(16.dp.toPx())
+        drawRoundRect(if (checked) colors.sageFill else colors.raised, cornerRadius = round)
+        if (!checked) {
+            val inset = 1.dp.toPx()
+            drawRoundRect(
+                colors.disabled, topLeft = Offset(inset, inset),
+                size = Size(this.size.width - inset * 2, this.size.height - inset * 2),
+                cornerRadius = round, style = Stroke(2.dp.toPx()),
+            )
+        }
+        drawCircle(
+            if (checked) colors.onSageFill else colors.disabled,
+            radius = radius.value.dp.toPx(),
+            center = Offset(center.value.dp.toPx(), this.size.height / 2),
         )
     }
 }

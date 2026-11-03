@@ -40,6 +40,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -57,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
+import app.budgetwise.ui.common.MotionContent
+import app.budgetwise.ui.common.MotionReveal
 import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.FieldError
 import app.budgetwise.ui.common.KyatGroupingTransformation
@@ -141,7 +144,13 @@ fun MonthEndScreen(
                 state.counted -> {
                     Leftover(state)
                     Question(state, onAnswer, onOnHandChange, Modifier.padding(top = 28.dp))
-                    Gap(state, onAddGap, Modifier.padding(top = 22.dp))
+                    MotionContent(
+                        state,
+                        label = "monthEndGap",
+                        contentKey = { it.onHandKyat != null && it.gapKyat != 0L },
+                    ) { gapState ->
+                        Gap(gapState, onAddGap, Modifier.padding(top = 22.dp))
+                    }
                 }
                 state.plan != null -> Counting(state, onRetry)
                 state.loaded -> Text(
@@ -153,7 +162,6 @@ fun MonthEndScreen(
         }
         Column(
             Modifier.fillMaxWidth().background(colors.ground).padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             PrimaryButton(
                 text = stringResource(R.string.month_end_next, monthName(state.nextMonth)),
@@ -163,7 +171,9 @@ fun MonthEndScreen(
                 trailingIcon = Lucide.ArrowRightBold,
                 modifier = Modifier.fillMaxWidth(),
             )
-            state.error?.let { FieldError(errorText(it, name), Modifier.fillMaxWidth()) }
+            MotionContent(state.error, Modifier.fillMaxWidth(), label = "monthEndError") { error ->
+                if (error != null) FieldError(errorText(error, name), Modifier.fillMaxWidth().padding(top = 12.dp))
+            }
         }
     }
 }
@@ -262,7 +272,9 @@ private fun Question(state: MonthEndUiState, onAnswer: (OnHand) -> Unit, onOnHan
                 onClick = { onAnswer(OnHand.NO) },
             )
         }
-        if (state.answer == OnHand.NO) OnHandField(state, onOnHandChange, Modifier.padding(top = 10.dp))
+        MotionReveal(state.answer == OnHand.NO) {
+            OnHandField(state, onOnHandChange, Modifier.padding(top = 10.dp))
+        }
     }
 }
 
@@ -301,7 +313,10 @@ private fun OnHandField(state: MonthEndUiState, onChange: (String) -> Unit, modi
     val type = BudgetWiseTheme.type
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(state.answer) {
+        if (state.answer == OnHand.NO) focus.requestFocus() else focusManager.clearFocus()
+    }
     val label = stringResource(R.string.month_end_i_have)
     val transformation = remember(state.myanmarDigits) { KyatGroupingTransformation(state.myanmarDigits) }
     Row(
@@ -320,7 +335,7 @@ private fun OnHandField(state: MonthEndUiState, onChange: (String) -> Unit, modi
             value = state.onHandDigits,
             onValueChange = onChange,
             modifier = Modifier.weight(1f).focusRequester(focus).semantics { contentDescription = label },
-            enabled = !state.saving,
+            enabled = !state.saving && state.answer == OnHand.NO,
             textStyle = type.size32.bold.copy(color = colors.ink, textAlign = TextAlign.End, fontFeatureSettings = "tnum"),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }),

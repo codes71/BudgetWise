@@ -68,6 +68,8 @@ import app.budgetwise.ui.common.FieldLabel
 import app.budgetwise.ui.common.KitTextField
 import app.budgetwise.ui.common.KyatGroupingTransformation
 import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.MotionContent
+import app.budgetwise.ui.common.MotionReveal
 import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
 import app.budgetwise.ui.common.PrimaryButton
@@ -102,7 +104,13 @@ import java.time.temporal.TemporalAdjusters
  * guessed, and Add. Nothing is saved until Add.
  */
 @Composable
-internal fun ReviewScreen(state: VoiceUiState, review: ReviewState, actions: VoiceActions, modifier: Modifier = Modifier) {
+internal fun ReviewScreen(
+    state: VoiceUiState,
+    review: ReviewState,
+    actions: VoiceActions,
+    modifier: Modifier = Modifier,
+    active: Boolean = true,
+) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     var editing by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -155,7 +163,7 @@ internal fun ReviewScreen(state: VoiceUiState, review: ReviewState, actions: Voi
                 )
             }
         }
-        if (review.saveFailed) {
+        MotionReveal(visible = review.saveFailed) {
             Notice(
                 tone = NoticeTone.ERROR,
                 icon = Lucide.CircleAlert,
@@ -167,7 +175,7 @@ internal fun ReviewScreen(state: VoiceUiState, review: ReviewState, actions: Voi
     }
     val index = editing
     val entry = index?.let { review.entries.getOrNull(it) }
-    if (index != null && entry != null) {
+    if (active && index != null && entry != null) {
         EntrySheet(
             entry = entry,
             state = state,
@@ -284,7 +292,7 @@ private fun EntrySheet(
                     textStyle = type.size16.forContent(description),
                     error = if (tooLong) pluralStringResource(R.plurals.manual_description_error_too_long, max, max) else null,
                 )
-                if (kind == TxType.EXPENSE) {
+                MotionReveal(visible = kind == TxType.EXPENSE) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         FieldLabel(stringResource(R.string.manual_category))
                         FlowRow(
@@ -440,21 +448,25 @@ internal fun AnswerScreen(state: VoiceUiState, phase: VoicePhase.Answer, actions
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
-        val listLabel = if (showEntries) R.string.voice_these_entries else R.string.voice_by_category
-        SectionLabel(stringResource(listLabel), Modifier.padding(top = 28.dp, bottom = 10.dp))
-        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
-        when {
-            budgetQuestion && answer.byCategory.isEmpty() -> Quiet(stringResource(R.string.voice_no_budgets))
-            !budgetQuestion && answer.entries.isEmpty() -> Quiet(stringResource(R.string.voice_nothing_spent))
-            showEntries -> answer.entries.forEach { row ->
-                SpentRow(row, state)
+        MotionContent(targetState = showEntries, label = "voiceAnswerDetails") { entriesVisible ->
+            Column {
+                val listLabel = if (entriesVisible) R.string.voice_these_entries else R.string.voice_by_category
+                SectionLabel(stringResource(listLabel), Modifier.padding(top = 28.dp, bottom = 10.dp))
                 HorizontalDivider(thickness = 1.dp, color = colors.hairline)
-            }
-            else -> {
-                val largest = answer.byCategory.maxOfOrNull { it.amountKyat }?.coerceAtLeast(1) ?: 1
-                answer.byCategory.forEach { total ->
-                    CategoryRow(total, largest, state.myanmarDigits)
-                    HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+                when {
+                    budgetQuestion && answer.byCategory.isEmpty() -> Quiet(stringResource(R.string.voice_no_budgets))
+                    !budgetQuestion && answer.entries.isEmpty() -> Quiet(stringResource(R.string.voice_nothing_spent))
+                    entriesVisible -> answer.entries.forEach { row ->
+                        SpentRow(row, state)
+                        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+                    }
+                    else -> {
+                        val largest = answer.byCategory.maxOfOrNull { it.amountKyat }?.coerceAtLeast(1) ?: 1
+                        answer.byCategory.forEach { total ->
+                            CategoryRow(total, largest, state.myanmarDigits)
+                            HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+                        }
+                    }
                 }
             }
         }

@@ -1,6 +1,5 @@
 package app.budgetwise.ui.transactions
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -34,9 +33,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -56,6 +55,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.budgetwise.R
 import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.BudgetMotion
+import app.budgetwise.ui.common.MotionContent
+import app.budgetwise.ui.common.MotionReveal
 import app.budgetwise.ui.common.categoryColors
 import app.budgetwise.ui.common.categoryLabel
 import app.budgetwise.ui.common.groupDigits
@@ -89,7 +91,7 @@ fun SpendingCard(
     var view by rememberSaveable { mutableStateOf(SpendingView.TOTAL) }
     var otherOpen by rememberSaveable { mutableStateOf(false) }
     val lastMonthName = monthName(pace.lastMonth)
-    Column(modifier.fillMaxWidth().animateContentSize()) {
+    Column(modifier.fillMaxWidth()) {
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -119,9 +121,10 @@ fun SpendingCard(
             color = colors.ink,
             modifier = Modifier.padding(top = 8.dp),
         )
-        if (view == SpendingView.TOTAL) {
-            TotalPanel(pace, lastMonthName, myanmarDigits)
-        } else {
+        MotionContent(view, Modifier.fillMaxWidth(), label = "spendingPanel") { panel ->
+            if (panel == SpendingView.TOTAL) {
+                TotalPanel(pace, lastMonthName, myanmarDigits)
+            } else {
             CategoryPanel(
                 categories = categories,
                 compare = pace.hasLastMonth,
@@ -130,6 +133,7 @@ fun SpendingCard(
                 otherOpen = otherOpen,
                 onOtherToggle = { otherOpen = !otherOpen },
             )
+            }
         }
     }
 }
@@ -138,13 +142,12 @@ fun SpendingCard(
 private fun ViewTab(label: String, selected: Boolean, onSelect: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
+    val emphasis = animateFloatAsState(if (selected) 1f else 0f, BudgetMotion.effects(), label = "spendingTab")
     Box(
         modifier = Modifier
             .heightIn(min = 48.dp)
             .drawBehind {
-                if (selected) {
-                    drawLine(colors.accent, Offset(0f, size.height - 1.dp.toPx()), Offset(size.width, size.height - 1.dp.toPx()), 2.dp.toPx())
-                }
+                drawLine(colors.accent.copy(alpha = emphasis.value), Offset(0f, size.height - 1.dp.toPx()), Offset(size.width, size.height - 1.dp.toPx()), 2.dp.toPx())
             }
             .selectable(selected = selected, role = Role.Tab, onClick = onSelect)
             .padding(horizontal = if (type.burmese) 10.dp else 12.dp, vertical = 8.dp),
@@ -332,13 +335,17 @@ private fun CategoryPanel(
             Box(Modifier.size(8.dp).clip(CircleShape).background(colors.otherCategories))
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(R.string.spending_other), style = type.size15.medium, color = colors.muted, maxLines = 1)
-                val turn by animateFloatAsState(if (otherOpen) 180f else 0f, label = "chevron")
-                Icon(Lucide.ChevronDown, contentDescription = null, tint = colors.muted, modifier = Modifier.size(16.dp).rotate(turn))
+                val turn by animateFloatAsState(if (otherOpen) 180f else 0f, BudgetMotion.effects(), label = "chevron")
+                Icon(Lucide.ChevronDown, contentDescription = null, tint = colors.muted, modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = turn })
             }
             AmountCell(groupDigits(other.spent, myanmarDigits), colors.muted)
             if (compare) ChangeCell(other.change, myanmarDigits)
         }
-        if (otherOpen) categories.rest.forEach { CategoryLine(it, scale, compare, lastMonthName, myanmarDigits) }
+        MotionReveal(otherOpen) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                categories.rest.forEach { CategoryLine(it, scale, compare, lastMonthName, myanmarDigits) }
+            }
+        }
     }
 }
 

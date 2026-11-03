@@ -88,6 +88,8 @@ import androidx.lifecycle.Observer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
 import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.MotionContent
+import app.budgetwise.ui.common.MotionReveal
 import app.budgetwise.ui.common.PermissionMemory
 import app.budgetwise.ui.common.PrimaryButton
 import app.budgetwise.ui.common.Spinner
@@ -130,60 +132,114 @@ fun ScanRoute(
     // asks first (its own BackHandler), as going back drops what was read.
     BackHandler(enabled = state.stage != ScanStage.CAMERA && state.stage != ScanStage.REVIEW) { viewModel.retake() }
 
-    when (state.stage) {
-        ScanStage.CAMERA, ScanStage.PREPARING -> CameraStage(
-            preparing = state.stage == ScanStage.PREPARING,
-            captureFailed = state.captureFailed,
-            asked = cameraAsked,
-            onAsked = { cameraAsked = true },
-            onClose = onClose,
-            ready = { viewModel.state.value.stage == ScanStage.CAMERA },
-            onCaptured = viewModel::captured,
-            onCaptureFailed = viewModel::captureFailed,
-            onPick = pick,
-            onCancel = viewModel::retake,
-        )
-        ScanStage.READING, ScanStage.PROBLEM -> PhotoBackdrop(state.photo?.bitmap, onClose) {
-            val problem = state.problem
-            if (state.stage == ScanStage.READING || problem == null) {
-                ReadingCard(
-                    slow = state.slow,
-                    onCancel = viewModel::retake,
-                    // Stops the read first: it would otherwise keep running, and counting, behind the add form.
-                    onEnterYourself = {
-                        viewModel.retake()
-                        onEnterYourself()
-                    },
-                )
-            } else {
-                ProblemCard(
-                    problem = problem,
-                    waitMinutes = state.waitMinutes,
-                    myanmarDigits = state.myanmarDigits,
-                    onTryAgain = viewModel::tryAgain,
+    MotionContent(
+        targetState = state,
+        modifier = Modifier.fillMaxSize(),
+        label = "scanStage",
+        contentKey = { scanStageKey(it.stage) },
+    ) { shown ->
+        when (shown.stage) {
+            ScanStage.CAMERA, ScanStage.PREPARING -> CameraStage(
+                preparing = shown.stage == ScanStage.PREPARING,
+                captureFailed = shown.captureFailed,
+                asked = cameraAsked,
+                onAsked = { cameraAsked = true },
+                onClose = onClose,
+                ready = { viewModel.state.value.stage == ScanStage.CAMERA },
+                onCaptured = viewModel::captured,
+                onCaptureFailed = viewModel::captureFailed,
+                onPick = pick,
+                onCancel = { if (viewModel.state.value.stage == ScanStage.PREPARING) viewModel.retake() },
+            )
+            ScanStage.READING, ScanStage.PROBLEM -> PhotoBackdrop(shown.photo?.bitmap, onClose) {
+                ScanPhotoCard(
+                    state = shown,
                     onRetake = viewModel::retake,
+                    onTryAgain = viewModel::tryAgain,
                     onPick = pick,
                     onEnterYourself = onEnterYourself,
                     onSignIn = onSignIn,
                     onReviewTotal = viewModel::reviewTotal,
-                    totalKyat = state.totalKyat,
-                    currency = state.currency,
+                    currentState = { viewModel.state.value },
                 )
             }
+            ScanStage.REVIEW -> ScanReview(
+                state = shown,
+                active = state.stage == ScanStage.REVIEW,
+                // The X leaves scanning altogether; back goes to the camera. Both ask first.
+                onClose = onClose,
+                onRetake = viewModel::retake,
+                onMove = viewModel::move,
+                onAddShort = {
+                    val current = viewModel.state.value
+                    if (current.stage == ScanStage.REVIEW && current.shortBy != null && !current.saving) viewModel.addShortAsOther()
+                },
+                onToggle = viewModel::toggle,
+                onCount = viewModel::setCount,
+                onPrice = viewModel::setPrice,
+                onAddEntries = viewModel::addEntries,
+                onAddAsOne = viewModel::addAsOne,
+            )
         }
-        ScanStage.REVIEW -> ScanReview(
-            state = state,
-            // The X leaves scanning altogether; back goes to the camera. Both ask first.
-            onClose = onClose,
-            onRetake = viewModel::retake,
-            onMove = viewModel::move,
-            onAddShort = viewModel::addShortAsOther,
-            onToggle = viewModel::toggle,
-            onCount = viewModel::setCount,
-            onPrice = viewModel::setPrice,
-            onAddEntries = viewModel::addEntries,
-            onAddAsOne = viewModel::addAsOne,
-        )
+    }
+}
+
+/** Keep the controller mounted while preparing, and the same photo mounted between reading and problems. */
+internal fun scanStageKey(stage: ScanStage): ScanStage = when (stage) {
+    ScanStage.PREPARING -> ScanStage.CAMERA
+    ScanStage.PROBLEM -> ScanStage.READING
+    else -> stage
+}
+
+/** Only a real reading/problem change replaces this card; slow/wait updates keep its current identity. */
+@Composable
+internal fun ScanPhotoCard(
+    state: ScanUiState,
+    onRetake: () -> Unit,
+    onTryAgain: () -> Unit,
+    onPick: () -> Unit,
+    onEnterYourself: () -> Unit,
+    onSignIn: () -> Unit,
+    onReviewTotal: () -> Unit,
+    currentState: () -> ScanUiState = { state },
+) {
+    MotionContent(
+        targetState = state,
+        label = "scanPhotoCard",
+        contentKey = { if (it.stage == ScanStage.READING) null else it.problem },
+    ) { cardState ->
+        val problem = cardState.problem
+        // Retained exit content may still have an accessibility action reference. Check live state at invocation.
+        fun stillCurrent(): Boolean = currentState().let { it.stage == cardState.stage && it.problem == problem }
+        if (cardState.stage == ScanStage.READING || problem == null) {
+            ReadingCard(
+                slow = cardState.slow,
+                onCancel = { if (stillCurrent()) onRetake() },
+                // Stops the read first: it would otherwise keep running, and counting, behind the add form.
+                onEnterYourself = {
+                    if (stillCurrent() && currentState().slow) {
+                        onRetake()
+                        onEnterYourself()
+                    }
+                },
+            )
+        } else {
+            ProblemCard(
+                problem = problem,
+                waitMinutes = cardState.waitMinutes,
+                myanmarDigits = cardState.myanmarDigits,
+                onTryAgain = {
+                    if (stillCurrent() && (problem != ScanProblem.TOO_MANY || currentState().waitMinutes == null)) onTryAgain()
+                },
+                onRetake = { if (stillCurrent()) onRetake() },
+                onPick = { if (stillCurrent()) onPick() },
+                onEnterYourself = { if (stillCurrent()) onEnterYourself() },
+                onSignIn = { if (stillCurrent()) onSignIn() },
+                onReviewTotal = { if (stillCurrent()) onReviewTotal() },
+                totalKyat = cardState.totalKyat,
+                currency = cardState.currency,
+            )
+        }
     }
 }
 
@@ -353,8 +409,8 @@ private fun CameraStage(
                 )
             }
             // Cancel once the photo is with the ViewModel; a capture in progress cannot be stopped.
-            if (busy) {
-                Box(Modifier.align(Alignment.Center).padding(horizontal = 24.dp)) {
+            MotionReveal(visible = busy, modifier = Modifier.align(Alignment.Center)) {
+                Box(Modifier.padding(horizontal = 24.dp)) {
                     ReadingCard(slow = false, onCancel = onCancel.takeIf { preparing }, onEnterYourself = null)
                 }
             }
@@ -544,8 +600,13 @@ private fun ReadingCard(slow: Boolean, onCancel: (() -> Unit)?, onEnterYourself:
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 6.dp),
         )
-        if (slow && onEnterYourself != null) {
-            PrimaryButton(stringResource(R.string.scan_enter_yourself), onEnterYourself, Modifier.fillMaxWidth().padding(top = 20.dp), height = 48.dp)
+        MotionReveal(visible = slow && onEnterYourself != null) {
+            PrimaryButton(
+                stringResource(R.string.scan_enter_yourself),
+                { onEnterYourself?.invoke() },
+                Modifier.fillMaxWidth().padding(top = 20.dp),
+                height = 48.dp,
+            )
         }
         if (onCancel != null) TextAction(stringResource(R.string.action_cancel), onCancel, Modifier.padding(top = 12.dp))
     }

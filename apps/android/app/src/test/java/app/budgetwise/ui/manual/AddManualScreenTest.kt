@@ -2,6 +2,9 @@ package app.budgetwise.ui.manual
 
 import android.content.Context
 import androidx.annotation.StringRes
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
@@ -132,6 +135,44 @@ class AddManualScreenTest {
 
         compose.onNodeWithText(text(R.string.manual_picked_from, "Mohinga")).assertIsDisplayed()
         compose.onNode(hasText(text(R.string.draft3_entry_food_short)) and hasClickAction()).assertIsSelected()
+    }
+
+    @Test
+    fun changingTypeCanBeReversedWhileItsCategorySectionIsMoving() {
+        var state by mutableStateOf(filled())
+        compose.setContent {
+            BudgetWiseTheme {
+                AddManualScreen(
+                    state = state,
+                    onClose = {},
+                    onTypeChange = { state = state.copy(type = it) },
+                    onAmountChange = {},
+                    onCategoryChange = {},
+                    onDescriptionChange = {},
+                    onRecentPick = {},
+                    onDateChange = {},
+                    onSave = {},
+                    onDelete = {},
+                    onSaveAsNew = {},
+                    focusAmount = false,
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+
+        compose.onNodeWithText(text(R.string.manual_income)).performClick()
+        compose.mainClock.advanceTimeBy(48)
+        compose.onNodeWithText(text(R.string.manual_income)).assertIsSelected()
+        compose.onNodeWithText(text(R.string.manual_expense)).performClick()
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithText(text(R.string.manual_expense)).assertIsSelected()
+        compose.mainClock.advanceTimeBy(500)
+        compose.mainClock.autoAdvance = true
+
+        compose.onNodeWithText("Mohinga with Ko Aung").assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.manual_picked_from, "Mohinga")).assertIsDisplayed()
+        compose.onNode(hasText(text(R.string.manual_save_amount, "4,500")) and hasClickAction()).assertIsDisplayed()
     }
 
     @Test

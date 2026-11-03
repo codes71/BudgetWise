@@ -1,5 +1,6 @@
 package app.budgetwise.ui.budgets
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -27,12 +28,15 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.budgetwise.ui.common.BudgetMotion
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.extraBold
@@ -110,9 +114,15 @@ internal fun BudgetFigure(
 /** A thin rounded progress bar on the raised track; [progress] above 1 fills it. */
 @Composable
 internal fun Bar(progress: Float, color: Color, height: Dp, modifier: Modifier = Modifier) {
-    Box(Modifier.fillMaxWidth().then(modifier).height(height).clip(CircleShape).background(BudgetWiseTheme.colors.raised)) {
-        Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).height(height).clip(CircleShape).background(color))
-    }
+    val fill = animateFloatAsState(progress.coerceIn(0f, 1f), BudgetMotion.change(), label = "budgetProgress")
+    Box(
+        Modifier.fillMaxWidth().then(modifier).height(height).clip(CircleShape)
+            .background(BudgetWiseTheme.colors.raised)
+            .drawBehind {
+                // Read the animated fraction during draw; the exact money above updates immediately.
+                drawRoundRect(color, size = Size(size.width * fill.value, size.height), cornerRadius = CornerRadius(size.height / 2))
+            },
+    )
 }
 
 /**
