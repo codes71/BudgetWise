@@ -17,15 +17,31 @@ async function waitForServer(ctx) {
   const deadline = Date.now() + WAIT_MS;
   while (Date.now() < deadline) {
     let servers;
+    let timer;
+    const controller = new AbortController();
     try {
-      servers = (await ctx.client.mcp.status()).data ?? {};
+      // V1 status waits for MCP initialization. Bound that request too, rather
+      // than checking the deadline only after an unresponsive server returns.
+      const timeout = new Promise((resolve) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          resolve(undefined);
+        }, Math.max(0, deadline - Date.now()));
+      });
+      const response = await Promise.race([
+        ctx.client.mcp.status({ signal: controller.signal }), timeout,
+      ]);
+      if (!response) return;
+      servers = response.data ?? {};
     } catch {
       // A failed status request must not prevent the user from submitting work.
       return;
+    } finally {
+      clearTimeout(timer);
     }
     const ours = servers["better-design"];
     if (ours?.status !== "pending") return;
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await new Promise((resolve) => setTimeout(resolve, Math.min(250, Math.max(0, deadline - Date.now()))));
   }
 }
 

@@ -85,6 +85,46 @@ test('MCP failure does not block submitting a prompt', async () => {
   const hooks = await fixture({ mcp: { status: async () => { throw new Error('offline'); } } });
   await hooks['chat.message']({ sessionID: 'test' }, { message: { id: 'msg_user' }, parts: [{ type: 'text', text: 'Build UI' }] });
 });
+test('unresponsive native status is aborted and prompt resumes at the 15 second deadline', async (t) => {
+  let notifyStarted;
+  const started = new Promise((resolve) => { notifyStarted = resolve; });
+  let signal;
+  const hooks = await fixture({ mcp: { status: (options) => {
+    signal = options.signal;
+    notifyStarted();
+    // Deliberately ignore abort, proving the race also bounds a stuck adapter.
+    return new Promise(() => {});
+  } } });
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 0 });
+  t.after(() => t.mock.timers.reset());
+  let settled = false;
+  const submission = hooks['chat.message']({ sessionID: 'test' }, {
+    message: { id: 'msg_user' }, parts: [{ type: 'text', text: 'Build UI' }],
+  }).then(() => { settled = true; });
+  await started;
+  t.mock.timers.tick(14999);
+  await Promise.resolve();
+  assert.equal(settled, false);
+  assert.equal(signal.aborted, false);
+  t.mock.timers.tick(1);
+  await submission;
+  assert.equal(settled, true);
+  assert.equal(signal.aborted, true);
+});
+test('successful native status clears its deadline timer', async (t) => {
+  let signal;
+  const hooks = await fixture({ mcp: { status: async (options) => {
+    signal = options.signal;
+    return { data: { 'better-design': { status: 'connected' } } };
+  } } });
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 0 });
+  t.after(() => t.mock.timers.reset());
+  await hooks['chat.message']({ sessionID: 'test' }, {
+    message: { id: 'msg_user' }, parts: [{ type: 'text', text: 'Build UI' }],
+  });
+  t.mock.timers.tick(15000);
+  assert.equal(signal.aborted, false);
+});
 test('successful Android compile and unit tests pass without requesting npm', async () => {
   const parts = [edit(), checks(), result('check', 'BUILD SUCCESSFUL in 4s'), ...reviewCalls];
   const text = await nudge(parts);
