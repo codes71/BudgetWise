@@ -38,6 +38,11 @@ Only one worktree can use these at a time. Check before you start, and stop what
 
 - The phone (Xiaomi 14, adb serial `2222f07d`). Ask the user before installing over `app.budgetwise`. Never run
   `connectedDebugAndroidTest`: it deletes the speech model files kept on the phone.
+- The app on the phone has database version 6 (monthly budgets, PR #16). Room never moves a database back, so a build
+  from a branch without that merge crashes as soon as it opens, and the only way out is clearing the app's data,
+  which loses unsynced entries and the speech models. Before installing, check that the branch has it:
+  `git merge-base --is-ancestor 519e1b8 HEAD` must succeed, else merge `origin/master` first. When a later change
+  raises the version again, update the commit here.
 - The web dev server on port 9002 (`npm run dev`). If the port is taken, another worktree is running it.
 - The Firestore emulator on port 8085. `npm test` reuses a running emulator and clears it between tests, so web
   tests running in two worktrees at once wipe each other's data. The run that started the emulator also stops it.
