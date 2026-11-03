@@ -10,16 +10,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -58,7 +58,6 @@ import app.budgetwise.R
 import app.budgetwise.data.repo.ScanItem
 import app.budgetwise.ui.common.KyatGroupingTransformation
 import app.budgetwise.ui.common.Lucide
-import app.budgetwise.ui.common.CategoryBadge
 import app.budgetwise.ui.common.categoryLabel
 import app.budgetwise.ui.common.formatKyat
 import app.budgetwise.ui.common.groupDigits
@@ -118,7 +117,7 @@ internal fun ChangedNote(
     Text(note, style = BudgetWiseTheme.type.size14, color = BudgetWiseTheme.colors.muted, modifier = modifier)
 }
 
-/** The category's badge, name and live total; with [onClick], a chevron and a tap to move its items. */
+/** The category's name and live total; with [onClick], a chevron and a tap to move its items. */
 @Composable
 private fun CategoryHeader(line: ReviewLine, myanmarDigits: Boolean, onClick: (() -> Unit)?) {
     val colors = BudgetWiseTheme.colors
@@ -126,25 +125,21 @@ private fun CategoryHeader(line: ReviewLine, myanmarDigits: Boolean, onClick: ((
     Row(
         Modifier
             .fillMaxWidth()
+            .heightIn(min = 48.dp)
             .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
-            .padding(top = 14.dp, bottom = 6.dp),
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        CategoryBadge(line.category, contentDescription = null)
-        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            val name = categoryLabel(line.category)
-            Text(
-                name,
-                style = type.size16.semibold.forContent(name),
-                color = colors.ink,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false).semantics { heading() },
-            )
-            if (onClick != null) Icon(Lucide.ChevronDown, contentDescription = null, tint = colors.muted, modifier = Modifier.size(16.dp))
-        }
+        val category = categoryLabel(line.category)
+        Text(
+            category,
+            style = type.size16.semibold.forContent(category),
+            color = colors.ink,
+            modifier = Modifier.weight(1f).semantics { heading() },
+        )
         Text(formatKyat(line.amountKyat, myanmarDigits), style = type.size16.semibold, color = colors.ink, softWrap = false)
+        if (onClick != null) Icon(Lucide.ChevronRight, contentDescription = null, tint = colors.muted, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -153,13 +148,14 @@ private fun CategoryHeader(line: ReviewLine, myanmarDigits: Boolean, onClick: ((
  * and muted: it stays on the list to be put back, but is not saved.
  */
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun ItemRow(item: ScanItem, original: ScanItem, myanmarDigits: Boolean, onCount: (Int) -> Unit, onPrice: (Long) -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val left = item.quantity == 0
-    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            val name = type.size15.medium.forContent(item.name)
+            val name = type.size16.medium.forContent(item.name)
             Text(
                 item.name,
                 style = if (left) name.copy(textDecoration = TextDecoration.LineThrough) else name,
@@ -170,26 +166,25 @@ private fun ItemRow(item: ScanItem, original: ScanItem, myanmarDigits: Boolean, 
             )
             Text(
                 formatKyat(item.amountKyat, myanmarDigits),
-                style = type.size15.medium,
+                style = type.size16.semibold,
                 color = if (left) colors.disabled else colors.ink,
                 softWrap = false,
             )
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        // These controls can wrap independently at larger font scales instead of squeezing the previous-value note.
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             CountStepper(item.quantity, myanmarDigits, onCount)
-            Text("×", style = type.size14, color = colors.muted)
-            PriceField(item.unitPriceKyat, item.name, myanmarDigits, onPrice)
-            val note = changeNote(item, original, myanmarDigits)
-            if (note != null) {
-                Text(
-                    note,
-                    style = type.size13,
-                    color = if (left) colors.muted else colors.amber,
-                    textAlign = TextAlign.End,
-                    maxLines = 2,
-                    modifier = Modifier.weight(1f),
-                )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("×", style = type.size14, color = colors.muted)
+                PriceField(item.unitPriceKyat, item.name, myanmarDigits, onPrice)
             }
+        }
+        changeNote(item, original, myanmarDigits)?.let { note ->
+            Text(note, style = type.size13, color = if (left) colors.muted else colors.amber)
         }
     }
 }
@@ -210,22 +205,22 @@ private fun changeNote(item: ScanItem, was: ScanItem, myanmarDigits: Boolean): S
     }
 }
 
-/** Minus, the count, plus, in an outlined pill: 0 to [ReviewLine.MAX_COUNT]. */
+/** The 48 dp count controls keep zero-count items available to restore. */
 @Composable
 private fun CountStepper(count: Int, myanmarDigits: Boolean, onCount: (Int) -> Unit) {
     val colors = BudgetWiseTheme.colors
     Row(
-        Modifier.height(32.dp).clip(CircleShape).border(1.dp, colors.hairline, CircleShape),
+        Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(16.dp)).background(colors.raised),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StepButton(Lucide.MinusBold, stringResource(R.string.item_fewer), enabled = count > 0) { onCount(count - 1) }
         Text(
             groupDigits(count.toLong(), myanmarDigits),
-            style = BudgetWiseTheme.type.size14.semibold,
+            style = BudgetWiseTheme.type.size16.semibold,
             color = colors.ink,
             textAlign = TextAlign.Center,
             softWrap = false,
-            modifier = Modifier.widthIn(min = 22.dp),
+            modifier = Modifier.widthIn(min = 28.dp),
         )
         StepButton(Lucide.PlusBold, stringResource(R.string.item_more), enabled = count < ReviewLine.MAX_COUNT) { onCount(count + 1) }
     }
@@ -235,10 +230,10 @@ private fun CountStepper(count: Int, myanmarDigits: Boolean, onCount: (Int) -> U
 private fun StepButton(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     Box(
-        Modifier.size(32.dp).clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        Modifier.size(48.dp).clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = label, tint = if (enabled) colors.ink else colors.disabled, modifier = Modifier.size(14.dp))
+        Icon(icon, contentDescription = label, tint = if (enabled) colors.ink else colors.disabled, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -257,10 +252,10 @@ private fun PriceField(price: Long, name: String, myanmarDigits: Boolean, onPric
     val focused by interaction.collectIsFocusedAsState()
     var typed by remember { mutableStateOf<String?>(null) }
     val label = stringResource(R.string.item_price, name)
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(14.dp)
     Row(
         Modifier
-            .heightIn(min = 32.dp)
+            .heightIn(min = 48.dp)
             .clip(shape)
             .background(colors.surface)
             .border(1.dp, if (focused) colors.accent else colors.hairline, shape)
@@ -278,8 +273,8 @@ private fun PriceField(price: Long, name: String, myanmarDigits: Boolean, onPric
                 onPrice(digits.toLongOrNull() ?: 0)
             },
             modifier = Modifier
+                .widthIn(min = 12.dp, max = 160.dp)
                 .width(IntrinsicSize.Max)
-                .widthIn(min = 12.dp)
                 .focusRequester(focus)
                 .onFocusChanged { if (!it.isFocused) typed = null }
                 .semantics { contentDescription = label },
@@ -295,5 +290,5 @@ private fun PriceField(price: Long, name: String, myanmarDigits: Boolean, onPric
     }
 }
 
-/** How far a category's items sit in from its badge. */
+/** How far a category's items sit in from its heading. */
 private val ITEM_INDENT = 20.dp

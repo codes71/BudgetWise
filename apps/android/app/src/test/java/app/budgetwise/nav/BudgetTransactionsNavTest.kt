@@ -5,6 +5,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -143,7 +144,8 @@ class BudgetTransactionsNavTest {
         val nav = openGroceries()
         compose.onNode(hasText("Rice") and hasClickAction()).performClick()
         waitForText(compose.activity.getString(R.string.manual_edit_title))
-        compose.onNodeWithContentDescription(compose.activity.getString(R.string.manual_amount)).performTextReplacement("16000")
+        compose.onNode(hasContentDescription(compose.activity.getString(R.string.manual_amount)) and hasSetTextAction())
+            .assertIsDisplayed().performTextReplacement("16000")
         compose.onNode(hasText(compose.activity.getString(R.string.manual_save_changes)) and hasClickAction()).performClick()
 
         waitForText("16,000 of 50,000 Ks spent")

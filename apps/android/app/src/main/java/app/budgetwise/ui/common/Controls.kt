@@ -43,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -95,7 +96,7 @@ fun Spinner(
 }
 
 /**
- * The primary pill: sage with forest text. Disabled it turns grey; [busy] keeps it disabled (TalkBack says it cannot
+ * The primary action: sage with forest text. Disabled it turns grey; [busy] keeps it disabled (TalkBack says it cannot
  * be pressed again) in the sage container with a spinner, so it reads as working rather than unavailable.
  * [trailingIcon] follows the text (the arrow of a Next that goes on to another step).
  */
@@ -114,15 +115,15 @@ fun PrimaryButton(
     Button(
         onClick = onClick,
         enabled = enabled && !busy,
-        modifier = modifier.height(height),
-        shape = CircleShape,
+        modifier = modifier.heightIn(min = height),
+        shape = RoundedCornerShape(18.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = colors.sageFill,
             contentColor = colors.onSageFill,
             disabledContainerColor = if (busy) colors.sageContainer else colors.raised,
             disabledContentColor = if (busy) colors.onSageContainer else colors.disabled,
         ),
-        contentPadding = PaddingValues(horizontal = 24.dp),
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp),
     ) {
         when {
             busy -> {
@@ -161,8 +162,8 @@ fun SecondaryButton(
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(height),
-        shape = CircleShape,
+        modifier = modifier.heightIn(min = height),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, colors.outline),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = contentColor, disabledContentColor = colors.disabled),
     ) {
@@ -187,7 +188,7 @@ fun TextAction(
     TextButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = 40.dp),
+        modifier = modifier.heightIn(min = 48.dp),
         shape = CircleShape,
         contentPadding = PaddingValues(horizontal = 12.dp),
         colors = ButtonDefaults.textButtonColors(contentColor = color),
@@ -279,6 +280,9 @@ fun Modifier.fieldBox(colors: BudgetWiseColors, focused: Boolean, error: Boolean
     }
 }
 
+/** The filled treatment remains the default for existing callers, including budget feature forms. */
+enum class KitFieldStyle { Filled, Underlined }
+
 /**
  * The kit's text field: [label] above, the box, and [error] under it. [leading] is a muted 18 dp icon; [trailing]
  * sits at the end (the password eye). The field grows to [maxLines] lines. [below] shows under the box when there is
@@ -306,12 +310,18 @@ fun KitTextField(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     below: (@Composable () -> Unit)? = null,
+    fieldStyle: KitFieldStyle = KitFieldStyle.Filled,
 ) {
     val colors = BudgetWiseTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        FieldLabel(label)
+    val underlined = fieldStyle == KitFieldStyle.Underlined
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(if (underlined) 4.dp else 10.dp)) {
+        if (underlined) {
+            Text(label, style = BudgetWiseTheme.type.size14, color = colors.muted)
+        } else {
+            FieldLabel(label)
+        }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             BasicTextField(
                 value = value,
@@ -330,11 +340,25 @@ fun KitTextField(
                     Row(
                         modifier = Modifier
                             .heightIn(min = minHeight)
-                            .fieldBox(colors, focused, hasError)
+                            .then(
+                                if (underlined) {
+                                    Modifier.drawBehind {
+                                        val color = when {
+                                            hasError -> colors.error
+                                            focused -> colors.accent
+                                            else -> colors.hairline
+                                        }
+                                        val stroke = (if (focused || hasError) 2.dp else 1.dp).toPx()
+                                        drawLine(color, Offset(0f, size.height - stroke / 2), Offset(size.width, size.height - stroke / 2), stroke)
+                                    }
+                                } else {
+                                    Modifier.fieldBox(colors, focused, hasError)
+                                },
+                            )
                             // A trailing button (48 dp) fills the 56 dp box with 4 dp to spare above and below.
                             .padding(
-                                start = 18.dp,
-                                end = if (trailing != null) 4.dp else 18.dp,
+                                start = if (underlined) 0.dp else 18.dp,
+                                end = if (underlined) 0.dp else if (trailing != null) 4.dp else 18.dp,
                                 top = if (trailing != null) 4.dp else 8.dp,
                                 bottom = if (trailing != null) 4.dp else 8.dp,
                             ),

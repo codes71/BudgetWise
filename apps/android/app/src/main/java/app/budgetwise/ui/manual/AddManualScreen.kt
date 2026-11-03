@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
@@ -76,31 +77,25 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
 import app.budgetwise.data.model.Source
-import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.nlu.TxType
-import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.FieldError
 import app.budgetwise.ui.common.FieldHint
 import app.budgetwise.ui.common.FieldLabel
 import app.budgetwise.ui.common.KitTextField
+import app.budgetwise.ui.common.KitFieldStyle
 import app.budgetwise.ui.common.KyatGroupingTransformation
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
 import app.budgetwise.ui.common.PrimaryButton
-import app.budgetwise.ui.common.SageRule
-import app.budgetwise.ui.common.SegmentedPill
 import app.budgetwise.ui.common.TextAction
-import app.budgetwise.ui.common.builtInCategoryStyle
-import app.budgetwise.ui.common.categoryColors
-import app.budgetwise.ui.common.categoryIcon
 import app.budgetwise.ui.common.categoryLabel
 import app.budgetwise.ui.common.groupDigits
 import app.budgetwise.ui.common.localizedDate
 import app.budgetwise.ui.common.spokenKyat
 import app.budgetwise.ui.common.toMyanmarDigits
 import app.budgetwise.ui.theme.BudgetWiseTheme
-import app.budgetwise.ui.theme.extraBold
+import app.budgetwise.ui.theme.bold
 import app.budgetwise.ui.theme.forContent
 import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
@@ -202,8 +197,8 @@ fun AddManualScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .alpha(if (state.busy) 0.5f else 1f)
-                    .padding(start = 24.dp, end = 24.dp, top = 22.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(28.dp),
+                    .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 AmountField(state, editable, onAmountChange, amountFocus, onNext = { descriptionFocus.requestFocus() })
                 DescriptionField(state, editable, onDescriptionChange, onRecentPick, descriptionFocus, onDone = { keyboard?.hide() })
@@ -244,7 +239,7 @@ fun AddManualScreen(
             }
         }
         Column(
-            modifier = Modifier.fillMaxWidth().background(colors.ground).padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 24.dp),
+            modifier = Modifier.fillMaxWidth().background(colors.ground).padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -285,35 +280,41 @@ fun AddManualScreen(
 /** Close, the title, and the expense or income switch; a saved entry also says how it was added, under its title. */
 @Composable
 private fun FormHeader(state: AddManualUiState, enabled: Boolean, onClose: () -> Unit, onTypeChange: (TxType) -> Unit) {
+    val colors = BudgetWiseTheme.colors
     Column {
-        BackHeader(
-            title = stringResource(if (state.editing) R.string.manual_edit_title else R.string.manual_title),
-            onBack = onClose,
-            icon = Lucide.X,
-            backLabel = stringResource(R.string.action_close),
-            trailing = { TypeSwitch(state.type, enabled, onTypeChange) },
-        )
-        // Lined up with the title: the close button's 8 dp inset, its 48 dp, and the 2 dp gap.
-        state.source?.let { SourceTag(it, Modifier.padding(start = 58.dp)) }
+        Row(
+            modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars)
+                .heightIn(min = 64.dp).padding(start = 24.dp, end = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(if (state.editing) R.string.manual_edit_title else R.string.manual_title),
+                style = BudgetWiseTheme.type.size24.bold,
+                color = colors.ink,
+                modifier = Modifier.weight(1f).semantics { heading() },
+            )
+            IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) {
+                Icon(Lucide.X, contentDescription = stringResource(R.string.action_close), tint = colors.ink, modifier = Modifier.size(22.dp))
+            }
+        }
+        TypeSwitch(state.type, enabled, onTypeChange)
+        state.source?.let { SourceTag(it, Modifier.padding(start = 24.dp, top = 12.dp)) }
     }
 }
 
-/** Expense or income, compact in the header. Expense selects in coral, income in the Income badge's green. */
+/** Two equal, thumb-sized choices below the title; selecting changes the existing form type. */
 @Composable
 internal fun TypeSwitch(type: TxType, enabled: Boolean, onTypeChange: (TxType) -> Unit) {
     val colors = BudgetWiseTheme.colors
-    val income = categoryColors(CategoryRepository.INCOME)
-    SegmentedPill(Modifier.selectableGroup()) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).selectableGroup()) {
         listOf(TxType.EXPENSE to R.string.manual_expense, TxType.INCOME to R.string.manual_income).forEach { (option, label) ->
             val selected = option == type
-            val (container, content) = when {
-                !selected -> Color.Transparent to colors.muted
-                option == TxType.EXPENSE -> colors.expenseSelected to colors.onExpenseSelected
-                else -> income.container to income.content
-            }
+            val container = if (selected) colors.raised else Color.Transparent
+            val content = if (selected) colors.accent else colors.muted
             Box(
                 modifier = Modifier
-                    .heightIn(min = 32.dp)
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
                     .clip(CircleShape)
                     .background(container)
                     .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = { onTypeChange(option) })
@@ -348,7 +349,7 @@ private fun SourceTag(source: Source, modifier: Modifier = Modifier) {
 }
 
 /**
- * The amount, big and without a box, on the phone's own number keyboard, with the sage rule under it. Long amounts
+ * The amount, labelled and without a box, on the phone's own number keyboard. Long amounts
  * step down a size so the figure and its "Ks" stay on one line.
  */
 @Composable
@@ -362,11 +363,11 @@ private fun AmountField(
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val size = when (state.amountDigits.length) {
-        in 0..7 -> type.size60
+        in 0..7 -> type.size60.copy(fontSize = type.size60.fontSize * (56f / 60f), lineHeight = type.size60.lineHeight * (56f / 60f))
         in 8..10 -> type.size44
         else -> type.size32
     }
-    val big = size.extraBold.tracked(-0.035f)
+    val big = size.bold.tracked(-0.04f)
     val transformation = remember(state.myanmarDigits) { KyatGroupingTransformation(state.myanmarDigits) }
     val label = stringResource(R.string.manual_amount)
     val error = state.amountError?.let { error ->
@@ -377,12 +378,12 @@ private fun AmountField(
             },
         )
     }
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        FieldLabel(label)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BasicTextField(
                 value = state.amountDigits,
                 onValueChange = onAmountChange,
-                // No label on screen: TalkBack says what the figure is.
                 // As wide as the figure, so "Ks" follows it; a figure wider than the row scrolls inside it.
                 modifier = Modifier
                     .weight(1f, fill = false)
@@ -408,7 +409,6 @@ private fun AmountField(
             )
             Text("Ks", style = type.size24.medium, color = colors.muted, modifier = Modifier.alignByBaseline())
         }
-        SageRule()
         when {
             error != null -> FieldError(error)
             state.wholeKyatHint -> FieldHint(stringResource(R.string.manual_amount_whole_kyat))
@@ -450,6 +450,7 @@ private fun DescriptionField(
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { onDone() }),
             error = error,
+            fieldStyle = KitFieldStyle.Underlined,
             trailing = if (state.description.isEmpty()) {
                 null
             } else {
@@ -497,7 +498,7 @@ private fun RecentChip(entry: RecentEntry, myanmarDigits: Boolean, enabled: Bool
     Row(
         modifier = Modifier
             .widthIn(max = 240.dp)
-            .heightIn(min = 32.dp)
+            .heightIn(min = 48.dp)
             .clip(CircleShape)
             .border(1.dp, colors.chipBorder, CircleShape)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
@@ -527,6 +528,10 @@ private fun RecentChip(entry: RecentEntry, myanmarDigits: Boolean, enabled: Bool
 private fun CategoryPicker(state: AddManualUiState, enabled: Boolean, onCategoryChange: (String) -> Unit) {
     val colors = BudgetWiseTheme.colors
     val error = state.categoryError != null
+    var showingAll by rememberSaveable { mutableStateOf(false) }
+    // Keep a selected account-specific name visible; More exposes the complete cached list.
+    val quickChoices = (listOfNotNull(state.category, "Food and Drink Item", "Groceries", "Other") + state.categoryChoices)
+        .filter { it in state.categoryChoices }.distinct().take(3)
     val message = when (state.categoryError) {
         CategoryError.MISSING -> stringResource(R.string.manual_category_error)
         CategoryError.TOO_LONG -> stringResource(R.string.manual_category_error_too_long)
@@ -552,42 +557,97 @@ private fun CategoryPicker(state: AddManualUiState, enabled: Boolean, onCategory
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            state.categoryChoices.forEach { name ->
+            quickChoices.forEach { name ->
                 CategoryChip(name, selected = name == state.category, error = error, enabled = enabled, onClick = { onCategoryChange(name) })
+            }
+            Row(
+                Modifier.heightIn(min = 48.dp).clip(CircleShape)
+                    .clickable(enabled = enabled, role = Role.Button, onClick = { showingAll = true })
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(stringResource(R.string.draft3_entry_more), style = BudgetWiseTheme.type.size14.medium, color = colors.muted)
+                Icon(Lucide.ChevronDown, contentDescription = null, tint = colors.muted, modifier = Modifier.size(16.dp))
             }
         }
         if (message != null) FieldError(message)
     }
+    if (showingAll) {
+        CategorySheet(state, enabled, onPick = {
+            onCategoryChange(it)
+            showingAll = false
+        }, onDismiss = { showingAll = false })
+    }
 }
 
-/** One category: its icon in its color and its name. Chosen, it fills with a tint of that color inside its outline. */
+/** Quiet quick choices keep the amount as the form's focal point. */
 @Composable
 internal fun CategoryChip(name: String, selected: Boolean, error: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
-    val label = categoryLabel(name)
-    val tone = categoryColors(name).content
-    // A user's own category has no color of its own, so it selects in sage.
-    val mark = if (builtInCategoryStyle(name) != null) tone else colors.accent
+    val label = if (name == "Food and Drink Item") stringResource(R.string.draft3_entry_food_short) else categoryLabel(name)
     Row(
         modifier = Modifier
-            .heightIn(min = 36.dp)
+            .heightIn(min = 48.dp)
             .clip(CircleShape)
-            .background(if (selected) mark.copy(alpha = 0.14f) else Color.Transparent)
-            .border(1.dp, if (selected) mark else if (error) colors.error else colors.chipBorder, CircleShape)
+            .background(if (selected) colors.raised else colors.surface)
+            .then(if (error) Modifier.border(1.dp, colors.error, CircleShape) else Modifier)
             .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
-            .padding(start = 11.dp, end = 13.dp),
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Icon(categoryIcon(name), contentDescription = null, tint = tone, modifier = Modifier.size(15.dp))
         Text(
             label,
             style = (if (selected) type.size14.semibold else type.size14.medium).forContent(label),
-            color = colors.ink,
+            color = if (selected) colors.accent else colors.ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+/** The complete account list, including custom names, remains accessible from More. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategorySheet(state: AddManualUiState, enabled: Boolean, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    val colors = BudgetWiseTheme.colors
+    val type = BudgetWiseTheme.type
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = colors.surface,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.72f).dp)
+                .verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.manual_category), style = type.size24.bold, color = colors.ink, modifier = Modifier.weight(1f).semantics { heading() })
+                IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
+                    Icon(Lucide.X, contentDescription = stringResource(R.string.action_close), tint = colors.ink, modifier = Modifier.size(22.dp))
+                }
+            }
+            Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                state.categoryChoices.forEach { name ->
+                    val label = categoryLabel(name)
+                    val selected = name == state.category
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp))
+                            .background(if (selected) colors.raised else Color.Transparent)
+                            .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = { onPick(name) })
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(label, style = type.size16.medium.forContent(label), color = if (selected) colors.accent else colors.ink, modifier = Modifier.weight(1f))
+                        if (selected) Icon(Lucide.Check, contentDescription = null, tint = colors.accent, modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -633,10 +693,9 @@ internal fun DayChip(text: String, selected: Boolean, enabled: Boolean, onClick:
     val type = BudgetWiseTheme.type
     Row(
         modifier = Modifier
-            .heightIn(min = 36.dp)
+            .heightIn(min = 48.dp)
             .clip(CircleShape)
-            .background(if (selected) colors.accent.copy(alpha = 0.16f) else Color.Transparent)
-            .border(1.dp, if (selected) colors.accent else colors.chipBorder, CircleShape)
+            .background(if (selected) colors.raised else Color.Transparent)
             .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
             .padding(start = if (icon != null) 13.dp else 14.dp, end = if (icon != null) 12.dp else 14.dp),
         verticalAlignment = Alignment.CenterVertically,

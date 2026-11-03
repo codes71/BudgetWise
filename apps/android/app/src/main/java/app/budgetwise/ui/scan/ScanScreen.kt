@@ -30,10 +30,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -94,8 +95,10 @@ import app.budgetwise.ui.common.TextAction
 import app.budgetwise.ui.common.groupDigits
 import app.budgetwise.ui.common.formatKyat
 import app.budgetwise.ui.theme.BudgetWiseTheme
+import app.budgetwise.ui.theme.BrandForest
 import app.budgetwise.ui.theme.bold
 import app.budgetwise.ui.theme.medium
+import app.budgetwise.ui.theme.semibold
 import app.budgetwise.ui.theme.tracked
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
@@ -185,10 +188,10 @@ fun ScanRoute(
 }
 
 /** The camera is always dark, whatever the theme: the photo is the light thing on screen. */
-private val Viewfinder = Color(0xFF1F1C18)
-private val CameraBar = Color(0xFF17191C)
-private val OnCamera = Color(0xFFF9FAFB)
-private val OnCameraMuted = Color(0xFFB8BEC6)
+private val Viewfinder = BrandForest
+private val CameraBar = BrandForest
+private val OnCamera = Color(0xFFCDEBDD)
+private val OnCameraMuted = Color(0xFFB8D3C5)
 
 /**
  * The viewfinder with the sage frame and the hint, then Choose a photo, the shutter and the light. Without the camera
@@ -295,16 +298,41 @@ private fun CameraStage(
         }
     }
 
-    Column(Modifier.fillMaxSize().background(CameraBar)) {
-        Box(Modifier.weight(1f).fillMaxWidth().background(Viewfinder)) {
+    Column(Modifier.fillMaxSize().background(CameraBar).windowInsetsPadding(WindowInsets.statusBars)) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CloseButton(onClose)
+            Text(
+                stringResource(R.string.scan_entry),
+                style = type.size24.semibold,
+                color = OnCamera,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f).semantics { heading() },
+            )
+            Spacer(Modifier.width(48.dp))
+        }
+        if (granted) {
+            Text(
+                stringResource(if (captureFailed) R.string.scan_capture_failed else R.string.scan_hint),
+                style = type.size16.medium,
+                color = OnCamera,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+            )
+        }
+        Box(
+            Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp)
+                .clip(RoundedCornerShape(20.dp)).background(Viewfinder),
+        ) {
             if (granted) {
                 AndroidView(
                     factory = { PreviewView(it).apply { this.controller = controller; scaleType = PreviewView.ScaleType.FILL_CENTER } },
                     modifier = Modifier.fillMaxSize(),
                 )
-                // Below the close button and the hint, so the corners never sit under them.
                 ReceiptFrame(
-                    Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(start = 44.dp, end = 44.dp, top = 120.dp, bottom = 32.dp),
+                    Modifier.fillMaxSize().padding(24.dp),
                 )
             } else {
                 CameraOff(
@@ -324,24 +352,6 @@ private fun CameraStage(
                     },
                 )
             }
-            Column(
-                Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                CloseButton(onClose, Modifier.align(Alignment.Start).padding(start = 16.dp))
-                if (granted) {
-                    Text(
-                        stringResource(if (captureFailed) R.string.scan_capture_failed else R.string.scan_hint),
-                        style = type.size14.medium,
-                        color = OnCamera,
-                        modifier = Modifier
-                            .padding(top = 12.dp, start = 24.dp, end = 24.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.55f))
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
-                }
-            }
             // Cancel once the photo is with the ViewModel; a capture in progress cannot be stopped.
             if (busy) {
                 Box(Modifier.align(Alignment.Center).padding(horizontal = 24.dp)) {
@@ -349,11 +359,20 @@ private fun CameraStage(
                 }
             }
         }
+        if (granted) {
+            Text(
+                stringResource(R.string.draft3_scan_steady),
+                style = type.size14,
+                color = OnCamera,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+            )
+        }
         Row(
             Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars)
-                .height(168.dp)
+                .heightIn(min = 120.dp)
                 .padding(horizontal = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -363,7 +382,7 @@ private fun CameraStage(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Box(Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                         Icon(Lucide.Image, contentDescription = null, tint = OnCamera, modifier = Modifier.size(22.dp))
                     }
                     Text(stringResource(R.string.scan_choose_photo), style = type.size14, color = OnCamera)
@@ -402,37 +421,35 @@ private fun Light(on: Boolean, enabled: Boolean, onToggle: (Boolean) -> Unit) {
 @Composable
 private fun CloseButton(onClose: () -> Unit, modifier: Modifier = Modifier) {
     IconButton(onClick = onClose, modifier = modifier.size(48.dp)) {
-        Box(Modifier.size(40.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
-            Icon(Lucide.X, contentDescription = stringResource(R.string.action_close), tint = OnCamera, modifier = Modifier.size(22.dp))
-        }
+        Icon(Lucide.ArrowLeft, contentDescription = stringResource(R.string.action_close), tint = OnCamera, modifier = Modifier.size(24.dp))
     }
 }
 
-/** A 76 dp white disc in a ring. */
+/** The 76 dp mint shutter, kept separate from the photo import action. */
 @Composable
 private fun Shutter(enabled: Boolean, onClick: () -> Unit) {
     val label = stringResource(R.string.scan_take_photo)
     Box(
         Modifier
-            .size(80.dp)
+            .size(76.dp)
             .clip(CircleShape)
-            .border(4.dp, OnCamera.copy(alpha = if (enabled) 1f else 0.4f), CircleShape)
+            .border(2.dp, OnCamera.copy(alpha = if (enabled) 1f else 0.4f), CircleShape)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.size(64.dp).clip(CircleShape).background(OnCamera.copy(alpha = if (enabled) 1f else 0.4f)))
+        Box(Modifier.size(58.dp).clip(CircleShape).background(OnCamera.copy(alpha = if (enabled) 1f else 0.4f)))
     }
 }
 
 /** The four sage corners the receipt goes between. Decorative. */
 @Composable
 private fun ReceiptFrame(modifier: Modifier = Modifier) {
-    val sage = BudgetWiseTheme.colors.accent
+    val sage = OnCamera
     Canvas(modifier) {
         val arm = 32.dp.toPx()
         val r = 8.dp.toPx()
-        val stroke = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+        val stroke = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
         fun corner(x: Float, y: Float, dx: Float, dy: Float) {
             val path = Path().apply {
                 moveTo(x, y + dy * arm)

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="draft3_step_count">%1$d / %2$d</string>
+    <string name="draft3_create_header">Get started</string>
+    <string name="draft3_create_eyebrow">STEP 1 · ACCOUNT</string>
+    <string name="draft3_create_title">Make it yours.</string>
+    <string name="draft3_create_subtitle">Keep your entries together across devices.</string>
+    <string name="draft3_login_eyebrow" translatable="false">BUDGETWISE</string>
+    <string name="draft3_login_subtitle">Pick up where you left off.</string>
+    <string name="draft3_income_header">Your first income</string>
+    <string name="draft3_income_eyebrow">STEP 2 · STARTING POINT</string>
+    <string name="draft3_income_title">Start with what\ncomes in.</string>
+    <string name="draft3_income_subtitle">Add an income to see what’s left to spend.</string>
+    <string name="draft3_income_today">Will be added for today</string>
+    <string name="draft3_income_amount">Income amount</string>
+    <string name="draft3_setup_header">Set up voice</string>
+    <string name="draft3_setup_eyebrow">STEP 3 · OPTIONAL</string>
+    <string name="draft3_setup_title">Say it.\nThen check it.</string>
+    <string name="draft3_setup_subtitle">Speak Burmese and review before saving.</string>
+    <string name="draft3_voice_example_coffee">Coffee</string>
+    <string name="draft3_welcome_headline">Know where\nyour money goes.</string>
+    <string name="draft3_welcome_body">A little clarity, every day.</string>
+    <string name="draft3_welcome_offline">Track your money without internet.</string>
+    <string name="draft3_language_eyebrow">YOUR PREFERENCE</string>
+    <string name="draft3_language_title">Your language.</string>
+    <string name="draft3_language_subtitle">Choose the language you use every day.</string>
+    <string name="draft3_language_preview">PREVIEW</string>
+    <string name="draft3_language_preview_balance">Left this month</string>
+    <string name="draft3_language_preview_en" translatable="false">Left this month</string>
+    <string name="draft3_language_preview_my" translatable="false">ဒီလ လက်ကျန်ငွေ</string>
+</resources>

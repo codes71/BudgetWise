@@ -1,0 +1,27 @@
+{
+  "apkSha256": "13c1aad67c4e4e1125718aaa487352c17830c87f4c47b0d819f7052f1ea16b79",
+  "androidSourceTree": "60dd985d3a52ab9b73c7b336f20f3d818625d597",
+  "apiLevel": 35,
+  "resolution": "720x1280",
+  "densityDpi": 320,
+  "fontScale": 2,
+  "reportedMemTotalKb": 2532240,
+  "data": "authorized synthetic account only",
+  "files": [
+    {
+      "file": "category-english-font2-dark.png",
+      "sourceCapture": "api35-57-responsive-english-font2-category.png",
+      "sha256": "09cbdd0e2dd4f64ab83c8ca3176d1daa63ebcd1eb751555b26362d1a8656f5b1"
+    },
+    {
+      "file": "category-myanmar-font2-dark.png",
+      "sourceCapture": "api35-51-responsive-myanmar-dark-font2-category.png",
+      "sha256": "718f2789a4781bbe8f4c68b450ee6a7d7cb76a8607d3eb95b6514e2511dce6af"
+    },
+    {
+      "file": "share-myanmar-font2-done.png",
+      "sourceCapture": "api35-54-myanmar-font2-done-reachable.png",
+      "sha256": "0bc84a65ac0760646b9c777dce78b4e9f54d28b5923a978a8ad6dc68bf7532d0"
+    }
+  ]
+}

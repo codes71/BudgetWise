@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.widthIn
@@ -37,10 +36,13 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.budgetwise.R
 import app.budgetwise.ui.common.BackHeader
-import app.budgetwise.ui.common.SageRule
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.bold
 import app.budgetwise.ui.theme.medium
@@ -51,9 +53,8 @@ import app.budgetwise.ui.theme.tracked
 internal data class Step(val at: Int, val of: Int)
 
 /**
- * Sign in, create account and this month's income: the back arrow (or room for it), the big title over the sage rule,
- * the subtitle, the [fields], then [button] pinned at the bottom, above the keyboard when it is open. [step] shows at
- * the header's right end. [footer] (the link to the other form, or Skip) shows only while the keyboard is down, so it
+ * Sign in and onboarding: a compact bar, optional progress and eyebrow, then the display title and fields.
+ * [button] stays above the keyboard; the scroll area keeps every field reachable at larger font sizes. [footer] (the link to the other form, or Skip) shows only while the keyboard is down, so it
  * never sits where the next field was.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -66,6 +67,8 @@ internal fun AuthPage(
     footer: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     step: Step? = null,
+    barTitle: String? = null,
+    eyebrow: String? = null,
     fields: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = BudgetWiseTheme.colors
@@ -77,33 +80,36 @@ internal fun AuthPage(
             .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime)),
     ) {
         if (onBack != null) {
-            BackHeader(title = null, onBack = onBack, trailing = step?.let { { StepIndicator(it) } })
+            BackHeader(title = barTitle, onBack = onBack)
         } else {
             Row(
-                Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).height(64.dp).padding(start = 24.dp, end = 24.dp, top = 16.dp),
-                horizontalArrangement = Arrangement.End,
+                Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).heightIn(min = 56.dp).padding(horizontal = 24.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (step != null) StepIndicator(step)
+                if (barTitle != null) Text(barTitle, style = type.size24.bold, color = colors.ink)
             }
         }
+        if (step != null) StepIndicator(step)
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
+                .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 24.dp),
         ) {
             Column(Modifier.widthIn(max = 440.dp).fillMaxWidth()) {
+                if (eyebrow != null) {
+                    Text(eyebrow, style = type.size12.semibold, color = colors.muted, modifier = Modifier.padding(bottom = 12.dp))
+                }
                 Text(
                     text = title,
-                    style = type.size32.bold.tracked(-0.02f),
+                    style = type.size32.bold.tracked(-0.035f),
                     color = colors.ink,
                     modifier = Modifier.semantics { heading() },
                 )
-                SageRule(Modifier.padding(top = 14.dp))
-                Text(subtitle, style = type.size15, color = colors.muted, modifier = Modifier.padding(top = 16.dp))
-                Column(Modifier.padding(top = 28.dp), verticalArrangement = Arrangement.spacedBy(22.dp), content = fields)
+                Text(subtitle, style = type.size16, color = colors.muted, modifier = Modifier.padding(top = 10.dp))
+                Column(Modifier.padding(top = 28.dp), verticalArrangement = Arrangement.spacedBy(20.dp), content = fields)
             }
         }
         Column(
@@ -116,27 +122,20 @@ internal fun AuthPage(
     }
 }
 
-/** "Step 1 of 2" after a short bar per step, the done ones in sage. Read as the words alone. */
+/** Compact step count and a continuous progress line, announced as one localized step label. */
 @Composable
 private fun StepIndicator(step: Step) {
     val colors = BudgetWiseTheme.colors
     val label = stringResource(R.string.onboarding_step, step.at, step.of)
     Row(
-        modifier = Modifier.clearAndSetSemantics { contentDescription = label },
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 20.dp).clearAndSetSemantics { contentDescription = label },
+        horizontalArrangement = Arrangement.spacedBy(32.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            repeat(step.of) { i ->
-                Box(
-                    Modifier
-                        .size(width = 28.dp, height = 4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(if (i < step.at) colors.accent else colors.hairline),
-                )
-            }
+        Text(stringResource(R.string.draft3_step_count, step.at, step.of), style = BudgetWiseTheme.type.size13.medium, color = colors.muted)
+        Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp)).background(colors.hairline)) {
+            Box(Modifier.fillMaxWidth(step.at.toFloat() / step.of).height(4.dp).background(colors.accent))
         }
-        Text(label, style = BudgetWiseTheme.type.size13.medium, color = colors.muted)
     }
 }
 
@@ -145,17 +144,26 @@ private fun StepIndicator(step: Step) {
 internal fun AuthFooterLink(prompt: String, link: String, onClick: () -> Unit, enabled: Boolean = true) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
-    Row(
+    Box(
         modifier = Modifier
             .padding(top = 8.dp)
             .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(prompt, style = type.size14, color = colors.muted)
-        Text(link, style = type.size14.semibold, color = colors.accent)
+        Text(
+            buildAnnotatedString {
+                append(prompt)
+                append(" ")
+                val start = length
+                append(link)
+                addStyle(SpanStyle(color = colors.accent, fontWeight = FontWeight.SemiBold), start, length)
+            },
+            style = type.size14,
+            color = colors.ink,
+            textAlign = TextAlign.Center,
+        )
     }
 }

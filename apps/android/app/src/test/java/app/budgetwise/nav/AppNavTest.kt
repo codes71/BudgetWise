@@ -44,6 +44,8 @@ import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTokenStore
 import app.budgetwise.testing.FakeTransactionStore
 import app.budgetwise.testing.TestUser
+import app.budgetwise.ui.budgets.BudgetTransactionsViewModel
+import app.budgetwise.ui.budgets.PlanEditorViewModel
 import app.budgetwise.ui.transactions.TransactionsViewModel
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import dagger.hilt.android.testing.BindValue
@@ -118,7 +120,7 @@ class AppNavTest {
 
         // Sign-in opens with the known email filled in, and without the bottom bar.
         compose.onNodeWithText(TestUser.email).assertIsDisplayed()
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).assertIsDisplayed()
+        compose.onNode(hasText(text(R.string.login_submit), substring = true) and hasClickAction()).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.nav_budgets)).assertDoesNotExist()
     }
 
@@ -136,7 +138,7 @@ class AppNavTest {
     }
 
     private fun openAddSheet() {
-        compose.onNode(hasText(text(R.string.action_add)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.manual_title)) and hasClickAction()).performClick()
         compose.onNodeWithText(text(R.string.add_scan_detail)).assertIsDisplayed()
     }
 
@@ -198,7 +200,7 @@ class AppNavTest {
         compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.nav_transactions)).assertDoesNotExist()
         // Both ways in: the link opens sign-in, and its back arrow returns to the welcome screen.
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_submit), substring = true) and hasClickAction()).performClick()
         compose.onNodeWithText(text(R.string.login_title)).assertIsDisplayed()
         compose.onNodeWithContentDescription(text(R.string.action_back)).performClick()
         compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).assertIsDisplayed()
@@ -213,8 +215,8 @@ class AppNavTest {
         }
 
         // Both languages, each in its own script, and no way back from the first screen.
-        compose.onNodeWithText(text(R.string.language_title_en)).assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.language_title_my)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.draft3_language_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.language_burmese)).assertIsDisplayed()
         compose.onNodeWithContentDescription(text(R.string.action_back)).assertDoesNotExist()
 
         compose.onNode(hasText(text(R.string.language_continue)) and hasClickAction()).performClick()
@@ -228,7 +230,7 @@ class AppNavTest {
         showApp(SessionState.SignedOut)
 
         compose.onNodeWithContentDescription("${text(R.string.settings_language)}, ${text(R.string.language_english)}").performClick()
-        compose.onNodeWithText(text(R.string.language_title_en)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.draft3_language_title)).assertIsDisplayed()
         compose.onNode(hasText(text(R.string.language_done)) and hasClickAction()).performClick()
         compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).assertIsDisplayed()
     }
@@ -245,12 +247,12 @@ class AppNavTest {
             nav.navigate(Routes.FIRST_INCOME) { popUpTo(nav.graph.id) { inclusive = true } }
         }
 
-        compose.onNodeWithText(text(R.string.income_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.draft3_income_title)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.nav_budgets)).assertDoesNotExist()
         compose.onNode(hasText(text(R.string.income_skip)) and hasClickAction()).performClick()
 
         // The last step offers voice, with no way back to the income step.
-        compose.onNodeWithText(text(R.string.setup_voice_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.draft3_setup_title)).assertIsDisplayed()
         assertEquals(listOf(Routes.SETUP_VOICE), compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } })
         compose.onNode(hasText(text(R.string.voice_not_now)) and hasClickAction()).performClick()
 
@@ -267,9 +269,9 @@ class AppNavTest {
         }
 
         compose.onNode(hasText(text(R.string.welcome_get_started)) and hasClickAction()).performClick()
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).performClick()
-        compose.onNode(hasText(text(R.string.login_make_account)) and hasClickAction()).performClick()
-        compose.onNode(hasText(text(R.string.login_submit)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_submit), substring = true) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_make_account), substring = true) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(R.string.login_submit), substring = true) and hasClickAction()).performClick()
         val stack = compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } }
         assertEquals(listOf(Routes.WELCOME, Routes.CREATE_ACCOUNT, Routes.LOGIN), stack)
     }
@@ -402,6 +404,41 @@ class AppNavTest {
     }
 
     private fun routes(nav: NavHostController) = compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } }
+
+    @Test
+    fun categoryBudgetEditorDecodesItsExactKeyAndReturnsToTheDetailOnSave() {
+        val nav = showWithNav()
+        val month = YearMonth.of(2026, 10)
+        val category = "ကျောင်း / Books & fees?"
+        compose.runOnIdle {
+            nav.navigate(Routes.BUDGETS)
+            nav.navigate(Routes.budgetTransactions(month, category))
+            nav.navigate(Routes.budgetPlan(month, startSplit = true, selectedCategory = category))
+        }
+        assertEquals(true, compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getBoolean(PlanEditorViewModel.ARG_START_SPLIT) })
+        assertEquals(category, compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getString(PlanEditorViewModel.ARG_SELECTED_CATEGORY) })
+        compose.runOnIdle {
+            nav.closePlanEditor()
+            nav.closePlanEditor()
+        }
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS, Routes.BUDGET_TRANSACTIONS), routes(nav))
+        assertEquals(category, compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getString(BudgetTransactionsViewModel.ARG_CATEGORY) })
+        // The real Hilt-created detail ViewModel must receive that same decoded key, not only the route Bundle.
+        compose.onNodeWithText(category).assertIsDisplayed()
+    }
+
+    @Test
+    fun everythingElseEditorKeepsCarryAndSplitArgumentsIndependent() {
+        val nav = showWithNav()
+        val month = YearMonth.of(2026, 10)
+        assertEquals("budget_plan/2026-10?tickCarry=true", Routes.budgetPlan(month, tickCarry = true))
+        compose.runOnIdle {
+            nav.navigate(Routes.budgetPlan(month, startSplit = true, selectedCategory = ""))
+        }
+        assertEquals(true, compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getBoolean(PlanEditorViewModel.ARG_START_SPLIT) })
+        assertEquals(false, compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getBoolean(PlanEditorViewModel.ARG_TICK_CARRY) })
+        assertEquals("", compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getString(PlanEditorViewModel.ARG_SELECTED_CATEGORY) })
+    }
 
     @Test
     fun thePlanEditorIsFullScreenAndClosesBackToBudgets() {

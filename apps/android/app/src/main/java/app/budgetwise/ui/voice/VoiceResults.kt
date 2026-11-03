@@ -261,8 +261,8 @@ private fun EntrySheet(
                 onBack = onDismiss,
                 icon = Lucide.X,
                 backLabel = stringResource(R.string.action_close),
-                trailing = { TypeSwitch(kind, enabled = true) { kind = it } },
             )
+            TypeSwitch(kind, enabled = true) { kind = it }
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(28.dp),

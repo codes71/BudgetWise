@@ -1,0 +1,7 @@
+<resources>
+    <string name="draft3_voice_entry">Voice entry</string>
+    <string name="draft3_voice_language" translatable="false">မြန်မာ</string>
+    <string name="draft3_voice_finish_hint">Tap Done when you finish speaking.</string>
+    <string name="draft3_discard">Discard</string>
+    <string name="draft3_scan_steady">Keep steady and avoid glare</string>
+</resources>

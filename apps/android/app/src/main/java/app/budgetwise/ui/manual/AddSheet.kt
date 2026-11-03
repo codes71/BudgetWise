@@ -12,10 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -34,8 +37,11 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -117,7 +123,26 @@ fun AddSheet(
             Box(Modifier.padding(top = 12.dp, bottom = 18.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(colors.outline))
         },
     ) {
-        AddChoices(onScan, onSayIt, onTypeIt, onAddIncome, Modifier.padding(start = 20.dp, end = 20.dp, bottom = 20.dp))
+        Column(
+            Modifier.fillMaxWidth().heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.8f).dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.draft3_entry_sheet_title),
+                    style = BudgetWiseTheme.type.size24.bold,
+                    color = colors.ink,
+                    modifier = Modifier.weight(1f).semantics { heading() },
+                )
+                IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
+                    Icon(Lucide.X, contentDescription = stringResource(R.string.action_close), tint = colors.ink, modifier = Modifier.size(22.dp))
+                }
+            }
+            AddChoices(onScan, onSayIt, onTypeIt, onAddIncome, Modifier.padding(start = 24.dp, end = 24.dp, bottom = 20.dp))
+        }
         // Drawn from inside the sheet, so it opens over it.
         if (explainNoVoice) VoiceUnsupportedDialog(onDismiss = onNoVoiceExplained, myanmarDigits = myanmarDigits)
     }
@@ -156,11 +181,11 @@ private fun ScanCard(onClick: () -> Unit) {
     Box(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = 210.dp)
+            .heightIn(min = 190.dp)
             .clip(RoundedCornerShape(26.dp))
             .background(colors.sageFill)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(22.dp),
+            .padding(20.dp),
     ) {
         ReceiptInViewfinder(Modifier.align(Alignment.TopEnd).padding(top = 2.dp))
         Box(Modifier.size(44.dp).clip(CircleShape).background(colors.onSageFill), contentAlignment = Alignment.Center) {
@@ -210,7 +235,7 @@ private fun ReceiptInViewfinder(modifier: Modifier = Modifier) {
 private fun SayItCard(onClick: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(22.dp)
     val example = stringResource(R.string.add_say_it_example)
     Row(
         modifier = Modifier
@@ -218,34 +243,17 @@ private fun SayItCard(onClick: () -> Unit) {
             .heightIn(min = 84.dp)
             .clip(shape)
             .background(colors.raised)
-            .border(1.dp, colors.hairline, shape)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(Modifier.size(48.dp).clip(CircleShape).background(colors.sageContainer), contentAlignment = Alignment.Center) {
-            Icon(Lucide.MicBold, contentDescription = null, tint = colors.accent, modifier = Modifier.size(22.dp))
-        }
+        Icon(Lucide.Mic, contentDescription = null, tint = colors.accent, modifier = Modifier.size(26.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(stringResource(R.string.voice_say_it), style = type.size20.bold.tracked(-0.015f), color = colors.ink)
             Text(example, style = type.size14.forContent(example), color = colors.muted)
         }
-        SoundWave()
-    }
-}
-
-/** Seven bars of a voice, quieter at the ends. Decorative. */
-@Composable
-private fun SoundWave() {
-    val color = BudgetWiseTheme.colors.accent.copy(alpha = 0.7f)
-    Canvas(Modifier.size(width = 40.dp, height = 22.dp)) {
-        val unit = size.height / 22f
-        // Half the height of each bar, every 6 units from x = 2, as on the board.
-        listOf(0f, 4f, 8f, 3f, 6f, 2f, 0f).forEachIndexed { i, half ->
-            val x = (2f + 6f * i) * unit
-            drawLine(color, Offset(x, (11f - half) * unit), Offset(x, (11f + half) * unit), strokeWidth = 2.5f * unit, cap = StrokeCap.Round)
-        }
+        Icon(Lucide.ChevronRight, contentDescription = null, tint = colors.muted, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -255,16 +263,16 @@ private fun SheetPill(icon: ImageVector, tint: Color, text: String, onClick: () 
     val colors = BudgetWiseTheme.colors
     Row(
         modifier = modifier
-            .heightIn(min = 50.dp)
-            .clip(CircleShape)
-            .border(1.dp, colors.outline, CircleShape)
+            .heightIn(min = 56.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .border(1.dp, colors.hairline, RoundedCornerShape(20.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(17.dp))
-        Text(text, style = BudgetWiseTheme.type.size15.semibold, color = colors.ink, maxLines = 1)
+        Text(text, style = BudgetWiseTheme.type.size14.semibold, color = colors.ink, maxLines = 1)
     }
 }
 

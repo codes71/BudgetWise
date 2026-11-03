@@ -1,0 +1,161 @@
+{
+  "baseline": "0fce707",
+  "direction": "Approved Draft 3 applied to monthly budget flows, all existing behavior retained.",
+  "tokens": {
+    "titleSp": 24,
+    "bodySp": 16,
+    "labelSp": 14,
+    "amountSp": 44,
+    "gutterDp": 24,
+    "cardRadiusDp": 20,
+    "cardInsetDp": 20,
+    "minTouchDp": 48,
+    "field": "bottom rule, no filled field box",
+    "overview": "compact inset remaining summary, Edit plan in content instead of crowded app header",
+    "split": "inset left-to-split summary, flat aligned category rows, pinned save",
+    "monthEnd": "inset leftover summary, full-width accessible radio rows, shortage/carry controls intact"
+  },
+  "boards": [
+    {
+      "id": "JNG-0",
+      "name": "Budget overview",
+      "theme": "dark",
+      "source": "source/budget-01-budget-overview-dark.json",
+      "preview": "previews/budget-01-budget-overview-dark.webp"
+    },
+    {
+      "id": "JR8-0",
+      "name": "First budget",
+      "theme": "dark",
+      "source": "source/budget-02-first-budget-dark.json",
+      "preview": "previews/budget-02-first-budget-dark.webp"
+    },
+    {
+      "id": "JSA-0",
+      "name": "Set monthly total",
+      "theme": "dark",
+      "source": "source/budget-03-set-monthly-total-dark.json",
+      "preview": "previews/budget-03-set-monthly-total-dark.webp"
+    },
+    {
+      "id": "JTH-0",
+      "name": "Split by category",
+      "theme": "dark",
+      "source": "source/budget-04-split-by-category-dark.json",
+      "preview": "previews/budget-04-split-by-category-dark.webp"
+    },
+    {
+      "id": "JVW-0",
+      "name": "Change category share",
+      "theme": "dark",
+      "source": "source/budget-05-change-category-share-dark.json",
+      "preview": "previews/budget-05-change-category-share-dark.webp"
+    },
+    {
+      "id": "JZ7-0",
+      "name": "Add category",
+      "theme": "dark",
+      "source": "source/budget-06-add-category-dark.json",
+      "preview": "previews/budget-06-add-category-dark.webp"
+    },
+    {
+      "id": "K2R-0",
+      "name": "Over allocated",
+      "theme": "dark",
+      "source": "source/budget-07-over-allocated-dark.json",
+      "preview": "previews/budget-07-over-allocated-dark.webp"
+    },
+    {
+      "id": "K5A-0",
+      "name": "Month-end confirmed",
+      "theme": "dark",
+      "source": "source/budget-08-month-end-confirmed-dark.json",
+      "preview": "previews/budget-08-month-end-confirmed-dark.webp"
+    },
+    {
+      "id": "K63-0",
+      "name": "Month-end shortage",
+      "theme": "dark",
+      "source": "source/budget-09-month-end-shortage-dark.json",
+      "preview": "previews/budget-09-month-end-shortage-dark.webp"
+    },
+    {
+      "id": "K79-0",
+      "name": "Carry into next month",
+      "theme": "dark",
+      "source": "source/budget-10-carry-into-next-month-dark.json",
+      "preview": "previews/budget-10-carry-into-next-month-dark.webp"
+    },
+    {
+      "id": "KJU-0",
+      "name": "Budget overview",
+      "theme": "light",
+      "source": "source/budget-01-budget-overview-light.json",
+      "preview": "previews/budget-01-budget-overview-light.webp"
+    },
+    {
+      "id": "KNQ-0",
+      "name": "First budget",
+      "theme": "light",
+      "source": "source/budget-02-first-budget-light.json",
+      "preview": "previews/budget-02-first-budget-light.webp"
+    },
+    {
+      "id": "KP0-0",
+      "name": "Set monthly total",
+      "theme": "light",
+      "source": "source/budget-03-set-monthly-total-light.json",
+      "preview": "previews/budget-03-set-monthly-total-light.webp"
+    },
+    {
+      "id": "KQF-0",
+      "name": "Split by category",
+      "theme": "light",
+      "source": "source/budget-04-split-by-category-light.json",
+      "preview": "previews/budget-04-split-by-category-light.webp"
+    },
+    {
+      "id": "KT2-0",
+      "name": "Change category share",
+      "theme": "light",
+      "source": "source/budget-05-change-category-share-light.json",
+      "preview": "previews/budget-05-change-category-share-light.webp"
+    },
+    {
+      "id": "KWL-0",
+      "name": "Add category",
+      "theme": "light",
+      "source": "source/budget-06-add-category-light.json",
+      "preview": "previews/budget-06-add-category-light.webp"
+    },
+    {
+      "id": "L0D-0",
+      "name": "Over allocated",
+      "theme": "light",
+      "source": "source/budget-07-over-allocated-light.json",
+      "preview": "previews/budget-07-over-allocated-light.webp"
+    },
+    {
+      "id": "L34-0",
+      "name": "Month-end confirmed",
+      "theme": "light",
+      "source": "source/budget-08-month-end-confirmed-light.json",
+      "preview": "previews/budget-08-month-end-confirmed-light.webp"
+    },
+    {
+      "id": "L45-0",
+      "name": "Month-end shortage",
+      "theme": "light",
+      "source": "source/budget-09-month-end-shortage-light.json",
+      "preview": "previews/budget-09-month-end-shortage-light.webp"
+    },
+    {
+      "id": "L5J-0",
+      "name": "Carry into next month",
+      "theme": "light",
+      "source": "source/budget-10-carry-into-next-month-light.json",
+      "preview": "previews/budget-10-carry-into-next-month-light.webp"
+    }
+  ],
+  "manifest": "budget-extension-manifest.json"
+}

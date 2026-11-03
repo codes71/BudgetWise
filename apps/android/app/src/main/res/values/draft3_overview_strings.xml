@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="draft3_remaining_balance">Remaining balance</string>
+    <string name="draft3_spending_title">Spending</string>
+</resources>

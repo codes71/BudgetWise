@@ -1,0 +1,6 @@
+<resources>
+    <string name="draft3_voice_entry">အသံဖြင့် မှတ်ရန်</string>
+    <string name="draft3_voice_finish_hint">ပြောပြီးလျှင် ပြီးပြီ ကို နှိပ်ပါ။</string>
+    <string name="draft3_discard">ပယ်ဖျက်မည်</string>
+    <string name="draft3_scan_steady">ဖုန်းကို ငြိမ်ငြိမ်ထားပြီး အလင်းပြန်မှုကို ရှောင်ပါ</string>
+</resources>
