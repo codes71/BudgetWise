@@ -1,0 +1,13 @@
+{
+  "mcp": {
+    "better-design": {
+      "type": "remote",
+      "url": "https://better-design.com/api/mcp",
+      "enabled": true,
+      "headers": {
+        "Authorization": "Bearer {env:BETTER_DESIGN_API_KEY}",
+        "X-Better-Design-Client": "opencode"
+      }
+    }
+  }
+}
