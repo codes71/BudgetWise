@@ -11,7 +11,8 @@ import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.NewTransaction
 import app.budgetwise.di.DeviceClock
 import app.budgetwise.nlu.TxType
-import app.budgetwise.ui.common.typedKyatDigits
+import app.budgetwise.ui.common.TypedKyat
+import app.budgetwise.ui.common.readTypedKyat
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.LocalDate
@@ -42,6 +43,8 @@ data class FirstIncomeUiState(
     val myanmarDigits: Boolean = false,
     val saving: Boolean = false,
     val saveFailed: Boolean = false,
+    /** A fraction of a kyat was refused: the field says it takes whole kyat, until the next change it keeps. */
+    val wholeKyatHint: Boolean = false,
 ) {
     /** The amount to save; null until there is one above zero. */
     val amount: Long? get() = amountDigits.toLongOrNull()?.takeIf { it > 0 }
@@ -62,7 +65,7 @@ sealed interface FirstIncomeEvent {
 class FirstIncomeViewModel @Inject constructor(
     private val transactions: TransactionStore,
     settings: SettingsStore,
-    @DeviceClock clock: Clock,
+    @DeviceClock private val clock: Clock,
 ) : ViewModel() {
     private val _state = MutableStateFlow(FirstIncomeUiState(today = LocalDate.now(clock)))
     val state: StateFlow<FirstIncomeUiState> = _state.asStateFlow()
@@ -74,10 +77,13 @@ class FirstIncomeViewModel @Inject constructor(
         viewModelScope.launch { settings.myanmarDigits.collect { on -> _state.update { it.copy(myanmarDigits = on) } } }
     }
 
-    /** The add form's rule: digits only, no leading zeros; a decimal point or too large a value is refused. */
+    /** The add form's rule ([readTypedKyat]): digits only, no leading zeros; a fraction or too large a value is refused. */
     fun onAmountChange(text: String) {
-        val digits = typedKyatDigits(text) ?: return
-        _state.update { it.copy(amountDigits = digits, saveFailed = false) }
+        when (val typed = readTypedKyat(text, _state.value.amountDigits)) {
+            is TypedKyat.Digits -> _state.update { it.copy(amountDigits = typed.digits, saveFailed = false, wholeKyatHint = false) }
+            TypedKyat.Fraction -> _state.update { it.copy(wholeKyatHint = true) }
+            TypedKyat.TooLarge -> Unit
+        }
     }
 
     fun onSourceChange(source: IncomeSource) = _state.update { it.copy(source = source, saveFailed = false) }
@@ -87,16 +93,18 @@ class FirstIncomeViewModel @Inject constructor(
         val s = _state.value
         val amount = s.amount ?: return
         if (s.saving) return
+        // Today as the clock has it now, not when the screen opened: it can stay open over midnight.
+        val today = LocalDate.now(clock)
         val input = NewTransaction(
             type = TxType.INCOME,
             amountKyat = amount,
             category = CategoryRepository.INCOME,
             description = description,
-            date = s.today,
+            date = today,
             source = Source.MANUAL,
             transcript = null,
         )
-        _state.update { it.copy(saving = true, saveFailed = false) }
+        _state.update { it.copy(today = today, saving = true, saveFailed = false) }
         viewModelScope.launch {
             try {
                 transactions.addAll(listOf(input))

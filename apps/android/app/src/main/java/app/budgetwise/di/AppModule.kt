@@ -28,6 +28,7 @@ import dagger.hilt.components.SingletonComponent
 import java.time.Clock
 import javax.inject.Qualifier
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -47,6 +48,11 @@ annotation class ApplicationScope
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class DeviceClock
+
+/** Where a screen does work too heavy for the main thread, such as reading every entry. Tests pass their own. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class WorkDispatcher
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -94,4 +100,8 @@ object AppModule {
     @Provides
     @DeviceClock
     fun deviceClock(): Clock = Clock.systemDefaultZone()
+
+    @Provides
+    @WorkDispatcher
+    fun workDispatcher(): CoroutineDispatcher = Dispatchers.Default
 }

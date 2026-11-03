@@ -88,6 +88,7 @@ import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
 import app.budgetwise.ui.transactions.ScanAdded
 import app.budgetwise.ui.transactions.TransactionsRoute
+import app.budgetwise.ui.transactions.TransactionsViewModel
 import app.budgetwise.ui.voice.VoiceRoute
 import java.time.Instant
 import java.time.YearMonth
@@ -242,6 +243,34 @@ internal fun NavController.openPlanAfterCheck(next: YearMonth) {
         popUpTo(check.destination.id) { inclusive = true }
         launchSingleTop = true
     }
+}
+
+/**
+ * Closes a receipt deleted on its own screen, back to Transactions ([list]), which deletes its [clientIds] with the
+ * "Receipt deleted" notice and Undo, as after a swipe. False, with nothing done, when there is no list under the
+ * receipt: its screen then deletes them at once. A second call (the screen is already gone) does nothing.
+ */
+internal fun NavController.closeReceiptDeleted(list: TransactionsViewModel?, receiptId: String, clientIds: List<String>): Boolean {
+    if (currentDestination?.route != Routes.RECEIPT) return true
+    if (list == null) return false
+    // Hidden before the list draws again, so the receipt's line never shows on the way back.
+    list.deleteEntries(receiptId, clientIds)
+    popBackStack()
+    return true
+}
+
+/**
+ * Closes the form after Delete entry, back to Transactions ([list]), which deletes the entry [clientId] with the
+ * "Entry deleted" notice and Undo, as after a swipe. False, with nothing done, when there is no list under the form:
+ * the form then deletes it at once. A second call (the form is already gone) does nothing.
+ */
+internal fun NavController.closeEntryDeleted(list: TransactionsViewModel?, clientId: String): Boolean {
+    if (currentDestination?.route != Routes.EDIT_ENTRY) return true
+    if (list == null) return false
+    // Hidden before the list draws again, so the entry never shows on the way back. Its line is keyed by its clientId.
+    list.deleteEntries(clientId, listOf(clientId))
+    popBackStack()
+    return true
 }
 
 private fun NavDestination?.isOn(route: String) = this?.hierarchy?.any { it.route == route } == true
@@ -476,8 +505,11 @@ fun AppNav(
             composable(
                 Routes.EDIT_ENTRY,
                 arguments = listOf(navArgument(AddManualViewModel.ARG_CLIENT_ID) { type = NavType.StringType }),
-            ) {
-                AddManualRoute(onDone = navController::closeManual)
+            ) { entry ->
+                // The list an entry is opened from, whose ViewModel deletes it with Undo.
+                val listEntry = remember(entry) { runCatching { navController.getBackStackEntry(Routes.TRANSACTIONS) }.getOrNull() }
+                val list: TransactionsViewModel? = listEntry?.let { hiltViewModel(it) }
+                AddManualRoute(onDone = navController::closeManual, onDelete = { navController.closeEntryDeleted(list, it) })
             }
             composable(Routes.SCAN) {
                 ScanRoute(
@@ -497,9 +529,15 @@ fun AppNav(
                     onSaved = navController::closeScanSaved,
                 )
             }
-            composable(Routes.RECEIPT) {
-                // Back, or once the receipt has no entries left; a second call (the screen already gone) does nothing.
-                ReceiptRoute(onClose = { if (navController.currentDestination?.route == Routes.RECEIPT) navController.popBackStack() })
+            composable(Routes.RECEIPT) { entry ->
+                // The list a receipt is opened from, whose ViewModel deletes it with Undo.
+                val listEntry = remember(entry) { runCatching { navController.getBackStackEntry(Routes.TRANSACTIONS) }.getOrNull() }
+                val list: TransactionsViewModel? = listEntry?.let { hiltViewModel(it) }
+                ReceiptRoute(
+                    // Back, or once the receipt has no entries left; a second call (the screen already gone) does nothing.
+                    onClose = { if (navController.currentDestination?.route == Routes.RECEIPT) navController.popBackStack() },
+                    onDelete = { receiptId, clientIds -> navController.closeReceiptDeleted(list, receiptId, clientIds) },
+                )
             }
             composable(Routes.VOICE) {
                 VoiceRoute(

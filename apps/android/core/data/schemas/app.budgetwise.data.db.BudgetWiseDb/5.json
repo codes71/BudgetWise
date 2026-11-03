@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 5,
-    "identityHash": "366e9ceb8c60b35bd56b4170d8394519",
+    "identityHash": "507a303e56885baaa5d469d73bbf5589",
     "entities": [
       {
         "tableName": "tx",
@@ -128,7 +128,7 @@
       },
       {
         "tableName": "outbox",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`seq` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `op` TEXT NOT NULL, `clientId` TEXT NOT NULL, `ownerId` TEXT, `serverId` TEXT, `attempts` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`seq` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `op` TEXT NOT NULL, `clientId` TEXT NOT NULL, `ownerId` TEXT, `serverId` TEXT, `attempts` INTEGER NOT NULL, `replaceGroup` TEXT)",
         "fields": [
           {
             "fieldPath": "seq",
@@ -163,6 +163,11 @@
             "columnName": "attempts",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "replaceGroup",
+            "columnName": "replaceGroup",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -238,64 +243,11 @@
             "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_budget_ownerId_category` ON `${TABLE_NAME}` (`ownerId`, `category`)"
           }
         ]
-      },
-      {
-        "tableName": "budget_month",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`ownerId` TEXT NOT NULL, `month` TEXT NOT NULL, `newMoneyKyat` INTEGER NOT NULL, `carriedOverKyat` INTEGER NOT NULL, `shares` TEXT NOT NULL, `endCheckOnHandKyat` INTEGER, `endCheckAt` INTEGER, PRIMARY KEY(`ownerId`, `month`))",
-        "fields": [
-          {
-            "fieldPath": "ownerId",
-            "columnName": "ownerId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "month",
-            "columnName": "month",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "newMoneyKyat",
-            "columnName": "newMoneyKyat",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "carriedOverKyat",
-            "columnName": "carriedOverKyat",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "sharesJson",
-            "columnName": "shares",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "endCheckOnHandKyat",
-            "columnName": "endCheckOnHandKyat",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "endCheckAt",
-            "columnName": "endCheckAt",
-            "affinity": "INTEGER"
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "ownerId",
-            "month"
-          ]
-        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '366e9ceb8c60b35bd56b4170d8394519')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '507a303e56885baaa5d469d73bbf5589')"
     ]
   }
 }

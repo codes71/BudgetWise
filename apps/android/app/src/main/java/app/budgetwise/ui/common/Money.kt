@@ -88,19 +88,45 @@ fun asciiDigits(text: String): String = buildString {
     }
 }
 
-/**
- * What an amount field keeps of [text] as typed: its digits (Myanmar ones made ASCII, grouping commas dropped) without
- * leading zeros, or null when the field must refuse it and keep what it had (a decimal point, or above [MAX_KYAT]).
- */
-fun typedKyatDigits(text: String): String? {
-    if ('.' in text) return null
-    val raw = asciiDigits(text)
-    val digits = if (raw.isEmpty()) "" else raw.trimStart('0').ifEmpty { "0" }
-    if (digits.length > MAX_KYAT_DIGITS || (digits.isNotEmpty() && digits.toLong() > MAX_KYAT)) return null
-    return digits
+/** What an amount field makes of a change ([readTypedKyat]). */
+sealed interface TypedKyat {
+    /** What the field keeps: plain ASCII digits without leading zeros. */
+    data class Digits(val digits: String) : TypedKyat
+
+    /** A fraction of a kyat ("150.50", or a dot typed into the figure): refused, the field keeps what it had. */
+    data object Fraction : TypedKyat
+
+    /** Above [MAX_KYAT]: refused, the field keeps what it had. */
+    data object TooLarge : TypedKyat
 }
 
+/**
+ * Reads [text], the field's new value, against [previous], the plain digits it held. Its digits are kept (Myanmar ones
+ * made ASCII; grouping commas, "Ks" and a minus dropped) without leading zeros, so an amount pasted from a bank app
+ * ("-15,000.00 Ks", "Ks. 3,000") works. A fraction of one or two zeros is dropped; any other dot between digits is a
+ * fraction ("150.50", or "5.000" with the dot grouping thousands), and so is one dot typed into the field ("50.00"
+ * from "5000"), which would otherwise cut two digits off.
+ */
+fun readTypedKyat(text: String, previous: String): TypedKyat {
+    if (text.count { it == '.' } == 1 && text.replace(".", "") == previous) return TypedKyat.Fraction
+    val whole = text.replace(ZERO_FRACTION, "")
+    if (DOT_IN_FIGURE.containsMatchIn(whole)) return TypedKyat.Fraction
+    val raw = asciiDigits(whole)
+    val digits = if (raw.isEmpty()) "" else raw.trimStart('0').ifEmpty { "0" }
+    if (digits.length > MAX_KYAT_DIGITS || (digits.isNotEmpty() && digits.toLong() > MAX_KYAT)) return TypedKyat.TooLarge
+    return TypedKyat.Digits(digits)
+}
+
+/** [readTypedKyat]'s digits, or null when the field must refuse the change and keep what it had. */
+fun typedKyatDigits(text: String, previous: String): String? = (readTypedKyat(text, previous) as? TypedKyat.Digits)?.digits
+
 private val MAX_KYAT_DIGITS = MAX_KYAT.toString().length
+
+/** ".00" or ".0" (ASCII or Myanmar zeros) right after a digit and not followed by one: no fraction at all. */
+private val ZERO_FRACTION = Regex("(?<=[0-9၀-၉])\\.[0၀]{1,2}(?![0-9၀-၉])")
+
+/** A dot with a digit on each side. */
+private val DOT_IN_FIGURE = Regex("[0-9၀-၉]\\.[0-9၀-၉]")
 
 /**
  * What TalkBack reads for an entry's amount: "5,000 kyat spent" or "5,000 kyat received", never "minus 5,000 Ks".

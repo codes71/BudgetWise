@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.budgetwise.BudgetSource
 import app.budgetwise.CategorySource
+import app.budgetwise.NetworkStatus
 import app.budgetwise.OnDeviceSpeech
 import app.budgetwise.TransactionStore
 import app.budgetwise.VoiceParser
@@ -138,6 +139,7 @@ class VoiceViewModel @Inject constructor(
     private val transactions: TransactionStore,
     private val budgets: BudgetSource,
     categories: CategorySource,
+    private val network: NetworkStatus,
     @DeviceClock clock: Clock,
 ) : ViewModel() {
     private val _state = MutableStateFlow(VoiceUiState(today = LocalDate.now(clock)))
@@ -309,8 +311,17 @@ class VoiceViewModel @Inject constructor(
             }
             is ApiResult.Unauthorized -> VoicePhase.Problem(VoiceProblem.SignedOut)
             is ApiResult.Failure ->
-                VoicePhase.Problem(if (r.code == NETWORK_ERROR_CODE) VoiceProblem.Offline else VoiceProblem.Failed)
+                // Every IOException is "network": a timeout or a reply cut off while the phone is online is not offline.
+                VoicePhase.Problem(if (r.code == NETWORK_ERROR_CODE && !online()) VoiceProblem.Offline else VoiceProblem.Failed)
         }
+
+    private suspend fun online(): Boolean = try {
+        network.online.first()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        false
+    }
 
     /** The server allows tomorrow in Yangon; the phone's form never takes a future day, so neither does voice. */
     private fun notAfterToday(entry: VoiceEntry): VoiceEntry {

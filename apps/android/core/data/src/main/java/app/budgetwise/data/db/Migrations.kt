@@ -51,11 +51,21 @@ val MIGRATION_3_4: Migration = object : Migration(3, 4) {
 }
 
 /**
- * Version 5 adds the cache of month plans, one row per account and month (`YYYY-MM`). Plans only come from the server
+ * Version 5 lets an outbox op belong to an edit ([OutboxEntity.replaceGroup]), so a replaced entry is deleted on the
+ * server only after its replacement is accepted. Queued ops get null: they wait and are sent as before.
+ */
+val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `outbox` ADD COLUMN `replaceGroup` TEXT")
+    }
+}
+
+/**
+ * Version 6 adds the cache of month plans, one row per account and month (`YYYY-MM`). Plans only come from the server
  * for a signed-in account, so the owner is never null and [claimUnowned] leaves the table alone. Existing tables are
  * untouched.
  */
-val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+val MIGRATION_5_6: Migration = object : Migration(5, 6) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE IF NOT EXISTS `budget_month` (`ownerId` TEXT NOT NULL, `month` TEXT NOT NULL, " +

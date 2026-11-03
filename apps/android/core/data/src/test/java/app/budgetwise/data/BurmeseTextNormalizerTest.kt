@@ -1,6 +1,7 @@
 package app.budgetwise.data
 
 import app.budgetwise.data.text.BurmeseTextNormalizer
+import app.budgetwise.data.text.LibraryZawgyiConverter
 import app.budgetwise.data.text.ZawgyiConverter
 import com.ibm.icu.text.Transliterator
 import org.junit.Assert.assertEquals
@@ -30,8 +31,17 @@ class BurmeseTextNormalizerTest {
         assertEquals(uniWord, BurmeseTextNormalizer.toUnicode(zawgyiWord, icu))
         assertTrue(BurmeseTextNormalizer.looksLikeZawgyi(zawgyiSentence))
         assertEquals(uniSentence, BurmeseTextNormalizer.toUnicode(zawgyiSentence, icu))
-        // No converter on this device (API below 29): text comes back unchanged so the caller can flag it.
+        // A converter that cannot convert: text comes back unchanged so the caller can flag it.
         assertEquals(zawgyiWord, BurmeseTextNormalizer.toUnicode(zawgyiWord, unavailable))
+    }
+
+    @Test
+    fun theLibraryConverterConvertsLikeIcuWhereThePhoneHasNone() {
+        // Android 8 and 9 have no ICU transform; myanmar-tools' own rules convert there, to the same Unicode.
+        assertEquals(uniWord, BurmeseTextNormalizer.toUnicode(zawgyiWord, LibraryZawgyiConverter))
+        assertEquals(uniSentence, BurmeseTextNormalizer.toUnicode(zawgyiSentence, LibraryZawgyiConverter))
+        assertEquals(uniSentence, BurmeseTextNormalizer.prepare("  $zawgyiSentence ", LibraryZawgyiConverter))
+        assertEquals(uniWord, BurmeseTextNormalizer.toUnicode(uniWord, LibraryZawgyiConverter))
     }
 
     @Test

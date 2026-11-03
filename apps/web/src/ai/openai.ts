@@ -1,14 +1,18 @@
 import OpenAI from 'openai';
 import * as z from 'zod/v4';
-import { RefusalError, type Content, type StructuredRequest } from '@/ai/structured';
+import {
+  OPENAI_TIMEOUT_MS,
+  RefusalError,
+  requestSignal,
+  type Content,
+  type StructuredRequest,
+} from '@/ai/structured';
+import { logger } from '@/lib/logger';
 
 // OpenAI, used only when Claude fails (generate.ts). Reads OPENAI_API_KEY from the environment (.env.local).
 // GPT-6.1 Sol matched Claude on the Burmese voice check (14 of 14 amounts, 4 of 4 questions, about 5 s)
 // and on a test receipt; GPT-5.5 matched too but took about 12 s. OPENAI_MODEL in the environment swaps it.
 export const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-6.1-sol';
-
-// Claude's 25 s plus this stay inside the phone routes' 60 s.
-const DEADLINE_MS = 30_000;
 
 let client: OpenAI | undefined;
 
@@ -82,8 +86,12 @@ export async function openaiStructured<Schema extends z.ZodType>({
   schema,
   content,
   effort,
-  timeoutMs = DEADLINE_MS,
+  timeoutMs = OPENAI_TIMEOUT_MS,
+  signal,
+  maxRetries,
+  flow,
 }: StructuredRequest<Schema>): Promise<z.infer<Schema>> {
+  const started = Date.now();
   const json = z.toJSONSchema(schema, { target: 'draft-7' }) as JsonSchema;
   const response = await getClient().responses.create(
     {
@@ -95,8 +103,17 @@ export async function openaiStructured<Schema extends z.ZodType>({
       input: [{ role: 'user', content: toOpenAIContent(content) }],
       text: { format: { type: 'json_schema', name: 'output', strict: true, schema: strictSchema(json) } },
     },
-    { signal: AbortSignal.timeout(timeoutMs) },
+    { signal: requestSignal(timeoutMs, signal), ...(maxRetries === undefined ? {} : { maxRetries }) },
   );
+  // Timings, codes and token counts only, never the content.
+  logger.info('OpenAI answered', {
+    flow,
+    ms: Date.now() - started,
+    model: response.model,
+    status: response.status,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+  });
 
   const parts = response.output.flatMap((item) => (item.type === 'message' ? item.content : []));
   if (parts.some((part) => part.type === 'refusal')) {

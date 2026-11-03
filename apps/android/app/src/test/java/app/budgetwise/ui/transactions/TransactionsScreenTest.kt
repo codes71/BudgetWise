@@ -234,10 +234,46 @@ class TransactionsScreenTest {
             ),
         )
 
+        // Both are marked: either could be the copy.
         compose.onAllNodesWithText("Ocean Supercenter").assertCountEquals(2)
-        compose.onNodeWithText(text(R.string.receipt_scanned_twice)).assertIsDisplayed()
-        compose.onNodeWithText("Receipt · 2 entries").assertIsDisplayed()
-        compose.onNodeWithText("Receipt · 1 entry").assertDoesNotExist()
+        compose.onAllNodesWithText(text(R.string.receipt_scanned_twice)).assertCountEquals(2)
+        compose.onNodeWithText("Receipt · 2 entries").assertDoesNotExist()
+    }
+
+    @Test
+    fun aReceiptSavedAcrossTwoDaysIsOneRow() {
+        // Before a receipt kept one date for all its entries: two dates, side by side in the list.
+        show(
+            listOf(
+                receiptEntry("Groceries", 16307),
+                receiptEntry("Other", 30000).copy(date = today.minusDays(1)),
+                testTransaction("Taxi", 4000, today.minusDays(1), category = "Transport"),
+            ),
+        )
+
+        compose.onNode(hasText("Ocean Supercenter") and hasText("Receipt · 2 entries")).assertIsDisplayed()
+        compose.onAllNodesWithText("Ocean Supercenter").assertCountEquals(1)
+        compose.onAllNodesWithText("−46,307 Ks").assertCountEquals(2) // the row and its day's net
+        compose.onNode(hasText("Taxi")).assertIsDisplayed()
+    }
+
+    @Test
+    fun aReceiptDeletedOnItsScreenGetsTheSameNoticeAndUndo() {
+        val rows = listOf(receiptEntry("Groceries", 16307), receiptEntry("Other", 30000))
+        val store = show(rows)
+
+        // What the receipt screen hands back on its way out.
+        compose.runOnIdle { vm.deleteEntries("r1", rows.map { it.clientId }) }
+
+        compose.onNodeWithText(text(R.string.receipt_deleted)).assertIsDisplayed()
+        compose.onNodeWithText("Ocean Supercenter, 46,307 Ks").assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.transactions_undo)).performClick()
+        compose.mainClock.advanceTimeBy(1_000)
+
+        compose.onNodeWithText("Ocean Supercenter").assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(15_000)
+        compose.waitForIdle()
+        assertTrue(store.deleted.isEmpty())
     }
 
     @Test

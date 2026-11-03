@@ -114,31 +114,69 @@ function reference(value: string | undefined): string | undefined {
   return /^[A-Za-z0-9-]{6,64}$/.test(s) ? s : undefined;
 }
 
+// Nothing printed means kyat; so does any of these.
+const KYAT = new Set(["MMK", "KS", "K", "KYAT", "KYATS", "ကျပ်"]);
+
+/** The currency printed on a scan when it is not kyat, as read (USD, THB). */
+function foreignCurrency(value: string | undefined): string | undefined {
+  const c = text(value, 12)?.toUpperCase();
+  return c && !KYAT.has(c.replace(/[.\s]/g, "")) ? c : undefined;
+}
+
+/**
+ * A KPay history row's date. The prompt's year rule, applied here too: a row showing no year that the model put
+ * in this year, in a later month than now, is from last year (late December rows scanned in January).
+ */
+export function historyDate(value: string, today: string): string | undefined {
+  const s = value.trim();
+  const ok = validDate(s, today);
+  if (ok || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return ok;
+  if (s.slice(0, 4) !== today.slice(0, 4) || s.slice(5, 7) <= today.slice(5, 7)) return undefined;
+  return validDate(`${Number(s.slice(0, 4)) - 1}${s.slice(4)}`, today);
+}
+
 /**
  * Turns Claude's reading into entries the phone can review and save: amounts in
  * whole kyat, real dates, known categories. Anything that does not pass is
- * dropped, never filled in.
+ * dropped, never filled in. Nothing usable left is kind "unknown" with its reason,
+ * except a receipt whose total was read: the phone offers that total for review.
  */
 export function normalizeScan(
   raw: ScanOutput,
   { categories, today }: { categories: string[]; today: string },
 ): ScanResultDto {
-  if (raw.kind === "unknown") return { kind: "unknown", entries: [] };
+  // Any reason but "unclear" means there is nothing to read here, whatever kind came with it.
+  if (raw.kind === "unknown" || (raw.reason !== undefined && raw.reason !== "unclear")) {
+    return { kind: "unknown", reason: raw.reason ?? "unclear", entries: [] };
+  }
+  // BudgetWise records kyat: amounts in another currency are never passed on as kyat.
+  const currency = foreignCurrency(raw.currency);
+  if (currency) return { kind: "unknown", reason: "foreign_currency", currency, entries: [] };
 
+  const receipt = raw.kind === "receipt";
+  const readDate = (value: string) => (raw.kind === "history" ? historyDate(value, today) : validDate(value, today));
   const known = new Map(categories.map((name) => [categoryKey(name), name]));
   const merchant = text(raw.merchant);
-  const date = raw.date === undefined ? undefined : validDate(raw.date, today);
+  const date = raw.date === undefined ? undefined : readDate(raw.date);
   const total = kyat(raw.total);
 
   let entries: ScanEntryDto[] = [];
+  // A receipt's discounts on the whole bill, and its discount lines read as items, which are left out.
+  let billDiscount = 0;
+  const discountLines: number[] = [];
   for (const e of raw.entries) {
     const amount = kyat(e.amount);
     if (amount === undefined) continue;
-    const ownDate = e.date === undefined ? undefined : validDate(e.date, today);
+    // On a receipt the sign matters: a negative entry lowers what was paid, it is never something bought.
+    if (receipt && e.amount < 0) {
+      billDiscount += amount;
+      continue;
+    }
+    const ownDate = e.date === undefined ? undefined : readDate(e.date);
     // A history row needs its own readable date (or the screenshot's, when the row shows none).
     // A receipt or slip without one gets today's, flagged so the review screen can point it out.
-    const readDate = raw.kind === "history" && e.date !== undefined ? ownDate : (ownDate ?? date);
-    if (readDate === undefined && raw.kind === "history") continue;
+    const entryDate = raw.kind === "history" && e.date !== undefined ? ownDate : (ownDate ?? date);
+    if (entryDate === undefined && raw.kind === "history") continue;
     const category =
       e.type === "income" ? INCOME : (known.get(categoryKey(e.category)) ?? OTHER);
     const entry: ScanEntryDto = {
@@ -146,13 +184,17 @@ export function normalizeScan(
       amount,
       category,
       description: text(e.description) ?? merchant ?? category,
-      date: readDate ?? today,
-      ...(readDate === undefined ? { dateGuessed: true } : {}),
+      date: entryDate ?? today,
+      ...(entryDate === undefined ? { dateGuessed: true } : {}),
     };
-    if (raw.kind === "receipt") {
+    if (receipt) {
       const items = (e.items ?? []).flatMap((item) => {
         const name = text(item.name);
         const itemAmount = kyat(item.amount);
+        if (itemAmount !== undefined && item.amount < 0) {
+          discountLines.push(itemAmount);
+          return [];
+        }
         return name && itemAmount ? [scanItem(name, itemAmount, item.quantity, item.unitPrice)] : [];
       });
       if (items.length) entry.items = items;
@@ -167,7 +209,7 @@ export function normalizeScan(
     entries.push(entry);
   }
 
-  if (raw.kind === "receipt") entries = groupByCategory(entries);
+  if (receipt) entries = fitTotal(groupByCategory(entries), total, billDiscount, discountLines);
   if (raw.kind === "payment") entries = entries.slice(0, 1);
   if (raw.kind === "history") {
     // A transaction seen twice in one screenshot is listed once.
@@ -180,6 +222,7 @@ export function normalizeScan(
     });
   }
 
+  if (!entries.length && !(receipt && total)) return { kind: "unknown", reason: "unclear", entries: [] };
   return {
     kind: raw.kind,
     ...(merchant ? { merchant } : {}),
@@ -187,6 +230,47 @@ export function normalizeScan(
     ...(total ? { total } : {}),
     entries: entries.slice(0, MAX_ENTRIES),
   };
+}
+
+// Tax or a service charge, as a receipt line names it in English or Burmese.
+const TAX_LINE = /\b(tax|vat|gst)\b|service charge|ခွန်|ဝန်ဆောင်ခ/i;
+
+/**
+ * Brings a receipt's entries down to its printed total, only for a cause it can name, since the total can be
+ * misread too: a discount on the whole bill comes off the largest entry (with a total, only as far as the entries
+ * are over it), and entries over the total by exactly a left-out discount line, or by exactly one tax line the
+ * prices already included, lose that much. The largest entry never goes to 0 or below.
+ */
+function fitTotal(
+  entries: ScanEntryDto[],
+  total: number | undefined,
+  billDiscount: number,
+  discountLines: number[],
+): ScanEntryDto[] {
+  const expenses = entries.filter((e) => e.type === "expense");
+  if (!expenses.length) return entries;
+  const largest = expenses.reduce((a, b) => (b.amount > a.amount ? b : a));
+  const over = () => (total === undefined ? 0 : expenses.reduce((sum, e) => sum + e.amount, 0) - total);
+
+  const cut = total === undefined ? billDiscount : Math.min(billDiscount, over());
+  if (cut > 0 && cut < largest.amount) largest.amount -= cut;
+
+  const excess = over();
+  if (excess <= 0 || excess >= largest.amount) return entries;
+  if (discountLines.includes(excess) || discountLines.reduce((a, b) => a + b, 0) === excess) {
+    largest.amount -= excess;
+    return entries;
+  }
+  for (const e of expenses) {
+    const at = e.items?.findIndex((item) => TAX_LINE.test(item.name) && item.amount === excess) ?? -1;
+    if (at < 0 || e.amount <= excess) continue;
+    const items = e.items!.filter((_, n) => n !== at);
+    if (items.length) e.items = items;
+    else delete e.items;
+    e.amount -= excess;
+    break;
+  }
+  return entries;
 }
 
 // One entry per category, in the order the categories first appear.

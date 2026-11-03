@@ -56,8 +56,18 @@ export interface ScanItemDto extends EntryItemDto {
   amount: number;
 }
 
+/**
+ * Why a scan gave kind "unknown": not a receipt or KPay screen at all, one that cannot be read, several receipts
+ * in one photo, another wallet or bank app's screen, or amounts in another currency (`currency` then says which).
+ */
+export type ScanReason = "not_money" | "unclear" | "multiple" | "unsupported" | "foreign_currency";
+
 export interface ScanResultDto {
   kind: "receipt" | "payment" | "history" | "unknown";
+  /** Only with kind "unknown", which always has one. */
+  reason?: ScanReason;
+  /** Only with reason "foreign_currency": the currency printed, as the model read it (USD, THB). */
+  currency?: string;
   merchant?: string;
   date?: string;
   total?: number;

@@ -313,7 +313,7 @@ class PlanEditorViewModel @Inject constructor(
 
     fun onNewMoneyChange(text: String) {
         // A decimal point or an amount too large is refused: the field keeps what it had.
-        val digits = typedKyatDigits(text) ?: return
+        val digits = typedKyatDigits(text, _state.value.newMoneyDigits) ?: return
         _state.update { it.copy(newMoneyDigits = digits, saveError = null).settled() }
     }
 
@@ -337,7 +337,8 @@ class PlanEditorViewModel @Inject constructor(
     fun closeShare() = _state.update { it.copy(editing = null) }
 
     fun onShareChange(category: String, text: String) {
-        val digits = typedKyatDigits(text) ?: return
+        val previous = _state.value.shares.firstOrNull { it.category == category }?.digits.orEmpty()
+        val digits = typedKyatDigits(text, previous) ?: return
         setShare(category, digits)
     }
 

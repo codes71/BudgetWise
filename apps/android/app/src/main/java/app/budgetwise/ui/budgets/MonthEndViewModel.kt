@@ -193,7 +193,7 @@ class MonthEndViewModel @Inject constructor(
     fun onAnswer(answer: OnHand) = _state.update { it.copy(answer = answer, error = null) }
 
     fun onOnHandChange(text: String) {
-        val digits = typedKyatDigits(text) ?: return
+        val digits = typedKyatDigits(text, _state.value.onHandDigits) ?: return
         _state.update { it.copy(onHandDigits = digits, error = null) }
     }
 

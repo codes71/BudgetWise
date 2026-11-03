@@ -1,12 +1,21 @@
 package app.budgetwise.data.repo
 
 import app.budgetwise.data.net.ApiResult
+import app.budgetwise.data.net.ApiService
 import app.budgetwise.data.net.NETWORK_ERROR_CODE
 import app.budgetwise.nlu.TxType
+import java.lang.reflect.Proxy
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
 import kotlinx.coroutines.runBlocking
+import okhttp3.mockwebserver.MockResponse
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -18,11 +27,18 @@ import org.robolectric.RobolectricTestRunner
 class ScanRepositoryTest {
     private lateinit var h: RepoHarness
     private lateinit var scan: ScanRepository
+    private val clock = TestClock(Instant.parse("2026-10-30T04:00:00Z"))
+
+    private class TestClock(var now: Instant) : Clock() {
+        override fun instant(): Instant = now
+        override fun getZone(): ZoneId = ZoneOffset.UTC
+        override fun withZone(zone: ZoneId): Clock = this
+    }
 
     @Before
     fun setUp() {
         h = RepoHarness()
-        scan = ScanRepository(h.api, h.sync.session)
+        scan = ScanRepository(h.api, h.sync.session, clock)
     }
 
     @After fun tearDown() { h.close() }
@@ -70,9 +86,68 @@ class ScanRepositoryTest {
     }
 
     @Test
-    fun nothingUsableIsUnknown() = runBlocking {
+    fun aReceiptWithNothingUsableIsStillAReceipt() = runBlocking {
         h.json(200, """{"kind":"receipt","entries":[{"type":"expense","amount":-5,"category":"Other","description":"x","date":"2026-10-23"}]}""")
-        assertEquals(ScanKind.UNKNOWN, (scan.scan(byteArrayOf(1), "image/jpeg") as ApiResult.Ok).v.kind)
+        val reading = (scan.scan(byteArrayOf(1), "image/jpeg") as ApiResult.Ok).v
+        assertEquals("a receipt it could not use, not a photo of nothing", ScanKind.RECEIPT, reading.kind)
+        assertTrue(reading.entries.isEmpty())
+        assertFalse(reading.notMoney)
+    }
+
+    @Test
+    fun aPhotoWithNoReceiptInItSaysSo() = runBlocking {
+        h.json(200, """{"kind":"unknown","reason":"not_money","entries":[]}""")
+        h.json(200, """{"kind":"unknown","reason":"unclear","entries":[]}""")
+        // An older server sends no reason.
+        h.json(200, """{"kind":"unknown","entries":[]}""")
+        val readings = List(3) { (scan.scan(byteArrayOf(1), "image/jpeg") as ApiResult.Ok).v }
+        assertEquals(listOf(ScanKind.UNKNOWN), readings.map { it.kind }.distinct())
+        assertEquals(listOf(true, false, false), readings.map { it.notMoney })
+    }
+
+    @Test
+    fun afterTooManyScansNoPhotoIsSentUntilRetryAfterHasPassed() = runBlocking {
+        h.apiServer.enqueue(
+            MockResponse().setResponseCode(429).setHeader("Content-Type", "application/json").setHeader("Retry-After", "600")
+                .setBody("""{"error":{"code":"rate_limited","message":"Too many requests"}}"""),
+        )
+        val first = scan.scan(byteArrayOf(1), "image/jpeg") as ApiResult.Failure
+        assertEquals(600L, first.retryAfterSec)
+
+        clock.now = clock.now.plusSeconds(60)
+        val again = scan.scan(byteArrayOf(1), "image/jpeg") as ApiResult.Failure
+        assertEquals("rate_limited", again.code)
+        assertEquals("the minutes still to wait", 540L, again.retryAfterSec)
+        assertEquals("refused before any upload", 1, h.apiServer.requestCount)
+
+        clock.now = clock.now.plusSeconds(541)
+        h.json(200, """{"kind":"unknown","entries":[]}""")
+        assertTrue(scan.scan(byteArrayOf(1), "image/jpeg") is ApiResult.Ok)
+        assertEquals(2, h.apiServer.requestCount)
+    }
+
+    @Test
+    fun aTooManyWithoutRetryAfterWaitsTheServersHour() = runBlocking {
+        h.json(429, """{"error":{"code":"rate_limited","message":"Too many requests"}}""")
+        scan.scan(byteArrayOf(1), "image/jpeg")
+        val again = scan.scan(byteArrayOf(1), "image/jpeg") as ApiResult.Failure
+        assertEquals(3600L, again.retryAfterSec)
+        assertEquals(1, h.apiServer.requestCount)
+    }
+
+    @Test
+    fun thePhotoIsSentOffTheCallersThread() = runBlocking {
+        var sentOn: Thread? = null
+        val watched = Proxy.newProxyInstance(ApiService::class.java.classLoader, arrayOf(ApiService::class.java)) { _, method, args ->
+            if (method.name == "scan") sentOn = Thread.currentThread()
+            method.invoke(h.api, *(args ?: emptyArray()))
+        } as ApiService
+        h.json(200, """{"kind":"unknown","entries":[]}""")
+
+        ScanRepository(watched, h.sync.session, clock).scan(byteArrayOf(1), "image/jpeg")
+
+        // Retrofit writes the JSON body on the thread that makes the call; on the main thread that is a few MB.
+        assertNotSame(Thread.currentThread(), sentOn)
     }
 
     @Test

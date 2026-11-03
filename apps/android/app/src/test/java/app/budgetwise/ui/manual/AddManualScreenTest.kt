@@ -5,6 +5,7 @@ import androidx.annotation.StringRes
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
@@ -47,6 +48,7 @@ class AddManualScreenTest {
     private val picked = mutableListOf<RecentEntry>()
     private val dates = mutableListOf<LocalDate>()
     private var deletes = 0
+    private var savedAsNew = 0
 
     private fun show(state: AddManualUiState) = compose.setContent {
         BudgetWiseTheme {
@@ -61,6 +63,7 @@ class AddManualScreenTest {
                 onDateChange = { dates += it },
                 onSave = {},
                 onDelete = { deletes++ },
+                onSaveAsNew = { savedAsNew++ },
                 focusAmount = false,
             )
         }
@@ -188,6 +191,45 @@ class AddManualScreenTest {
         compose.onNodeWithText("Bus to Sule").assertDoesNotExist()
         compose.onNode(hasText(text(R.string.manual_delete)) and hasClickAction()).performClick()
         assertEquals(1, deletes)
+    }
+
+    @Test
+    fun anEntryDeletedElsewhereOffersToSaveItAsNew() {
+        show(filled().copy(editing = true, source = Source.MANUAL, gone = true))
+
+        compose.onNodeWithText(text(R.string.manual_gone)).assertIsDisplayed()
+        compose.onNode(hasText(text(R.string.manual_save_changes)) and hasClickAction()).assertIsNotEnabled()
+        compose.onNode(hasText(text(R.string.manual_delete)) and hasClickAction()).assertIsNotEnabled()
+        compose.onNode(hasText(text(R.string.manual_save_as_new)) and hasClickAction()).performClick()
+        assertEquals(1, savedAsNew)
+    }
+
+    @Test
+    fun aCategoryTooLongForTheServerSaysToPickAnother() {
+        val long = "Groceries and household things for the whole family this month"
+        show(filled().copy(editing = true, category = long, categoryTouched = true, categoryFrom = null))
+
+        compose.onNodeWithText(text(R.string.manual_category_error_too_long)).assertIsDisplayed()
+    }
+
+    @Test
+    fun aRefusedFractionSaysTheAmountIsWholeKyat() {
+        show(filled().copy(wholeKyatHint = true))
+
+        compose.onNodeWithText(text(R.string.manual_amount_whole_kyat)).assertIsDisplayed()
+    }
+
+    @Test
+    fun theDateSheetOffersAChangedEntrysOwnFutureDayAndNoOther() {
+        val kept = today.plusDays(3)
+        show(filled(date = kept).copy(editing = true, keptDate = kept))
+        compose.onNodeWithText("Sat, Oct 24").performClick()
+
+        compose.onNodeWithContentDescription("October 24").assertIsSelected()
+        compose.onNodeWithContentDescription("October 24").assertIsEnabled()
+        compose.onNodeWithContentDescription("October 22").assertIsNotEnabled()
+        compose.onNodeWithText(text(R.string.action_ok)).performClick()
+        assertEquals(listOf(kept), dates)
     }
 
     @Test

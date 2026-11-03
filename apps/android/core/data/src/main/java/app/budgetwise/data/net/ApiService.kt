@@ -112,9 +112,11 @@ data class ScanEntryDto(
     val items: List<ScanItemDto> = emptyList(),
 )
 
+/** [reason] comes only with kind "unknown": "not_money" (no receipt or KPay screen in the photo) or "unclear". */
 @Serializable
 data class ScanResponse(
     val kind: String,
+    val reason: String? = null,
     val merchant: String? = null,
     val date: String? = null,
     val total: Long? = null,
