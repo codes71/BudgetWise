@@ -61,6 +61,8 @@ import app.budgetwise.R
 import app.budgetwise.data.auth.SessionState
 import app.budgetwise.reminders.MonthEndLink
 import app.budgetwise.ui.budgets.BudgetsRoute
+import app.budgetwise.ui.budgets.BudgetTransactionsRoute
+import app.budgetwise.ui.budgets.BudgetTransactionsViewModel
 import app.budgetwise.ui.budgets.MonthEndRoute
 import app.budgetwise.ui.budgets.PlanEditorRoute
 import app.budgetwise.ui.budgets.PlanEditorViewModel
@@ -112,11 +114,14 @@ object Routes {
     const val SCAN = "scan"
     const val RECEIPT = "receipt/{${ReceiptViewModel.RECEIPT_ID}}"
     const val BUDGETS = "budgets"
+    const val BUDGET_TRANSACTIONS = "budget_entries/{${BudgetTransactionsViewModel.ARG_MONTH}}?${BudgetTransactionsViewModel.ARG_CATEGORY}={${BudgetTransactionsViewModel.ARG_CATEGORY}}"
     const val SETTINGS = "settings"
 
     /** The plan editor for one month (both steps); open it with [budgetPlan]. */
     const val BUDGET_PLAN =
-        "budget_plan/{${PlanEditorViewModel.ARG_MONTH}}?${PlanEditorViewModel.ARG_TICK_CARRY}={${PlanEditorViewModel.ARG_TICK_CARRY}}"
+        "budget_plan/{${PlanEditorViewModel.ARG_MONTH}}?${PlanEditorViewModel.ARG_TICK_CARRY}={${PlanEditorViewModel.ARG_TICK_CARRY}}" +
+            "&${PlanEditorViewModel.ARG_START_SPLIT}={${PlanEditorViewModel.ARG_START_SPLIT}}" +
+            "&${PlanEditorViewModel.ARG_SELECTED_CATEGORY}={${PlanEditorViewModel.ARG_SELECTED_CATEGORY}}"
 
     /** The end check of a month that is over; open it with [monthEnd]. */
     const val MONTH_END = "month_end/{${PlanEditorViewModel.ARG_MONTH}}"
@@ -125,14 +130,24 @@ object Routes {
     fun receipt(receiptId: String) = "receipt/$receiptId"
 
     /** [BUDGET_PLAN] for [month] ("budget_plan/2026-11"); [tickCarry] straight after the end check. */
-    fun budgetPlan(month: YearMonth, tickCarry: Boolean = false): String =
-        "budget_plan/$month" + if (tickCarry) "?${PlanEditorViewModel.ARG_TICK_CARRY}=true" else ""
+    fun budgetPlan(month: YearMonth, tickCarry: Boolean = false, startSplit: Boolean = false, selectedCategory: String? = null): String {
+        val query = buildList {
+            if (tickCarry) add("${PlanEditorViewModel.ARG_TICK_CARRY}=true")
+            if (startSplit) add("${PlanEditorViewModel.ARG_START_SPLIT}=true")
+            if (selectedCategory != null) add("${PlanEditorViewModel.ARG_SELECTED_CATEGORY}=${Uri.encode(selectedCategory)}")
+        }
+        return "budget_plan/$month" + if (query.isEmpty()) "" else query.joinToString(prefix = "?", separator = "&")
+    }
 
     /** [MONTH_END] for [month]: "month_end/2026-10". */
     fun monthEnd(month: YearMonth): String = "month_end/$month"
 
     /** The route that opens the entry [clientId] in the form, to change or delete it. */
     fun editEntry(clientId: String): String = "edit/${Uri.encode(clientId)}"
+
+    /** Entries contributing to one category (empty means Everything else) of this month's plan. */
+    fun budgetTransactions(month: YearMonth, category: String): String =
+        "budget_entries/$month?${BudgetTransactionsViewModel.ARG_CATEGORY}=${Uri.encode(category)}"
 }
 
 /**
@@ -204,6 +219,10 @@ internal fun NavController.closeScanSaved(saved: ScanEvent.Saved) {
  */
 internal fun NavController.closePlanEditor() {
     if (currentDestination?.route != Routes.BUDGET_PLAN) return
+    if (previousBackStackEntry?.destination?.route == Routes.BUDGET_TRANSACTIONS) {
+        popBackStack()
+        return
+    }
     if (!popBackStack(Routes.BUDGETS, inclusive = false)) {
         navigate(Routes.BUDGETS) {
             popUpTo(Routes.TRANSACTIONS)
@@ -506,10 +525,24 @@ fun AppNav(
                 Routes.EDIT_ENTRY,
                 arguments = listOf(navArgument(AddManualViewModel.ARG_CLIENT_ID) { type = NavType.StringType }),
             ) { entry ->
+                // A budget drill-down owns its Undo rather than the Home screen underneath it.
+                val budgetEntry = remember(entry) { navController.previousBackStackEntry?.takeIf { it.destination.route == Routes.BUDGET_TRANSACTIONS } }
+                val budgetList: BudgetTransactionsViewModel? = budgetEntry?.let { hiltViewModel(it) }
                 // The list an entry is opened from, whose ViewModel deletes it with Undo.
                 val listEntry = remember(entry) { runCatching { navController.getBackStackEntry(Routes.TRANSACTIONS) }.getOrNull() }
                 val list: TransactionsViewModel? = listEntry?.let { hiltViewModel(it) }
-                AddManualRoute(onDone = navController::closeManual, onDelete = { navController.closeEntryDeleted(list, it) })
+                AddManualRoute(
+                    onDone = navController::closeManual,
+                    onDelete = { id ->
+                        if (budgetList != null) {
+                            if (navController.currentDestination?.route == Routes.EDIT_ENTRY) {
+                                budgetList.deleteFromEditor(id)
+                                navController.popBackStack()
+                            }
+                            true
+                        } else navController.closeEntryDeleted(list, id)
+                    },
+                )
             }
             composable(Routes.SCAN) {
                 ScanRoute(
@@ -566,9 +599,31 @@ fun AppNav(
                             navController.navigate(Routes.budgetPlan(month)) { launchSingleTop = true }
                         }
                     },
+                    onOpenCategory = { month, category ->
+                        if (navController.currentDestination?.route == Routes.BUDGETS) {
+                            navController.navigate(Routes.budgetTransactions(month, category)) { launchSingleTop = true }
+                        }
+                    },
                     onCheckMonth = { month ->
                         if (navController.currentDestination?.route == Routes.BUDGETS) {
                             navController.navigate(Routes.monthEnd(month)) { launchSingleTop = true }
+                        }
+                    },
+                )
+            }
+            composable(
+                Routes.BUDGET_TRANSACTIONS,
+                arguments = listOf(
+                    navArgument(BudgetTransactionsViewModel.ARG_MONTH) { type = NavType.StringType },
+                    navArgument(BudgetTransactionsViewModel.ARG_CATEGORY) { type = NavType.StringType; defaultValue = "" },
+                ),
+            ) {
+                BudgetTransactionsRoute(
+                    onBack = dropUnlessResumed { navController.popBackStack() },
+                    onOpenEntry = { navController.navigate(Routes.editEntry(it)) { launchSingleTop = true } },
+                    onEditBudget = { month, category ->
+                        if (navController.currentDestination?.route == Routes.BUDGET_TRANSACTIONS) {
+                            navController.navigate(Routes.budgetPlan(month, startSplit = true, selectedCategory = category)) { launchSingleTop = true }
                         }
                     },
                 )
@@ -578,6 +633,8 @@ fun AppNav(
                 arguments = listOf(
                     navArgument(PlanEditorViewModel.ARG_MONTH) { type = NavType.StringType },
                     navArgument(PlanEditorViewModel.ARG_TICK_CARRY) { type = NavType.BoolType; defaultValue = false },
+                    navArgument(PlanEditorViewModel.ARG_START_SPLIT) { type = NavType.BoolType; defaultValue = false },
+                    navArgument(PlanEditorViewModel.ARG_SELECTED_CATEGORY) { type = NavType.StringType; nullable = true; defaultValue = null },
                 ),
             ) {
                 PlanEditorRoute(

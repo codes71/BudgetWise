@@ -14,12 +14,15 @@ This PR translates the approved composition into the native Android app using it
 
 Monthly budgets are now merged in master through PR #16, and this UI branch integrates master `0fce707`. Draft 3 now covers the budget overview, first plan, monthly total, category split/share sheets, adding categories, oversplit handling, month-end checks and carry-over. All existing budget calculations, APIs, persistence, migrations and feature behavior remain as implemented on master. The separate agent's worktree was not modified. The original two read-only budget snapshots are retained as historical references and superseded by the extension below.
 
-The design-skills and web Paper Shaders installation remain in [PR #10](https://github.com/codes71/BudgetWise/pull/10). They are not duplicated into this UI branch. Native Android uses compatible Compose presentation and approved static shader image output, not a React runtime or new backend dependency.
+The design-skills and web Paper Shaders installation merged separately in [PR #10](https://github.com/codes71/BudgetWise/pull/10). They are not duplicated by the UI changes. Native Android uses compatible Compose presentation and approved static shader image output, not a React runtime or new backend dependency.
+
+The subsequent [category detail flow](CATEGORY-FLOW.md) adds eight Paper views and direct budget editing, using the separate PR #18 feature implementation. That dependency merged separately into master as `3fe9dca` with explicit user approval. The original snapshots below remain historical references.
 
 ## Reference files
 
 - `manifest.json`: the original 40 views, dimensions, exact source files and preview filenames.
 - `budget-extension-manifest.json`: 20 additional budget views, 10 states in both themes, extending the approved Draft 3 direction to current master.
+- `category-detail-manifest.json` and `category-detail-design.json`: eight category detail, empty, Everything else and budget draft references in both themes.
 - `budget-extension-design.json`: the budget presentation contract and source index.
 - `source/*.json`: exact Paper JSX, fetched directly with node IDs excluded. Use the numeric values/tokens to implement; screenshots are for visual comparison.
 - `tokens.json`: the file's ledger token set, preserving the app's light/dark brand roles.

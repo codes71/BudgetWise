@@ -437,7 +437,7 @@ private fun LazyListScope.days(state: TransactionsUiState, onOpen: (DayLine) -> 
 }
 
 @Composable
-private fun DayHeader(day: DaySection, today: LocalDate, myanmarDigits: Boolean, modifier: Modifier = Modifier) {
+internal fun DayHeader(day: DaySection, today: LocalDate, myanmarDigits: Boolean, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
     val net = day.rows.sumOf { if (it.type == TxType.EXPENSE) -it.amountKyat else it.amountKyat }
     Column(modifier.fillMaxWidth()) {
@@ -461,7 +461,7 @@ private fun DayHeader(day: DaySection, today: LocalDate, myanmarDigits: Boolean,
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TransactionRow(
+internal fun TransactionRow(
     line: DayLine,
     last: Boolean,
     myanmarDigits: Boolean,

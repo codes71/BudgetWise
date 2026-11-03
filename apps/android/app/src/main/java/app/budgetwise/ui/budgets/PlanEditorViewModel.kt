@@ -232,7 +232,7 @@ internal fun spendStats(rows: List<Transaction>, month: YearMonth): SpendStats {
  */
 @HiltViewModel
 class PlanEditorViewModel @Inject constructor(
-    handle: SavedStateHandle,
+    private val handle: SavedStateHandle,
     private val plans: MonthPlanSource,
     private val budgets: BudgetSource,
     categories: CategorySource,
@@ -243,6 +243,8 @@ class PlanEditorViewModel @Inject constructor(
     val month: YearMonth = handle.get<String>(ARG_MONTH)?.let(::parseMonth) ?: YearMonth.now(clock)
     private val zone: ZoneId = clock.zone
     private val tickCarry: Boolean = handle.get<Boolean>(ARG_TICK_CARRY) ?: false
+    private val startSplit: Boolean = handle.get<Boolean>(ARG_START_SPLIT) ?: false
+    private val selectedCategory: String? = handle.get<String>(ARG_SELECTED_CATEGORY)?.takeIf { it.isNotEmpty() }
 
     private val _state = MutableStateFlow(PlanEditorUiState(month = month, isThisMonth = month == YearMonth.now(clock)))
     val state: StateFlow<PlanEditorUiState> = _state.asStateFlow()
@@ -282,8 +284,17 @@ class PlanEditorViewModel @Inject constructor(
                     startedFrom = start.startedFrom,
                     carry = start.carry,
                     carryTicked = start.carryTicked,
+                    // Resolve the route only after the refreshed plan has been read. Never invent a removed share.
+                    step = if (startSplit && start.startedFrom == StartedFrom.PLAN) {
+                        handle.get<String>(STATE_DIRECT_STEP)?.let { saved -> PlanStep.entries.firstOrNull { step -> step.name == saved } } ?: PlanStep.SPLIT
+                    } else PlanStep.TOTAL,
+                    editing = if (startSplit && start.startedFrom == StartedFrom.PLAN) {
+                        val requested = if (handle.contains(STATE_DIRECT_STEP)) handle.get<String>(STATE_DIRECT_CATEGORY) else selectedCategory
+                        requested?.takeIf { category -> start.shares.any { share -> share.category == category } }
+                    } else null,
                 )
             }
+            rememberDirectPosition()
         }
         viewModelScope.launch {
             combine(rows, categories.categories, settings.myanmarDigits) { all, names, digits ->
@@ -323,18 +334,35 @@ class PlanEditorViewModel @Inject constructor(
     fun onCarryTicked(ticked: Boolean) = _state.update { it.copy(carryTicked = ticked, saveError = null).settled() }
 
     /** Step 1's Next: on to the split, once the month has a total. */
-    fun next() = _state.update { if (it.canGoOn) it.copy(step = PlanStep.SPLIT) else it }
+    fun next() {
+        _state.update { if (it.canGoOn) it.copy(step = PlanStep.SPLIT) else it }
+        rememberDirectPosition()
+    }
 
     /** Back from the split goes to the total; true when it did, false when the editor should close. */
     fun back(): Boolean {
         if (_state.value.step != PlanStep.SPLIT) return false
         _state.update { it.copy(step = PlanStep.TOTAL, editing = null, addingCategory = false) }
+        rememberDirectPosition()
         return true
     }
 
-    fun openShare(category: String) = _state.update { it.copy(editing = category, addingCategory = false) }
+    fun openShare(category: String) {
+        _state.update { it.copy(editing = category, addingCategory = false) }
+        rememberDirectPosition()
+    }
 
-    fun closeShare() = _state.update { it.copy(editing = null) }
+    fun closeShare() {
+        _state.update { it.copy(editing = null) }
+        rememberDirectPosition()
+    }
+
+    /** A dismissed initial share stays dismissed after process recreation; ordinary editor entry is unchanged. */
+    private fun rememberDirectPosition() {
+        if (!startSplit || !_state.value.loaded) return
+        handle[STATE_DIRECT_STEP] = _state.value.step.name
+        handle[STATE_DIRECT_CATEGORY] = _state.value.editing
+    }
 
     fun onShareChange(category: String, text: String) {
         val previous = _state.value.shares.firstOrNull { it.category == category }?.digits.orEmpty()
@@ -354,26 +382,35 @@ class PlanEditorViewModel @Inject constructor(
     }
 
     /** Takes the category out of the split: its spending counts against Everything else again. */
-    fun removeShare(category: String) = _state.update { s ->
-        s.copy(
-            shares = s.shares.filterNot { it.category == category },
-            editing = if (s.editing == category) null else s.editing,
-            lastChanged = if (s.lastChanged == category) null else s.lastChanged,
-            saveError = null,
-        ).settled()
+    fun removeShare(category: String) {
+        _state.update { s ->
+            s.copy(
+                shares = s.shares.filterNot { it.category == category },
+                editing = if (s.editing == category) null else s.editing,
+                lastChanged = if (s.lastChanged == category) null else s.lastChanged,
+                saveError = null,
+            ).settled()
+        }
+        rememberDirectPosition()
     }
 
-    fun openAddCategory() = _state.update { it.copy(addingCategory = true, editing = null) }
+    fun openAddCategory() {
+        _state.update { it.copy(addingCategory = true, editing = null) }
+        rememberDirectPosition()
+    }
 
     fun closeAddCategory() = _state.update { it.copy(addingCategory = false) }
 
     /** Adds [category] with no amount yet and opens its share sheet. */
-    fun addCategory(category: String) = _state.update { s ->
-        if (s.shares.any { it.category == category } || s.shares.size >= PlanEditorUiState.MAX_SHARES) {
-            s.copy(addingCategory = false)
-        } else {
-            s.copy(shares = s.shares + ShareDraft(category, ""), addingCategory = false, editing = category, lastChanged = category, saveError = null).settled()
+    fun addCategory(category: String) {
+        _state.update { s ->
+            if (s.shares.any { it.category == category } || s.shares.size >= PlanEditorUiState.MAX_SHARES) {
+                s.copy(addingCategory = false)
+            } else {
+                s.copy(shares = s.shares + ShareDraft(category, ""), addingCategory = false, editing = category, lastChanged = category, saveError = null).settled()
+            }
         }
+        rememberDirectPosition()
     }
 
     /** "Raise the month to X": the new money that makes the total equal the split. */
@@ -435,6 +472,12 @@ class PlanEditorViewModel @Inject constructor(
 
         /** Opened straight from the end check: the carry starts ticked at the checked amount. */
         const val ARG_TICK_CARRY = "tickCarry"
+
+        /** Open the loaded plan at its split; the normal Edit plan and carry flows still start at the total. */
+        const val ARG_START_SPLIT = "startSplit"
+        const val ARG_SELECTED_CATEGORY = "selectedCategory"
+        private const val STATE_DIRECT_STEP = "directEditorStep"
+        private const val STATE_DIRECT_CATEGORY = "directEditorCategory"
 
         internal fun saveErrorFor(code: String): SaveError = when (code) {
             NETWORK_ERROR_CODE -> SaveError.NETWORK

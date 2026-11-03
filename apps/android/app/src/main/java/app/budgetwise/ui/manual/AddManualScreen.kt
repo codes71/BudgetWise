@@ -658,8 +658,9 @@ private fun DayPicker(state: AddManualUiState, enabled: Boolean, onDateChange: (
     val today = state.today
     val yesterday = today.minusDays(1)
     val otherDay = state.date != today && state.date != yesterday
+    val receiptDate = state.editingReceipt && state.type == TxType.EXPENSE
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        FieldLabel(stringResource(R.string.manual_date))
+        FieldLabel(stringResource(if (receiptDate) R.string.manual_receipt_date else R.string.manual_date))
         FlowRow(
             modifier = Modifier.selectableGroup(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -678,6 +679,9 @@ private fun DayPicker(state: AddManualUiState, enabled: Boolean, onDateChange: (
                 icon = Lucide.Calendar,
                 onClick = onOtherDay,
             )
+        }
+        if (state.editingReceipt) {
+            FieldHint(stringResource(if (receiptDate) R.string.manual_receipt_date_note else R.string.manual_receipt_income_note))
         }
         if (state.dateError != null) FieldError(stringResource(R.string.manual_date_error_future))
     }

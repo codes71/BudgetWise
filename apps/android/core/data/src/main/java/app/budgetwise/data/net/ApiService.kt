@@ -112,7 +112,7 @@ data class ScanEntryDto(
     val items: List<ScanItemDto> = emptyList(),
 )
 
-/** [reason] comes only with kind "unknown": "not_money" (no receipt or KPay screen in the photo) or "unclear". */
+/** Unknown scans carry a reason: not_money, unclear, multiple, unsupported or foreign_currency. */
 @Serializable
 data class ScanResponse(
     val kind: String,
@@ -121,6 +121,8 @@ data class ScanResponse(
     val date: String? = null,
     val total: Long? = null,
     val entries: List<ScanEntryDto> = emptyList(),
+    /** Printed currency on a foreign-currency result, for example THB. No amounts can be used as kyat. */
+    val currency: String? = null,
 )
 
 private const val AUTHORIZATION = "Authorization"

@@ -539,6 +539,19 @@
     <string name="scan_allow_camera">Allow camera</string>
     <string name="scan_reading_title">Reading the photo</string>
     <string name="scan_reading_detail">Finding the shop, date and items</string>
+    <string name="scan_multiple_title">One receipt at a time</string>
+    <string name="scan_multiple_detail">There is more than one receipt in this photo. Scan each receipt separately so their totals stay separate.</string>
+    <string name="scan_one_receipt">Scan one receipt</string>
+    <string name="scan_unsupported_title">This wallet is not supported yet</string>
+    <string name="scan_unsupported_detail">Scanning supports shop receipts, KPay slips and KPay history. Choose one of those, or enter this transaction yourself.</string>
+    <string name="scan_foreign_title">This receipt uses another currency</string>
+    <string name="scan_foreign_currency_detail">The currency is %1$s. BudgetWise records kyat only. Enter the amount you paid in kyat yourself.</string>
+    <string name="scan_foreign_detail">BudgetWise records kyat only. Enter the amount you paid in kyat yourself.</string>
+    <string name="scan_total_only_title">The total is readable</string>
+    <string name="scan_total_only_detail">The items could not be read. Review the printed total as one expense and choose its category, or retake the photo to try reading the items.</string>
+    <string name="scan_review_total">Review total</string>
+    <string name="scan_retake">Retake photo</string>
+
     <string name="scan_unreadable_title">Couldn\'t read the photo</string>
     <string name="scan_unreadable_detail">Try again with the whole receipt or screen in the frame, flat and in good light, or enter it yourself.</string>
     <string name="scan_enter_yourself">Enter it yourself</string>

@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,6 +22,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
@@ -55,6 +59,30 @@ internal fun BudgetSurface(
 @Composable
 internal fun BudgetLabel(text: String, modifier: Modifier = Modifier) {
     Text(text, style = BudgetWiseTheme.type.size14.medium, color = BudgetWiseTheme.colors.muted, modifier = modifier)
+}
+
+/** Keep the month and its action beside each other only when both have room at the current font scale. */
+@Composable
+internal fun BudgetSummaryHeader(label: String, modifier: Modifier = Modifier, action: @Composable () -> Unit) {
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        // The label, a 48dp action and their gap need about 240dp at the base text size.
+        if (maxWidth / fontScale < 240.dp) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                BudgetLabel(label, Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = label })
+                action()
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                BudgetLabel(label, Modifier.weight(1f).clearAndSetSemantics { contentDescription = label })
+                action()
+            }
+        }
+    }
 }
 
 /** Full-value amounts remain readable at large font scales and for unusually long balances. */

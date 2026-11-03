@@ -1,0 +1,89 @@
+{
+  "baselineUI": "3161420",
+  "featureDependency": "PR18 eb3998f, merged in master as 3fe9dca",
+  "flow": [
+    "Budgets category row → category detail (selected month)",
+    "Transaction → existing entry editor, with detail-owned Delete/Undo",
+    "Edit budget → existing split + selected category share",
+    "Done → split review → Save → same category detail",
+    "Everything else: Edit split → split review"
+  ],
+  "tokens": {
+    "gutterDp": 24,
+    "summaryRadiusDp": 20,
+    "summaryPaddingDp": 20,
+    "titleSp": 24,
+    "labelSp": 14,
+    "figureSp": 44,
+    "sectionSp": 20,
+    "bodySp": 16,
+    "ctaMinDp": 48
+  },
+  "boards": [
+    {
+      "id": "LH8-0",
+      "name": "category-detail-light",
+      "theme": "light",
+      "state": "detail",
+      "source": "source/category-detail-light.json",
+      "preview": "previews/category-detail-light.webp"
+    },
+    {
+      "id": "LHU-0",
+      "name": "category-empty-light",
+      "theme": "light",
+      "state": "empty",
+      "source": "source/category-empty-light.json",
+      "preview": "previews/category-empty-light.webp"
+    },
+    {
+      "id": "LIG-0",
+      "name": "category-else-light",
+      "theme": "light",
+      "state": "else",
+      "source": "source/category-else-light.json",
+      "preview": "previews/category-else-light.webp"
+    },
+    {
+      "id": "LJ2-0",
+      "name": "category-detail-dark",
+      "theme": "dark",
+      "state": "detail",
+      "source": "source/category-detail-dark.json",
+      "preview": "previews/category-detail-dark.webp"
+    },
+    {
+      "id": "LJO-0",
+      "name": "category-empty-dark",
+      "theme": "dark",
+      "state": "empty",
+      "source": "source/category-empty-dark.json",
+      "preview": "previews/category-empty-dark.webp"
+    },
+    {
+      "id": "LKA-0",
+      "name": "category-else-dark",
+      "theme": "dark",
+      "state": "else",
+      "source": "source/category-else-dark.json",
+      "preview": "previews/category-else-dark.webp"
+    },
+    {
+      "id": "LQI-0",
+      "name": "category-edit-budget-light",
+      "theme": "light",
+      "state": "edit-budget",
+      "source": "source/category-edit-budget-light.json",
+      "preview": "previews/category-edit-budget-light.webp"
+    },
+    {
+      "id": "LU1-0",
+      "name": "category-edit-budget-dark",
+      "theme": "dark",
+      "state": "edit-budget",
+      "source": "source/category-edit-budget-dark.json",
+      "preview": "previews/category-edit-budget-dark.webp"
+    }
+  ],
+  "manifest": "category-detail-manifest.json"
+}

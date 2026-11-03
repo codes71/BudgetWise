@@ -44,6 +44,8 @@ import app.budgetwise.testing.FakeSyncControls
 import app.budgetwise.testing.FakeTokenStore
 import app.budgetwise.testing.FakeTransactionStore
 import app.budgetwise.testing.TestUser
+import app.budgetwise.ui.budgets.BudgetTransactionsViewModel
+import app.budgetwise.ui.budgets.PlanEditorViewModel
 import app.budgetwise.ui.transactions.TransactionsViewModel
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import dagger.hilt.android.testing.BindValue
@@ -402,6 +404,41 @@ class AppNavTest {
     }
 
     private fun routes(nav: NavHostController) = compose.runOnIdle { nav.currentBackStack.value.mapNotNull { it.destination.route } }
+
+    @Test
+    fun categoryBudgetEditorDecodesItsExactKeyAndReturnsToTheDetailOnSave() {
+        val nav = showWithNav()
+        val month = YearMonth.of(2026, 10)
+        val category = "ကျောင်း / Books & fees?"
+        compose.runOnIdle {
+            nav.navigate(Routes.BUDGETS)
+            nav.navigate(Routes.budgetTransactions(month, category))
+            nav.navigate(Routes.budgetPlan(month, startSplit = true, selectedCategory = category))
+        }
+        assertEquals(true, compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getBoolean(PlanEditorViewModel.ARG_START_SPLIT) })
+        assertEquals(category, compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getString(PlanEditorViewModel.ARG_SELECTED_CATEGORY) })
+        compose.runOnIdle {
+            nav.closePlanEditor()
+            nav.closePlanEditor()
+        }
+        assertEquals(listOf(Routes.TRANSACTIONS, Routes.BUDGETS, Routes.BUDGET_TRANSACTIONS), routes(nav))
+        assertEquals(category, compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getString(BudgetTransactionsViewModel.ARG_CATEGORY) })
+        // The real Hilt-created detail ViewModel must receive that same decoded key, not only the route Bundle.
+        compose.onNodeWithText(category).assertIsDisplayed()
+    }
+
+    @Test
+    fun everythingElseEditorKeepsCarryAndSplitArgumentsIndependent() {
+        val nav = showWithNav()
+        val month = YearMonth.of(2026, 10)
+        assertEquals("budget_plan/2026-10?tickCarry=true", Routes.budgetPlan(month, tickCarry = true))
+        compose.runOnIdle {
+            nav.navigate(Routes.budgetPlan(month, startSplit = true, selectedCategory = ""))
+        }
+        assertEquals(true, compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getBoolean(PlanEditorViewModel.ARG_START_SPLIT) })
+        assertEquals(false, compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getBoolean(PlanEditorViewModel.ARG_TICK_CARRY) })
+        assertEquals("", compose.runOnIdle { nav.currentBackStackEntry?.arguments?.getString(PlanEditorViewModel.ARG_SELECTED_CATEGORY) })
+    }
 
     @Test
     fun thePlanEditorIsFullScreenAndClosesBackToBudgets() {

@@ -11,6 +11,7 @@ import app.budgetwise.data.repo.CategoryRepository
 import app.budgetwise.data.repo.ScanEntry
 import app.budgetwise.data.repo.ScanItem
 import app.budgetwise.data.repo.ScanKind
+import app.budgetwise.data.repo.ScanReason
 import app.budgetwise.data.repo.ScanReading
 import app.budgetwise.data.repo.TransactionRepository
 import app.budgetwise.nlu.TxType
@@ -430,8 +431,8 @@ class ScanViewModelTest {
             ApiResult.Ok(ScanReading(ScanKind.UNKNOWN, null, null, null, emptyList(), notMoney = true)) to ScanProblem.NOT_A_RECEIPT,
             // A receipt too blurred to read, and an older server that gives no reason.
             ApiResult.Ok(ScanReading(ScanKind.UNKNOWN, null, null, null, emptyList())) to ScanProblem.UNREADABLE,
-            // A receipt the server read, none of whose entries the phone could use.
-            ApiResult.Ok(ScanReading(ScanKind.RECEIPT, "City Mart", null, 5000, emptyList())) to ScanProblem.UNREADABLE,
+            // A receipt without a readable total or usable entries.
+            ApiResult.Ok(ScanReading(ScanKind.RECEIPT, "City Mart", null, null, emptyList())) to ScanProblem.UNREADABLE,
         )
         for ((result, problem) in cases) {
             reply = result
@@ -440,6 +441,100 @@ class ScanViewModelTest {
             assertEquals(problem, vm.state.value.problem)
             if (problem == ScanProblem.SERVER) assertSame("kept for Try again", photo, vm.photo)
         }
+    }
+
+    @Test
+    fun multipleReceiptsAskForANewPhotoWithoutSavingOrUploadingAgain() = runTest {
+        assertNewPhotoResult(ScanReason.MULTIPLE, ScanProblem.MULTIPLE_RECEIPTS)
+    }
+
+    @Test
+    fun unsupportedWalletHasItsOwnCardWithoutSavingOrUploadingAgain() = runTest {
+        assertNewPhotoResult(ScanReason.UNSUPPORTED, ScanProblem.UNSUPPORTED_WALLET)
+    }
+
+    private fun assertNewPhotoResult(reason: ScanReason, problem: ScanProblem) {
+        reply = ApiResult.Ok(ScanReading(ScanKind.UNKNOWN, null, null, null, emptyList(), reason = reason))
+        val vm = viewModel()
+        vm.read(photo)
+        assertEquals(ScanStage.PROBLEM, vm.state.value.stage)
+        assertEquals(problem, vm.state.value.problem)
+        assertFalse(vm.state.value.canSave)
+        vm.addEntries { it.category }
+        assertTrue(store.added.isEmpty())
+        assertEquals(1, sent.size)
+        vm.retake()
+        assertEquals(ScanStage.CAMERA, vm.state.value.stage)
+        assertNull(vm.photo)
+        assertEquals("retake does not resend the rejected photo", 1, sent.size)
+    }
+
+    @Test
+    fun foreignCurrencyIsShownButNeverSavedAsKyatAndSurvivesProcessDeath() = runTest {
+        reply = ApiResult.Ok(
+            ScanReading(ScanKind.UNKNOWN, null, null, 300, receipt().entries, reason = ScanReason.FOREIGN_CURRENCY, currency = "THB"),
+        )
+        val saved = SavedStateHandle()
+        val vm = viewModel(saved)
+        vm.captured(camera)
+        assertEquals(ScanProblem.FOREIGN_CURRENCY, vm.state.value.problem)
+        assertEquals("THB", vm.state.value.currency)
+        assertNull(vm.state.value.totalKyat)
+        assertTrue(vm.state.value.lines.isEmpty())
+        vm.reviewTotal()
+        vm.addEntries { it.category }
+        assertTrue(store.added.isEmpty())
+        val restored = afterProcessDeath(saved)
+        assertEquals(ScanProblem.FOREIGN_CURRENCY, restored.state.value.problem)
+        assertEquals("THB", restored.state.value.currency)
+        assertEquals("restoring a result does not consume another scan", 1, sent.size)
+        restored.retake()
+        assertNull(restored.state.value.currency)
+    }
+
+    @Test
+    fun aReadableTotalNeedsExplicitReviewBeforeItCanBeSaved() = runTest {
+        reply = ApiResult.Ok(ScanReading(ScanKind.RECEIPT, "City Mart", day, 5000, emptyList()))
+        val saved = SavedStateHandle()
+        val vm = viewModel(saved)
+        vm.captured(camera)
+        assertEquals(ScanStage.PROBLEM, vm.state.value.stage)
+        assertEquals(ScanProblem.TOTAL_ONLY, vm.state.value.problem)
+        assertEquals(5000L, vm.state.value.totalKyat)
+        vm.addEntries { it.category }
+        assertTrue("no expense is silently created", store.added.isEmpty())
+
+        val restored = afterProcessDeath(saved)
+        assertEquals(ScanProblem.TOTAL_ONLY, restored.state.value.problem)
+        assertEquals(5000L, restored.state.value.totalKyat)
+        restored.reviewTotal()
+        assertEquals(ScanStage.REVIEW, restored.state.value.stage)
+        assertEquals("Other", restored.state.value.lines.single().category)
+        assertTrue(restored.state.value.lines.single().items.isEmpty())
+        restored.move(0, "Groceries")
+        restored.addEntries { "City Mart, ${it.category}" }
+        val added = store.added.single()
+        assertEquals(5000L, added.amountKyat)
+        assertEquals("Groceries", added.category)
+        assertEquals(day, added.date)
+        assertEquals("City Mart", added.merchant)
+        assertNotNull(added.receiptId)
+        assertTrue(added.items.isEmpty())
+        assertEquals("reviewing and saving the total never reuploads the image", 1, sent.size)
+    }
+
+    @Test
+    fun aTotalWithoutAReadableDateUsesTodayWhenReviewed() = runTest {
+        reply = ApiResult.Ok(ScanReading(ScanKind.RECEIPT, null, null, 5000, emptyList()))
+        val vm = viewModel()
+        vm.read(photo)
+        vm.reviewTotal()
+        assertEquals(today, vm.state.value.receiptDate)
+        assertEquals(today, vm.state.value.lines.single().date)
+        vm.retake()
+        assertEquals(ScanStage.CAMERA, vm.state.value.stage)
+        assertNull(vm.state.value.totalKyat)
+        assertTrue(vm.state.value.lines.isEmpty())
     }
 
     @Test
