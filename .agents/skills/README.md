@@ -1,6 +1,6 @@
 # BudgetWise Android Compose skills
 
-Installed project-locally on 2026-11-02 after a targeted GitHub search and source inspection. This is a selected, reviewed collection, not an exhaustive mirror of GitHub. No app dependencies, CLI tools, hooks, MCP servers or global skills were installed by this change.
+Installed project-locally on 2026-11-02 after a targeted GitHub search and source inspection. This is a selected, reviewed collection, not an exhaustive mirror of GitHub. The skill collection itself installs no app dependencies, CLI tools, hooks, MCP servers or global skills. The accompanying MCP configurations and corrected OpenCode plugin are documented in [Design tooling](../../docs/design-tooling.md).
 
 Codex discovers the canonical packages in `.agents/skills`. `.claude/skills` points to this same directory for Claude Code. Start a new turn to refresh skill discovery. The lock file records immutable source commits, licenses and file hashes.
 
@@ -75,4 +75,4 @@ All complete skill directories were installed from immutable commits using the s
 
 ## Installation verification
 
-Validation compares every installed upstream file against the pinned checkout, validates each skill's frontmatter name and description, checks license/NOTICE preservation, rejects package symlinks and executable scripts, and records local modifications. App builds and UI tests are not relevant to this documentation-only installation. Existing unrelated source changes were left intact. This collection accompanies the original Better Design skill in the same PR.
+Skill validation compares every installed upstream file against the pinned checkout, validates each skill's frontmatter name and description, checks license/NOTICE preservation, rejects package symlinks and executable scripts inside skill packages, and records local modifications. The accompanying tooling has separate Node regression tests described in [Design tooling](../../docs/design-tooling.md). Existing unrelated source changes were left intact. This collection accompanies the original Better Design skill in the same PR.
