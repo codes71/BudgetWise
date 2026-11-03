@@ -79,6 +79,7 @@ fun BudgetsRoute(
     onSettings: () -> Unit,
     onEditPlan: (YearMonth) -> Unit,
     onCheckMonth: (YearMonth) -> Unit,
+    onOpenCategory: (YearMonth, String) -> Unit = { _, _ -> },
     viewModel: BudgetsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -96,6 +97,7 @@ fun BudgetsRoute(
         onRefresh = viewModel::refresh,
         onEditPlan = { onEditPlan(state.month) },
         onCheckMonth = { state.toCheck?.let { onCheckMonth(it.month) } },
+        onOpenCategory = { onOpenCategory(state.month, it) },
     )
 }
 
@@ -118,6 +120,7 @@ fun BudgetsScreen(
     onEditPlan: () -> Unit,
     onCheckMonth: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenCategory: (String) -> Unit = {},
 ) {
     val colors = BudgetWiseTheme.colors
     val lines = remember(state.lines) { orderedForScreen(state.lines) }
@@ -159,10 +162,10 @@ fun BudgetsScreen(
                         item(key = "summary") { MonthSummary(state, plan) }
                         // Keys apart from the fixed items' keys, whatever a category is called.
                         itemsIndexed(lines, key = { _, line -> "share:${line.category}" }) { index, line ->
-                            BudgetRow(line, state.myanmarDigits, first = index == 0)
+                            BudgetRow(line, state.myanmarDigits, first = index == 0, onClick = { onOpenCategory(line.category) })
                         }
                         state.everythingElse?.let { rest ->
-                            item(key = "everything_else") { BudgetRow(rest, state.myanmarDigits, first = lines.isEmpty(), everythingElse = true) }
+                            item(key = "everything_else") { BudgetRow(rest, state.myanmarDigits, first = lines.isEmpty(), everythingElse = true, onClick = { onOpenCategory(rest.category) }) }
                         }
                         item(key = "footer") {
                             Text(
@@ -340,7 +343,7 @@ private fun MonthSummary(state: BudgetsUiState, plan: MonthPlan) {
  * Everything else has the dashed wallet badge and a muted bar, for money no category has.
  */
 @Composable
-private fun BudgetRow(line: BudgetLine, myanmarDigits: Boolean, first: Boolean, everythingElse: Boolean = false) {
+private fun BudgetRow(line: BudgetLine, myanmarDigits: Boolean, first: Boolean, everythingElse: Boolean = false, onClick: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val name = if (everythingElse) stringResource(R.string.budgets_everything_else) else categoryLabel(line.category)
@@ -361,7 +364,7 @@ private fun BudgetRow(line: BudgetLine, myanmarDigits: Boolean, first: Boolean, 
     val footColor = if (line.over) colors.coralText else colors.muted
     val footStyle = if (line.over) type.size13.semibold else type.size13
     val spoken = "$name, ${spentOfLimitSpoken(line.spentKyat, line.limitKyat)}, " + leftSpoken(line.remainingKyat)
-    Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken }) {
+    Column(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).clearAndSetSemantics { contentDescription = spoken; role = Role.Button }) {
         if (first) HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         Row(
             Modifier.fillMaxWidth().padding(vertical = 14.dp),
@@ -403,6 +406,7 @@ private fun BudgetRow(line: BudgetLine, myanmarDigits: Boolean, first: Boolean, 
                         modifier = Modifier.weight(1f),
                     )
                     Text(stringResource(R.string.budgets_percent, groupDigits(line.percentUsed, myanmarDigits)), style = footStyle, color = footColor)
+                    Icon(Lucide.ChevronRight, contentDescription = null, tint = colors.muted, modifier = Modifier.padding(start = 6.dp).size(16.dp))
                 }
             }
         }

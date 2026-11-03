@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="budget_transactions_month">%1$s budget</string>
+    <string name="budget_transactions_empty_title">No expenses yet</string>
+    <string name="budget_transactions_empty_detail">Expenses in this category for this month will appear here. Tap an entry to edit it, or swipe left to delete it.</string>
+    <string name="budget_transactions_plan_changed">This category no longer has a share in this month\'s plan.</string>
+    <plurals name="budget_transactions_count">
+        <item quantity="one">%1$s expense · Tap to edit, swipe to delete</item>
+        <item quantity="other">%1$s expenses · Tap to edit, swipe to delete</item>
+    </plurals>
+</resources>

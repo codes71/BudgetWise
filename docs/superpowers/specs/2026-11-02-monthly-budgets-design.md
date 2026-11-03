@@ -158,6 +158,23 @@ Tests: ViewModel tests (Budgets tab states and sums, plan editor maths, starting
 check gap entry), screen tests for the main states (Robolectric, like `BudgetsScreenTest`), notification decision as a
 pure function with tests, lakh helper, repository and migration tests in :core:data.
 
+### Category transactions (implementation update, 3 November 2026)
+
+Tapping a category share or Everything else opens `budget_entries/{budgetMonth}?budgetCategory=...`. The detail shows
+the selected month's contributing expenses, grouped by date, with the category's limit, spending and remaining amount.
+Income and expenses outside that month never count. Everything else follows the current plan's categories and unsplit limit.
+
+Each entry opens the same editor as Home. Receipt entries stay individual here so an edit or deletion affects only the
+selected expense, even when its receipt includes other categories. Swipe Delete and the editor's Delete entry return to
+Undo on this detail screen. Leaving commits a pending deletion; rotation retains its Undo window. Failed local deletes
+restore the entry and its swipe state. All writes use the existing offline-first Room/outbox path. Both budget screens
+recalculate from the shared ledger after additions, edits, category/date/type changes and deletions; plan limits stay fixed.
+
+Focused coverage lives in `BudgetTransactionsViewModelTest`, `BudgetTransactionsScreenTest` and
+`BudgetTransactionsNavTest`. Navigation tests exercise the real editor, Room and outbox, including receipt isolation and Undo.
+The screens reuse BudgetWise's theme, English/Burmese resources and Home's accessible transaction rows. Better Design's
+required tool checks were attempted but unavailable due HTTP 402 `AGENT_QUOTA_EXHAUSTED`; those checks remain unverified.
+
 ## Out of scope
 
 Offline saving of plans (needs a network; the error says so). Editing past months' shares from the Budgets tab (only

@@ -106,6 +106,54 @@ class ScanRepositoryTest {
     }
 
     @Test
+    fun multipleReceiptsKeepTheirReasonThroughTheApiClient() = runBlocking {
+        h.json(200, """{"kind":"unknown","reason":"multiple","entries":[]}""")
+        val reading = (scan.scan(byteArrayOf(1), "image/jpeg") as ApiResult.Ok).v
+        assertEquals(ScanKind.UNKNOWN, reading.kind)
+        assertEquals(ScanReason.MULTIPLE, reading.reason)
+        assertFalse(reading.notMoney)
+        assertTrue(reading.entries.isEmpty())
+    }
+
+    @Test
+    fun unsupportedWalletKeepsItsOwnReason() = runBlocking {
+        h.json(200, """{"kind":"unknown","reason":"unsupported","entries":[]}""")
+        val reading = (scan.scan(byteArrayOf(1), "image/png") as ApiResult.Ok).v
+        assertEquals(ScanReason.UNSUPPORTED, reading.reason)
+        assertNull(reading.currency)
+        assertTrue(reading.entries.isEmpty())
+    }
+
+    @Test
+    fun foreignCurrencyKeepsTheCurrencyWithoutAnAmountInKyat() = runBlocking {
+        h.json(200, """{"kind":"unknown","reason":"foreign_currency","currency":"THB","entries":[]}""")
+        val reading = (scan.scan(byteArrayOf(1), "image/jpeg") as ApiResult.Ok).v
+        assertEquals(ScanReason.FOREIGN_CURRENCY, reading.reason)
+        assertEquals("THB", reading.currency)
+        assertNull(reading.totalKyat)
+        assertTrue(reading.entries.isEmpty())
+    }
+
+    @Test
+    fun receiptTotalWithoutEntriesKeepsThePrintedTotalAndShop() = runBlocking {
+        h.json(200, """{"kind":"receipt","merchant":"City Mart","date":"2026-10-23","total":5000,"entries":[]}""")
+        val reading = (scan.scan(byteArrayOf(1), "image/jpeg") as ApiResult.Ok).v
+        assertEquals(ScanKind.RECEIPT, reading.kind)
+        assertEquals(5000L, reading.totalKyat)
+        assertEquals("City Mart", reading.merchant)
+        assertEquals(LocalDate.parse("2026-10-23"), reading.date)
+        assertTrue(reading.entries.isEmpty())
+    }
+
+    @Test
+    fun unfamiliarReasonsKeepTheUnreadableFallback() = runBlocking {
+        h.json(200, """{"kind":"unknown","reason":"new_server_reason","entries":[]}""")
+        val reading = (scan.scan(byteArrayOf(1), "image/jpeg") as ApiResult.Ok).v
+        assertNull(reading.reason)
+        assertFalse(reading.notMoney)
+    }
+
+    @Test
     fun afterTooManyScansNoPhotoIsSentUntilRetryAfterHasPassed() = runBlocking {
         h.apiServer.enqueue(
             MockResponse().setResponseCode(429).setHeader("Content-Type", "application/json").setHeader("Retry-After", "600")

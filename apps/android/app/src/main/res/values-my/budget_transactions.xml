@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="budget_transactions_month">%1$s ဘတ်ဂျက်</string>
+    <string name="budget_transactions_empty_title">အသုံးစရိတ် မရှိသေးပါ</string>
+    <string name="budget_transactions_empty_detail">ဒီလအတွက် ဒီအမျိုးအစား၏ အသုံးစရိတ်များကို ဒီနေရာတွင် ပြပါမည်။ ပြင်ဆင်ရန် စာရင်းကိုနှိပ်ပါ။ ဖျက်ရန် ဘယ်ဘက်သို့ပွတ်ပါ။</string>
+    <string name="budget_transactions_plan_changed">ဒီအမျိုးအစားအတွက် ဒီလအစီအစဉ်မှာ ခွဲဝေထားငွေ မရှိတော့ပါ။</string>
+    <plurals name="budget_transactions_count">
+        <item quantity="other">အသုံးစရိတ် %1$s ခု · ပြင်ရန်နှိပ်ပါ၊ ဖျက်ရန်ပွတ်ပါ</item>
+    </plurals>
+</resources>
