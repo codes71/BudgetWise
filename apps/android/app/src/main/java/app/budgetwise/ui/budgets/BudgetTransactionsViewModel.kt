@@ -69,12 +69,12 @@ class BudgetTransactionsViewModel @Inject constructor(
     plans: MonthPlanSource,
     private val transactions: TransactionStore,
     settings: SettingsStore,
-    @DeviceClock clock: Clock,
+    @DeviceClock private val clock: Clock,
     @ApplicationScope private val appScope: CoroutineScope,
 ) : ViewModel() {
     private val month = YearMonth.parse(checkNotNull(savedState.get<String>(ARG_MONTH)))
     private val category = savedState.get<String>(ARG_CATEGORY).orEmpty()
-    private val today = LocalDate.now(clock)
+    private val today = MutableStateFlow(LocalDate.now(clock))
 
     private data class Local(
         val hidden: Set<String> = emptySet(),
@@ -85,14 +85,14 @@ class BudgetTransactionsViewModel @Inject constructor(
     private val local = MutableStateFlow(Local())
 
     val state: StateFlow<BudgetTransactionsUiState> =
-        combine(plans.observe(month), transactions.observe(), settings.myanmarDigits, local) { plan, rows, digits, l ->
+        combine(plans.observe(month), transactions.observe(), settings.myanmarDigits, local, today) { plan, rows, digits, l, day ->
             val visible = budgetTransactions(rows.filterNot { it.clientId in l.hidden }, month, category, plan)
             val spent = visible.sumOf { it.amountKyat }
             val limit = if (category == EVERYTHING_ELSE) plan?.unsplitKyat?.coerceAtLeast(0) else plan?.shares?.firstOrNull { it.category == category }?.limitKyat
             BudgetTransactionsUiState(
                 month = month,
                 category = category,
-                today = today,
+                today = day,
                 loading = false,
                 line = limit?.let { BudgetLine(category, it, spent) },
                 // Never group a receipt: every row represents only the amount counted in this budget.
@@ -101,7 +101,12 @@ class BudgetTransactionsViewModel @Inject constructor(
                 pendingDelete = l.pending?.let { pending -> pending.copy(row = rows.firstOrNull { it.clientId == pending.clientId } ?: pending.row) },
                 restored = l.restored,
             )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BudgetTransactionsUiState(month, category, today))
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BudgetTransactionsUiState(month, category, today.value))
+
+    /** Refresh Today/Yesterday labels after returning overnight, without changing the selected budget month. */
+    fun refreshToday() {
+        today.value = LocalDate.now(clock)
+    }
 
     /** Hide just this contributing entry while its Undo notice is showing. */
     fun delete(clientId: String) {

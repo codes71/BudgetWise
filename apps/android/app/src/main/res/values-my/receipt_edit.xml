@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="manual_receipt_date">ပြေစာရက်စွဲ</string>
+    <string name="manual_receipt_date_note">ဒီရက်စွဲကို ပြောင်းလျှင် ပြေစာတစ်ခုလုံး၏ ရက်စွဲ ပြောင်းပါမည်။</string>
+    <string name="manual_receipt_income_note">ဒီဝင်ငွေကို ပြေစာမှ သီးခြားစာရင်းအဖြစ် သိမ်းပါမည်။</string>
+</resources>

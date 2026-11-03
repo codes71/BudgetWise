@@ -144,6 +144,23 @@ class AddManualScreenTest {
     }
 
     @Test
+    fun changingAReceiptExpenseDateClearlyMovesTheWholeReceipt() {
+        show(filled().copy(editing = true, editingReceipt = true, source = Source.SCAN))
+        compose.onNodeWithContentDescription(text(R.string.manual_receipt_date)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.manual_receipt_date_note)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.transactions_yesterday)).performClick()
+        assertEquals(listOf(today.minusDays(1)), dates)
+    }
+
+    @Test
+    fun convertingAReceiptEntryToIncomeExplainsThatItWillBeSavedSeparately() {
+        show(filled(type = TxType.INCOME).copy(editing = true, editingReceipt = true, source = Source.SCAN))
+        compose.onNodeWithText(text(R.string.manual_receipt_income_note)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.manual_receipt_date_note)).assertDoesNotExist()
+        compose.onNodeWithContentDescription(text(R.string.manual_receipt_date)).assertDoesNotExist()
+    }
+
+    @Test
     fun incomeDoesNotAskForACategory() {
         show(filled(type = TxType.INCOME))
 

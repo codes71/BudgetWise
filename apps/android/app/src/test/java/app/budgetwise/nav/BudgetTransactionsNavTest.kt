@@ -28,6 +28,7 @@ import app.budgetwise.data.auth.TokenStore
 import app.budgetwise.data.db.BudgetWiseDb
 import app.budgetwise.data.db.toEntity
 import app.budgetwise.data.model.Budget
+import app.budgetwise.data.model.EntryItem
 import app.budgetwise.data.model.MonthPlan
 import app.budgetwise.data.model.Source
 import app.budgetwise.data.repo.NewTransaction
@@ -53,6 +54,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -96,8 +99,8 @@ class BudgetTransactionsNavTest {
                 listOf(
                     input("Rice", "Groceries", 10_000),
                     input("Taxi", "Transport", 3_000),
-                    input("Previous month rice", "Groceries", 5_000).copy(date = month.atDay(1).minusDays(1)),
-                    input("Income", "Groceries", 25_000).copy(type = TxType.INCOME),
+                    input("Previous month rice", "Groceries", 5_000).copy(date = month.atDay(1).minusDays(1), receiptId = UUID.randomUUID().toString()),
+                    input("Income", "Groceries", 25_000).copy(type = TxType.INCOME, receiptId = null, items = emptyList()),
                 ),
             )
             groceries = ids[0]
@@ -108,6 +111,7 @@ class BudgetTransactionsNavTest {
     private fun input(description: String, category: String, amount: Long) = NewTransaction(
         type = TxType.EXPENSE, amountKyat = amount, category = category, description = description,
         date = today, source = Source.SCAN, transcript = null, receiptId = receipt, merchant = "City Mart",
+        items = listOf(EntryItem(description, amount)),
     )
 
     private fun openGroceries(): NavHostController {
@@ -211,5 +215,62 @@ class BudgetTransactionsNavTest {
         compose.onNode(hasText("Rice") and hasClickAction()).assertIsDisplayed()
         assertNotNull(runBlocking { transactions.get(groceries) })
         assertNotNull(runBlocking { transactions.get(transport) })
+    }
+
+    @Test
+    fun changingOneReceiptEntryToIncomeShowsItSeparatelyOnHome() {
+        val nav = openGroceries()
+        compose.onNode(hasText("Rice") and hasClickAction()).performClick()
+        waitForText(compose.activity.getString(R.string.manual_edit_title))
+        compose.onNode(hasText(compose.activity.getString(R.string.manual_income)) and hasClickAction()).performClick()
+        compose.onNode(hasText(compose.activity.getString(R.string.manual_save_changes)) and hasClickAction()).performClick()
+        waitForText("0 of 50,000 Ks spent")
+
+        val rows = runBlocking { transactions.observe().first() }
+        val income = rows.single { it.description == "Rice" }
+        assertEquals(TxType.INCOME, income.type)
+        assertNull(income.receiptId)
+        assertEquals("City Mart", income.merchant)
+        assertEquals(listOf(EntryItem("Rice", 10_000)), income.items)
+        val receiptRows = runBlocking { transactions.observeReceipt(receipt).first() }
+        assertEquals(listOf(transport), receiptRows.map { it.clientId })
+        assertEquals(3_000L, receiptRows.sumOf { it.amountKyat })
+
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.action_back)).performClick()
+        compose.onNodeWithText(compose.activity.getString(R.string.nav_transactions)).performClick()
+        waitForText("Rice")
+        assertEquals(Routes.TRANSACTIONS, compose.runOnIdle { nav.currentDestination?.route })
+        compose.onNode(hasText("Rice") and hasText("+10,000 Ks") and hasClickAction()).assertIsDisplayed()
+        compose.onNode(hasText("City Mart") and hasText("−3,000 Ks") and hasClickAction()).assertIsDisplayed()
+    }
+
+    @Test
+    fun changingTheReceiptDateMovesEveryCategoryTogetherAndUpdatesBudgetTotals() {
+        openGroceries()
+        compose.onNode(hasText("Rice") and hasClickAction()).performClick()
+        waitForText(compose.activity.getString(R.string.manual_edit_title))
+        compose.onNodeWithText(compose.activity.getString(R.string.manual_receipt_date_note)).assertIsDisplayed()
+        compose.onNode(hasText(compose.activity.getString(R.string.transactions_yesterday)) and hasClickAction()).performClick()
+        compose.onNode(hasText(compose.activity.getString(R.string.manual_save_changes)) and hasClickAction()).performClick()
+        val newDate = today.minusDays(1)
+        val currentMonth = YearMonth.from(newDate) == month
+        val spent = if (currentMonth) "10,000" else "0"
+        waitForText("$spent of 50,000 Ks spent")
+
+        val receiptRows = runBlocking { transactions.observeReceipt(receipt).first() }
+        assertEquals(2, receiptRows.size)
+        assertTrue(receiptRows.all { it.date == newDate })
+        assertEquals(setOf("Groceries", "Transport"), receiptRows.map { it.category }.toSet())
+        assertEquals(13_000L, receiptRows.sumOf { it.amountKyat })
+        assertEquals(listOf(EntryItem("Rice", 10_000)), receiptRows.single { it.category == "Groceries" }.items)
+        assertEquals(listOf(EntryItem("Taxi", 3_000)), receiptRows.single { it.category == "Transport" }.items)
+        assertEquals(month.atDay(1).minusDays(1), runBlocking { transactions.observe().first().single { it.description == "Previous month rice" }.date })
+
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.action_back)).performClick()
+        val transportSpent = if (currentMonth) "3,000" else "0"
+        val transportLeft = if (currentMonth) "17,000" else "20,000"
+        val summary = "Transport, $transportSpent kyat spent of 20,000 kyat, $transportLeft kyat left"
+        compose.waitUntil(5_000) { compose.onAllNodes(hasContentDescription(summary)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription(summary).assertIsDisplayed()
     }
 }

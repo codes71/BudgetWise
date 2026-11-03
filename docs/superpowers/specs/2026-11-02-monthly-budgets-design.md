@@ -170,6 +170,12 @@ Undo on this detail screen. Leaving commits a pending deletion; rotation retains
 restore the entry and its swipe state. All writes use the existing offline-first Room/outbox path. Both budget screens
 recalculate from the shared ledger after additions, edits, category/date/type changes and deletions; plan limits stay fixed.
 
+Receipt expenses keep one shared purchase date. The editor labels it "Receipt date" and explains that changing it moves
+the whole receipt. A guarded atomic replacement moves all its category entries together, including when a missing entry
+is saved as new into a surviving receipt; a concurrent receipt change writes nothing and keeps the editor open to retry.
+Changing an entry to income saves it separately from the expense receipt, preserving its source, merchant and items.
+The category screen refreshes Today/Yesterday labels on resume without changing the selected budget month.
+
 Focused coverage lives in `BudgetTransactionsViewModelTest`, `BudgetTransactionsScreenTest` and
 `BudgetTransactionsNavTest`. Navigation tests exercise the real editor, Room and outbox, including receipt isolation and Undo.
 The screens reuse BudgetWise's theme, English/Burmese resources and Home's accessible transaction rows. Better Design's

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="manual_receipt_date">Receipt date</string>
+    <string name="manual_receipt_date_note">Changing this date moves the whole receipt.</string>
+    <string name="manual_receipt_income_note">This income will be saved separately from the receipt.</string>
+</resources>

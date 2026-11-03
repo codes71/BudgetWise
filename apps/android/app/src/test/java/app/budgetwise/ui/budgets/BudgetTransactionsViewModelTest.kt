@@ -15,6 +15,7 @@ import app.budgetwise.testing.FakeTransactionStore
 import app.budgetwise.testing.MainDispatcherRule
 import app.budgetwise.testing.testTransaction
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -44,11 +45,57 @@ class BudgetTransactionsViewModelTest {
     private fun row(id: String, amount: Long, category: String = "Groceries", date: LocalDate = today, type: TxType = TxType.EXPENSE) =
         testTransaction(id, amount, date, type, category, clientId = id)
 
-    private fun TestScope.vm(category: String = "Groceries", transactions: TransactionStore = store): BudgetTransactionsViewModel =
+    private fun TestScope.vm(
+        category: String = "Groceries",
+        transactions: TransactionStore = store,
+        clock: Clock = this@BudgetTransactionsViewModelTest.clock,
+    ): BudgetTransactionsViewModel =
         BudgetTransactionsViewModel(
             SavedStateHandle(mapOf(BudgetTransactionsViewModel.ARG_MONTH to month.toString(), BudgetTransactionsViewModel.ARG_CATEGORY to category)),
             plans, transactions, settings, clock, backgroundScope,
         ).also { vm -> backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} } }
+
+    private class MovableClock(var now: Instant, private val zone: ZoneId) : Clock() {
+        override fun getZone(): ZoneId = zone
+
+        override fun withZone(zone: ZoneId): Clock = MovableClock(now, zone)
+
+        override fun instant(): Instant = now
+    }
+
+    @Test
+    fun returningOvernightRefreshesTodayWithoutAnyLedgerChange() = runTest {
+        val movable = MovableClock(clock.instant(), clock.zone)
+        store.rows.value = listOf(row("rice", 30_000))
+        val vm = vm(clock = movable)
+        val before = vm.state.value
+
+        movable.now = today.plusDays(1).atStartOfDay(movable.zone).toInstant()
+        vm.refreshToday()
+
+        assertEquals(today.plusDays(1), vm.state.value.today)
+        assertEquals(before.month, vm.state.value.month)
+        assertEquals(before.days, vm.state.value.days)
+        assertEquals(before.line, vm.state.value.line)
+        assertEquals(listOf(row("rice", 30_000)), store.rows.value)
+    }
+
+    @Test
+    fun returningAfterTheMonthChangesKeepsTheSelectedBudgetsMonthAndExpenses() = runTest {
+        val zone = clock.zone
+        val lastDay = month.atEndOfMonth()
+        val movable = MovableClock(lastDay.atStartOfDay(zone).toInstant(), zone)
+        store.rows.value = listOf(row("October rice", 30_000, date = lastDay), row("November rice", 20_000, date = lastDay.plusDays(1)))
+        val vm = vm(clock = movable)
+
+        movable.now = lastDay.plusDays(1).atStartOfDay(zone).toInstant()
+        vm.refreshToday()
+
+        assertEquals(lastDay.plusDays(1), vm.state.value.today)
+        assertEquals(month, vm.state.value.month)
+        assertEquals(listOf("October rice"), vm.state.value.days.flatMap { it.rows }.map { it.description })
+        assertEquals(BudgetLine("Groceries", 100_000, 30_000), vm.state.value.line)
+    }
 
     @Test
     fun showsOnlyExpensesInTheSelectedMonthAndCategoryNewestFirst() = runTest {

@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
 import app.budgetwise.data.model.Source
@@ -72,6 +73,10 @@ fun BudgetTransactionsRoute(
     viewModel: BudgetTransactionsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LifecycleResumeEffect(viewModel) {
+        viewModel.refreshToday()
+        onPauseOrDispose { }
+    }
     val notices = remember { SnackbarHostState() }
     val pending = state.pendingDelete
     val deleted = stringResource(R.string.transactions_deleted)
