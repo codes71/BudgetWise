@@ -116,6 +116,7 @@ following commits fix what the move broke:
 | web-deploy.yml | push to master (production), PRs (preview), manual | Vercel CLI `pull`, `build`, `deploy --prebuilt` from the repo root |
 | android-ci.yml | PRs and pushes to master touching `apps/android/**` | JDK 17, Gradle cache, unit tests for :app, :core:data, :nlu, :feature:voice, `:app:assembleDebug`, lint |
 | android-release.yml | manual, or a tag `android-v*` | signed release AAB, uploaded to the Play internal track |
+| android-friends-release.yml | manual only | signed friends APK, verified release descriptor and artifact; no publishing or master writes |
 
 Notes:
 
@@ -126,10 +127,15 @@ Notes:
 - `next lint` has no ESLint config or dependency yet, so the lint step stays off until one is added.
 - android-ci builds no native code and runs no instrumented tests. The ASR modules need the NDK, CMake and the
   llama.cpp submodule; checkout leaves the submodule out, so Gradle skips them.
-- Each workflow skips with a notice when its secrets are missing (also true for PRs from forks).
+- The existing release/deploy workflows skip with a notice when their secrets are missing (also true for PRs
+  from forks). The manual friends-release workflow instead fails if its signing or API configuration is missing.
 - android-release keeps the signed AAB and `mapping.txt` as a workflow artifact. It uploads only when the Play
   secret and the API URL variable are both set, and as a `draft` by default.
-- Actions are pinned to release tags; all four files pass actionlint 1.7.12 with shellcheck 0.11.0.
+- android-friends-release keeps the verified APK, descriptor, checksum and `mapping.txt` as artifacts for 30 days.
+  Publishing its GitHub release and promoting the static Vercel descriptor are separate actions described in
+  [Android friends updates](android-updates.md).
+- Actions are pinned to release tags. The original four workflows were checked with actionlint 1.7.12 and
+  shellcheck 0.11.0 when this inventory was introduced.
 
 ## Secrets and settings the owner must add
 
@@ -142,6 +148,7 @@ GitHub repository secrets (names only):
 GitHub repository variable:
 
 - `BUDGETWISE_RELEASE_API_BASE_URL`: the live `https://.../api/v1/` URL the release app calls.
+- `BUDGETWISE_FRIENDS_SIGNING_CERT_SHA256`: public SHA-256 fingerprint of the friends release signing certificate.
 
 One-time settings:
 

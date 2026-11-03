@@ -15,6 +15,8 @@ import app.budgetwise.nav.AppNav
 import app.budgetwise.reminders.MonthEndLink
 import app.budgetwise.reminders.MonthEndNotifier
 import app.budgetwise.ui.theme.BudgetWiseTheme
+import app.budgetwise.updates.AppUpdates
+import app.budgetwise.ui.updates.AppUpdatePrompt
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -25,6 +27,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var language: LanguageStore
 
     @Inject lateinit var reminders: MonthEndNotifier
+    @Inject lateinit var updates: AppUpdates
 
     // Below Android 13 the picked language is applied here; from 13 the system does it.
     override fun attachBaseContext(newBase: Context) = super.attachBaseContext(DefaultLanguageStore.wrap(newBase))
@@ -46,6 +49,7 @@ class MainActivity : ComponentActivity() {
                         monthEndLink = link,
                         onMonthEndLinkHandled = viewModel::monthEndLinkHandled,
                     )
+                    AppUpdatePrompt()
                 }
             }
         }
@@ -56,6 +60,16 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         openMonthEnd(intent)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        updates.check()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updates.onResume(this)
     }
 
     /**

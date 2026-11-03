@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "channel": "friends",
+  "applicationId": "app.budgetwise",
+  "versionCode": 2,
+  "versionName": "0.2.0",
+  "minSdk": 26,
+  "apkUrl": "https://github.com/codes71/BudgetWise/releases/download/android-friends-v0.2.0-2/BudgetWise-0.2.0-2.apk",
+  "sha256": "de852a5019606f06fdaa4eb029ebbfc8c758da3ad4259cbbc74bbf6591bb74f2",
+  "sizeBytes": 39481123,
+  "notes": "BudgetWise can now check for new versions, download them, and open Android’s Update confirmation. Updates keep your saved app data."
+}

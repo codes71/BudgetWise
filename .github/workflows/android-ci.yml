@@ -5,11 +5,15 @@ on:
     paths:
       - "apps/android/**"
       - ".github/workflows/android-ci.yml"
+      - ".github/workflows/android-friends-release.yml"
+      - "tools/android-release/**"
   push:
     branches: [master]
     paths:
       - "apps/android/**"
       - ".github/workflows/android-ci.yml"
+      - ".github/workflows/android-friends-release.yml"
+      - "tools/android-release/**"
   workflow_dispatch:
 
 permissions:
@@ -29,6 +33,10 @@ jobs:
     steps:
       # No submodules or NDK: :asr runs ONNX Runtime from Maven.
       - uses: actions/checkout@v7
+
+      - name: Release metadata verification tests
+        working-directory: .
+        run: python3 -m unittest discover -s tools/android-release -p 'test_*.py' -v
 
       # 21: Robolectric runs the unit tests on Android SDK 36, which it supports only on Java 21 or newer.
       - uses: actions/setup-java@v6
@@ -53,6 +61,7 @@ jobs:
           :asr-demo:testDebugUnitTest
           :app:assembleDebug
           :app:lintDebug
+          :app:lintFriends
           :core:data:lintDebug
           :asr:lintDebug
 

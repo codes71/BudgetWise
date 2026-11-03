@@ -34,6 +34,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Match all routes except for API routes, static files, and image optimization files.
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  // Update metadata is public static content, independent of web sessions.
+  matcher: ['/((?!api|updates/|_next/static|_next/image|favicon.ico).*)'],
 };

@@ -2,6 +2,12 @@ import type { NextConfig } from 'next';
 import path from 'path';
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [{
+      source: '/updates/:path*',
+      headers: [{ key: 'Cache-Control', value: 'no-store' }],
+    }];
+  },
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,

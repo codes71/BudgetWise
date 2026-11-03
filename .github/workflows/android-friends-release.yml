@@ -1,0 +1,112 @@
+name: Android friends release
+
+# Build-only. Publishing the verified APK and promoting friends.json are separate reviewed actions.
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: "Higher than every previously published friends versionCode"
+        required: true
+      version_name:
+        description: "User-visible version, for example 0.2.0"
+        required: true
+      notes:
+        description: "Short user-facing release notes"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-friends-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      RELEASE_API_BASE_URL: ${{ vars.BUDGETWISE_RELEASE_API_BASE_URL }}
+      EXPECTED_CERTIFICATE_SHA256: ${{ vars.BUDGETWISE_FRIENDS_SIGNING_CERT_SHA256 }}
+      INPUT_VERSION_CODE: ${{ inputs.version_code }}
+      INPUT_VERSION_NAME: ${{ inputs.version_name }}
+      INPUT_NOTES: ${{ inputs.notes }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Test release verification tools
+        run: python3 -m unittest discover -s tools/android-release -p 'test_*.py' -v
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v4.0.4
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      - name: Validate release inputs and signing configuration
+        run: |
+          python3 - <<'PY'
+          import importlib.util, os, pathlib
+          spec = importlib.util.spec_from_file_location('release', 'tools/android-release/prepare_release.py')
+          release = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(release)
+          required = ['ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS',
+                      'ANDROID_KEY_PASSWORD', 'RELEASE_API_BASE_URL', 'EXPECTED_CERTIFICATE_SHA256']
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit('Missing release configuration: ' + ', '.join(missing))
+          code = int(os.environ['INPUT_VERSION_CODE'])
+          release._integer(code, 'versionCode', 1, release.MAX_VERSION_CODE)
+          release.release_names(os.environ['INPUT_VERSION_NAME'], code)
+          release.normalize_fingerprint(os.environ['EXPECTED_CERTIFICATE_SHA256'])
+          url = os.environ['RELEASE_API_BASE_URL']
+          if not url.startswith('https://') or '.invalid' in url or any(c.isspace() for c in url):
+              raise SystemExit('Set a real HTTPS BUDGETWISE_RELEASE_API_BASE_URL.')
+          pathlib.Path(os.environ['RUNNER_TEMP'], 'release-notes.md').write_text(os.environ['INPUT_NOTES'])
+          PY
+
+      - name: Decode release keystore
+        run: |
+          umask 077
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/friends-keystore.jks"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/friends-keystore.jks" >> "$GITHUB_ENV"
+
+      - name: Build signed friends APK
+        working-directory: apps/android
+        run: >-
+          ./gradlew :app:assembleFriends
+          -Pbudgetwise.versionCode="$INPUT_VERSION_CODE"
+          -Pbudgetwise.versionName="$INPUT_VERSION_NAME"
+          -Pbudgetwise.releaseApiBaseUrl="$RELEASE_API_BASE_URL"
+
+      - name: Verify APK and prepare metadata
+        run: |
+          tools_dir="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          python3 tools/android-release/prepare_release.py \
+            --apk apps/android/app/build/outputs/apk/friends/app-friends.apk \
+            --build-tools "$tools_dir" \
+            --expected-certificate-sha256 "$EXPECTED_CERTIFICATE_SHA256" \
+            --previous-manifest apps/web/public/updates/friends.json \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --output "$RUNNER_TEMP/friends-release"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: friends-release-${{ inputs.version_code }}
+          path: |
+            ${{ runner.temp }}/friends-release/
+            apps/android/app/build/outputs/mapping/friends/mapping.txt
+          retention-days: 30
+
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/friends-keystore.jks"
