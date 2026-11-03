@@ -44,3 +44,11 @@ Approve with minor craft observations. Floor: 0. Obligation: 0. Taste: 3 groups 
 | T-019 | Existing loading skeleton/spinner handoffs lack a delay/hold/crossfade presentation state. | Pre-existing behavior, unchanged by this motion pass. No arbitrary loading delay was introduced. |
 
 Verified: stable keys, draw/layer state reads, duration-scale handling, static status carriers, bounded automatic background rotation and current-state action guards. Scan photo snapshots are not recycled on retake; the owner only deletes the disk cache. No new high-confidence lifecycle or destructive callback defect remains from the reviewed class.
+
+## PR #19 review remediation
+
+The follow-up review found one shared-helper consistency issue (T-010): inline notes and errors that disappear through `MotionContent` kept the 220ms content-change size spec, rather than the fast collapse used by `MotionReveal`. An exact-clock regression reproduced a remaining 6px layout slot at 192ms after the empty target was measured.
+
+`MotionContent` now selects the existing collapse token only when nonempty content becomes zero-height content. Nonempty panel replacements, full-screen transitions, financial values and action guards retain their behavior. The regression checks both prompt slot release and unchanged timing when replacing nonempty panels. Existing animation-disabled and interrupted-transition tests continue to cover the shared helper.
+
+The independent intent, correctness/history and isolated standards passes found no other new high-confidence issue. Previously documented predictive-preview, ordered-step fade and initial-loader craft limits remain outside this repair. After the fix, all 553 app tests pass, app lint has zero errors and the existing 75 warnings, and optimized profile assembly passes. The fix commit and validation evidence are recorded in the PR conversation and the local review artifacts.

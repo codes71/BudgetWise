@@ -36,13 +36,15 @@ reinstalling speech models or collecting user microphone input for a preview.
 
 ## Verification
 
-All 912 tests pass (app 551, core/data 235, ASR 111, voice 3, ASR demo 10, NLU 2), with zero failures/errors/skips. App/ASR/core-data/voice lint passes with zero errors. Final app lint has 75 warnings, matching the original count after correcting a new private parameter-order warning. Optimized profile assembly passes. Focused transition tests cover outgoing/incoming payloads,
+The initial implementation at `8ed1cb5` passed all 912 tests (app 551, core/data 235, ASR 111, voice 3, ASR demo 10, NLU 2), with zero failures/errors/skips. App/ASR/core-data/voice lint passed with zero errors. App lint retained 75 warnings, matching the original count after correcting a new private parameter-order warning. Optimized profile assembly passed. Focused transition tests cover outgoing/incoming payloads,
 interrupted reversal, zero-duration final content/actions, draft restoration, inactive old
 controls, exact totals and bounded background motion. The native voice preview and [independent review](REVIEW.md) are recorded below. Optimized API35 emulator verification passed: category detail, loaded direct share editor, share/split/total/back navigation, income/expense reveal reversal, animation-disabled final actions and font-scale-2 dark category layout. The existing synthetic account stayed signed in; no financial values were entered or saved. Emulator display/animation settings were restored. Real-microphone response and physical-device frame timing remain separate acceptance checks.
 
 Better Design was attempted and remains unavailable with HTTP402 `AGENT_QUOTA_EXHAUSTED`.
 The installed Compose motion guides, native tests and independent source review are used;
 no automated Better Design approval is claimed.
+
+The [follow-up PR review repair](REVIEW.md#pr-19-review-remediation) applies the existing fast collapse token when inline feedback becomes empty. All 553 app tests, including two new timing regressions, pass after this repair; app lint retains zero errors and 75 warnings, and optimized profile assembly passes. The committed images and clip below remain evidence of the initial implementation; this repair changes only disappearing feedback-slot timing.
 
 
 ## Native voice preview

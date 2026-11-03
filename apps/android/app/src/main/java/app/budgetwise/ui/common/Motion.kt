@@ -55,7 +55,11 @@ fun <S> MotionContent(
         contentKey = contentKey,
         transitionSpec = {
             (fadeIn(BudgetMotion.effects()) togetherWith fadeOut(BudgetMotion.effects()))
-                .using(SizeTransform(clip = false, sizeAnimationSpec = { _, _ -> BudgetMotion.change() }))
+                .using(SizeTransform(clip = false, sizeAnimationSpec = { initial, target ->
+                    // Removing inline feedback releases its slot with the other fast structural reveals.
+                    // Nonempty panel replacements keep the content-change tier in either direction.
+                    if (initial.height > 0 && target.height == 0) BudgetMotion.collapse() else BudgetMotion.change()
+                }))
         },
         label = label,
     ) { shown ->
