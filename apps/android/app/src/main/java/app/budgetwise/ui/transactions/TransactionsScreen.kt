@@ -76,6 +76,8 @@ import app.budgetwise.data.model.Source
 import app.budgetwise.data.model.SyncState
 import app.budgetwise.data.model.Transaction
 import app.budgetwise.nlu.TxType
+import app.budgetwise.ui.common.BudgetMotion
+
 import app.budgetwise.ui.common.AppHeader
 import app.budgetwise.ui.common.CategoryBadge
 import app.budgetwise.ui.common.EmptyState
@@ -430,7 +432,7 @@ private fun LazyListScope.days(state: TransactionsUiState, onOpen: (DayLine) -> 
                 onOpen = { onOpen(line) },
                 onDelete = { onDelete(line) },
                 // No fade out: a swiped row has already slid off screen.
-                modifier = Modifier.animateItem(fadeOutSpec = null),
+                modifier = Modifier.animateItem(fadeInSpec = BudgetMotion.effects(), placementSpec = BudgetMotion.change(), fadeOutSpec = null),
             )
         }
     }

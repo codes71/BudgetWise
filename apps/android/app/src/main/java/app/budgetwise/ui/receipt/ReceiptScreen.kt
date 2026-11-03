@@ -3,6 +3,7 @@ package app.budgetwise.ui.receipt
 import android.content.Context
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -52,6 +54,9 @@ import app.budgetwise.data.model.Transaction
 import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.ConfirmDialog
 import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.BudgetMotion
+import app.budgetwise.ui.common.MotionContent
+import app.budgetwise.ui.common.MotionReveal
 import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
 import app.budgetwise.ui.common.PrimaryButton
@@ -109,38 +114,59 @@ fun ReceiptRoute(
     BackHandler(enabled = state.editing != null) { leaveEditing() }
 
     val descriptions = rememberEntryDescriptions()
-    val editing = state.editing
-    if (editing == null) {
-        ReceiptScreen(
-            state = state,
-            onBack = onClose,
-            onMove = { clientId, category -> viewModel.move(clientId, category, descriptions) },
-            onDelete = viewModel::delete,
-            onChangeItems = viewModel::startEditing,
-        )
-    } else {
-        ChangeItems(
-            state = state,
-            onClose = ::leaveEditing,
-            onCount = viewModel::setCount,
-            onPrice = viewModel::setPrice,
-            onSave = viewModel::saveItems,
-            onCheckAgain = viewModel::startEditing,
-            onDelete = viewModel::delete,
-        )
-        if (discarding) {
-            ConfirmDialog(
-                title = stringResource(R.string.receipt_discard_title),
-                detail = stringResource(R.string.receipt_discard_detail),
-                confirmLabel = stringResource(R.string.action_discard),
-                dismissLabel = stringResource(R.string.receipt_discard_keep),
-                onConfirm = {
-                    discarding = false
-                    viewModel.stopEditing()
+    MotionContent(
+        targetState = state,
+        modifier = Modifier.fillMaxSize(),
+        label = "receiptEditing",
+        // A price/count edit updates the mounted fields rather than starting a new screen transition.
+        contentKey = { it.editing != null },
+    ) { shown ->
+        if (shown.editing == null) {
+            ReceiptScreen(
+                state = shown,
+                onBack = onClose,
+                onMove = { clientId, category ->
+                    if (viewModel.state.value.editing == null) viewModel.move(clientId, category, descriptions)
                 },
-                onDismiss = { discarding = false },
+                onDelete = { if (viewModel.state.value.editing == null) viewModel.delete() },
+                onChangeItems = {
+                    val current = viewModel.state.value
+                    if (current.editing == null && current.canChangeItems && !current.saving) viewModel.startEditing()
+                },
+            )
+        } else {
+            ChangeItems(
+                state = shown,
+                onClose = ::leaveEditing,
+                onCount = viewModel::setCount,
+                onPrice = viewModel::setPrice,
+                onSave = viewModel::saveItems,
+                onCheckAgain = {
+                    val current = viewModel.state.value
+                    if (current.editing != null && current.receiptChanged && !current.saving) viewModel.startEditing()
+                },
+                onDelete = {
+                    val current = viewModel.state.value
+                    if (current.editing != null && current.allLeftOut && !current.saving) viewModel.delete()
+                },
+                canDelete = state.editing != null && state.allLeftOut && !state.saving,
+                canCheckAgain = state.editing != null && state.receiptChanged && !state.saving,
             )
         }
+    }
+    // Native confirmation stays outside the transition so an outgoing editor cannot keep a dialog alive.
+    if (state.editing != null && discarding) {
+        ConfirmDialog(
+            title = stringResource(R.string.receipt_discard_title),
+            detail = stringResource(R.string.receipt_discard_detail),
+            confirmLabel = stringResource(R.string.action_discard),
+            dismissLabel = stringResource(R.string.receipt_discard_keep),
+            onConfirm = {
+                discarding = false
+                viewModel.stopEditing()
+            },
+            onDismiss = { discarding = false },
+        )
     }
 }
 
@@ -186,19 +212,24 @@ private fun ReceiptScreen(
                 Modifier.padding(top = 16.dp, bottom = 8.dp).semantics { heading() },
             )
             HorizontalDivider(thickness = 1.dp, color = colors.hairline)
-            state.entries.forEach { entry ->
-                EntryBlock(entry, state.myanmarDigits, onClick = { moving = entry.clientId })
-                HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+            Column(Modifier.fillMaxWidth().animateContentSize(BudgetMotion.change())) {
+                state.entries.forEach { entry ->
+                    key(entry.clientId) {
+                        EntryBlock(entry, state.myanmarDigits, onClick = { moving = entry.clientId })
+                        HorizontalDivider(thickness = 1.dp, color = colors.hairline)
+                    }
+                }
             }
             val note = stringResource(R.string.receipt_note)
             Text(note, style = type.size13.forContent(note), color = colors.muted, modifier = Modifier.padding(top = 14.dp))
         },
         actions = {
             // A receipt without readable items has nothing for Change items to change.
-            if (state.canChangeItems) {
+            MotionReveal(visible = state.canChangeItems) {
                 PrimaryButton(
                     text = stringResource(R.string.receipt_change_items),
                     onClick = onChangeItems,
+                    enabled = state.canChangeItems && !state.saving,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -245,6 +276,8 @@ private fun ChangeItems(
     onSave: () -> Unit,
     onCheckAgain: () -> Unit,
     onDelete: () -> Unit,
+    canDelete: Boolean,
+    canCheckAgain: Boolean,
 ) {
     val changed = state.changedItems
     ReceiptFrame(
@@ -254,20 +287,22 @@ private fun ChangeItems(
         closes = true,
         total = state.editedTotal,
         content = {
-            if (state.receiptChanged) {
+            MotionReveal(visible = state.receiptChanged) {
                 Notice(
                     tone = NoticeTone.ATTENTION,
                     icon = Lucide.CircleAlert,
                     title = stringResource(R.string.receipt_changed_elsewhere_title),
                     detail = stringResource(R.string.receipt_changed_elsewhere_detail),
                     actionLabel = stringResource(R.string.receipt_changed_elsewhere_action),
-                    onAction = onCheckAgain,
+                    onAction = onCheckAgain.takeIf { canCheckAgain },
                     modifier = Modifier.padding(top = 24.dp),
                 )
             }
-            if (changed > 0) {
-                // What the receipt was when Change items opened, as the lines below were built from it.
-                ChangedNote(R.plurals.receipt_changed, state.editingBase, changed, state.myanmarDigits, Modifier.padding(top = 16.dp))
+            MotionContent(targetState = state, label = "receiptChangedNote", contentKey = { it.changedItems > 0 }) { shown ->
+                if (shown.changedItems > 0) {
+                    // What the receipt was when Change items opened, as the lines below were built from it.
+                    ChangedNote(R.plurals.receipt_changed, shown.editingBase, shown.changedItems, shown.myanmarDigits, Modifier.padding(top = 16.dp))
+                }
             }
             ItemLines(
                 lines = state.editing.orEmpty(),
@@ -279,14 +314,21 @@ private fun ChangeItems(
             )
         },
         actions = {
-            if (state.allLeftOut) {
-                Notice(
-                    tone = NoticeTone.INFO,
-                    icon = Lucide.CircleAlert,
-                    title = stringResource(R.string.receipt_all_left_out),
-                    modifier = Modifier.padding(bottom = 4.dp),
-                )
-                TextAction(stringResource(R.string.receipt_delete), onClick = onDelete, color = BudgetWiseTheme.colors.coralText)
+            MotionReveal(visible = state.allLeftOut) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Notice(
+                        tone = NoticeTone.INFO,
+                        icon = Lucide.CircleAlert,
+                        title = stringResource(R.string.receipt_all_left_out),
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                    TextAction(
+                        stringResource(R.string.receipt_delete),
+                        onClick = onDelete,
+                        enabled = canDelete,
+                        color = BudgetWiseTheme.colors.coralText,
+                    )
+                }
             }
             PrimaryButton(
                 text = stringResource(R.string.receipt_save),
@@ -338,7 +380,7 @@ private fun ReceiptFrame(
             Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (state.saveFailed) {
+            MotionReveal(visible = state.saveFailed) {
                 Notice(
                     tone = NoticeTone.ERROR,
                     icon = Lucide.CircleAlert,

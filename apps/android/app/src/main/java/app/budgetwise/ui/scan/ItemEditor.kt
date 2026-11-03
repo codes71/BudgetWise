@@ -1,6 +1,7 @@
 package app.budgetwise.ui.scan
 
 import androidx.annotation.PluralsRes
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -57,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import app.budgetwise.R
 import app.budgetwise.data.repo.ScanItem
 import app.budgetwise.ui.common.KyatGroupingTransformation
+import app.budgetwise.ui.common.BudgetMotion
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.categoryLabel
 import app.budgetwise.ui.common.formatKyat
@@ -153,7 +155,11 @@ private fun ItemRow(item: ScanItem, original: ScanItem, myanmarDigits: Boolean, 
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val left = item.quantity == 0
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    // Reveal the first previous-value note locally. The fields stay mounted, including a zero-count row.
+    Column(
+        Modifier.fillMaxWidth().animateContentSize(BudgetMotion.change()).padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             val name = type.size16.medium.forContent(item.name)
             Text(

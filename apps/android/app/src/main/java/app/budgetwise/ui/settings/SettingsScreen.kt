@@ -49,6 +49,8 @@ import app.budgetwise.ui.voice.waitsForWifi
 import app.budgetwise.ui.voice.rememberAskNotifications
 import app.budgetwise.ui.voice.voiceSize
 import app.budgetwise.currentAppLanguage
+import app.budgetwise.ui.common.MotionContent
+
 import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.KitSwitch
 import app.budgetwise.ui.common.Lucide
@@ -271,9 +273,12 @@ private fun SyncCard(state: SettingsUiState, now: Instant, onSyncNow: () -> Unit
 
     Card {
         Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text(if (sync.phase == SyncPhase.SYNCED) stringResource(R.string.settings_all_synced) else headline, style = type.size16.semibold, color = colors.ink)
-                if (supporting != null) Text(supporting, style = type.size13, color = colors.muted)
+            val syncCopy = Triple(sync.phase, if (sync.phase == SyncPhase.SYNCED) stringResource(R.string.settings_all_synced) else headline, supporting)
+            MotionContent(syncCopy, Modifier.weight(1f), label = "syncStatus", contentKey = { it.first }) { (_, title, detail) ->
+                Column {
+                    Text(title, style = type.size16.semibold, color = colors.ink)
+                    if (detail != null) Text(detail, style = type.size13, color = colors.muted)
+                }
             }
             if (state.sessionExpired) {
                 PrimaryButton(stringResource(R.string.session_sign_in), onSignIn, Modifier.widthIn(max = 160.dp), height = 48.dp)
@@ -435,7 +440,7 @@ private fun SignOutCard(signingOut: Boolean, onSignOut: () -> Unit, modifier: Mo
             modifier = Modifier.clickable(enabled = !signingOut, role = Role.Button, onClick = onSignOut),
         ) {
             Text(
-                stringResource(R.string.settings_sign_out),
+                stringResource(if (signingOut) R.string.motion_signing_out else R.string.settings_sign_out),
                 style = BudgetWiseTheme.type.size16.semibold,
                 color = colors.ink,
                 modifier = Modifier.weight(1f),

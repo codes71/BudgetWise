@@ -1,5 +1,6 @@
 package app.budgetwise.ui.manual
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -85,6 +86,8 @@ import app.budgetwise.ui.common.KitTextField
 import app.budgetwise.ui.common.KitFieldStyle
 import app.budgetwise.ui.common.KyatGroupingTransformation
 import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.BudgetMotion
+import app.budgetwise.ui.common.MotionReveal
 import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
 import app.budgetwise.ui.common.PrimaryButton
@@ -132,9 +135,15 @@ fun AddManualRoute(onDone: () -> Unit, onDelete: (String) -> Boolean = { false }
         onClose = onDone,
         onTypeChange = viewModel::onTypeChange,
         onAmountChange = viewModel::onAmountChange,
-        onCategoryChange = viewModel::onCategoryChange,
+        onCategoryChange = { category ->
+            val current = viewModel.state.value
+            if (current.type != TxType.INCOME && !current.busy && current.loaded) viewModel.onCategoryChange(category)
+        },
         onDescriptionChange = viewModel::onDescriptionChange,
-        onRecentPick = viewModel::onRecentPick,
+        onRecentPick = { entry ->
+            val current = viewModel.state.value
+            if (entry in current.recent && !current.busy && current.loaded) viewModel.onRecentPick(entry)
+        },
         onDateChange = viewModel::onDateChange,
         onSave = viewModel::save,
         onDelete = viewModel::delete,
@@ -203,7 +212,9 @@ fun AddManualScreen(
                 AmountField(state, editable, onAmountChange, amountFocus, onNext = { descriptionFocus.requestFocus() })
                 DescriptionField(state, editable, onDescriptionChange, onRecentPick, descriptionFocus, onDone = { keyboard?.hide() })
                 // Income always goes under "Income" (AddManualUiState.savedCategory), so only an expense asks.
-                if (state.type != TxType.INCOME) CategoryPicker(state, editable, onCategoryChange)
+                MotionReveal(visible = state.type != TxType.INCOME) {
+                    CategoryPicker(state, editable, onCategoryChange)
+                }
                 DayPicker(state, editable, onDateChange, onOtherDay = {
                     keyboard?.hide()
                     pickingDate = true
@@ -309,8 +320,16 @@ internal fun TypeSwitch(type: TxType, enabled: Boolean, onTypeChange: (TxType) -
     Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).selectableGroup()) {
         listOf(TxType.EXPENSE to R.string.manual_expense, TxType.INCOME to R.string.manual_income).forEach { (option, label) ->
             val selected = option == type
-            val container = if (selected) colors.raised else Color.Transparent
-            val content = if (selected) colors.accent else colors.muted
+            val container by animateColorAsState(
+                if (selected) colors.raised else Color.Transparent,
+                animationSpec = BudgetMotion.effects(),
+                label = "entryTypeContainer",
+            )
+            val content by animateColorAsState(
+                if (selected) colors.accent else colors.muted,
+                animationSpec = BudgetMotion.effects(),
+                label = "entryTypeContent",
+            )
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -481,7 +500,7 @@ private fun DescriptionField(
             },
         )
         val recent = state.recent
-        if (recent.isNotEmpty()) {
+        MotionReveal(visible = recent.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 recent.forEach { entry -> RecentChip(entry, state.myanmarDigits, enabled, onClick = { onRecentPick(entry) }) }
             }

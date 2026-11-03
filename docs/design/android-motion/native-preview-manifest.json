@@ -1,0 +1,23 @@
+{
+  "source": "actual Compose native render fixture",
+  "data": "synthetic microphone levels, no user audio",
+  "build": "Robolectric native graphics, not a device performance measurement",
+  "files": [
+    {
+      "file": "voice-synthetic-preview.mp4",
+      "sha256": "b8250a6559cdb4c81b865293502ec417218c5161b829b8fd454026c61f2949ac"
+    },
+    {
+      "file": "voice-silence.png",
+      "sha256": "5a5e090dfae92d125e002814f94305d5194cec14842f01ecec5093d102488355"
+    },
+    {
+      "file": "voice-observed-levels.png",
+      "sha256": "024f3f04e4c1a437d4fe7d92dddf273b3a6fff0418d33187dcbbccee99762e47"
+    },
+    {
+      "file": "voice-processing.png",
+      "sha256": "0d8b06c09885eb9748139da6bb1e5eb655d3b870fd096624b157f8ae5ff1354a"
+    }
+  ]
+}

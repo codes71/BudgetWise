@@ -1,6 +1,7 @@
 package app.budgetwise.ui.budgets
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,6 +49,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -55,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -78,6 +81,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
+import app.budgetwise.ui.common.BudgetMotion
+import app.budgetwise.ui.common.MotionContent
+import app.budgetwise.ui.common.MotionReveal
 import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.CategoryBadge
 import app.budgetwise.ui.common.FieldError
@@ -168,15 +174,34 @@ private val LakhChips = listOf(10L, 15L, 20L, 25L)
  */
 @Composable
 fun PlanEditorScreen(state: PlanEditorUiState, actions: PlanEditorActions, modifier: Modifier = Modifier) {
+    val currentStep = rememberUpdatedState(state.step)
+    val currentActions = rememberUpdatedState(actions)
     Column(
         modifier
             .fillMaxSize()
             .background(BudgetWiseTheme.colors.ground)
             .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime)),
     ) {
-        when (state.step) {
-            PlanStep.TOTAL -> TotalStep(state, actions)
-            PlanStep.SPLIT -> SplitStep(state, actions)
+        MotionContent(state, Modifier.fillMaxSize(), label = "planStep", contentKey = { it.step }) { stepState ->
+            // Render each picture from its snapshot, but only the current step can change the live form.
+            val stepActions = PlanEditorActions(
+                onClose = { if (currentStep.value == PlanStep.TOTAL) currentActions.value.onClose() },
+                onBack = { if (currentStep.value == PlanStep.SPLIT) currentActions.value.onBack() },
+                onNewMoneyChange = { if (currentStep.value == PlanStep.TOTAL) currentActions.value.onNewMoneyChange(it) },
+                onPickLakh = { if (currentStep.value == PlanStep.TOTAL) currentActions.value.onPickLakh(it) },
+                onCarryTicked = { if (currentStep.value == PlanStep.TOTAL) currentActions.value.onCarryTicked(it) },
+                onNext = { if (currentStep.value == PlanStep.TOTAL) currentActions.value.onNext() },
+                onOpenShare = { if (currentStep.value == PlanStep.SPLIT) currentActions.value.onOpenShare(it) },
+                onOpenAddCategory = { if (currentStep.value == PlanStep.SPLIT) currentActions.value.onOpenAddCategory() },
+                onRaiseMonth = { if (currentStep.value == PlanStep.SPLIT) currentActions.value.onRaiseMonth() },
+                onSave = { if (currentStep.value == PlanStep.SPLIT) currentActions.value.onSave() },
+            )
+            Column(Modifier.fillMaxSize()) {
+                when (stepState.step) {
+                    PlanStep.TOTAL -> TotalStep(stepState, stepActions)
+                    PlanStep.SPLIT -> SplitStep(stepState, stepActions)
+                }
+            }
         }
     }
     state.editing?.let { category ->
@@ -211,7 +236,7 @@ private fun ColumnScope.TotalStep(state: PlanEditorUiState, actions: PlanEditorA
             }
             return@Column
         }
-        if (state.stale) StaleNote(Modifier.padding(bottom = 20.dp))
+        MotionReveal(state.stale) { StaleNote(Modifier.padding(bottom = 20.dp)) }
         val label = when {
             state.carry != null -> stringResource(R.string.plan_new_money, name)
             state.isThisMonth -> stringResource(R.string.plan_how_much_this_month)
@@ -486,29 +511,44 @@ private fun ColumnScope.SplitStep(state: PlanEditorUiState, actions: PlanEditorA
     LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 16.dp)) {
         item(key = "left") { LeftToSplit(state) }
         itemsIndexed(state.shares, key = { _, share -> "share:${share.category}" }) { index, share ->
-            ShareRow(state, share, first = index == 0, onClick = { actions.onOpenShare(share.category) })
+            Box(Modifier.animateItem(fadeInSpec = BudgetMotion.effects(), placementSpec = BudgetMotion.change(), fadeOutSpec = null)) {
+                ShareRow(state, share, first = index == 0, onClick = { actions.onOpenShare(share.category) })
+            }
         }
         if (state.unshared.isNotEmpty()) {
-            item(key = "add") { AddCategoryRow(first = state.shares.isEmpty(), onClick = actions.onOpenAddCategory) }
+            item(key = "add") {
+                Box(Modifier.animateItem(fadeInSpec = BudgetMotion.effects(), placementSpec = BudgetMotion.change(), fadeOutSpec = null)) {
+                    AddCategoryRow(first = state.shares.isEmpty(), onClick = actions.onOpenAddCategory)
+                }
+            }
         }
         item(key = "everything_else") {
-            EverythingElseRow(state, first = state.shares.isEmpty() && state.unshared.isEmpty())
+            Box(Modifier.animateItem(fadeInSpec = BudgetMotion.effects(), placementSpec = BudgetMotion.change(), fadeOutSpec = null)) {
+                EverythingElseRow(state, first = state.shares.isEmpty() && state.unshared.isEmpty())
+            }
         }
     }
     Column(
         Modifier.fillMaxWidth().background(colors.ground).padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        val missing = state.missingShares.firstOrNull()
-        when {
-            state.over -> RaiseMonth(state, actions.onRaiseMonth)
-            missing != null -> Text(
-                stringResource(R.string.plan_share_missing, categoryLabel(missing)),
-                style = type.size14,
-                color = colors.coralText,
-                textAlign = TextAlign.Center,
-            )
+        MotionContent(
+            state,
+            label = "planValidation",
+            contentKey = { if (it.over) "over" else it.missingShares.firstOrNull() },
+        ) { noteState ->
+            val missing = noteState.missingShares.firstOrNull()
+            if (noteState.over || missing != null) {
+                Box(Modifier.padding(bottom = 12.dp)) {
+                    if (noteState.over) RaiseMonth(noteState, actions.onRaiseMonth)
+                    else if (missing != null) Text(
+                        stringResource(R.string.plan_share_missing, categoryLabel(missing)),
+                        style = type.size14,
+                        color = colors.coralText,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
         }
         PrimaryButton(
             text = if (state.saving) stringResource(R.string.manual_saving) else stringResource(R.string.plan_save, name),
@@ -517,7 +557,9 @@ private fun ColumnScope.SplitStep(state: PlanEditorUiState, actions: PlanEditorA
             busy = state.saving,
             modifier = Modifier.fillMaxWidth(),
         )
-        state.saveError?.let { error -> FieldError(saveErrorText(error, state.unknownCategory), Modifier.fillMaxWidth()) }
+        MotionContent(state.saveError to state.unknownCategory, Modifier.fillMaxWidth(), label = "planSaveError") { (error, category) ->
+            if (error != null) FieldError(saveErrorText(error, category), Modifier.fillMaxWidth().padding(top = 12.dp))
+        }
     }
 }
 
@@ -579,26 +621,44 @@ private fun SplitBar(state: PlanEditorUiState, modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
     val total = state.totalKyat.toFloat()
     val split = state.splitKyat.toFloat()
-    // Over the month, the shares are drawn in the month's part, so the coral end is the part that is too much.
+    // Match the existing segment proportions, including the coral part beyond the total.
+    val denominator = if (state.over) split else total
     val scale = if (state.over && split > 0f) total / split else 1f
-    Row(
-        modifier
-            .fillMaxWidth()
-            .height(10.dp)
-            .clip(RoundedCornerShape(5.dp))
-            .clearAndSetSemantics { },
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        state.shares.filter { it.amountKyat > 0 }.forEach { share ->
-            val weight = share.amountKyat * scale
-            if (weight > 0f) Box(Modifier.weight(weight).height(10.dp).background(categoryColors(share.category).content))
-        }
-        when {
-            state.over -> Box(Modifier.weight(split - total).height(10.dp).background(colors.coral))
-            state.unsplitKyat > 0 -> Box(Modifier.weight(state.unsplitKyat.toFloat()).height(10.dp).background(colors.raised))
-            state.shares.none { it.amountKyat > 0 } -> Box(Modifier.weight(1f).height(10.dp).background(colors.raised))
+    val segments = state.shares.map { share ->
+        key(share.category) {
+            val target = if (denominator > 0f) share.amountKyat * scale / denominator else 0f
+            categoryColors(share.category).content to animateFloatAsState(target, BudgetMotion.change(), label = "share:${share.category}")
         }
     }
+    val tail = animateFloatAsState(
+        if (denominator > 0f) {
+            (if (state.over) split - total else state.unsplitKyat.toFloat()).coerceAtLeast(0f) / denominator
+        } else 1f,
+        BudgetMotion.change(),
+        label = "unsplitProgress",
+    )
+    val tailColor = if (state.over) colors.coral else colors.raised
+    Box(
+        modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))
+            .background(colors.raised).clearAndSetSemantics { }
+            .drawBehind {
+                // Fractions are read only in draw, including during interrupted amount edits.
+                val count = segments.count { it.second.value > 0f } + if (tail.value > 0f) 1 else 0
+                val gap = 2.dp.toPx()
+                val width = (size.width - gap * (count - 1).coerceAtLeast(0)).coerceAtLeast(0f)
+                var x = 0f
+                segments.forEach { (color, fraction) ->
+                    if (fraction.value > 0f) {
+                        val segmentWidth = (width * fraction.value).coerceAtMost((size.width - x).coerceAtLeast(0f))
+                        drawRect(color, topLeft = Offset(x, 0f), size = Size(segmentWidth, size.height))
+                        x += segmentWidth + gap
+                    }
+                }
+                if (tail.value > 0f) {
+                    drawRect(tailColor, topLeft = Offset(x, 0f), size = Size((width * tail.value).coerceAtMost((size.width - x).coerceAtLeast(0f)), size.height))
+                }
+            },
+    )
 }
 
 /** A share: badge, name, last month's spending in it, and its amount in a box that opens the share sheet. */

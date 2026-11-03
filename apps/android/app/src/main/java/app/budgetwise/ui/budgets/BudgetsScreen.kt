@@ -49,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.budgetwise.R
 import app.budgetwise.data.model.Budget
 import app.budgetwise.data.model.MonthPlan
+import app.budgetwise.ui.common.BudgetMotion
 import app.budgetwise.ui.common.AppHeader
 import app.budgetwise.ui.common.CategoryBadge
 import app.budgetwise.ui.common.Lucide
@@ -148,7 +149,7 @@ fun BudgetsScreen(
         ) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp)) {
                 state.toCheck?.let { check ->
-                    item(key = "check") { CheckCard(check, state.myanmarDigits, onCheckMonth, Modifier.padding(top = 16.dp)) }
+                    item(key = "check") { CheckCard(check, state.myanmarDigits, onCheckMonth, Modifier.animateItem(fadeInSpec = BudgetMotion.effects(), placementSpec = BudgetMotion.change(), fadeOutSpec = null).padding(top = 16.dp)) }
                 }
                 val plan = state.plan
                 when {
@@ -156,10 +157,10 @@ fun BudgetsScreen(
                         item(key = "summary") { MonthSummary(state, plan, onEditPlan) }
                         // Keys apart from the fixed items' keys, whatever a category is called.
                         itemsIndexed(lines, key = { _, line -> "share:${line.category}" }) { index, line ->
-                            BudgetRow(line, state.myanmarDigits, first = index == 0, onClick = { onOpenCategory(line.category) })
+                            BudgetRow(line, state.myanmarDigits, first = index == 0, modifier = Modifier.animateItem(fadeInSpec = BudgetMotion.effects(), placementSpec = BudgetMotion.change(), fadeOutSpec = null), onClick = { onOpenCategory(line.category) })
                         }
                         state.everythingElse?.let { rest ->
-                            item(key = "everything_else") { BudgetRow(rest, state.myanmarDigits, first = lines.isEmpty(), everythingElse = true, onClick = { onOpenCategory(rest.category) }) }
+                            item(key = "everything_else") { BudgetRow(rest, state.myanmarDigits, first = lines.isEmpty(), everythingElse = true, modifier = Modifier.animateItem(fadeInSpec = BudgetMotion.effects(), placementSpec = BudgetMotion.change(), fadeOutSpec = null), onClick = { onOpenCategory(rest.category) }) }
                         }
                         item(key = "footer") {
                             Text(
@@ -324,7 +325,7 @@ private fun MonthSummary(state: BudgetsUiState, plan: MonthPlan, onEditPlan: () 
  * Everything else has the dashed wallet badge and a muted bar, for money no category has.
  */
 @Composable
-private fun BudgetRow(line: BudgetLine, myanmarDigits: Boolean, first: Boolean, everythingElse: Boolean = false, onClick: () -> Unit) {
+private fun BudgetRow(line: BudgetLine, myanmarDigits: Boolean, first: Boolean, modifier: Modifier = Modifier, everythingElse: Boolean = false, onClick: () -> Unit) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val name = if (everythingElse) stringResource(R.string.budgets_everything_else) else categoryLabel(line.category)
@@ -345,7 +346,7 @@ private fun BudgetRow(line: BudgetLine, myanmarDigits: Boolean, first: Boolean, 
     val footColor = if (line.over) colors.coralText else colors.muted
     val footStyle = if (line.over) type.size13.semibold else type.size13
     val spoken = "$name, ${spentOfLimitSpoken(line.spentKyat, line.limitKyat)}, " + leftSpoken(line.remainingKyat)
-    Column(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).clearAndSetSemantics { contentDescription = spoken; role = Role.Button }) {
+    Column(modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).clearAndSetSemantics { contentDescription = spoken; role = Role.Button }) {
         if (first) HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         Row(
             Modifier.fillMaxWidth().padding(vertical = 12.dp),

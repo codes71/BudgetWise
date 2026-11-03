@@ -2,8 +2,8 @@ package app.budgetwise.nav
 
 import android.net.Uri
 import androidx.annotation.StringRes
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -67,6 +68,8 @@ import app.budgetwise.ui.budgets.MonthEndRoute
 import app.budgetwise.ui.budgets.PlanEditorRoute
 import app.budgetwise.ui.budgets.PlanEditorViewModel
 import app.budgetwise.ui.budgets.rememberAskReminders
+import app.budgetwise.ui.common.BudgetMotion
+
 import app.budgetwise.ui.common.Lucide
 import app.budgetwise.ui.common.SyncChip
 import app.budgetwise.ui.common.sessionNoticeFor
@@ -410,8 +413,8 @@ fun AppNav(
             navController = navController,
             startDestination = start,
             modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
-            enterTransition = { fadeIn(tween(220)) },
-            exitTransition = { fadeOut(tween(150)) },
+            enterTransition = { fadeIn(BudgetMotion.change()) },
+            exitTransition = { fadeOut(BudgetMotion.effects()) },
         ) {
             fun enterApp() = navController.navigate(Routes.TRANSACTIONS) {
                 popUpTo(navController.graph.id) { inclusive = true }
@@ -697,6 +700,10 @@ private fun Tab(item: TopLevel, selected: Boolean, onTab: (String) -> Unit, modi
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
     val tint = if (selected) colors.accent else colors.muted
+    val indicator = animateColorAsState(
+        if (selected) colors.accent else androidx.compose.ui.graphics.Color.Transparent,
+        BudgetMotion.effects(), label = "tabIndicator",
+    )
     // The selected tab is sage, icon and label; no pill behind it.
     Column(
         modifier = modifier
@@ -706,7 +713,7 @@ private fun Tab(item: TopLevel, selected: Boolean, onTab: (String) -> Unit, modi
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(if (type.burmese) 0.dp else 4.dp, Alignment.CenterVertically),
     ) {
-        Box(Modifier.fillMaxWidth().height(2.dp).background(if (selected) colors.accent else androidx.compose.ui.graphics.Color.Transparent))
+        Box(Modifier.fillMaxWidth().height(2.dp).drawBehind { drawRect(indicator.value) })
         Icon(item.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
         Text(
             text = stringResource(item.label),

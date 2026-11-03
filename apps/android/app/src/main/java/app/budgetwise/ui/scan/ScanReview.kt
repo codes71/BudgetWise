@@ -54,6 +54,8 @@ import app.budgetwise.nlu.TxType
 import app.budgetwise.ui.common.BackHeader
 import app.budgetwise.ui.common.ConfirmDialog
 import app.budgetwise.ui.common.Lucide
+import app.budgetwise.ui.common.MotionContent
+import app.budgetwise.ui.common.MotionReveal
 import app.budgetwise.ui.common.Notice
 import app.budgetwise.ui.common.NoticeTone
 import app.budgetwise.ui.common.PrimaryButton
@@ -93,6 +95,7 @@ internal fun ScanReview(
     onPrice: (line: Int, item: Int, price: Long) -> Unit,
     onAddEntries: ((ReviewLine) -> String) -> Unit,
     onAddAsOne: (String) -> Unit,
+    active: Boolean = true,
 ) {
     val colors = BudgetWiseTheme.colors
     val type = BudgetWiseTheme.type
@@ -107,9 +110,9 @@ internal fun ScanReview(
     var leaving by rememberSaveable { mutableStateOf<ReviewExit?>(null) }
     val saving = state.saving
     fun leave(exit: ReviewExit) {
-        if (!saving) leaving = exit
+        if (active && !saving) leaving = exit
     }
-    BackHandler { leave(ReviewExit.BACK) }
+    BackHandler(enabled = active) { leave(ReviewExit.BACK) }
 
     // Save stays above the keyboard while a price is typed, and the items scroll above it too.
     Column(Modifier.fillMaxSize().background(colors.ground).windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))) {
@@ -138,30 +141,38 @@ internal fun ScanReview(
             )
             // A KPay history mixes money in and out and has no printed total: each row shows its own amount.
             if (state.kind != ScanKind.HISTORY) Total(state.shownTotal, state.myanmarDigits, Modifier.padding(top = 12.dp))
-            if (state.changedItems > 0) {
-                ChangedNote(R.plurals.scan_changed, state.scannedTotal, state.changedItems, state.myanmarDigits, Modifier.padding(top = 16.dp))
+            MotionContent(targetState = state, label = "scanChangedNote", contentKey = { it.changedItems > 0 }) { shown ->
+                if (shown.changedItems > 0) {
+                    ChangedNote(R.plurals.scan_changed, shown.scannedTotal, shown.changedItems, shown.myanmarDigits, Modifier.padding(top = 16.dp))
+                }
             }
-            state.shortBy?.let { short ->
-                Notice(
-                    tone = NoticeTone.ATTENTION,
-                    icon = Lucide.CircleAlert,
-                    title = stringResource(R.string.scan_short_title, groupDigits(short, state.myanmarDigits)),
-                    detail = stringResource(R.string.scan_short_detail, groupDigits(state.totalKyat ?: 0, state.myanmarDigits)),
-                    actionLabel = stringResource(R.string.scan_short_add),
-                    onAction = onAddShort,
-                    modifier = Modifier.padding(top = 24.dp),
-                )
-            }
-            // More than the printed total: a discount the read missed, or a price misread. The total above is what is
-            // saved, so the user can fix the item or save it as it is.
-            state.overBy?.let {
-                Notice(
-                    tone = NoticeTone.ATTENTION,
-                    icon = Lucide.CircleAlert,
-                    title = stringResource(R.string.scan_over_title, groupDigits(state.shownTotal, state.myanmarDigits)),
-                    detail = stringResource(R.string.scan_over_detail, groupDigits(state.totalKyat ?: 0, state.myanmarDigits)),
-                    modifier = Modifier.padding(top = 24.dp),
-                )
+            MotionContent(
+                targetState = state,
+                label = "scanTotalMismatch",
+                contentKey = { when { it.shortBy != null -> "short"; it.overBy != null -> "over"; else -> "matched" } },
+            ) { shown ->
+                shown.shortBy?.let { short ->
+                    Notice(
+                        tone = NoticeTone.ATTENTION,
+                        icon = Lucide.CircleAlert,
+                        title = stringResource(R.string.scan_short_title, groupDigits(short, shown.myanmarDigits)),
+                        detail = stringResource(R.string.scan_short_detail, groupDigits(shown.totalKyat ?: 0, shown.myanmarDigits)),
+                        actionLabel = stringResource(R.string.scan_short_add),
+                        onAction = onAddShort.takeIf { active && state.shortBy != null && !state.saving },
+                        modifier = Modifier.padding(top = 24.dp),
+                    )
+                }
+                // More than the printed total: a discount the read missed, or a price misread. The total above is what is
+                // saved, so the user can fix the item or save it as it is.
+                shown.overBy?.let {
+                    Notice(
+                        tone = NoticeTone.ATTENTION,
+                        icon = Lucide.CircleAlert,
+                        title = stringResource(R.string.scan_over_title, groupDigits(shown.shownTotal, shown.myanmarDigits)),
+                        detail = stringResource(R.string.scan_over_detail, groupDigits(shown.totalKyat ?: 0, shown.myanmarDigits)),
+                        modifier = Modifier.padding(top = 24.dp),
+                    )
+                }
             }
             if (receipt) {
                 ItemLines(
@@ -190,7 +201,7 @@ internal fun ScanReview(
             Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (state.saveFailed) {
+            MotionReveal(visible = state.saveFailed) {
                 Notice(
                     tone = NoticeTone.ERROR,
                     icon = Lucide.CircleAlert,

@@ -129,6 +129,28 @@ class ScanReviewTest {
         compose.onAllNodesWithText("2,400 Ks").assertCountEquals(2)
     }
 
+    @Test
+    fun zeroQuantityCanBeRestoredBeforeTheChangedNoteFinishesRevealing() {
+        showEditable(line("Groceries", ScanItem("Bread", 2200)))
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+
+        compose.onNodeWithContentDescription(context.getString(R.string.item_fewer)).performClick()
+        compose.mainClock.advanceTimeByFrame()
+        // Money is final immediately, even while the explanatory note and layout are in flight.
+        compose.onNode(hasContentDescription("Total, 0 kyat")).assertExists()
+        compose.onNodeWithText("Bread").assertExists()
+        compose.onNodeWithContentDescription(context.getString(R.string.item_more)).performClick()
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNode(hasContentDescription("Total, 2,200 kyat")).assertExists()
+
+        compose.mainClock.advanceTimeBy(500)
+        compose.mainClock.autoAdvance = true
+        compose.onNodeWithText("not added").assertDoesNotExist()
+        compose.onNodeWithText("You changed", substring = true).assertDoesNotExist()
+        compose.onAllNodesWithText("2,200 Ks").assertCountEquals(2)
+    }
+
     /** A receipt being checked, as the scan screen shows it, counting how often each way out was taken. */
     private var retakes = 0
     private var closes = 0
