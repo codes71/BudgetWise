@@ -106,6 +106,21 @@ object Lucide {
     /** Selected, done. */
     val Check by lazy { lucide("Check", "M20 6 9 17l-5-5") }
 
+    /** Arrow right: a primary button that goes on to the next step. */
+    val ArrowRightBold by lazy { lucide("ArrowRightBold", "M5 12h14", "m13 6 6 6-6 6", strokeWidth = 2.25f) }
+
+    /** Arrow up: raise the month's budget. */
+    val ArrowUpBold by lazy { lucide("ArrowUpBold", "M12 19V5", "m5 12 7-7 7 7", strokeWidth = 2.25f) }
+
+    /** Wallet: Everything else, the part of a month's budget no category has. */
+    val Wallet by lazy {
+        lucide(
+            "Wallet",
+            "M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1",
+            "M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4",
+        )
+    }
+
     /** Opens a picker or a collapsed row. */
     val ChevronDown by lazy { lucide("ChevronDown", "m6 9 6 6 6-6") }
 

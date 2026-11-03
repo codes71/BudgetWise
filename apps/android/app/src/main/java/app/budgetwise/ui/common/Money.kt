@@ -8,6 +8,7 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import app.budgetwise.R
 import app.budgetwise.nlu.TxType
+import kotlin.math.abs
 
 /** The largest amount the API takes: 2^53 - 1, the largest integer a JSON number holds exactly. */
 const val MAX_KYAT: Long = 9_007_199_254_740_991L
@@ -44,6 +45,35 @@ fun formatSignedKyat(amount: Long, type: TxType, myanmarDigits: Boolean = false)
 /** A net amount (a day's total, a change) with its sign written out: "+841,800", "−4,100", "0". */
 fun signedDigits(amount: Long, myanmarDigits: Boolean = false): String =
     if (amount > 0) "+${groupDigits(amount, myanmarDigits)}" else groupDigits(amount, myanmarDigits)
+
+/** 1 lakh, the unit people budget in: 100,000 Ks. */
+const val LAKH: Long = 100_000L
+
+/**
+ * [amountKyat] in lakh with at most one decimal and no ".0": 2,000,000 is "20", 2,280,000 is "22.8", 150,000 is "1.5".
+ * Rounded half up to the nearest 10,000 Ks; a thousand lakh and more are grouped like amounts ("1,250"). Myanmar
+ * digits with [myanmarDigits], the setting that governs amounts.
+ */
+fun lakhFigure(amountKyat: Long, myanmarDigits: Boolean = false): String {
+    val size = abs(amountKyat)
+    val tenths = size / 10_000 + if (size % 10_000 >= 5_000) 1 else 0
+    val text = buildString {
+        if (amountKyat < 0 && tenths > 0) append(MINUS)
+        append(groupDigits(tenths / 10))
+        if (tenths % 10 != 0L) append('.').append(tenths % 10)
+    }
+    return if (myanmarDigits) toMyanmarDigits(text) else text
+}
+
+/** "22.8 lakh"; Burmese puts the word first ("သိန်း ၂၂.၈"). */
+@Composable
+fun lakhText(amountKyat: Long, myanmarDigits: Boolean = false): String =
+    stringResource(R.string.lakh_amount, lakhFigure(amountKyat, myanmarDigits))
+
+/** A month's amount said short: in lakh from 1 lakh up ("22.8 lakh"), else as Ks ("50,000 Ks"), never "0.5 lakh". */
+@Composable
+fun shortKyat(amountKyat: Long, myanmarDigits: Boolean = false): String =
+    if (abs(amountKyat) >= LAKH) lakhText(amountKyat, myanmarDigits) else formatKyat(amountKyat, myanmarDigits)
 
 fun toMyanmarDigits(text: String): String =
     String(CharArray(text.length) { i -> text[i].let { if (it in '0'..'9') MYANMAR_ZERO + (it - '0') else it } })

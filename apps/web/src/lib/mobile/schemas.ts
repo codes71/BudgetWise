@@ -78,6 +78,45 @@ export const voiceParseRequestSchema = z.object({
     .pipe(z.array(z.string()).min(1)),
 });
 
+/** A calendar month, "YYYY-MM". */
+export const monthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+
+// The most months one GET /budget-months asks for, and the most shares one plan has.
+export const MAX_PLAN_MONTHS = 24;
+export const MAX_SHARES = 50;
+
+/** Months from `from` to `to`, counting both: 2026-01 to 2026-12 is 12. */
+export function monthCount(from: string, to: string): number {
+  const index = (month: string) => {
+    const [y, m] = month.split("-").map(Number);
+    return y * 12 + m;
+  };
+  return index(to) - index(from) + 1;
+}
+
+export const monthRangeSchema = z
+  .object({ from: monthSchema, to: monthSchema })
+  .refine(({ from, to }) => from <= to && monthCount(from, to) <= MAX_PLAN_MONTHS);
+
+const kyatOrZero = z.number().int().nonnegative().safe();
+
+export const monthShareSchema = z.object({
+  category: z.string().min(1).max(60),
+  limit: z.number().int().positive().safe(),
+});
+
+// The split (sum of shares) is checked separately: going over the total has its own error code.
+export const monthPlanInputSchema = z
+  .object({
+    newMoney: kyatOrZero,
+    carriedOver: kyatOrZero,
+    shares: z.array(monthShareSchema).max(MAX_SHARES),
+  })
+  .refine((p) => new Set(p.shares.map((s) => s.category)).size === p.shares.length, "a category appears at most once")
+  .refine((p) => p.newMoney + p.carriedOver > 0 && Number.isSafeInteger(p.newMoney + p.carriedOver), "total must be above 0");
+
+export const endCheckInputSchema = z.object({ onHand: kyatOrZero });
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type TransactionInputParsed = z.infer<typeof transactionInputSchema>;

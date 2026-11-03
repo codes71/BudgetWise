@@ -132,12 +132,62 @@ class MigrationTest {
     }
 
     @Test
+    fun migration5To6KeepsEveryRowAndAddsAnEmptyMonthPlanTable() {
+        helper.createDatabase("mig6", 5).apply {
+            execSQL(
+                "INSERT INTO tx (clientId, ownerId, serverId, type, amountKyat, category, description, date, source, " +
+                    "transcript, updatedAt, syncState, deleted, receiptId, merchant, items) VALUES ('c1', 'u1', NULL, " +
+                    "'EXPENSE', 1200, 'Other', 'tea', '2026-10-21', 'SCAN', NULL, 1000, 'SYNCED', 0, 'r1', 'Shop', '[]')",
+            )
+            execSQL("INSERT INTO outbox (op, clientId, ownerId, attempts) VALUES ('CREATE', 'c1', 'u1', 2)")
+            execSQL("INSERT INTO budget (ownerId, category, limitKyat) VALUES ('u1', 'Groceries', 150000)")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate("mig6", 6, true, MIGRATION_5_6)
+
+        db.query("SELECT clientId, amountKyat, receiptId, merchant FROM tx").use {
+            assertEquals(1, it.count)
+            it.moveToFirst()
+            assertEquals("c1", it.getString(0))
+            assertEquals(1200L, it.getLong(1))
+            assertEquals("r1", it.getString(2))
+            assertEquals("Shop", it.getString(3))
+        }
+        db.query("SELECT attempts FROM outbox").use { it.moveToFirst(); assertEquals(2, it.getInt(0)) }
+        db.query("SELECT ownerId, category, limitKyat FROM budget").use {
+            it.moveToFirst()
+            assertEquals("u1", it.getString(0))
+            assertEquals(150000L, it.getLong(2))
+        }
+        db.query("SELECT COUNT(*) FROM budget_month").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+        db.execSQL(
+            "INSERT INTO budget_month (ownerId, month, newMoneyKyat, carriedOverKyat, shares, endCheckOnHandKyat, endCheckAt) " +
+                "VALUES ('u1', '2026-11', 2000000, 280000, '[]', NULL, NULL)",
+        )
+        // A second account can have the same month; the same account replaces it.
+        db.execSQL(
+            "INSERT INTO budget_month (ownerId, month, newMoneyKyat, carriedOverKyat, shares) VALUES ('u2', '2026-11', 1, 0, '[]')",
+        )
+        db.execSQL(
+            "INSERT OR REPLACE INTO budget_month (ownerId, month, newMoneyKyat, carriedOverKyat, shares) " +
+                "VALUES ('u1', '2026-11', 3, 0, '[]')",
+        )
+        db.query("SELECT ownerId, newMoneyKyat FROM budget_month ORDER BY ownerId").use {
+            assertEquals(2, it.count)
+            it.moveToFirst()
+            assertEquals("u1", it.getString(0))
+            assertEquals(3L, it.getLong(1))
+        }
+    }
+
+    @Test
     fun aVersion1DatabaseMigratesAllTheWay() {
         helper.createDatabase("mig13", 1).apply {
             execSQL("INSERT INTO outbox (op, clientId, attempts) VALUES ('CREATE', 'c1', 0)")
             close()
         }
-        val db = helper.runMigrationsAndValidate("mig13", 5, true, MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+        val db = helper.runMigrationsAndValidate("mig13", 6, true, MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
         db.query("SELECT COUNT(*) FROM outbox WHERE ownerId IS NULL").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
     }
 }

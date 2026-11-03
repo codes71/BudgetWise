@@ -10,6 +10,8 @@
     <!-- Receipt scanning takes the photo in the app. Phones without a camera can still choose a photo. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- The month-end budget reminder; asked for after the first plan is saved. Without it nothing is posted. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".BudgetWiseApp"
@@ -31,6 +33,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- "Remind me tonight" on the month-end notification; only its PendingIntent reaches it. -->
+        <receiver
+            android:name=".reminders.RemindTonightReceiver"
+            android:exported="false" />
 
         <!-- WorkManager is initialized on demand by BudgetWiseApp (Configuration.Provider with the Hilt worker factory). -->
         <provider

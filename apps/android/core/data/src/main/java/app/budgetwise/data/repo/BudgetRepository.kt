@@ -29,6 +29,7 @@ class BudgetRepository @Inject constructor(
     private val dao: BudgetDao,
     private val api: ApiService,
     private val session: SessionManager,
+    private val writes: CacheWrites,
 ) {
     fun observe(): Flow<List<Budget>> = session.activeUserId.flatMapLatest { owner ->
         if (owner == null) flowOf(emptyList()) else dao.observeAll(owner).map { rows -> rows.map { it.toDomain() } }
@@ -36,17 +37,17 @@ class BudgetRepository @Inject constructor(
 
     /**
      * Replaces the active account's cache with the server list, fetched with that account's token. On any failure the
-     * cache is left as it was; without a valid token nothing is sent.
+     * cache is left as it was; without a valid token nothing is sent. An answer that a save of this month's plan
+     * overtook ([MonthPlanRepository] writes its shares here) is dropped.
      */
     suspend fun refresh(): ApiResult<Unit> {
         val owner = session.activeUserId.value ?: return NOT_SIGNED_IN
         val token = session.bearerFor(owner) ?: return NOT_SIGNED_IN
+        val since = writes.generation(owner, CacheWrites.Table.BUDGETS)
         return when (val r = safeApi { api.budgets(authorization(token)) }) {
             is ApiResult.Ok -> {
-                dao.replaceAll(
-                    owner,
-                    r.v.budgets.mapNotNull { dto -> toKyat(dto.limit)?.let { BudgetEntity(ownerId = owner, category = dto.category, limitKyat = it) } },
-                )
+                val rows = r.v.budgets.mapNotNull { dto -> toKyat(dto.limit)?.let { BudgetEntity(ownerId = owner, category = dto.category, limitKyat = it) } }
+                writes.writeIfUnchanged(owner, CacheWrites.Table.BUDGETS, since) { dao.replaceAll(owner, rows) }
                 ApiResult.Ok(Unit)
             }
             is ApiResult.Unauthorized -> {
