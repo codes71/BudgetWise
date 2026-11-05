@@ -34,6 +34,14 @@ Why foreground execution: the requested pack is large and may take longer than a
 
 Demonstration checklist: start the download from the actual app, show the in-app progress, show the ongoing Android notification, return to the app and cancel. Use the exact release implementation and a supported device. Upload the resulting video to an owner-approved, reviewer-accessible location and paste its link in the Console. A locally recorded file is not yet a reviewer-accessible link. [Google FGS guidance](https://support.google.com/googleplay/android-developer/answer/13392821).
 
+Prepared demonstration URL: **https://budgetwis3.vercel.app/play/voice-model-download-demo.mp4**. Verify that it is publicly reachable before entering it in the Console. This is an unedited 22.15-second recording of the actual download/progress/ongoing-notification/Cancel flow on an API 35 emulator. It uses an optimized QA build with the same Android runtime source as release 0.2.1, a local API override for synthetic sign-in, and debug signing. It is not footage of the exact Play-delivered binary. The speech-model download itself uses the real public model host. No credentials, financial records, microphone audio or AI-provider request appear in the recording. If Google asks for exact-production-binary footage, capture that separately with an authorized test account.
+
+## New-account verification
+
+The account was created, but the observed Console dashboard disables **Create app** until account verification is complete. The owner must finish identity-document verification, trader-status declaration, real Android-device verification using the Play Console mobile app, and contact-phone verification after Google approves the identity documents.
+
+Trader status is a separate owner declaration about commercial activity. A personal account does not automatically mean non-trader. If declaring as a trader, Google requires additional self-certification and app terms-of-service links, and describes which contact information becomes public. Review the actual prompts and [Google's trader-status guidance](https://support.google.com/googleplay/android-developer/answer/17594752); this preparation does not make that declaration for the owner.
+
 ## App access and remaining declarations
 
 - Provide Google with a dedicated working reviewer account through the Console's App access form. Do not use the owner's account or place credentials in source or public artifacts. Check login and account-restricted flows before submission.
