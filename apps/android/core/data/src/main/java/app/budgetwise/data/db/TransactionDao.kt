@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TransactionDao {
+    @Query("DELETE FROM tx WHERE ownerId = :owner")
+    suspend fun deleteFor(owner: String)
+
     @Query("SELECT * FROM tx WHERE ownerId = :owner AND deleted = 0 ORDER BY date DESC, updatedAt DESC")
     fun observeAll(owner: String): Flow<List<TransactionEntity>>
 

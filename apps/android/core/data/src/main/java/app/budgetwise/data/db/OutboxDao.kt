@@ -6,6 +6,9 @@ import androidx.room.Query
 
 @Dao
 interface OutboxDao {
+    @Query("DELETE FROM outbox WHERE ownerId = :owner")
+    suspend fun deleteFor(owner: String)
+
     @Insert
     suspend fun enqueue(o: OutboxEntity)
 

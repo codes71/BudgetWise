@@ -1,13 +1,15 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { SignJWT, jwtVerify, decodeJwt } from "jose";
 import * as z from "zod/v4";
 import { signMobileToken, verifyMobileToken } from "@/lib/mobile/token";
 import { requireUser } from "@/lib/mobile/bearer";
 import { ApiError, handle } from "@/lib/mobile/errors";
 import { req } from "../helpers/request";
+import { clearDb, seedAccount, testDb } from "../helpers/db";
 
 const secret = () => new TextEncoder().encode(process.env.JWT_SECRET!);
 const ORIGINAL = process.env.JWT_SECRET;
+beforeEach(clearDb);
 afterEach(() => {
   process.env.JWT_SECRET = ORIGINAL;
 });
@@ -102,8 +104,17 @@ describe("mobile token", () => {
 
 describe("requireUser", () => {
   it("accepts a valid bearer token", async () => {
+    await seedAccount("u1", "a@b.com");
     const { token } = await signMobileToken({ id: "u1", email: "a@b.com" });
     expect(await requireUser(req("GET", "/x", { token }))).toEqual({ userId: "u1", email: "a@b.com" });
+  });
+
+  it("rejects otherwise valid tokens for missing or deleting accounts", async () => {
+    const { token } = await signMobileToken({ id: "u1", email: "a@b.com" });
+    await expect(requireUser(req("GET", "/x", { token }))).rejects.toMatchObject({ status: 401 });
+    await seedAccount("u1", "a@b.com");
+    await testDb().collection("users").doc("u1").update({ deletionStartedAt: new Date() });
+    await expect(requireUser(req("GET", "/x", { token }))).rejects.toMatchObject({ status: 401 });
   });
 
   it("rejects missing, malformed and non-Bearer headers with 401", async () => {

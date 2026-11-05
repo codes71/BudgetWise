@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.Flow
 /** Months are `YYYY-MM` text, so BETWEEN and ORDER BY compare them in calendar order. */
 @Dao
 interface MonthPlanDao {
+    @Query("DELETE FROM budget_month WHERE ownerId = :owner")
+    suspend fun deleteFor(owner: String)
+
     @Query("SELECT * FROM budget_month WHERE ownerId = :owner AND month = :month")
     fun observe(owner: String, month: YearMonth): Flow<MonthPlanEntity?>
 

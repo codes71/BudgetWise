@@ -1,6 +1,7 @@
 import type { DocumentSnapshot } from "firebase-admin/firestore";
 import { ALREADY_EXISTS, NOT_FOUND, db, errorCode, isDocId, sha256Hex, toDate, userDoc } from "@/lib/firestore";
 import type { UserPayload } from "@/lib/types";
+import { requireActiveAccount } from "@/lib/account-access";
 
 export interface UserRecord {
   id: string;
@@ -12,6 +13,7 @@ export interface UserRecord {
   profilePhotoUrl?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
+  deletionStartedAt?: Date;
 }
 
 export function normalizeEmail(raw: string): { email: string; emailLower: string } {
@@ -34,6 +36,7 @@ function fromSnapshot(snap: DocumentSnapshot): UserRecord {
     profilePhotoUrl: d.profilePhotoUrl,
     createdAt: toDate(d.createdAt),
     updatedAt: toDate(d.updatedAt),
+    deletionStartedAt: toDate(d.deletionStartedAt),
   };
 }
 
@@ -89,9 +92,12 @@ export async function updateUserProfile(
 ): Promise<UserRecord | null> {
   if (!isDocId(userId)) return null;
   try {
-    await userDoc(userId).update({ ...fields, updatedAt: new Date() });
+    await db().runTransaction(async (tx) => {
+      await requireActiveAccount(userId, tx);
+      tx.update(userDoc(userId), { ...fields, updatedAt: new Date() });
+    });
   } catch (err) {
-    if (errorCode(err) === NOT_FOUND) return null;
+    if (errorCode(err) === NOT_FOUND || (err as { status?: number }).status === 401) return null;
     throw err;
   }
   return getUserById(userId);

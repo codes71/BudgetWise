@@ -1,6 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { db, sha256Hex } from "@/lib/firestore";
 import { ApiError } from "./errors";
+import { requireAccountRecord, requireActiveAccount } from "@/lib/account-access";
 
 export interface RateLimitOptions {
   limit: number;
@@ -15,6 +16,13 @@ async function hit(key: string, windowSec: number): Promise<{ count: number; exp
   const ref = db().collection("rateLimits").doc(sha256Hex(key));
   return db().runTransaction(
     async (tx) => {
+      // `<purpose>:user:<uid>` keys are exclusively account-owned. Read the same root that deletion locks/removes
+      // inside this transaction, so an earlier successful bearer check cannot recreate counters after deletion.
+      const owner = /^[^:]+:user:(.+)$/.exec(key)?.[1];
+      if (owner) {
+        if (key.startsWith("delete-account:user:")) await requireAccountRecord(owner, tx);
+        else await requireActiveAccount(owner, tx);
+      }
       const snap = await tx.get(ref);
       const now = Date.now();
       const prev = snap.data();

@@ -25,6 +25,8 @@ data class SavedAccount(
     val access: AccessToken?,
     val check: PasswordCheck? = null,
     val signedOut: Boolean = false,
+    /** Encrypted deletion-attempt token, separate from sync access so a lost DELETE reply can be retried after 401. */
+    val deletionAccess: AccessToken? = null,
 )
 
 /** Every account on this phone, and which one the screens show ([activeId], null when signed out). */

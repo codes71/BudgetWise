@@ -6,6 +6,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.HTTP
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -24,6 +25,10 @@ interface ApiService {
     /** Creates the account (as the web signup does) and signs it in: the same reply as [login]. 409 email_taken. */
     @POST("auth/register")
     suspend fun register(@Body body: RegisterBody): TokenResponse
+
+    /** Current password is required; only 204 confirms account and associated server data are deleted. */
+    @HTTP(method = "DELETE", path = "account", hasBody = true)
+    suspend fun deleteAccount(@Header(AUTHORIZATION) auth: String, @Body body: DeleteAccountBody): Response<Unit>
 
     @GET("categories")
     suspend fun categories(@Header(AUTHORIZATION) auth: String): CategoriesResponse
@@ -135,6 +140,11 @@ data class LoginBody(val email: String, val password: String)
 
 @Serializable
 data class RegisterBody(val email: String, val password: String, val fullName: String)
+
+@Serializable
+class DeleteAccountBody(val password: String) {
+    override fun toString() = "DeleteAccountBody(password=<redacted>)"
+}
 
 @Serializable
 data class UserDto(val id: String, val email: String, val fullName: String? = null)

@@ -1,6 +1,7 @@
 import type { DocumentSnapshot } from "firebase-admin/firestore";
 import { ALREADY_EXISTS, NOT_FOUND, db, errorCode, isDocId, toDate, userDoc } from "@/lib/firestore";
 import { toTransactionDto, type LeanTransaction, type TransactionDto, type TransactionInput } from "./dto";
+import { requireActiveAccount } from "@/lib/account-access";
 
 // Firestore caps `in` filters at 30 values.
 const IN_LIMIT = 30;
@@ -34,6 +35,7 @@ async function createMissing(userId: string, items: TransactionInput[]): Promise
   const clientIds = [...byClientId.keys()];
 
   return db().runTransaction(async (tx) => {
+    await requireActiveAccount(userId, tx);
     const found = new Map<string, LeanTransaction>();
     for (const snap of await tx.getAll(...clientIds.map((id) => col.doc(id)))) {
       if (snap.exists) found.set(snap.id, toLeanTransaction(snap));
@@ -95,8 +97,13 @@ export async function listSince(userId: string, since?: Date): Promise<Transacti
 export async function removeOne(userId: string, id: string): Promise<boolean> {
   if (!isDocId(id)) return false;
   try {
-    await transactionsCol(userId).doc(id).delete({ exists: true });
-    return true;
+    return await db().runTransaction(async (tx) => {
+      await requireActiveAccount(userId, tx);
+      const ref = transactionsCol(userId).doc(id);
+      if (!(await tx.get(ref)).exists) return false;
+      tx.delete(ref);
+      return true;
+    });
   } catch (err) {
     if (errorCode(err) === NOT_FOUND) return false;
     throw err;

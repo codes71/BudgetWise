@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearDb, testDb } from "../helpers/db";
+import { clearDb, seedAccount, testDb } from "../helpers/db";
 import { yangonMonth } from "@/lib/budgets";
 
 const { userId } = vi.hoisted(() => ({ userId: `budget${Date.now()}` }));
@@ -29,6 +29,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await clearDb();
+  await seedAccount(userId, "web@x.com");
 });
 
 describe("setBudget", () => {

@@ -1,7 +1,7 @@
 // src/context/auth-context.tsx
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode, Dispatch, SetStateAction } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode, Dispatch, SetStateAction } from 'react';
 import { getCategories, getBudgets, getTransactions } from '@/app/db-actions';
 import { getUserDetails } from '@/app/actions'; // New import for fetching user details
 import { verifySession } from '@/lib/auth';
@@ -26,6 +26,7 @@ interface AuthContextType {
   setCategories: Dispatch<SetStateAction<string[]>>;
   fetchUserData: () => Promise<void>;
   handleLogin: (user: UserPayload) => Promise<void>;
+  clearDeletedAccount: (userId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -43,10 +44,23 @@ const AuthContext = createContext<AuthContextType>({
   setCategories: () => {},
   fetchUserData: async () => {},
   handleLogin: async () => {},
+  clearDeletedAccount: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserPayload | null>(null);
+  const [user, setUserState] = useState<UserPayload | null>(null);
+  const currentUser = useRef<UserPayload | null>(null);
+  const identityEpoch = useRef(0);
+  const deletedIdentities = useRef(new Set<string>());
+  // Keep identity current synchronously, including when React batches a new
+  // login with completion of a previous account's deletion or data request.
+  const setUser = useCallback<Dispatch<SetStateAction<UserPayload | null>>>((value) => {
+    const next = typeof value === 'function' ? value(currentUser.current) : value;
+    if (next && deletedIdentities.current.has(next.userId)) return;
+    if (next?.userId !== currentUser.current?.userId) identityEpoch.current++;
+    currentUser.current = next;
+    setUserState(next);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState<Currency>('INR');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -54,6 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [categories, setCategories] = useState<string[]>([]);
 
   const fetchUserData = async () => {
+    const owner = currentUser.current?.userId;
+    const epoch = identityEpoch.current;
+    if (!owner) return;
     try {
       const [fetchedCategories, fetchedBudgets, fetchedTransactions, userDetails] = await Promise.all([
         getCategories(),
@@ -61,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         getTransactions(),
         getUserDetails(),
       ]);
+      if (currentUser.current?.userId !== owner || identityEpoch.current !== epoch) return;
       setCategories(fetchedCategories);
       setBudgets(fetchedBudgets);
       setTransactions(fetchedTransactions);
@@ -81,12 +99,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function checkSessionAndFetchData() {
+      const epoch = identityEpoch.current;
       try {
         const sessionUser = await verifySession();
+        if (identityEpoch.current !== epoch || (sessionUser && deletedIdentities.current.has(sessionUser.userId))) return;
         if (sessionUser) {
           if (sessionUser.isGuest) {
             fetchGuestUserData(sessionUser);
           } else {
+            setUser(sessionUser);
             await fetchUserData();
           }
         } else {
@@ -118,6 +139,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await performSignOut(redirectTo);
   };
 
+  const clearDeletedAccount = (userId: string) => {
+    deletedIdentities.current.add(userId);
+    if (currentUser.current?.userId !== userId) return;
+    setUser(null);
+    setTransactions([]);
+    setBudgets([]);
+    setCategories([]);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -135,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCategories,
         fetchUserData,
         handleLogin,
+        clearDeletedAccount,
       }}
     >
       {children}

@@ -8,7 +8,15 @@ const HOMEBREW_MONGOD = "/opt/homebrew/bin/mongod";
 const systemBinary =
   process.env.MONGOMS_SYSTEM_BINARY ?? (fs.existsSync(HOMEBREW_MONGOD) ? HOMEBREW_MONGOD : undefined);
 
+// Separate test runs can share the emulator without clearing the dev app's
+// database. The override is deliberately restricted to emulator-only projects.
+const testProjectId = process.env.BUDGETWISE_TEST_PROJECT_ID ?? "demo-budgetwise";
+if (!/^demo-[a-z0-9-]+$/.test(testProjectId)) {
+  throw new Error("BUDGETWISE_TEST_PROJECT_ID must be an emulator-only demo- project");
+}
+
 export default defineConfig({
+  esbuild: { jsx: "automatic" },
   resolve: {
     alias: { "@": path.resolve(__dirname, "src") },
   },
@@ -24,7 +32,7 @@ export default defineConfig({
     env: {
       JWT_SECRET: "test-only-jwt-secret-0123456789abcdef-0123456789",
       FIRESTORE_EMULATOR_HOST: "127.0.0.1:8085",
-      FIREBASE_PROJECT_ID: "demo-budgetwise",
+      FIREBASE_PROJECT_ID: testProjectId,
       ...(systemBinary ? { MONGOMS_SYSTEM_BINARY: systemBinary } : {}),
     },
   },

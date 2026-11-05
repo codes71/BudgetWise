@@ -101,6 +101,19 @@ fun VoiceRoute(
     onSaved: () -> Unit,
     viewModel: VoiceViewModel = hiltViewModel(),
 ) {
+    CloudAiConsentGate(CloudAiFeature.VOICE, onClose, onTypeInstead) {
+        VoiceAcceptedRoute(onClose, onTypeInstead, onSaved, viewModel)
+    }
+}
+
+/** NeedMic stays queued in the ViewModel until the disclosure's affirmative action mounts this route. */
+@Composable
+private fun VoiceAcceptedRoute(
+    onClose: () -> Unit,
+    onTypeInstead: () -> Unit,
+    onSaved: () -> Unit,
+    viewModel: VoiceViewModel,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = LocalActivity.current
@@ -290,7 +303,7 @@ private fun ListeningScreen(state: VoiceUiState, actions: VoiceActions) {
                 Box(Modifier.size(72.dp).clip(CircleShape).background(if (listening) colors.sageFill else colors.raised), contentAlignment = Alignment.Center) {
                     Icon(Lucide.CheckBold, contentDescription = null, tint = if (listening) colors.onSageFill else colors.disabled, modifier = Modifier.size(28.dp))
                 }
-                Text(stringResource(R.string.voice_done), style = type.size14.semibold, color = if (listening) colors.ink else colors.disabled)
+                Text(stringResource(R.string.privacy_voice_finish), style = type.size14.semibold, color = if (listening) colors.ink else colors.disabled)
             }
             RecordingAction(Lucide.Pencil, stringResource(R.string.voice_type_instead), actions.onTypeInstead, Modifier.weight(1f))
         }
@@ -327,7 +340,8 @@ internal fun StaysOnPhone(modifier: Modifier = Modifier) {
     val colors = BudgetWiseTheme.colors
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Icon(Lucide.Smartphone, contentDescription = null, tint = colors.muted, modifier = Modifier.size(14.dp))
-        Text(stringResource(R.string.voice_stays_on_phone), style = BudgetWiseTheme.type.size13, color = colors.muted)
+        val notice = stringResource(R.string.privacy_voice_notice)
+        Text(notice, style = BudgetWiseTheme.type.size13.forContent(notice), color = colors.muted)
     }
 }
 

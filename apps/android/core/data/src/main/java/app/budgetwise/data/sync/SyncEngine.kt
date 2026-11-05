@@ -153,6 +153,9 @@ class SyncEngine @Inject constructor(
      */
     val lastResult: StateFlow<SyncStatus.LastResult?> = _lastResult.asStateFlow()
 
+    /** Deletion waits for a run to finish and prevents any late pull from restoring deleted rows. */
+    suspend fun <T> withoutSync(action: suspend () -> T): T = mutex.withLock { action() }
+
     suspend fun syncOnce(fullPull: Boolean = false): SyncOutcome = mutex.withLock {
         val before = _status.value
         _status.value = SyncStatus.Running

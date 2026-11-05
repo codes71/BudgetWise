@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearDb, newUserId, testDb } from "../helpers/db";
+import { clearDb, newUserId, seedAccount, testDb } from "../helpers/db";
 
 const { userId } = vi.hoisted(() => ({ userId: `web${Date.now()}` }));
 
@@ -25,6 +25,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await clearDb();
+  await seedAccount(userId, "web@x.com");
 });
 
 describe("addTransaction", () => {

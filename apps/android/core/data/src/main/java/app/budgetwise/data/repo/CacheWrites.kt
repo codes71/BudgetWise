@@ -18,21 +18,29 @@ class CacheWrites @Inject constructor() {
 
     private val mutex = Mutex()
     private val generations = HashMap<Pair<String, Table>, Long>()
+    private val removedOwners = HashSet<String>()
 
     suspend fun generation(owner: String, table: Table): Long = mutex.withLock { current(owner, table) }
 
     /** Writes a save's answer; any refresh of [tables] that started before it then drops its own. */
-    suspend fun <T> writeSaved(owner: String, tables: Collection<Table>, write: suspend () -> T): T = mutex.withLock {
-        val result = write()
+    suspend fun writeSaved(owner: String, tables: Collection<Table>, write: suspend () -> Unit) = mutex.withLock {
+        if (owner in removedOwners) return@withLock
+        write()
         for (table in tables) generations[owner to table] = current(owner, table) + 1
-        result
     }
 
     /** Writes a refresh's answer only if nothing was saved to [table] since [since]; false when it was dropped. */
     suspend fun writeIfUnchanged(owner: String, table: Table, since: Long, write: suspend () -> Unit): Boolean = mutex.withLock {
-        if (current(owner, table) != since) return@withLock false
+        if (owner in removedOwners || current(owner, table) != since) return@withLock false
         write()
         true
+    }
+
+    /** Older in-flight saves and refreshes must never repopulate a deleted account's cache. */
+    suspend fun removeOwner(owner: String, remove: suspend () -> Unit) = mutex.withLock {
+        removedOwners += owner
+        remove()
+        generations.keys.removeAll { it.first == owner }
     }
 
     private fun current(owner: String, table: Table): Long = generations[owner to table] ?: 0L

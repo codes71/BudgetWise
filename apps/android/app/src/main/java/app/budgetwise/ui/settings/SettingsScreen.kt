@@ -105,6 +105,7 @@ fun SettingsRoute(
         onLanguage = onLanguage,
         version = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
         updateContent = { AppUpdateSection(state.myanmarDigits) },
+        accountContent = { AccountPrivacySection(state.account != null) },
     )
 }
 
@@ -126,6 +127,7 @@ fun SettingsScreen(
     version: String,
     modifier: Modifier = Modifier,
     updateContent: @Composable () -> Unit = {},
+    accountContent: @Composable () -> Unit = {},
 ) {
     val colors = BudgetWiseTheme.colors
     Column(modifier.fillMaxSize().background(colors.ground)) {
@@ -151,6 +153,7 @@ fun SettingsScreen(
                     item(key = "sign-out") { SignOutCard(state.signingOut, onSignOut) }
                 }
                 item(key = "updates") { updateContent() }
+                item(key = "privacy") { accountContent() }
                 item(key = "about") {
                     Box(Modifier.fillMaxWidth().padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
                         Text(version, style = BudgetWiseTheme.type.size12, color = colors.muted)

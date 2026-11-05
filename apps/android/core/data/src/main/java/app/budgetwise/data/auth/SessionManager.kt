@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 /** The active account, as the screens see it. */
 sealed interface SessionState {
@@ -39,9 +41,9 @@ class PendingSignIn internal constructor(val user: UserInfo, val password: Strin
  * Every account on this phone, in memory, and which one is active. Call [load] once at startup; afterwards
  * [bearerFor] is a plain memory read and is safe to call from any thread.
  *
- * Accounts are never removed: an account's entries keep it as their owner, and its offline password check keeps
- * offline sign-in working after sign-out. Each account has its own session, so an inactive account can still push
- * its outbox with its own token. Every change is saved to the [TokenStore] before it shows in memory.
+ * Ordinary sign-out keeps accounts, entries and offline password checks. Explicit server-confirmed deletion removes
+ * only that account. Each retained account has its own session, so an inactive account can still push its outbox with
+ * its own token. Every change is saved to the [TokenStore] before it shows in memory.
  */
 @Singleton
 class SessionManager @Inject constructor(
@@ -70,10 +72,22 @@ class SessionManager @Inject constructor(
      * The active account's user, kept after its token expires (null after sign-out or on a fresh install). Sign-in
      * fills in their email and greets them back.
      */
-    val knownUser: UserInfo? get() = saved.active?.user
+    val knownUser: UserInfo? get() = saved.active?.user?.takeUnless { it.id in removedIds }
 
     /** Serializes sign-in, sign-out and 401 handling so a late 401 cannot overwrite a fresh sign-in. */
     private val mutex = Mutex()
+    @Volatile private var deletingId: String? = null
+    @Volatile private var removedIds: Set<String> = emptySet()
+
+    /** New local entries must not race a confirmed account deletion. Reads remain available until completion. */
+    val writableUserId: String? get() = saved.activeId?.takeUnless { it == deletingId || it in removedIds }
+    fun wasDeleted(userId: String): Boolean = userId in removedIds
+
+    /** Startup installs confirmed-deletion receipts before loading saved sessions. Never persist a partial load. */
+    fun quarantineConfirmedDeletions(owners: Set<String>) = synchronized(lock) {
+        removedIds = removedIds + owners
+        publish(saved, pending.filterKeys { it !in removedIds })
+    }
 
     suspend fun load() = mutex.withLock {
         publish(store.load(), pending)
@@ -85,8 +99,9 @@ class SessionManager @Inject constructor(
      * with that email can only reach this account.
      */
     suspend fun signIn(token: String, expiresAt: Instant, user: UserInfo, check: PasswordCheck? = null) = mutex.withLock {
+        kotlin.check(user.id !in removedIds) { "This account was deleted" }
         val previous = saved.byId(user.id)
-        val account = SavedAccount(user, AccessToken(token, expiresAt), check ?: previous?.check, signedOut = false)
+        val account = SavedAccount(user, AccessToken(token, expiresAt), check ?: previous?.check, signedOut = false, deletionAccess = previous?.deletionAccess)
         val email = user.email.normalizedEmail()
         val replaced = saved.accounts.filter { it.user.id != user.id && it.check != null && it.user.email.normalizedEmail() == email }
         val next = replaced.fold(saved) { all, a -> all.with(a.copy(check = null)) }
@@ -96,7 +111,7 @@ class SessionManager @Inject constructor(
     /** The account [email] signed in with on this phone (trimmed, any case), or null when it never did. */
     fun accountFor(email: String): SavedAccount? {
         val wanted = email.normalizedEmail()
-        val matching = saved.accounts.filter { it.user.email.normalizedEmail() == wanted }
+        val matching = saved.accounts.filter { it.user.id !in removedIds && it.user.email.normalizedEmail() == wanted }
         return matching.firstOrNull { it.check != null } ?: matching.firstOrNull()
     }
 
@@ -105,6 +120,7 @@ class SessionManager @Inject constructor(
      * account becomes active and keeps its token if it still has one; [password] is held in memory for the exchange.
      */
     suspend fun signInOffline(userId: String, password: String) = mutex.withLock {
+        check(userId !in removedIds) { "This account was deleted" }
         val account = saved.byId(userId) ?: return@withLock
         commit(
             saved.with(account.copy(signedOut = false)).copy(activeId = userId),
@@ -113,7 +129,7 @@ class SessionManager @Inject constructor(
     }
 
     /** Passwords from offline sign-ins that still wait for the server, active account or not. */
-    fun pendingSignIns(): List<PendingSignIn> = pending.values.toList()
+    fun pendingSignIns(): List<PendingSignIn> = pending.values.filter { it.user.id !in removedIds }
 
     /**
      * The server took [signIn]'s password: saves the fresh session and [check] and forgets the password. The active
@@ -121,6 +137,7 @@ class SessionManager @Inject constructor(
      */
     suspend fun completePendingSignIn(signIn: PendingSignIn, token: String, expiresAt: Instant, user: UserInfo, check: PasswordCheck) =
         mutex.withLock {
+            if (signIn.user.id in removedIds) return@withLock
             if (pending[signIn.user.id] !== signIn) return@withLock
             val account = saved.byId(signIn.user.id) ?: return@withLock
             commit(
@@ -145,11 +162,18 @@ class SessionManager @Inject constructor(
 
     /** [userId]'s token while it is valid, active account or not. Never blocks. */
     fun bearerFor(userId: String): String? {
+        if (userId in removedIds) return null
         val access = saved.byId(userId)?.access ?: return null
         if (clock.instant().isBefore(access.expiresAt)) return access.token
         // Ran out: if this is the active account, the screens now show it as expired.
         synchronized(lock) { _state.value = stateOf(saved, pending) }
         return null
+    }
+
+    /** Only account-deletion retry may reuse a token after server confirmation but before local cleanup finishes. */
+    internal fun deletionAccessFor(userId: String): AccessToken? = saved.byId(userId)?.let { account ->
+        account.deletionAccess?.takeIf { clock.instant().isBefore(it.expiresAt) }
+            ?: account.access?.takeIf { clock.instant().isBefore(it.expiresAt) }
     }
 
     /** A 401 on an authenticated call made for the active account; see the other overload. */
@@ -185,6 +209,55 @@ class SessionManager @Inject constructor(
         commit(saved.with(out).copy(activeId = null), if (keepSession) pending else pending - account.user.id)
     }
 
+    /**
+     * Pin the confirmed account across the online deletion and local cleanup. A login, account switch, logout or
+     * stale 401 cannot change its identity halfway through. Failure before remote confirmation changes no saved
+     * account. Once confirmed, cleanup and persistence finish even if navigation cancels the caller.
+     */
+    suspend fun deleteActiveAccount(
+        expectedId: String,
+        deleteRemote: suspend (UserInfo, suspend (AccessToken) -> Unit) -> Boolean,
+        cleanupLocal: suspend () -> Unit,
+    ): Boolean = mutex.withLock {
+        val account = saved.active
+        if (account?.user?.id != expectedId) return@withLock false
+        deletingId = expectedId
+        try {
+            val confirmed = deleteRemote(account.user) { token ->
+                // Persist before sending DELETE. A server-success/reply-loss must remain retryable even after
+                // ordinary sync marks the account unauthorized, or the process dies before saving its 204 receipt.
+                commit(saved.with(checkNotNull(saved.byId(expectedId)).copy(deletionAccess = token)), pending)
+            }
+            if (!confirmed) return@withLock false
+            withContext(NonCancellable) {
+                removedIds = removedIds + expectedId
+                cleanupLocal()
+                commit(
+                    saved.copy(activeId = null, accounts = saved.accounts.filterNot { it.user.id == expectedId }),
+                    pending - expectedId,
+                )
+            }
+            true
+        } finally {
+            deletingId = null
+        }
+    }
+
+    /** Startup recovery uses a receipt persisted only after server 204, and never changes another active account. */
+    suspend fun finishConfirmedDeletion(owner: String, cleanupLocal: suspend () -> Unit) = mutex.withLock {
+        withContext(NonCancellable) {
+            removedIds = removedIds + owner
+            cleanupLocal()
+            commit(
+                saved.copy(
+                    activeId = saved.activeId.takeUnless { it == owner },
+                    accounts = saved.accounts.filterNot { it.user.id == owner },
+                ),
+                pending - owner,
+            )
+        }
+    }
+
     /** Drops the token of each signed-out account whose outbox has drained: every one not in [stillQueued]. */
     suspend fun dropDrainedSessions(stillQueued: Set<String>) = mutex.withLock {
         val drained = saved.accounts.filter {
@@ -203,12 +276,13 @@ class SessionManager @Inject constructor(
     private fun publish(next: SavedAccounts, nextPending: Map<String, PendingSignIn>) = synchronized(lock) {
         saved = next
         pending = nextPending
-        _activeUserId.value = next.activeId
+        _activeUserId.value = next.activeId?.takeUnless { it in removedIds }
         _state.value = stateOf(next, nextPending)
     }
 
     private fun stateOf(s: SavedAccounts, p: Map<String, PendingSignIn>): SessionState {
         val account = s.active ?: return SessionState.SignedOut
+        if (account.user.id in removedIds) return SessionState.SignedOut
         val access = account.access
         val now = clock.instant()
         if (access != null && now.isBefore(access.expiresAt)) {

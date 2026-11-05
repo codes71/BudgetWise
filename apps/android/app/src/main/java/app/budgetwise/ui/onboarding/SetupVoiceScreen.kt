@@ -157,7 +157,7 @@ fun SetupVoiceScreen(
             HorizontalDivider(thickness = 1.dp, color = colors.hairline)
             Fact(Lucide.Download, colors.accent, stringResource(R.string.setup_voice_size, size), stringResource(R.string.setup_voice_size_detail))
             HorizontalDivider(thickness = 1.dp, color = colors.hairline)
-            Fact(Lucide.Smartphone, colors.blue, stringResource(R.string.voice_stays_on_phone), stringResource(R.string.setup_voice_privacy_detail))
+            Fact(Lucide.Smartphone, colors.blue, stringResource(R.string.voice_stays_on_phone), stringResource(R.string.privacy_voice_setup))
             HorizontalDivider(thickness = 1.dp, color = colors.hairline)
         }
     }

@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifySession } from '@/lib/auth';
+import { verifySessionToken } from '@/lib/session-claims';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const currentUser = await verifySession();
+  // Edge routing uses JWT claims only. Node server actions/API independently require an active account.
+  const currentUser = await verifySessionToken(request.cookies.get('session')?.value);
 
-  const publicRoutes = ['/login', '/signup'];
   const protectedRoutes = ['/dashboard', '/budgets', '/myprofile'];
 
   // --- Handle Redirects for Authenticated Users ---
@@ -16,10 +16,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  // If a non-guest user is logged in, prevent them from accessing login/signup pages.
-  if (currentUser && !currentUser.isGuest && publicRoutes.includes(pathname)) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
+  // Do not redirect sign-in based on JWT claims alone. A deleted account may still have a valid cookie;
+  // Node authorization rejects it, and redirecting it back to the dashboard would create a login loop.
 
   // --- Handle Route Protection for Unauthenticated Users ---
 
@@ -35,5 +33,5 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Update metadata is public static content, independent of web sessions.
-  matcher: ['/((?!api|updates/|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api|updates/|privacy(?:/|$)|delete-account(?:/|$)|_next/static|_next/image|favicon.ico).*)'],
 };

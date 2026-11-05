@@ -135,7 +135,7 @@ class TransactionRepository @Inject constructor(
      * CREATEs before the originals' DELETEs, as one edit, so a refused change never loses the receipt on the server.
      */
     suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
-        val owner = checkNotNull(session.activeUserId.value) { "no account is signed in" }
+        val owner = checkNotNull(session.writableUserId) { "no account is signed in" }
         val result = db.withTransaction {
             if (tx.receiptClientIds(owner, receiptId).toSet() != old) null else replaceHeld(old.toList(), inputs)
         }
@@ -150,7 +150,7 @@ class TransactionRepository @Inject constructor(
             old.forEach { syncEngine.enqueueDelete(it) }
             return ReplaceResult.Saved(emptyList())
         }
-        val owner = checkNotNull(session.activeUserId.value) { "no account is signed in" }
+        val owner = checkNotNull(session.writableUserId) { "no account is signed in" }
         // As get() sees it: a tombstone, or another account's row after a switch while the form was open, is gone.
         val rows = old.associateWith { tx.byClientId(it) }
         if (rows.values.any { it == null || it.deleted || it.ownerId != owner }) return ReplaceResult.Gone
@@ -194,7 +194,7 @@ class TransactionRepository @Inject constructor(
      */
     private suspend fun store(inputs: List<NewTransaction>, group: String? = null, reuse: Set<String> = emptySet()): List<String> {
         if (inputs.isEmpty()) return emptyList()
-        val owner = checkNotNull(session.activeUserId.value) { "no account is signed in" }
+        val owner = checkNotNull(session.writableUserId) { "no account is signed in" }
         val now = clock.instant()
         // Converting Zawgyi to Unicode can lengthen the text, so the server's limit is checked on what is stored.
         val descriptions = inputs.map { BurmeseTextNormalizer.prepare(it.description) }
