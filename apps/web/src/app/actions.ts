@@ -11,6 +11,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/logger';
 import { extractTransactionData } from '@/ai/flows/extract-transaction-data';
+import { verifySession } from '@/lib/auth';
 
 const secretKey = new TextEncoder().encode(process.env.JWT_SECRET);
 
@@ -70,7 +71,7 @@ export async function signIn(formData: FormData): Promise<{ error: string } | { 
 
   const user = await findUserByEmail(email);
 
-  if (!user || !user.password) {
+  if (!user || !user.password || user.deletionStartedAt) {
     return { error: 'Invalid email or password.' };
   }
   
@@ -179,6 +180,7 @@ export async function updateUser(formData: FormData) {
 
 
 export async function generateSuggestions(transactions: Transaction[], budgets: Budget[]) {
+  if (!(await verifySession())) return { error: 'Sign in to use this feature.' };
   const historicalData =
     'category,amount,date\n' +
     transactions
@@ -203,6 +205,7 @@ export async function generateSuggestions(transactions: Transaction[], budgets: 
 }
 
 export async function getCategorySuggestion(description: string, categories: string[]) {
+    if (!(await verifySession())) return { category: '' };
     try {
         const result = await categorizeTransaction({ description, categories });
         return { category: result.category };
@@ -213,6 +216,7 @@ export async function getCategorySuggestion(description: string, categories: str
     }
 }
 export async function processScreenshot(base64Image: string) {
+  if (!(await verifySession())) return { success: false, error: 'Sign in to use this feature.' };
   try {
     // Call the Genkit flow function directly with the input.
     // The flow function itself is the callable server action.
@@ -258,7 +262,7 @@ export async function getUserDetails() {
 
     // Null for unknown or malformed ids; the password hash is never returned.
     const user = await getUserById(payload.userId);
-    return user ? toPublicUser(user) : null;
+    return user && !user.deletionStartedAt ? toPublicUser(user) : null;
   } catch (error) {
     logger.error('Error fetching user details', error as Error);
     return null;

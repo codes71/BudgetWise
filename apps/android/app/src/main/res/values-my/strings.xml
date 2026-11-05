@@ -454,7 +454,7 @@
     <string name="settings_voice_download">ဒေါင်းလုဒ်</string>
     <string name="settings_voice_failed">အသံ ဒေါင်းလုဒ် ရပ်သွားသည်</string>
     <string name="settings_cloud_parse">ပြောသည်ကို နားလည်ရန်</string>
-    <string name="settings_cloud_parse_detail">စကားလုံးများကိုသာ ပို့ပြီး အသံကို မပို့ပါ။ အသံဖြင့် ထည့်ရန် ဤအရာ လိုသည်။</string>
+    <string name="settings_cloud_parse_detail">နားလည်ရရှိသော စကားလုံးများကို Anthropic၊ လိုအပ်လျှင် OpenAI သို့ ပို့ပြီး အသံကို မပို့ပါ။ အသံဖြင့် ထည့်ရန် ဤအရာ လိုသည်။</string>
     <string name="setup_voice_title">သုံးငွေကို ပြောပါ</string>
     <string name="setup_voice_subtitle">BudgetWise ကို “ကော်ဖီ သုံးထောင်” ဟု မြန်မာ သို့မဟုတ် အင်္ဂလိပ်လို ပြောလျှင် စာရင်းကို ရေးပေးပါမည်။</string>
     <string name="setup_voice_example_becomes">%1$s ဖြစ်လာမည်</string>
@@ -622,4 +622,22 @@
     <string name="updates_permission_detail">Android ဆက်တင်ကို ဖွင့်၍ BudgetWise မှ အပ်ဒိတ်ကို ခွင့်ပြုပြီး ဤနေရာသို့ ပြန်လာပါ။</string>
     <string name="updates_not_configured">အပ်ဒိတ် မထုတ်ပြန်ရသေးပါ</string>
     <string name="updates_not_configured_detail">ဤဗားရှင်းကို ဆက်သုံးပြီး နောက်မှ ထပ်စစ်ပါ။</string>
+    <string name="account_privacy_section">ကိုယ်ရေးအချက်အလက်နှင့် အကောင့်</string>
+    <string name="account_privacy_policy">ကိုယ်ရေးအချက်အလက် မူဝါဒ</string>
+    <string name="account_privacy_link_failed">ဤလိပ်စာကို ဘရောက်ဇာတွင် ဖွင့်ပါ။ %1$s</string>
+    <string name="account_delete">အကောင့် ဖျက်မည်</string>
+    <string name="account_delete_title">အကောင့်ကို အပြီးဖျက်မလား</string>
+    <string name="account_delete_detail">%1$s နှင့် ၎င်း၏ အသုံးစရိတ်၊ ဝင်ငွေ၊ ဘောက်ချာစာရင်း၊ ဘတ်ဂျက်နှင့် အစီအစဉ်အားလုံးကို BudgetWise နှင့် ဤဖုန်းမှ ဖျက်ပါမည်။ ဤဖုန်းရှိ အခြားအကောင့်များကို ဆက်ထားပါမည်။</string>
+    <string name="account_delete_unsynced">မချိတ်ဆက်ရသေးသော စာရင်းများလည်း ဖျက်ပါမည်။ ပြန်ယူ၍ မရပါ။</string>
+    <string name="account_delete_password">လက်ရှိ စကားဝှက်</string>
+    <string name="account_delete_wrong_password">စကားဝှက် မမှန်ပါ။ ထပ်စမ်းပါ။</string>
+    <string name="account_delete_confirm">အကောင့်ကို အပြီးဖျက်မည်</string>
+    <string name="account_delete_keep">အကောင့် ဆက်ထားမည်</string>
+    <string name="account_deleting">အကောင့် ဖျက်နေသည်</string>
+    <string name="account_delete_offline">အင်တာနက် ချိတ်ပြီး ထပ်စမ်းပါ။ ဤဖုန်းပေါ်မှ မည်သည့်အချက်အလက်ကိုမျှ မဖျက်ရသေးပါ။</string>
+    <string name="account_delete_account_changed">လက်ရှိအကောင့် ပြောင်းသွားသည် သို့မဟုတ် အတည်မပြုနိုင်ပါ။ ဤဝင်းဒိုးကို ပိတ်ပြီး အကောင့်ကို စစ်၍ ထပ်စမ်းပါ။</string>
+    <string name="account_delete_incomplete">ဖျက်ခြင်း မပြီးသေးပါ။ ဖုန်းအချက်အလက်ကို ဆက်ထားပါသည်။ ပြီးစီးရန် စကားဝှက်ထည့်၍ ထပ်စမ်းပါ။</string>
+    <string name="account_delete_local_failed">အွန်လိုင်းအကောင့်ကို ဖျက်ပြီးသော်လည်း ဖုန်းမှ ရှင်းလင်းခြင်း မပြီးပါ။ စကားဝှက်ထည့်၍ ထပ်စမ်းပါ။</string>
+    <string name="account_delete_failed">ဖျက်ပြီးကြောင်း အတည်မပြုနိုင်ပါ။ ဖုန်းအချက်အလက်ကို ဆက်ထားပါသည်။ ထပ်စမ်းပါ။</string>
+    <string name="account_delete_done">အကောင့်ကို ဖျက်ပြီးပါပြီ။</string>
 </resources>

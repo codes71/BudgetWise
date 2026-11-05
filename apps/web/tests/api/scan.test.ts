@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearDb, newUserId, testDb } from "../helpers/db";
+import { clearDb, newUserId, seedAccount, testDb } from "../helpers/db";
 import { req } from "../helpers/request";
 
 // No AI provider is called from tests: every scan reads what the mock returns.
@@ -29,6 +29,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await clearDb();
+  await Promise.all([seedAccount(userA, "a@x.com"), seedAccount(userB, "b@x.com")]);
   claude.mockReset();
   const { seedCategories } = await import("../../scripts/seedCategories");
   await seedCategories(testDb());

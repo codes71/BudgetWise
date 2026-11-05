@@ -8,5 +8,7 @@ describe("middleware matcher", () => {
     const re = new RegExp("^" + config.matcher[0] + "$");
     expect(re.test("/api/v1/transactions")).toBe(false);
     expect(re.test("/dashboard")).toBe(true);
+    expect(re.test("/privacy")).toBe(false);
+    expect(re.test("/delete-account")).toBe(false);
   });
 });

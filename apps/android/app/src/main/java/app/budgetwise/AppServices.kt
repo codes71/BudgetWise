@@ -204,8 +204,16 @@ class DefaultAccountActions @Inject constructor(private val auth: AuthRepository
     override suspend fun logout() = withContext(NonCancellable) { auth.logout() }
 }
 
-class DefaultSessionLoader @Inject constructor(private val auth: AuthRepository) : SessionLoader {
-    override suspend fun load() = auth.loadSession()
+class DefaultSessionLoader @Inject constructor(
+    private val auth: AuthRepository,
+    private val deletion: app.budgetwise.data.repo.AccountDeletionRepository,
+    private val cleanup: AccountDeletionCleanup,
+) : SessionLoader {
+    override suspend fun load() {
+        deletion.quarantinePendingDeletions()
+        auth.loadSession()
+        deletion.recoverPendingDeletions(cleanup::finish)
+    }
 }
 
 class DefaultSyncControls @Inject constructor(

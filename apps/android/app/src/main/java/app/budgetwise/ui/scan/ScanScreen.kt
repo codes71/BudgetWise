@@ -102,6 +102,9 @@ import app.budgetwise.ui.theme.bold
 import app.budgetwise.ui.theme.medium
 import app.budgetwise.ui.theme.semibold
 import app.budgetwise.ui.theme.tracked
+import app.budgetwise.ui.theme.forContent
+import app.budgetwise.ui.voice.CloudAiConsentGate
+import app.budgetwise.ui.voice.CloudAiFeature
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 
@@ -116,6 +119,20 @@ fun ScanRoute(
     onSignIn: () -> Unit,
     onSaved: (ScanEvent.Saved) -> Unit,
     viewModel: ScanViewModel = hiltViewModel(),
+) {
+    CloudAiConsentGate(CloudAiFeature.SCAN, onClose, onEnterYourself) {
+        ScanAcceptedRoute(onClose, onEnterYourself, onSignIn, onSaved, viewModel)
+    }
+}
+
+/** Neither the camera permission effect nor the photo-picker callback exists before informed agreement. */
+@Composable
+private fun ScanAcceptedRoute(
+    onClose: () -> Unit,
+    onEnterYourself: () -> Unit,
+    onSignIn: () -> Unit,
+    onSaved: (ScanEvent.Saved) -> Unit,
+    viewModel: ScanViewModel,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val saved by rememberUpdatedState(onSaved)
@@ -424,6 +441,14 @@ private fun CameraStage(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
             )
         }
+        val disclosure = stringResource(R.string.privacy_scan_notice)
+        Text(
+            disclosure,
+            style = type.size13.forContent(disclosure),
+            color = OnCamera,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+        )
         Row(
             Modifier
                 .fillMaxWidth()
@@ -441,7 +466,7 @@ private fun CameraStage(
                     Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                         Icon(Lucide.Image, contentDescription = null, tint = OnCamera, modifier = Modifier.size(22.dp))
                     }
-                    Text(stringResource(R.string.scan_choose_photo), style = type.size14, color = OnCamera)
+                    Text(stringResource(R.string.privacy_scan_choose), style = type.size14, color = OnCamera)
                 }
             }
             Shutter(enabled = granted && !busy, onClick = shoot)
@@ -484,7 +509,7 @@ private fun CloseButton(onClose: () -> Unit, modifier: Modifier = Modifier) {
 /** The 76 dp mint shutter, kept separate from the photo import action. */
 @Composable
 private fun Shutter(enabled: Boolean, onClick: () -> Unit) {
-    val label = stringResource(R.string.scan_take_photo)
+    val label = stringResource(R.string.privacy_scan_capture)
     Box(
         Modifier
             .size(76.dp)

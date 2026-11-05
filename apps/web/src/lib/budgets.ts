@@ -3,6 +3,7 @@ import { db, sha256Hex, toDate, userDoc } from "@/lib/firestore";
 import { formatKyat, formatLakh } from "@/lib/kyat";
 import { yangonDate } from "@/lib/mobile/scan";
 import type { Budget } from "@/lib/types";
+import { requireActiveAccount } from "@/lib/account-access";
 
 const budgetsCol = (userId: string) => userDoc(userId).collection("budgets");
 const monthsCol = (userId: string) => userDoc(userId).collection("budgetMonths");
@@ -68,6 +69,7 @@ export async function setBudgetLimit(userId: string, category: string, limit: nu
   const now = new Date();
   const planRef = monthsCol(userId).doc(yangonMonth(now));
   await db().runTransaction(async (tx) => {
+    await requireActiveAccount(userId, tx);
     const [snap, planSnap] = await tx.getAll(ref, planRef);
     if (planSnap.exists) {
       const plan = readMonthPlan(planSnap);
@@ -120,6 +122,7 @@ export async function saveMonthPlan(userId: string, month: string, input: MonthP
   const { newMoney, carriedOver } = input;
   const shares = input.shares.map(({ category, limit }) => ({ category, limit }));
   return db().runTransaction(async (tx) => {
+    await requireActiveAccount(userId, tx);
     const snap = await tx.get(ref);
     const old = snap.exists ? readMonthPlan(snap) : null;
 
@@ -143,6 +146,7 @@ export async function saveEndCheck(userId: string, month: string, onHand: number
   const ref = monthsCol(userId).doc(month);
   const now = new Date();
   return db().runTransaction(async (tx) => {
+    await requireActiveAccount(userId, tx);
     const snap = await tx.get(ref);
     if (!snap.exists) return null;
     const endCheck = { onHand, checkedAt: now };

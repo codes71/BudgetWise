@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { signUp } from '@/app/actions';
+import { PolicyLinks } from '@/components/legal/public-policy-layout';
 
 
 export default function SignupPage() {
@@ -137,6 +138,7 @@ export default function SignupPage() {
             </p>
         </CardFooter>
       </Card>
+      <PolicyLinks />
     </div>
   );
 }

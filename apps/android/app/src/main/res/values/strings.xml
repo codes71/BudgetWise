@@ -516,7 +516,7 @@
     <string name="settings_voice_download">Download</string>
     <string name="settings_voice_failed">Voice download stopped</string>
     <string name="settings_cloud_parse">Understand what I say</string>
-    <string name="settings_cloud_parse_detail">Sends the words, never your voice. Voice needs this.</string>
+    <string name="settings_cloud_parse_detail">Sends recognized words to Anthropic, or OpenAI if needed, never your voice. Voice needs this.</string>
     <string name="setup_voice_title">Say what you spend</string>
     <string name="setup_voice_subtitle">Tell BudgetWise “coffee 3,000” in Burmese or English, and it writes the entry for you.</string>
     <string name="setup_voice_example_becomes">becomes %1$s</string>
@@ -702,4 +702,22 @@
     <string name="updates_permission_detail">Open Android settings and allow updates from BudgetWise, then return here.</string>
     <string name="updates_not_configured">No update is published yet</string>
     <string name="updates_not_configured_detail">Keep using this version and check again later.</string>
+    <string name="account_privacy_section">Privacy and account</string>
+    <string name="account_privacy_policy">Privacy policy</string>
+    <string name="account_privacy_link_failed">Open this address in your browser: %1$s</string>
+    <string name="account_delete">Delete account</string>
+    <string name="account_delete_title">Permanently delete your account?</string>
+    <string name="account_delete_detail">This deletes %1$s and all its expenses, income, receipt entries, budgets and plans from BudgetWise and this phone. Other accounts on this phone stay.</string>
+    <string name="account_delete_unsynced">Entries that have not synced yet will also be deleted. This cannot be undone.</string>
+    <string name="account_delete_password">Current password</string>
+    <string name="account_delete_wrong_password">That password does not match. Try again.</string>
+    <string name="account_delete_confirm">Permanently delete account</string>
+    <string name="account_delete_keep">Keep account</string>
+    <string name="account_deleting">Deleting account</string>
+    <string name="account_delete_offline">Connect to the internet and try again. Nothing on this phone has been deleted.</string>
+    <string name="account_delete_account_changed">The active account changed or could not be verified. Close this window and check the account before trying again.</string>
+    <string name="account_delete_incomplete">Deletion is still incomplete. Your phone data is kept. Enter your password and try again to finish.</string>
+    <string name="account_delete_local_failed">The account was deleted online, but cleanup on this phone did not finish. Enter your password and try again.</string>
+    <string name="account_delete_failed">Deletion could not be confirmed. Your phone data is kept. Try again.</string>
+    <string name="account_delete_done">Account deleted.</string>
 </resources>

@@ -1,0 +1,23 @@
+Keep your everyday spending and monthly budget together in BudgetWise.
+
+TRACK INCOME AND EXPENSES
+Add entries in Myanmar kyat, organize them by category and review your spending totals. Set up monthly plans and category budgets to see how your money is allocated.
+
+REVIEW RECEIPTS AND PAYMENT SCREENSHOTS
+Scan a receipt or a supported KBZPay payment screenshot to prepare draft entries. Review the amounts, dates and categories before saving. Manual entry is always available.
+
+BURMESE VOICE ENTRY
+Speak an entry in Burmese and review the recognized result before saving. Speech recognition runs on your phone. When you choose cloud AI processing, the recognized words are sent to the service to interpret the entry. Voice requires a compatible device and an optional speech-model download of about 1.1 GB.
+
+KEEP YOUR ACCOUNT IN SYNC
+Save your transactions and budgets to your account and access cached entries offline. Cloud sync, receipt reading and cloud AI interpretation require an internet connection.
+
+CHOOSE YOUR DISPLAY
+Use English or Burmese and light or dark mode.
+
+YOUR DATA AND CHOICES
+Camera, microphone and notification permissions are used for the features you choose. AI scan and voice processing explain what is sent before you agree. You can delete your account and its synced financial data from Settings or the public account-deletion page.
+
+Privacy policy: https://budgetwis3.vercel.app/privacy
+Account deletion: https://budgetwis3.vercel.app/delete-account
+Support: thurashark@gmail.com

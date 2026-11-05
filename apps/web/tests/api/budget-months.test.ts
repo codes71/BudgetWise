@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { Timestamp } from "firebase-admin/firestore";
-import { clearDb, newUserId, testDb } from "../helpers/db";
+import { clearDb, newUserId, seedAccount, testDb } from "../helpers/db";
 import { req } from "../helpers/request";
 import { yangonMonth } from "@/lib/budgets";
 
@@ -39,6 +39,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await clearDb();
+  await Promise.all([seedAccount(userA, "a@x.com"), seedAccount(userB, "b@x.com")]);
   const fs = testDb();
   for (const [i, name] of ["Food", "Housing", "Transport", "Bills", "Rent"].entries()) {
     await fs.collection("categories").doc(name.toLowerCase()).set({ name, sort: i });

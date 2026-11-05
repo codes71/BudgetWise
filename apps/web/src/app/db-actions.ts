@@ -12,6 +12,8 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { logger } from '@/lib/logger';
 import { isWholeKyat } from '@/lib/kyat';
+import { db } from '@/lib/firestore';
+import { requireActiveAccount } from '@/lib/account-access';
 
 async function getUserId(): Promise<string> {
   const user = await verifySession();
@@ -85,7 +87,11 @@ export async function addTransaction(
     if (!fields.success) return null;
     const now = new Date();
     const data = { ...fields.data, userId, source: 'web' as const, createdAt: now, updatedAt: now };
-    const ref = await transactionsCol(userId).add(data);
+    const ref = transactionsCol(userId).doc();
+    await db().runTransaction(async (tx) => {
+      await requireActiveAccount(userId, tx);
+      tx.create(ref, data);
+    });
     revalidatePath('/');
     return { ...data, _id: ref.id, createdAt: now.toISOString(), updatedAt: now.toISOString() };
   } catch (error) {

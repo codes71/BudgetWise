@@ -45,7 +45,9 @@ class CategoryRepository @Inject constructor(
         return when (val r = safeApi { api.categories(authorization(token)) }) {
             is ApiResult.Ok -> {
                 val names = r.v.categories.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
-                if (names.isNotEmpty()) store.edit { it[keyFor(owner)] = Json.encodeToString(LIST, names) }
+                if (names.isNotEmpty()) store.edit {
+                    if (!session.wasDeleted(owner)) it[keyFor(owner)] = Json.encodeToString(LIST, names)
+                }
                 ApiResult.Ok(Unit)
             }
             is ApiResult.Unauthorized -> {

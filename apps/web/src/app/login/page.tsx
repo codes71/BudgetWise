@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { signIn } from '@/app/actions';
+import { PolicyLinks } from '@/components/legal/public-policy-layout';
 
 export default function LoginPage() {
   // 1. Call all hooks unconditionally at the top of the component
@@ -127,6 +128,7 @@ export default function LoginPage() {
           </p>
         </CardFooter>
       </Card>
+      <PolicyLinks />
     </div>
   );
 }

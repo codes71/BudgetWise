@@ -58,6 +58,8 @@ class KeystoreTokenStore @Inject constructor(
         val expiresAtEpochMillis: Long? = null,
         val check: CheckBlob? = null,
         val signedOut: Boolean = false,
+        val deletionToken: String? = null,
+        val deletionExpiresAtEpochMillis: Long? = null,
     )
 
     /** Salt and hash in Base64. */
@@ -140,6 +142,8 @@ class KeystoreTokenStore @Inject constructor(
                 expiresAtEpochMillis = a.access?.expiresAt?.toEpochMilli(),
                 check = a.check?.let { CheckBlob(it.salt.base64(), it.hash.base64(), it.iterations) },
                 signedOut = a.signedOut,
+                deletionToken = a.deletionAccess?.token,
+                deletionExpiresAtEpochMillis = a.deletionAccess?.expiresAt?.toEpochMilli(),
             )
         },
     )
@@ -156,6 +160,9 @@ class KeystoreTokenStore @Inject constructor(
                 },
                 check = b.check?.let { PasswordCheck(it.salt.unbase64(), it.hash.unbase64(), it.iterations) },
                 signedOut = b.signedOut,
+                deletionAccess = if (b.deletionToken != null && b.deletionExpiresAtEpochMillis != null) {
+                    AccessToken(b.deletionToken, Instant.ofEpochMilli(b.deletionExpiresAtEpochMillis))
+                } else null,
             )
         },
     )

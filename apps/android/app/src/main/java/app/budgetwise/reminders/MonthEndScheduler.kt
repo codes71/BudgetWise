@@ -81,6 +81,7 @@ class MonthEndScheduler @Inject constructor(
 
         internal fun tonightRequest(account: String, month: YearMonth, now: ZonedDateTime): OneTimeWorkRequest =
             OneTimeWorkRequestBuilder<MonthEndWorker>()
+                .addTag("month-end-account:$account")
                 .setInitialDelay(untilTonight(now))
                 .setInputData(MonthEndWorker.tonightData(account, month))
                 .build()

@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Timestamp } from "firebase-admin/firestore";
-import { clearDb, newUserId, testDb } from "../helpers/db";
+import { clearDb, newUserId, seedAccount, testDb } from "../helpers/db";
 import { req } from "../helpers/request";
 
 let POST: (r: Request, c?: unknown) => Promise<Response>;
@@ -24,6 +24,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await clearDb();
+  await Promise.all([seedAccount(userA, "a@x.com"), seedAccount(userB, "b@x.com")]);
 });
 
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;

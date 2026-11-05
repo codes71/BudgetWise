@@ -107,6 +107,8 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+        // The complete Compose/Robolectric suite exceeds Gradle's 512 MB test-worker default.
+        unitTests.all { it.maxHeapSize = "1g" }
     }
 
     buildFeatures {

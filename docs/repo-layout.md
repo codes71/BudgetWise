@@ -1,5 +1,11 @@
 # BudgetWise repository layout
 
+## Play release preparation (2026-11-05)
+
+See [the Play release guide](play-store/README.md) for the signed `release` AAB, signing continuity, internal/closed testing, metadata and Data safety preparation. The public `/privacy` and `/delete-account` pages and password-confirmed `DELETE /api/v1/account` support Play's account-data requirements. Account-owned writes check the active account inside their Firestore transaction so stale sessions cannot recreate deleted data. Android removes only the confirmed deleted account's local data, with durable retry/recovery markers; ordinary sign-out still preserves data. First-use scan/voice disclosure precedes permissions and cloud processing.
+
+Verification can use `BUDGETWISE_TEST_PROJECT_ID=demo-budgetwise-play-release` with the local Firestore emulator to keep release tests separate from the main dev database. These preparation files do not establish a Play upload, production deployment or reviewed release.
+
 Written 2026-10-29 on branch `chore/monorepo` (worktree `/Users/code/Projects/BudgetWise-mono`). Nothing here
 has been pushed or deployed.
 

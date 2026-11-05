@@ -25,3 +25,8 @@ export async function clearDb(): Promise<void> {
 
 /** A fresh user id shaped like a Firestore auto id. */
 export const newUserId = (): string => testDb().collection("users").doc().id;
+
+/** Authenticated API fixtures need an actual active account, not only a correctly signed JWT. */
+export async function seedAccount(userId: string, email = `${userId}@example.com`): Promise<void> {
+  await testDb().collection("users").doc(userId).set({ email, emailLower: email.toLowerCase() });
+}

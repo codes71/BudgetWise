@@ -2,7 +2,7 @@ import { beforeEach, expect, test } from "vitest";
 import { createHash } from "node:crypto";
 import { Timestamp } from "firebase-admin/firestore";
 
-import { clearDb, testDb } from "../helpers/db";
+import { clearDb, seedAccount, testDb } from "../helpers/db";
 
 beforeEach(async () => {
   await clearDb();
@@ -68,4 +68,33 @@ test("concurrent calls at the window boundary create one fresh window", async ()
   const snap = await doc("c2").get();
   expect(snap.get("count")).toBe(10);
   expect(snap.get("expiresAt").toMillis()).toBeGreaterThan(Date.now());
+});
+
+test("an earlier valid account identity cannot recreate scan or voice counters after deletion", async () => {
+  const { rateLimit } = await import("@/lib/mobile/rate-limit");
+  const { signMobileToken } = await import("@/lib/mobile/token");
+  const { requireUser } = await import("@/lib/mobile/bearer");
+  await seedAccount("deleted", "deleted@example.com");
+  const { token } = await signMobileToken({ id: "deleted", email: "deleted@example.com" });
+  const identity = await requireUser(new Request("http://localhost/x", { headers: { authorization: `Bearer ${token}` } }));
+  await testDb().collection("users").doc(identity.userId).delete();
+  for (const purpose of ["scan", "voice", "delete-account"]) {
+    const key = `${purpose}:user:${identity.userId}`;
+    await expect(rateLimit(key, opts)).rejects.toMatchObject({ status: 401 });
+    expect((await doc(key).get()).exists).toBe(false);
+  }
+});
+
+test("only the deletion retry limiter may write while the account deletion lock is held", async () => {
+  const { rateLimit } = await import("@/lib/mobile/rate-limit");
+  await seedAccount("deleting", "deleting@example.com");
+  await testDb().collection("users").doc("deleting").update({ deletionStartedAt: new Date() });
+  for (const purpose of ["scan", "voice"]) {
+    const key = `${purpose}:user:deleting`;
+    await expect(rateLimit(key, opts)).rejects.toMatchObject({ status: 401 });
+    expect((await doc(key).get()).exists).toBe(false);
+  }
+  await expect(rateLimit("delete-account:user:deleting", opts)).resolves.toBeUndefined();
+  expect((await doc("delete-account:user:deleting").get()).get("count")).toBe(1);
+  await expect(rateLimit("auth:ip:203.0.113.5", opts)).resolves.toBeUndefined();
 });

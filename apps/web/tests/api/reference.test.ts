@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
-import { clearDb, newUserId, testDb } from "../helpers/db";
+import { clearDb, newUserId, seedAccount, testDb } from "../helpers/db";
 import { req } from "../helpers/request";
 
 let GET_CATEGORIES: (r: Request, c?: unknown) => Promise<Response>;
@@ -18,6 +18,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await clearDb();
+  await Promise.all([seedAccount(userA, "a@x.com"), seedAccount(userB, "b@x.com")]);
 });
 
 describe("GET /api/v1/categories", () => {
