@@ -1,5 +1,5 @@
-Initial Google Play test release.
+Initial Pocket Peek Google Play test candidate (0.3.0).
 - Expense tracking and monthly category budgets.
 - Burmese voice entry and receipt review.
 - Privacy information and account deletion.
-- Updates distributed through Google Play.
+- Updates managed by Google Play in this build.

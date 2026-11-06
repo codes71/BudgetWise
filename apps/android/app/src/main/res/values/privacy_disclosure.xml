@@ -2,16 +2,16 @@
 <resources>
     <string name="privacy_scan_title">Scan with AI</string>
     <string name="privacy_voice_title">Voice with AI</string>
-    <string name="privacy_scan_body">Your photo, its receipt or payment details, and category names are sent to BudgetWise and processed by Anthropic or OpenAI to read your entries.</string>
-    <string name="privacy_voice_body">Recognized words, including spending details, and category names are sent to BudgetWise and processed by Anthropic or OpenAI to make entries or understand your question. Audio stays on your phone.</string>
+    <string name="privacy_scan_body">Your photo, its receipt or payment details, and category names are sent to Pocket Peek and processed by Anthropic or OpenAI to read your entries.</string>
+    <string name="privacy_voice_body">Recognized words, including spending details, and category names are sent to Pocket Peek and processed by Anthropic or OpenAI to make entries or understand your question. Audio stays on your phone.</string>
     <string name="privacy_manual_alternative">You can enter an entry yourself without sending a photo or words to these AI services.</string>
     <string name="privacy_scan_agree">Agree and scan with AI</string>
     <string name="privacy_voice_agree">Agree and use AI voice</string>
     <string name="privacy_enter_manually">Enter it myself</string>
-    <string name="privacy_scan_notice">Photos and category names go to BudgetWise and Anthropic or OpenAI to read entries.</string>
+    <string name="privacy_scan_notice">Photos and category names go to Pocket Peek and Anthropic or OpenAI to read entries.</string>
     <string name="privacy_scan_choose">Choose a photo for AI</string>
     <string name="privacy_scan_capture">Take photo and scan with AI</string>
-    <string name="privacy_voice_notice">Words and category names go to BudgetWise and Anthropic or OpenAI. Audio stays here.</string>
+    <string name="privacy_voice_notice">Words and category names go to Pocket Peek and Anthropic or OpenAI. Audio stays here.</string>
     <string name="privacy_voice_finish">Send to AI</string>
-    <string name="privacy_voice_setup">Audio stays on your phone. Words and category names go to BudgetWise and Anthropic or OpenAI to make entries or understand questions. You choose before first use.</string>
+    <string name="privacy_voice_setup">Audio stays on your phone. Words and category names go to Pocket Peek and Anthropic or OpenAI to make entries or understand questions. You choose before first use.</string>
 </resources>

@@ -1,5 +1,5 @@
-import type { DocumentSnapshot } from "firebase-admin/firestore";
-import { ALREADY_EXISTS, NOT_FOUND, db, errorCode, isDocId, sha256Hex, toDate, userDoc } from "@/lib/firestore";
+import { randomUUID } from "node:crypto";
+import { db, isDuplicateKey, isDocId, sha256Hex, toDate, withTransaction, type MongoRecord } from "@/lib/mongodb";
 import type { UserPayload } from "@/lib/types";
 import { requireActiveAccount } from "@/lib/account-access";
 
@@ -24,10 +24,9 @@ export function normalizeEmail(raw: string): { email: string; emailLower: string
 /** userEmails/{id}: one doc per lowercased email, which makes emails unique regardless of case. */
 export const emailDocId = (emailLower: string): string => sha256Hex(emailLower);
 
-function fromSnapshot(snap: DocumentSnapshot): UserRecord {
-  const d = snap.data()!;
+function fromDocument(d: MongoRecord): UserRecord {
   return {
-    id: snap.id,
+    id: d._id,
     email: d.email,
     emailLower: d.emailLower,
     password: d.password,
@@ -43,14 +42,14 @@ function fromSnapshot(snap: DocumentSnapshot): UserRecord {
 // Always exactly one query, found or not, so login timing does not reveal accounts.
 export async function findUserByEmail(rawEmail: string): Promise<UserRecord | null> {
   const { emailLower } = normalizeEmail(rawEmail);
-  const snap = await db().collection("users").where("emailLower", "==", emailLower).limit(1).get();
-  return snap.empty ? null : fromSnapshot(snap.docs[0]);
+  const record = await (await db()).collection<MongoRecord>("users").findOne({ emailLower });
+  return record ? fromDocument(record) : null;
 }
 
 export async function getUserById(userId: string): Promise<UserRecord | null> {
   if (!isDocId(userId)) return null;
-  const snap = await userDoc(userId).get();
-  return snap.exists ? fromSnapshot(snap) : null;
+  const record = await (await db()).collection<MongoRecord>("users").findOne({ _id: userId });
+  return record ? fromDocument(record) : null;
 }
 
 /** Creates the user and claims its email in one transaction. Null when the email is taken in any case. */
@@ -60,28 +59,32 @@ export async function createUser(input: {
   fullName?: string;
 }): Promise<UserRecord | null> {
   const { email, emailLower } = normalizeEmail(input.email);
-  const emailRef = db().collection("userEmails").doc(emailDocId(emailLower));
-  const userRef = db().collection("users").doc();
+  const database = await db();
+  const emails = database.collection<MongoRecord>("userEmails");
+  const users = database.collection<MongoRecord>("users");
+  const userId = randomUUID();
   const now = new Date();
   const data = {
     email,
     emailLower,
-    password: input.passwordHash,
-    fullName: input.fullName,
+    ...(input.passwordHash !== undefined ? { password: input.passwordHash } : {}),
+    ...(input.fullName !== undefined ? { fullName: input.fullName } : {}),
     createdAt: now,
     updatedAt: now,
   };
   try {
-    const created = await db().runTransaction(async (tx) => {
-      if ((await tx.get(emailRef)).exists) return false;
-      tx.create(userRef, data);
-      tx.create(emailRef, { userId: userRef.id });
+    const created = await withTransaction(async (session) => {
+      // Checking the existing users also protects a legacy account whose email-claim document is absent.
+      if (await emails.findOne({ _id: emailDocId(emailLower) }, { session })
+        || await users.findOne({ emailLower }, { session })) return false;
+      await users.insertOne({ _id: userId, ...data }, { session });
+      await emails.insertOne({ _id: emailDocId(emailLower), userId }, { session });
       return true;
     });
-    return created ? { id: userRef.id, ...data } : null;
+    return created ? { id: userId, ...data } : null;
   } catch (err) {
     // A concurrent signup for the same email committed first.
-    if (errorCode(err) === ALREADY_EXISTS) return null;
+    if (isDuplicateKey(err)) return null;
     throw err;
   }
 }
@@ -92,12 +95,14 @@ export async function updateUserProfile(
 ): Promise<UserRecord | null> {
   if (!isDocId(userId)) return null;
   try {
-    await db().runTransaction(async (tx) => {
-      await requireActiveAccount(userId, tx);
-      tx.update(userDoc(userId), { ...fields, updatedAt: new Date() });
+    await withTransaction(async (session) => {
+      await requireActiveAccount(userId, session);
+      await (await db()).collection<MongoRecord>("users").updateOne(
+        { _id: userId }, { $set: { ...fields, updatedAt: new Date() } }, { session },
+      );
     });
   } catch (err) {
-    if (errorCode(err) === NOT_FOUND || (err as { status?: number }).status === 401) return null;
+    if ((err as { status?: number }).status === 401) return null;
     throw err;
   }
   return getUserById(userId);

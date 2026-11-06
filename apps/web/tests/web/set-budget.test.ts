@@ -1,3 +1,5 @@
+import { leafId } from "@/lib/mongodb";
+import { scopedId } from "@/lib/mongodb";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearDb, seedAccount, testDb } from "../helpers/db";
 import { yangonMonth } from "@/lib/budgets";
@@ -12,16 +14,15 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 let setBudget: typeof import("@/app/db-actions").setBudget;
 let getBudgets: typeof import("@/app/db-actions").getBudgets;
 let getMonthPlanSummary: typeof import("@/app/db-actions").getMonthPlanSummary;
-const budgets = async () => (await testDb().collection("users").doc(userId).collection("budgets").get()).docs;
+const budgets = async () => (await testDb().collection("budgets").find({ userId: userId }).toArray());
 
 const thisMonth = yangonMonth(new Date());
 const [year, month] = thisMonth.split("-").map(Number);
 const nextMonth = month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, "0")}`;
 const monthName = new Date(Date.UTC(year, month - 1, 1)).toLocaleString("en-US", { month: "long", timeZone: "UTC" });
-const planDoc = (m: string) => testDb().collection("users").doc(userId).collection("budgetMonths").doc(m);
 const seedPlan = async (m: string, newMoney: number, carriedOver: number, shares: { category: string; limit: number }[]) => {
   const at = new Date("2026-01-01T00:00:00Z");
-  await planDoc(m).set({ month: m, newMoney, carriedOver, shares, createdAt: at, updatedAt: at });
+  await testDb().collection("budgetMonths").replaceOne({ _id: scopedId(userId, m), userId: userId }, { ...{ month: m, newMoney, carriedOver, shares, createdAt: at, updatedAt: at }, _id: scopedId(userId, m), userId: userId }, { upsert: true });
 };
 
 beforeAll(async () => {
@@ -36,19 +37,19 @@ describe("setBudget", () => {
   it("stores a whole kyat limit", async () => {
     const saved = await setBudget({ category: "Food", limit: 50000 });
     const [row] = await budgets();
-    expect(saved).toEqual({ _id: row.id, userId, category: "Food", limit: 50000 });
-    expect(row.get("limit")).toBe(50000);
+    expect(saved).toEqual({ _id: leafId(row._id), userId, category: "Food", limit: 50000 });
+    expect(row!.limit).toBe(50000);
   });
 
   it("updates the same category in place and keeps insertion order", async () => {
     await setBudget({ category: "Food", limit: 1000 });
     await setBudget({ category: "Rent", limit: 2000 });
     await setBudget({ category: "Bills", limit: 3000 });
-    const first = (await budgets()).find((b) => b.get("category") === "Food")!;
+    const first = (await budgets()).find((b) => b!.category === "Food")!;
     await setBudget({ category: "Food", limit: 1500 });
     expect(await budgets()).toHaveLength(3);
-    const after = (await budgets()).find((b) => b.get("category") === "Food")!;
-    expect(after.get("createdAt").isEqual(first.get("createdAt"))).toBe(true);
+    const after = (await budgets()).find((b) => b!.category === "Food")!;
+    expect((after!.createdAt.getTime() === first!.createdAt.getTime())).toBe(true);
     expect((await getBudgets()).map((b) => [b.category, b.limit])).toEqual([
       ["Food", 1500],
       ["Rent", 2000],
@@ -63,7 +64,7 @@ describe("setBudget", () => {
 
   it("without a plan for this month, writes only the old budget", async () => {
     await setBudget({ category: "Food", limit: 50000 });
-    expect((await testDb().collection("users").doc(userId).collection("budgetMonths").get()).size).toBe(0);
+    expect((await testDb().collection("budgetMonths").find({ userId: userId }).toArray()).length).toBe(0);
   });
 });
 
@@ -75,25 +76,25 @@ describe("setBudget with this month's plan", () => {
     ]);
     const saved = await setBudget({ category: "Food", limit: 40000 });
     expect(saved).toMatchObject({ category: "Food", limit: 40000 });
-    const plan = (await planDoc(thisMonth).get()).data()!;
+    const plan = (await testDb().collection("budgetMonths").findOne({ _id: scopedId(userId, thisMonth), userId: userId }))!;
     expect(plan.shares).toEqual([
       { category: "Food", limit: 40000 },
       { category: "Rent", limit: 50000 },
     ]);
-    expect(plan.updatedAt.toDate().getTime()).toBeGreaterThan(plan.createdAt.toDate().getTime());
+    expect(plan.updatedAt.getTime()).toBeGreaterThan(plan.createdAt.getTime());
     expect(plan.newMoney).toBe(100000);
     // The page lists the plan; the old budget is still written for months without one.
     expect((await getBudgets()).map((b) => [b.category, b.limit])).toEqual([
       ["Food", 40000],
       ["Rent", 50000],
     ]);
-    expect((await budgets()).map((b) => [b.get("category"), b.get("limit")])).toEqual([["Food", 40000]]);
+    expect((await budgets()).map((b) => [b!.category, b!.limit])).toEqual([["Food", 40000]]);
   });
 
   it("adds a new category to the end of the plan", async () => {
     await seedPlan(thisMonth, 100000, 0, [{ category: "Food", limit: 30000 }]);
     const saved = await setBudget({ category: "Rent", limit: 50000 });
-    expect((await planDoc(thisMonth).get()).get("shares")).toEqual([
+    expect((await testDb().collection("budgetMonths").findOne({ _id: scopedId(userId, thisMonth), userId: userId }))!.shares).toEqual([
       { category: "Food", limit: 30000 },
       { category: "Rent", limit: 50000 },
     ]);
@@ -108,10 +109,10 @@ describe("setBudget with this month's plan", () => {
 
   it("refuses when the split would go over the month's budget, and writes nothing", async () => {
     await seedPlan(thisMonth, 2000000, 280000, [{ category: "Food", limit: 1600000 }]);
-    await testDb().collection("users").doc(userId).collection("budgets").doc("x").set({
+    await testDb().collection("budgets").replaceOne({ _id: scopedId(userId, "x"), userId: userId }, { ...{
       userId, category: "Old", limit: 1, createdAt: new Date(),
-    });
-    const before = (await planDoc(thisMonth).get()).data()!;
+    }, _id: scopedId(userId, "x"), userId: userId }, { upsert: true });
+    const before = (await testDb().collection("budgetMonths").findOne({ _id: scopedId(userId, thisMonth), userId: userId }))!;
 
     expect(await setBudget({ category: "Rent", limit: 680001 })).toEqual({
       error: "The split would go over this month's budget of 2,280,000 Ks.",
@@ -119,15 +120,15 @@ describe("setBudget with this month's plan", () => {
     expect(await setBudget({ category: "Food", limit: 2280001 })).toEqual({
       error: "The split would go over this month's budget of 2,280,000 Ks.",
     });
-    expect((await planDoc(thisMonth).get()).data()).toEqual(before);
-    expect((await budgets()).map((b) => [b.get("category"), b.get("limit")])).toEqual([["Old", 1]]);
+    expect((await testDb().collection("budgetMonths").findOne({ _id: scopedId(userId, thisMonth), userId: userId }))).toEqual(before);
+    expect((await budgets()).map((b) => [b!.category, b!.limit])).toEqual([["Old", 1]]);
   });
 
   it("does not touch another month's plan, which does not change this month's list", async () => {
     await seedPlan(nextMonth, 1000, 0, [{ category: "Food", limit: 1000 }]);
-    const before = (await planDoc(nextMonth).get()).data()!;
+    const before = (await testDb().collection("budgetMonths").findOne({ _id: scopedId(userId, nextMonth), userId: userId }))!;
     expect(await setBudget({ category: "Rent", limit: 50000 })).toMatchObject({ category: "Rent" });
-    expect((await planDoc(nextMonth).get()).data()).toEqual(before);
+    expect((await testDb().collection("budgetMonths").findOne({ _id: scopedId(userId, nextMonth), userId: userId }))).toEqual(before);
     expect((await getBudgets()).map((b) => [b.category, b.limit])).toEqual([["Rent", 50000]]);
   });
 });

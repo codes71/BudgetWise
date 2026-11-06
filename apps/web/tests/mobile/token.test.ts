@@ -113,7 +113,7 @@ describe("requireUser", () => {
     const { token } = await signMobileToken({ id: "u1", email: "a@b.com" });
     await expect(requireUser(req("GET", "/x", { token }))).rejects.toMatchObject({ status: 401 });
     await seedAccount("u1", "a@b.com");
-    await testDb().collection("users").doc("u1").update({ deletionStartedAt: new Date() });
+    await testDb().collection("users").updateOne({ _id: "u1" }, { $set: { deletionStartedAt: new Date() } });
     await expect(requireUser(req("GET", "/x", { token }))).rejects.toMatchObject({ status: 401 });
   });
 

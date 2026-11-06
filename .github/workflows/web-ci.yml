@@ -37,13 +37,13 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
-      # `npm test` starts the Firestore emulator from the firebase-tools devDependency; version 15 needs Java 21+.
+      # Only the historical Mongo->Firestore copy project needs Java and the Firestore emulator.
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
 
-      # mongod binaries for mongodb-memory-server and the Firestore emulator jar, both downloaded on first use.
+      # Runtime/API tests own a temporary Mongo replica set. Legacy-copy tests own a separate emulator namespace.
       - uses: actions/cache@v6
         with:
           path: |
@@ -59,7 +59,7 @@ jobs:
         if: hashFiles('apps/web/eslint.config.*', 'apps/web/.eslintrc*') != ''
         run: npm run lint
 
-      - name: Unit and API tests (Firestore emulator)
+      - name: Unit and API tests (Mongo replica set plus isolated legacy copy)
         run: npm test
 
       - name: Build

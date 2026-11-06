@@ -60,12 +60,12 @@ describe("POST /api/v1/auth/token", () => {
   it("logs in an account whose doc id is a copied Mongo ObjectId", async () => {
     const { testDb } = await import("../helpers/db");
     const id = "64b0000000000000000000b1";
-    await testDb().collection("users").doc(id).set({
+    await testDb().collection("users").replaceOne({ _id: id }, { ...{
       email: "Copied@Example.com",
       emailLower: "copied@example.com",
       password: await bcrypt.hash("old-pass", 10),
       fullName: "Copied",
-    });
+    }, _id: id }, { upsert: true });
     const res = await login({ email: "copied@example.com", password: "old-pass" });
     expect(res.status).toBe(200);
     expect((await res.json()).user).toEqual({ id, email: "Copied@Example.com", fullName: "Copied" });
@@ -73,13 +73,14 @@ describe("POST /api/v1/auth/token", () => {
 
   it("looks the account up with a single query whether or not it exists", async () => {
     const { testDb } = await import("../helpers/db");
-    const Query = Object.getPrototypeOf(testDb().collection("users").where("emailLower", "==", "x"));
-    const spy = vi.spyOn(Query, "get");
+    const Collection = Object.getPrototypeOf(testDb().collection("users"));
+    const spy = vi.spyOn(Collection, "findOne");
+    const accountQueries = () => spy.mock.contexts.filter((collection: any) => collection.collectionName === "users");
     await login({ email: "alice@example.com", password: "correct-horse" });
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(accountQueries()).toHaveLength(1);
     spy.mockClear();
     await login({ email: "ghost@example.com", password: "whatever" });
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(accountQueries()).toHaveLength(1);
   });
 
   it("wrong password and unknown email both 401 with identical body", async () => {

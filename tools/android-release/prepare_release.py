@@ -13,8 +13,9 @@ import subprocess
 from typing import Any
 from urllib.parse import urlsplit
 
-APPLICATION_ID = "app.budgetwise"
+APPLICATION_ID = "app.pocketpeek"
 REPOSITORY = "codes71/BudgetWise"
+DESCRIPTOR_NAME = "pocket-peek-android-friends.json"
 MAX_APK_BYTES = 150_000_000
 MAX_MANIFEST_BYTES = 32_768
 MAX_VERSION_CODE = 2_147_483_647
@@ -42,7 +43,7 @@ def previous_version(manifest: dict[str, Any]) -> int:
         raise ReleaseError("Previous manifest must be a JSON object.")
     if (type(manifest.get("schemaVersion")) is not int or manifest.get("schemaVersion") != 1 or manifest.get("channel") != "friends"
             or manifest.get("applicationId") != APPLICATION_ID):
-        raise ReleaseError("Previous manifest must use the BudgetWise friends schema.")
+        raise ReleaseError("Previous manifest must use the Pocket Peek friends schema.")
     if "release" in manifest:
         if manifest["release"] is None and "versionCode" not in manifest:
             return 0
@@ -56,22 +57,22 @@ def release_names(version_name: str, version_code: int) -> tuple[str, str]:
         raise ReleaseError("versionName must start with a digit and contain only letters, digits, dot, underscore or hyphen.")
     if ".." in version_name:
         raise ReleaseError("versionName may not contain consecutive dots.")
-    return f"android-friends-v{version_name}-{version_code}", f"BudgetWise-{version_name}-{version_code}.apk"
+    return f"pocket-peek-android-friends-v{version_name}-{version_code}", f"PocketPeek-{version_name}-{version_code}.apk"
 
 
 def validate_download_url(url: str) -> str:
     parts = urlsplit(url)
     if (parts.scheme != "https" or parts.netloc != "github.com" or parts.query or parts.fragment
-            or not re.fullmatch(r"/codes71/BudgetWise/releases/download/android-friends-v[0-9][A-Za-z0-9._-]+/BudgetWise-[0-9][A-Za-z0-9._-]+\.apk", parts.path)
+            or not re.fullmatch(r"/codes71/BudgetWise/releases/download/pocket-peek-android-friends-v[0-9][A-Za-z0-9._-]+/PocketPeek-[0-9][A-Za-z0-9._-]+\.apk", parts.path)
             or ".." in parts.path or "%" in url):
-        raise ReleaseError("APK URL must be a direct HTTPS BudgetWise friends GitHub release asset URL.")
+        raise ReleaseError("APK URL must be a direct HTTPS Pocket Peek friends GitHub release asset URL.")
     return url
 
 
 def inspect_badging(badging: str) -> dict[str, Any]:
     package = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']*)'", badging, re.M)
     if not package or package.group(1) != APPLICATION_ID:
-        raise ReleaseError("APK applicationId must be app.budgetwise.")
+        raise ReleaseError("APK applicationId must be app.pocketpeek.")
     try:
         version_code = int(package.group(2))
     except ValueError as error:
@@ -151,7 +152,7 @@ def prepare(apk: Path, build_tools: Path, expected_fingerprint: str, previous_ma
         raise ReleaseError("Output directory already exists. Use a new directory; releases are not overwritten.")
     output.mkdir(parents=True)
     shutil.copy2(apk, output / asset)
-    (output / "friends.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+    (output / DESCRIPTOR_NAME).write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
     (output / "SHA256SUMS.txt").write_text(f"{manifest['sha256']}  {asset}\n")
     (output / "release-notes.md").write_text(notes.strip() + "\n")
     report = {"tag": tag, "asset": asset, "signingCertificateSha256": fingerprint,

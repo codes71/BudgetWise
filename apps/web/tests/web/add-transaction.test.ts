@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearDb, newUserId, seedAccount, testDb } from "../helpers/db";
+import { leafId, scopedId } from "@/lib/mongodb";
 
 const { userId } = vi.hoisted(() => ({ userId: `web${Date.now()}` }));
 
@@ -17,8 +18,7 @@ const base = {
   category: "Food",
   type: "expense" as const,
 };
-const txCol = () => testDb().collection("users").doc(userId).collection("transactions");
-const rows = async () => (await txCol().get()).docs;
+const rows = () => testDb().collection("transactions").find({ userId }).toArray();
 
 beforeAll(async () => {
   actions = await import("@/app/db-actions");
@@ -33,29 +33,29 @@ describe("addTransaction", () => {
     const res = await actions.addTransaction({ ...base, source: "voice" } as never);
     expect(res).not.toBeNull();
     const [row] = await rows();
-    expect(row.get("source")).toBe("web");
+    expect(row.source).toBe("web");
   });
 
   it("returns the row with _id set to the auto doc id", async () => {
     const res = await actions.addTransaction(base);
     const [row] = await rows();
-    expect(res).toMatchObject({ ...base, _id: row.id, userId, source: "web" });
+    expect(res).toMatchObject({ ...base, _id: leafId(row._id), userId, source: "web" });
     expect(typeof res!.createdAt).toBe("string");
   });
 
   it("stores only whitelisted fields", async () => {
     await actions.addTransaction({ ...base, clientId: "evil-1", transcript: "spoofed", userId: "other", extra: 1 } as never);
     const [row] = await rows();
-    expect(Object.keys(row.data()).sort()).toEqual(
-      ["amount", "category", "createdAt", "date", "description", "source", "type", "updatedAt", "userId"],
+    expect(Object.keys(row).sort()).toEqual(
+      ["_id", "amount", "category", "createdAt", "date", "description", "source", "type", "updatedAt", "userId"],
     );
-    expect(row.get("userId")).toBe(userId);
+    expect(row.userId).toBe(userId);
   });
 
   it("stores whole kyat amounts", async () => {
     await actions.addTransaction({ ...base, amount: 12500 });
     const [row] = await rows();
-    expect(row.get("amount")).toBe(12500);
+    expect(row.amount).toBe(12500);
   });
 
   it.each([12.5, 0.3, 0, -5, 2 ** 53, Number.NaN])("refuses amount %s", async (amount) => {
@@ -75,17 +75,19 @@ describe("getTransactions and deleteTransaction", () => {
     await actions.addTransaction({ ...base, date: "2026-10-03", description: "newer" });
     const list = await actions.getTransactions();
     expect(list.map((t) => t.description)).toEqual(["newer", "older"]);
-    expect(list[0]._id).toMatch(/^[A-Za-z0-9]{20}$/);
+    expect(list[0]._id).toMatch(/^[A-Za-z0-9_-]{1,128}$/);
+    expect(list[0]._id).not.toContain("/");
     expect(await actions.deleteTransaction(list[0]._id)).toEqual({ success: true });
     expect((await actions.getTransactions()).map((t) => t.description)).toEqual(["older"]);
   });
 
   it("refuses unknown, other users' and malformed ids", async () => {
-    const other = testDb().collection("users").doc(newUserId()).collection("transactions");
-    const ref = await other.add({ ...base, userId: "someone-else" });
-    for (const id of [ref.id, "missing", "a/b", "__x__"]) {
-      expect((await actions.deleteTransaction(id)).success).toBe(false);
+    const otherUser = newUserId();
+    const id = newUserId();
+    await testDb().collection("transactions").insertOne({ ...base, _id: scopedId(otherUser, id), userId: otherUser });
+    for (const attempt of [id, "missing", "a/b", "__x__"]) {
+      expect((await actions.deleteTransaction(attempt)).success).toBe(false);
     }
-    expect((await ref.get()).exists).toBe(true);
+    expect(await testDb().collection("transactions").findOne({ _id: scopedId(otherUser, id) })).not.toBeNull();
   });
 });

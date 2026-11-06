@@ -23,7 +23,7 @@ check(releaseApiBaseUrl.startsWith("https://")) {
 // keystore or password is committed. Without ANDROID_KEYSTORE_FILE the release build stays unsigned.
 val releaseKeystoreFile = providers.environmentVariable("ANDROID_KEYSTORE_FILE").orNull
 val updateManifestUrl = providers.gradleProperty("budgetwise.updateManifestUrl")
-    .getOrElse("https://budgetwis3.vercel.app/updates/friends.json")
+    .getOrElse("https://budgetwis3.vercel.app/updates/pocket-peek-android-friends.json")
 check(updateManifestUrl.startsWith("https://")) { "Update manifest must use HTTPS" }
 
 android {
@@ -42,12 +42,13 @@ android {
     }
 
     defaultConfig {
-        applicationId = "app.budgetwise"
+        // Pocket Peek is a separate install from legacy BudgetWise. Keep its package and update feed separate.
+        applicationId = "app.pocketpeek"
         minSdk = 26
         targetSdk = 36
         // Play rejects an upload whose versionCode is not higher than the last one; android-release.yml sets it.
-        versionCode = providers.gradleProperty("budgetwise.versionCode").map(String::toInt).getOrElse(1)
-        versionName = providers.gradleProperty("budgetwise.versionName").getOrElse("0.1.0")
+        versionCode = providers.gradleProperty("budgetwise.versionCode").map(String::toInt).getOrElse(4)
+        versionName = providers.gradleProperty("budgetwise.versionName").getOrElse("0.3.0")
         buildConfigField("boolean", "DIRECT_UPDATES", "false")
         buildConfigField("String", "UPDATE_MANIFEST_URL", "\"$updateManifestUrl\"")
 

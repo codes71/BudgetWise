@@ -210,7 +210,7 @@ private fun UpdateSectionPreview() {
         Column(Modifier.padding(24.dp)) {
             UpdateSection(
                 state = UpdateState.Available(
-                    UpdateRelease(2, "0.2.0", 26, "", "", 40_000_000, "Update from inside BudgetWise."),
+                    UpdateRelease(2, "0.2.0", 26, "", "", 40_000_000, "Update from inside Pocket Peek."),
                 ),
                 myanmarDigits = false,
                 onCheck = {}, onDownload = {}, onCancel = {}, onInstall = {},

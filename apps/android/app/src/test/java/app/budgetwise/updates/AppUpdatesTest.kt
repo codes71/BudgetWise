@@ -43,7 +43,7 @@ class AppUpdatesTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
     private val calls = AtomicInteger()
-    private val empty = """{"schemaVersion":1,"channel":"friends","applicationId":"app.budgetwise","release":null}"""
+    private val empty = """{"schemaVersion":1,"channel":"friends","applicationId":"app.pocketpeek","release":null}"""
     private var respond: (okhttp3.Request) -> Response = { request -> response(request, 200, empty) }
     private val client = OkHttpClient.Builder().addInterceptor { chain ->
         calls.incrementAndGet()
@@ -59,7 +59,7 @@ class AppUpdatesTest {
     @After fun closeScope() { scope.cancel(); client.dispatcher.executorService.shutdown() }
 
     private fun updater(enabled: Boolean = true) = AppUpdates(context, enabled,
-        "https://budgetwis3.vercel.app/updates/friends.json", scope, client)
+        "https://budgetwis3.vercel.app/updates/pocket-peek-android-friends.json", scope, client)
 
     private fun response(request: okhttp3.Request, code: Int, body: String) = Response.Builder()
         .request(request).protocol(Protocol.HTTP_1_1).code(code).message("test").body(body.toResponseBody()).build()
@@ -97,6 +97,15 @@ class AppUpdatesTest {
         updates.check(true)
         await(updates) { it == UpdateState.Current }
         assertTrue(calls.get() >= 1)
+    }
+
+    @Test fun legacyBudgetWiseFeedIsRejectedBeforeDownloading() {
+        respond = { response(it, 200, releaseJson().replace("app.pocketpeek", "app.budgetwise")) }
+        val updates = updater()
+        updates.check(true)
+        val failure = await(updates) { it is UpdateState.Problem } as UpdateState.Problem
+        assertEquals(UpdateProblem.INVALID_RELEASE, failure.problem)
+        assertEquals(1, calls.get())
     }
 
     @Test fun automaticCheckIsThrottledButExplicitRetryIsNot() {

@@ -1,3 +1,5 @@
+import { leafId } from "@/lib/mongodb";
+import { scopedId } from "@/lib/mongodb";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearDb, newUserId, seedAccount, testDb } from "../helpers/db";
 import { req } from "../helpers/request";
@@ -33,7 +35,7 @@ beforeEach(async () => {
   claude.mockReset();
   const { seedCategories } = await import("../../scripts/seedCategories");
   await seedCategories(testDb());
-  await testDb().collection("users").doc(userA).collection("categories").doc("c1").set({ name: "အလှူ" });
+  await testDb().collection("userCategories").replaceOne({ _id: scopedId(userA, "c1"), userId: userA }, { ...{ name: "အလှူ" }, _id: scopedId(userA, "c1"), userId: userA }, { upsert: true });
 });
 
 const scan = (token: string | undefined, body: unknown = { image: JPEG, mediaType: "image/jpeg" }) =>
@@ -309,8 +311,8 @@ describe("POST /api/v1/scan", () => {
     };
     expect((await save(first)).status).toBe(200);
     expect((await save(second)).status).toBe(200);
-    const rows = await testDb().collection("users").doc(userA).collection("transactions").get();
-    expect(rows.docs.map((d) => d.id)).toEqual([first.clientId]);
+    const rows = await testDb().collection("transactions").find({ userId: userA }).toArray();
+    expect(rows.map((d) => leafId(d._id))).toEqual([first.clientId]);
   });
 
   it("maps categories outside the user's list to Other and fixes the spelling of known ones", async () => {

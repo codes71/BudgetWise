@@ -1,6 +1,7 @@
-name: Android friends release
+name: Pocket Peek Android friends release
 
-# Build-only. Publishing the verified APK and promoting friends.json are separate reviewed actions.
+# Build-only. Publishing the verified APK and promoting the Pocket Peek feed are separate reviewed actions.
+# Never promote this app's descriptor to the legacy BudgetWise friends.json feed.
 on:
   workflow_dispatch:
     inputs:
@@ -8,7 +9,7 @@ on:
         description: "Higher than every previously published friends versionCode"
         required: true
       version_name:
-        description: "User-visible version, for example 0.2.0"
+        description: "User-visible version, for example 0.3.0"
         required: true
       notes:
         description: "Short user-facing release notes"
@@ -95,13 +96,13 @@ jobs:
             --apk apps/android/app/build/outputs/apk/friends/app-friends.apk \
             --build-tools "$tools_dir" \
             --expected-certificate-sha256 "$EXPECTED_CERTIFICATE_SHA256" \
-            --previous-manifest apps/web/public/updates/friends.json \
+            --previous-manifest apps/web/public/updates/pocket-peek-android-friends.json \
             --notes-file "$RUNNER_TEMP/release-notes.md" \
             --output "$RUNNER_TEMP/friends-release"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: friends-release-${{ inputs.version_code }}
+          name: pocket-peek-friends-release-${{ inputs.version_code }}
           path: |
             ${{ runner.temp }}/friends-release/
             apps/android/app/build/outputs/mapping/friends/mapping.txt

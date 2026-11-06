@@ -27,7 +27,7 @@ internal object UpdatePolicy {
             url.host == "github.com" && url.query == null && url.fragment == null &&
                 segments.size == 6 && segments.take(4) == listOf("codes71", "BudgetWise", "releases", "download") &&
                 name.matches(segments[4]) && name.matches(segments[5]) && segments[5].endsWith(".apk"),
-            "APK must be a BudgetWise GitHub release asset",
+            "APK must be a Pocket Peek release asset from the configured GitHub repository",
         )
     }
 

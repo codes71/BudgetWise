@@ -4,6 +4,22 @@ import { verifySessionToken } from '@/lib/session-claims';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const isReadMethod = ['GET', 'HEAD', 'OPTIONS'].includes(request.method.toUpperCase());
+  // A brief source-data freeze can be enabled explicitly during a verified database cutover.
+  // Block before reading cookies or verifying claims, including API writers and web server actions.
+  if (process.env.MIGRATION_READ_ONLY === '1' && !isReadMethod) {
+    return NextResponse.json(
+      { error: { code: 'temporarily_unavailable', message: 'Changes are temporarily unavailable. Please try again shortly.' } },
+      { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } },
+    );
+  }
+
+  // APIs enforce their own bearer/session rules. Public policy pages remain independent of web cookies.
+  if (pathname === '/api' || pathname.startsWith('/api/')
+    || pathname === '/privacy' || pathname.startsWith('/privacy/')
+    || pathname === '/delete-account' || pathname.startsWith('/delete-account/')) {
+    return NextResponse.next();
+  }
   // Edge routing uses JWT claims only. Node server actions/API independently require an active account.
   const currentUser = await verifySessionToken(request.cookies.get('session')?.value);
 
@@ -32,6 +48,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Update metadata is public static content, independent of web sessions.
-  matcher: ['/((?!api|updates/|privacy(?:/|$)|delete-account(?:/|$)|_next/static|_next/image|favicon.ico).*)'],
+  // Include APIs and policy pages so mutating requests cannot bypass an explicitly enabled source freeze.
+  // Update metadata and framework static assets stay public and independent of web sessions.
+  matcher: ['/((?!updates/|_next/static|_next/image|favicon.ico).*)'],
 };

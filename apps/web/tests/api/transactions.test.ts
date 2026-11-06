@@ -1,5 +1,5 @@
+import { scopedId } from "@/lib/mongodb";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { Timestamp } from "firebase-admin/firestore";
 import { clearDb, newUserId, seedAccount, testDb } from "../helpers/db";
 import { req } from "../helpers/request";
 
@@ -10,8 +10,7 @@ let tokenA: string;
 let tokenB: string;
 const userA = newUserId();
 const userB = newUserId();
-const txCol = (userId: string) => testDb().collection("users").doc(userId).collection("transactions");
-const count = async (userId: string) => (await txCol(userId).count().get()).data().count;
+const count = (userId: string) => testDb().collection("transactions").countDocuments({ userId });
 
 beforeAll(async () => {
   const list = await import("@/app/api/v1/transactions/route");
@@ -58,17 +57,17 @@ describe("POST /api/v1/transactions", () => {
       expect(new Date(t.createdAt).getTime()).toBeGreaterThan(0);
       expect(new Date(t.updatedAt).getTime()).toBeGreaterThan(0);
     }
-    const stored = await txCol(userA).doc(uuid(1)).get();
-    expect(stored.get("createdAt")).toBeInstanceOf(Timestamp);
-    expect(stored.get("userId")).toBe(userA);
-    expect(stored.get("transcript")).toBeUndefined();
+    const stored = await testDb().collection("transactions").findOne({ _id: scopedId(userA, uuid(1)), userId: userA });
+    expect(stored!.createdAt).toBeInstanceOf(Date);
+    expect(stored!.userId).toBe(userA);
+    expect(stored!.transcript).toBeUndefined();
   });
 
   it("stores only the contract fields", async () => {
     await post(tokenA, [item(1, { source: "voice", transcript: "kafe 101", extra: "dropped" })]);
-    const stored = (await txCol(userA).doc(uuid(1)).get()).data()!;
+    const stored = (await testDb().collection("transactions").findOne({ _id: scopedId(userA, uuid(1)), userId: userA }))!;
     expect(Object.keys(stored).sort()).toEqual(
-      ["amount", "category", "clientId", "createdAt", "date", "description", "source", "transcript", "type", "updatedAt", "userId"],
+      ["_id", "amount", "category", "clientId", "createdAt", "date", "description", "source", "transcript", "type", "updatedAt", "userId"],
     );
     expect(stored.transcript).toBe("kafe 101");
   });
@@ -90,9 +89,9 @@ describe("POST /api/v1/transactions", () => {
     expect(saved[1]).toMatchObject({ source: "scan", receiptId, merchant: "City Mart" });
     expect(saved[1]).not.toHaveProperty("items");
 
-    const stored = (await txCol(userA).doc(uuid(1)).get()).data()!;
+    const stored = (await testDb().collection("transactions").findOne({ _id: scopedId(userA, uuid(1)), userId: userA }))!;
     expect(Object.keys(stored).sort()).toEqual(
-      ["amount", "category", "clientId", "createdAt", "date", "description", "items", "merchant", "receiptId", "source", "type", "updatedAt", "userId"],
+      ["_id", "amount", "category", "clientId", "createdAt", "date", "description", "items", "merchant", "receiptId", "source", "type", "updatedAt", "userId"],
     );
     expect(stored).toMatchObject({ receiptId, merchant: "City Mart", items: lines });
 
@@ -106,8 +105,8 @@ describe("POST /api/v1/transactions", () => {
       for (const key of ["receiptId", "merchant", "items", "transcript"]) expect(t).not.toHaveProperty(key);
     }
     for (const n of [1, 2]) {
-      expect(Object.keys((await txCol(userA).doc(uuid(n)).get()).data()!).sort()).toEqual(
-        ["amount", "category", "clientId", "createdAt", "date", "description", "source", "type", "updatedAt", "userId"],
+      expect(Object.keys((await testDb().collection("transactions").findOne({ _id: scopedId(userA, uuid(n)), userId: userA }))!).sort()).toEqual(
+        ["_id", "amount", "category", "clientId", "createdAt", "date", "description", "source", "type", "updatedAt", "userId"],
       );
     }
   });
@@ -152,10 +151,10 @@ describe("POST /api/v1/transactions", () => {
   it("matches a row copied from Mongo by its clientId field, without a duplicate", async () => {
     const legacyId = "64b0000000000000000000aa";
     const createdAt = new Date("2026-09-01T00:00:00.000Z");
-    await txCol(userA).doc(legacyId).set({
+    await testDb().collection("transactions").replaceOne({ _id: scopedId(userA, legacyId), userId: userA }, { ...{
       userId: userA, clientId: uuid(7), date: "2026-09-01", description: "copied", amount: 70,
       category: "Food", type: "expense", source: "manual", createdAt, updatedAt: createdAt,
-    });
+    }, _id: scopedId(userA, legacyId), userId: userA }, { upsert: true });
     const { saved } = await (await post(tokenA, [item(7), item(8)])).json();
     expect(saved[0]).toMatchObject({ id: legacyId, clientId: uuid(7), description: "copied" });
     expect(saved[0].updatedAt).toBe(createdAt.toISOString());
@@ -164,14 +163,13 @@ describe("POST /api/v1/transactions", () => {
   });
 
   it("finds copied rows past the 30-value in-filter limit", async () => {
-    const batch = testDb().batch();
     for (let n = 1; n <= 35; n++) {
-      batch.set(txCol(userA).doc(`64b0000000000000000000${String(n).padStart(2, "0")}`), {
+      await testDb().collection("transactions").insertOne({
+        _id: scopedId(userA, `64b0000000000000000000${String(n).padStart(2, "0")}`),
         userId: userA, clientId: uuid(n), date: "2026-09-01", description: `copied ${n}`, amount: n,
         category: "Food", type: "expense", source: "manual",
       });
     }
-    await batch.commit();
     const { saved } = await (await post(tokenA, Array.from({ length: 36 }, (_, i) => item(i + 1)))).json();
     expect(saved).toHaveLength(36);
     expect(saved.slice(0, 35).every((t: any) => t.description.startsWith("copied"))).toBe(true);
@@ -215,9 +213,9 @@ describe("GET /api/v1/transactions", () => {
 
   it("returns all rows incl. legacy ones without updatedAt, ordered by updatedAt then id", async () => {
     await post(tokenA, [item(1), item(2), item(3)]);
-    await txCol(userA).add({
+    await testDb().collection("transactions").insertOne({ ...{
       userId: userA, date: "2026-01-01", description: "legacy", amount: 5, category: "Misc", type: "expense",
-    });
+    }, _id: scopedId(userA, newUserId()), userId: userA });
     const res = await get(tokenA);
     expect(res.status).toBe(200);
     const { transactions } = await res.json();
@@ -235,7 +233,7 @@ describe("GET /api/v1/transactions", () => {
   it("orders rows with the same updatedAt by id", async () => {
     const same = new Date("2026-10-05T00:00:00.000Z");
     const { saved } = await (await post(tokenA, [item(3), item(1), item(2)])).json();
-    for (const t of saved) await txCol(userA).doc(t.id).update({ updatedAt: same });
+    for (const t of saved) await testDb().collection("transactions").updateOne({ _id: scopedId(userA, t.id), userId: userA }, { $set: { updatedAt: same } });
     const body = await (await get(tokenA)).json();
     expect(body.transactions.map((t: any) => t.clientId)).toEqual([uuid(1), uuid(2), uuid(3)]);
   });
@@ -243,8 +241,8 @@ describe("GET /api/v1/transactions", () => {
   it("includes rows updated exactly at the cursor", async () => {
     const { saved: transactions } = await (await post(tokenA, [item(1), item(2)])).json();
     const cursor = new Date("2026-10-10T00:00:00.000Z");
-    await txCol(userA).doc(transactions[0].id).update({ updatedAt: cursor });
-    await txCol(userA).doc(transactions[1].id).update({ updatedAt: new Date(cursor.getTime() - 1) });
+    await testDb().collection("transactions").updateOne({ _id: scopedId(userA, transactions[0].id), userId: userA }, { $set: { updatedAt: cursor } });
+    await testDb().collection("transactions").updateOne({ _id: scopedId(userA, transactions[1].id), userId: userA }, { $set: { updatedAt: new Date(cursor.getTime() - 1) } });
     const res = await get(tokenA, `?updatedSince=${encodeURIComponent(cursor.toISOString())}`);
     const body = await res.json();
     expect(body.transactions.map((t: any) => t.id)).toEqual([transactions[0].id]);

@@ -278,7 +278,7 @@ fun TransactionsScreen(
                     state.isEmpty -> item(key = "empty") {
                         Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
                             EmptyState(
-                                icon = Lucide.Receipt,
+                                icon = Lucide.Transactions,
                                 title = stringResource(R.string.transactions_empty_title),
                                 message = stringResource(R.string.transactions_empty_message),
                                 modifier = Modifier.padding(bottom = 48.dp),

@@ -1,5 +1,4 @@
-import { Timestamp } from "firebase-admin/firestore";
-import { db, sha256Hex } from "@/lib/firestore";
+import { db, isDuplicateKey, sha256Hex, toDate, withTransaction, type MongoRecord } from "@/lib/mongodb";
 import { ApiError } from "./errors";
 import { requireAccountRecord, requireActiveAccount } from "@/lib/account-access";
 
@@ -13,28 +12,34 @@ export interface RateLimitOptions {
 // transaction, so no hit is lost. Expired docs are simply reset on the next
 // hit; nothing has to delete them.
 async function hit(key: string, windowSec: number): Promise<{ count: number; expiresAtMs: number }> {
-  const ref = db().collection("rateLimits").doc(sha256Hex(key));
-  return db().runTransaction(
-    async (tx) => {
+  const rates = (await db()).collection<MongoRecord>("rateLimits");
+  const id = sha256Hex(key);
+  const run = () => withTransaction(async (session) => {
       // `<purpose>:user:<uid>` keys are exclusively account-owned. Read the same root that deletion locks/removes
       // inside this transaction, so an earlier successful bearer check cannot recreate counters after deletion.
       const owner = /^[^:]+:user:(.+)$/.exec(key)?.[1];
       if (owner) {
-        if (key.startsWith("delete-account:user:")) await requireAccountRecord(owner, tx);
-        else await requireActiveAccount(owner, tx);
+        if (key.startsWith("delete-account:user:")) await requireAccountRecord(owner, session);
+        else await requireActiveAccount(owner, session);
       }
-      const snap = await tx.get(ref);
+      const prev = await rates.findOne({ _id: id }, { session });
       const now = Date.now();
-      const prev = snap.data();
-      const prevExpiresMs = prev?.expiresAt instanceof Timestamp ? prev.expiresAt.toMillis() : 0;
+      const prevExpiresMs = toDate(prev?.expiresAt)?.getTime() ?? 0;
       const live = prevExpiresMs > now;
       const count = live ? (Number(prev?.count) || 0) + 1 : 1;
       const expiresAtMs = live ? prevExpiresMs : now + windowSec * 1000;
-      tx.set(ref, { key, count, expiresAt: Timestamp.fromMillis(expiresAtMs) });
+      await rates.replaceOne({ _id: id }, { _id: id, key, count, expiresAt: new Date(expiresAtMs) }, {
+        session, upsert: true,
+      });
       return { count, expiresAtMs };
-    },
-    { maxAttempts: 10 },
-  );
+  });
+  try {
+    return await run();
+  } catch (error) {
+    // Initial inserts can race before the key exists. Retry the whole transaction against the winner's row.
+    if (!isDuplicateKey(error)) throw error;
+    return run();
+  }
 }
 
 export async function rateLimit(key: string, opts: RateLimitOptions): Promise<void> {

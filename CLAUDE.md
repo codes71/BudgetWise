@@ -1,7 +1,22 @@
-# BudgetWise
+# Pocket Peek
 
 The Android app is in `apps/android` and the web app plus the `/api/v1` mobile API in `apps/web`. See `README.md`
 for setup and `docs/repo-layout.md` for how the folders fit together.
+
+## Runtime persistence
+
+- Native MongoDB persistence lives in `apps/web/src/lib/mongodb.ts`. Runtime configuration is explicit server-only
+  `MONGODB_URI` and `MONGODB_DB`. Atlas or a local replica set is required for multi-document transactions.
+- Authentication remains the app's own bcrypt/Jose email-password implementation. Firebase Authentication and
+  Google sign-in are not implemented. Keep account IDs, password hashes, and the existing JWT secret stable.
+- Account-owned mutations must call `requireActiveAccount(userId, session)` inside the same Mongo transaction.
+  It touches the account root so a concurrent deletion causes a write conflict; a snapshot read alone is insufficient.
+- Index setup is explicit through `ensureIndexes()`, after migration parity checks. Never deduplicate or delete
+  records merely to make a unique index succeed. Keep Firestore source data intact until cutover is verified.
+- Firebase packages/client/scripts are retained for historical source export and migration tests, not the active
+  runtime database. Old Mongo-to-Firestore `--write` commands are not part of the current migration.
+- Android package `app.pocketpeek` is a separate install from legacy `app.budgetwise`. Do not uninstall or clear
+  the legacy app to make a new-package install work. Only synced data can return through backend sign-in.
 
 ## Worktrees
 
@@ -44,8 +59,12 @@ Only one worktree can use these at a time. Check before you start, and stop what
   `git merge-base --is-ancestor 519e1b8 HEAD` must succeed, else merge `origin/master` first. When a later change
   raises the version again, update the commit here.
 - The web dev server on port 9002 (`npm run dev`). If the port is taken, another worktree is running it.
-- The Firestore emulator on port 8085. `npm test` reuses a running emulator and clears it between tests, so web
-  tests running in two worktrees at once wipe each other's data. The run that started the emulator also stops it.
+- The retained Firestore emulator on port 8085 is used by historical export/copy tests. Preserve a shared process
+  and its existing project data; use a distinct emulator-only `demo-` namespace for migration fixtures.
+- MongoDB runtime tests require a disposable replica set and a uniquely named test database. The harness starts
+  an owned replica set on dynamic ports and a unique `test-pocketpeek-*` database. Run `npm test` or
+  `npx vitest run --project mongo`. Never let
+  cleanup target Atlas or another worktree's development database. Stop only servers the current run started.
 
 ### Checks
 

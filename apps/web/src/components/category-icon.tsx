@@ -1,5 +1,6 @@
 import type { FC } from 'react';
-import { ShoppingCart, Lightbulb, Ticket, Car, Home, HeartPulse, MoreHorizontal, type LucideProps } from 'lucide-react';
+import { Lightbulb, Ticket, MoreHorizontal, type LucideProps } from 'lucide-react';
+import { Shopping as ShoppingCart, Transport as Car, Home, Health as HeartPulse } from '@/components/brand/pocket-peek-icons';
 
 interface CategoryIconProps extends LucideProps {
   category: string;

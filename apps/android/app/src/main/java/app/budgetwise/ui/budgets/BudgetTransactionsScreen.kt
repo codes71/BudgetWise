@@ -201,7 +201,7 @@ fun BudgetTransactionsScreen(
                     if (state.days.isEmpty()) {
                         item(key = "empty") {
                             EmptyState(
-                                icon = Lucide.Receipt,
+                                icon = Lucide.Transactions,
                                 title = stringResource(R.string.budget_transactions_empty_title),
                                 message = stringResource(R.string.budget_transactions_empty_detail),
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),

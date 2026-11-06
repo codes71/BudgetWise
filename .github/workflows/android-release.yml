@@ -1,4 +1,4 @@
-name: Android release
+name: Pocket Peek Android release
 
 # Builds a signed release bundle (AAB) of :app and uploads it to the Play Console internal track.
 # Without the signing secrets nothing is built; without the Play secret or the API URL variable the
@@ -16,10 +16,10 @@ on:
         description: "versionCode (empty: the workflow run number)"
         required: false
       version_name:
-        description: "versionName (empty: 0.1.0)"
+        description: "versionName (empty: 0.3.0)"
         required: false
   push:
-    tags: ["android-v*"]
+    tags: ["pocket-peek-android-v*"]
 
 permissions:
   contents: read
@@ -90,9 +90,9 @@ jobs:
         if: steps.check.outputs.sign == 'true'
         run: |
           code="${INPUT_VERSION_CODE:-$GITHUB_RUN_NUMBER}"
-          name="${INPUT_VERSION_NAME:-0.1.0}"
+          name="${INPUT_VERSION_NAME:-0.3.0}"
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            name="${GITHUB_REF_NAME#android-v}"
+            name="${GITHUB_REF_NAME#pocket-peek-android-v}"
           fi
           echo "VERSION_CODE=$code" >> "$GITHUB_ENV"
           echo "VERSION_NAME=$name" >> "$GITHUB_ENV"
@@ -117,7 +117,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: steps.check.outputs.sign == 'true'
         with:
-          name: app-release-${{ env.VERSION_CODE }}
+          name: pocket-peek-app-release-${{ env.VERSION_CODE }}
           path: |
             apps/android/app/build/outputs/bundle/release/app-release.aab
             apps/android/app/build/outputs/mapping/release/mapping.txt
@@ -128,7 +128,7 @@ jobs:
         uses: r0adkll/upload-google-play@v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: app.budgetwise
+          packageName: app.pocketpeek
           releaseFiles: apps/android/app/build/outputs/bundle/release/app-release.aab
           track: internal
           status: ${{ inputs.status || 'draft' }}

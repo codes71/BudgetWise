@@ -17,7 +17,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "budgetwise-android"
+rootProject.name = "pocket-peek-android"
 
 // On-device speech recognition (ONNX Runtime from Maven) and its manual device harness. No NDK or submodule needed.
 include(":asr")

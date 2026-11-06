@@ -4,7 +4,7 @@ import { useState, type ReactNode, useEffect, useCallback, useRef } from 'react'
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon } from '@/components/brand/pocket-peek-icons';
 import { format } from 'date-fns';
 import { debounce } from 'lodash';
 

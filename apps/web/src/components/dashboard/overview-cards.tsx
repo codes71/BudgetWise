@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DollarSign, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { DollarSign, TrendingDown } from 'lucide-react';
+import { Income as TrendingUp, Wallet } from '@/components/brand/pocket-peek-icons';
 import { useAuth } from '@/context/auth-context';
 import { formatCurrency } from '@/lib/utils';
 

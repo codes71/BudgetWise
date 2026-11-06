@@ -5,5 +5,5 @@
     <string name="asr_channel_ready">Voice ready</string>
     <string name="asr_downloading">Downloading voice</string>
     <string name="asr_ready_title">Voice is ready</string>
-    <string name="asr_ready_text">Tap Say it and tell BudgetWise what you spent.</string>
+    <string name="asr_ready_text">Tap Say it and tell Pocket Peek what you spent.</string>
 </resources>

@@ -2,16 +2,16 @@
 <resources>
     <string name="privacy_scan_title">AI ဖြင့် စကန်ဖတ်မည်</string>
     <string name="privacy_voice_title">AI ဖြင့် အသံသုံးမည်</string>
-    <string name="privacy_scan_body">သင့်ဓာတ်ပုံ၊ ၎င်းထဲရှိ ပြေစာ သို့မဟုတ် ငွေပေးချေမှုအသေးစိတ်နှင့် အမျိုးအစားအမည်များကို BudgetWise သို့ ပို့ပြီး စာရင်းဖတ်ရန် Anthropic သို့မဟုတ် OpenAI က စီမံဆောင်ရွက်ပါသည်။</string>
-    <string name="privacy_voice_body">အသံမှ ရရှိသည့် စာသား၊ ငွေသုံးစွဲမှုအသေးစိတ်နှင့် အမျိုးအစားအမည်များကို BudgetWise သို့ ပို့ပြီး စာရင်းပြုစုရန် သို့မဟုတ် မေးခွန်းကို နားလည်ရန် Anthropic သို့မဟုတ် OpenAI က စီမံဆောင်ရွက်ပါသည်။ အသံသည် သင့်ဖုန်းထဲတွင်သာ ရှိပါသည်။</string>
+    <string name="privacy_scan_body">သင့်ဓာတ်ပုံ၊ ၎င်းထဲရှိ ပြေစာ သို့မဟုတ် ငွေပေးချေမှုအသေးစိတ်နှင့် အမျိုးအစားအမည်များကို Pocket Peek သို့ ပို့ပြီး စာရင်းဖတ်ရန် Anthropic သို့မဟုတ် OpenAI က စီမံဆောင်ရွက်ပါသည်။</string>
+    <string name="privacy_voice_body">အသံမှ ရရှိသည့် စာသား၊ ငွေသုံးစွဲမှုအသေးစိတ်နှင့် အမျိုးအစားအမည်များကို Pocket Peek သို့ ပို့ပြီး စာရင်းပြုစုရန် သို့မဟုတ် မေးခွန်းကို နားလည်ရန် Anthropic သို့မဟုတ် OpenAI က စီမံဆောင်ရွက်ပါသည်။ အသံသည် သင့်ဖုန်းထဲတွင်သာ ရှိပါသည်။</string>
     <string name="privacy_manual_alternative">ဓာတ်ပုံ သို့မဟုတ် စာသားကို ဤ AI ဝန်ဆောင်မှုများသို့ မပို့ဘဲ ကိုယ်တိုင် စာရင်းသွင်းနိုင်ပါသည်။</string>
     <string name="privacy_scan_agree">သဘောတူပြီး AI ဖြင့် စကန်ဖတ်မည်</string>
     <string name="privacy_voice_agree">သဘောတူပြီး AI အသံသုံးမည်</string>
     <string name="privacy_enter_manually">ကိုယ်တိုင် ရေးမည်</string>
-    <string name="privacy_scan_notice">စာရင်းဖတ်ရန် ဓာတ်ပုံနှင့် အမျိုးအစားအမည်များကို BudgetWise နှင့် Anthropic သို့မဟုတ် OpenAI သို့ ပို့ပါသည်။</string>
+    <string name="privacy_scan_notice">စာရင်းဖတ်ရန် ဓာတ်ပုံနှင့် အမျိုးအစားအမည်များကို Pocket Peek နှင့် Anthropic သို့မဟုတ် OpenAI သို့ ပို့ပါသည်။</string>
     <string name="privacy_scan_choose">AI အတွက် ဓာတ်ပုံရွေးမည်</string>
     <string name="privacy_scan_capture">ဓာတ်ပုံရိုက်ပြီး AI ဖြင့် ဖတ်မည်</string>
-    <string name="privacy_voice_notice">စာသားနှင့် အမျိုးအစားအမည်များကို BudgetWise နှင့် Anthropic သို့မဟုတ် OpenAI သို့ ပို့ပါသည်။ အသံက ဖုန်းထဲမှာသာ ရှိပါသည်။</string>
+    <string name="privacy_voice_notice">စာသားနှင့် အမျိုးအစားအမည်များကို Pocket Peek နှင့် Anthropic သို့မဟုတ် OpenAI သို့ ပို့ပါသည်။ အသံက ဖုန်းထဲမှာသာ ရှိပါသည်။</string>
     <string name="privacy_voice_finish">AI သို့ ပို့မည်</string>
-    <string name="privacy_voice_setup">အသံသည် ဖုန်းထဲတွင်သာ ရှိပါသည်။ စာရင်းပြုစုရန် သို့မဟုတ် မေးခွန်းကို နားလည်ရန် စာသားနှင့် အမျိုးအစားအမည်များကို BudgetWise နှင့် Anthropic သို့မဟုတ် OpenAI သို့ ပို့ပါသည်။ ပထမဆုံး မသုံးမီ သင်ရွေးချယ်ရပါမည်။</string>
+    <string name="privacy_voice_setup">အသံသည် ဖုန်းထဲတွင်သာ ရှိပါသည်။ စာရင်းပြုစုရန် သို့မဟုတ် မေးခွန်းကို နားလည်ရန် စာသားနှင့် အမျိုးအစားအမည်များကို Pocket Peek နှင့် Anthropic သို့မဟုတ် OpenAI သို့ ပို့ပါသည်။ ပထမဆုံး မသုံးမီ သင်ရွေးချယ်ရပါမည်။</string>
 </resources>

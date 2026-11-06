@@ -1,0 +1,146 @@
+{
+  "style": "Original Pocket Peek geometric line icons",
+  "defaultColor": "#143429",
+  "icons": [
+    {
+      "name": "home",
+      "path": "icons/home.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Home"
+    },
+    {
+      "name": "transactions",
+      "path": "icons/transactions.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Transactions"
+    },
+    {
+      "name": "budget",
+      "path": "icons/budget.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Budget"
+    },
+    {
+      "name": "receipt",
+      "path": "icons/receipt.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Receipt"
+    },
+    {
+      "name": "microphone",
+      "path": "icons/microphone.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Microphone"
+    },
+    {
+      "name": "add",
+      "path": "icons/add.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Add"
+    },
+    {
+      "name": "search",
+      "path": "icons/search.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Search"
+    },
+    {
+      "name": "settings",
+      "path": "icons/settings.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Settings"
+    },
+    {
+      "name": "wallet",
+      "path": "icons/wallet.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Wallet"
+    },
+    {
+      "name": "food",
+      "path": "icons/food.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Food"
+    },
+    {
+      "name": "transport",
+      "path": "icons/transport.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Transport"
+    },
+    {
+      "name": "shopping",
+      "path": "icons/shopping.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Shopping"
+    },
+    {
+      "name": "health",
+      "path": "icons/health.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Health"
+    },
+    {
+      "name": "education",
+      "path": "icons/education.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Education"
+    },
+    {
+      "name": "income",
+      "path": "icons/income.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Income"
+    },
+    {
+      "name": "transfer",
+      "path": "icons/transfer.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Transfer"
+    },
+    {
+      "name": "calendar",
+      "path": "icons/calendar.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Calendar"
+    },
+    {
+      "name": "close",
+      "path": "icons/close.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Close"
+    },
+    {
+      "name": "check",
+      "path": "icons/check.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Check"
+    },
+    {
+      "name": "chevron-right",
+      "path": "icons/chevron-right.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": 2,
+      "accessibleLabel": "Chevron Right"
+    }
+  ]
+}

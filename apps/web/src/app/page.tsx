@@ -6,7 +6,8 @@ import { useAuth } from '@/context/auth-context';
 import { signInAsGuest } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { DollarSign, BarChart2, BrainCircuit, ScanLine, Target, Github, Linkedin } from 'lucide-react';
+import { BarChart2, BrainCircuit, Github, Linkedin } from 'lucide-react';
+import { Transactions as DollarSign, Budget as Target, Receipt as ScanLine } from '@/components/brand/pocket-peek-icons';
 
 const features = [
   {
@@ -58,7 +59,7 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4 sm:p-6">
       <div className="text-center space-y-4 max-w-3xl">
-        <h1 className="text-4xl sm:text-5xl font-bold">Welcome to BudgetWise</h1>
+        <h1 className="text-4xl sm:text-5xl font-bold">Welcome to Pocket Peek</h1>
         <p className="text-lg sm:text-xl text-muted-foreground">
           Your personal finance companion. Track spending, set budgets, and gain insights with the power of AI.
         </p>

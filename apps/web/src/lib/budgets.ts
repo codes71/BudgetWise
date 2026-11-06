@@ -1,12 +1,11 @@
-import type { DocumentSnapshot } from "firebase-admin/firestore";
-import { db, sha256Hex, toDate, userDoc } from "@/lib/firestore";
+import { db, leafId, scopedId, sha256Hex, toDate, withTransaction, type MongoRecord } from "@/lib/mongodb";
 import { formatKyat, formatLakh } from "@/lib/kyat";
 import { yangonDate } from "@/lib/mobile/scan";
 import type { Budget } from "@/lib/types";
 import { requireActiveAccount } from "@/lib/account-access";
 
-const budgetsCol = (userId: string) => userDoc(userId).collection("budgets");
-const monthsCol = (userId: string) => userDoc(userId).collection("budgetMonths");
+const budgetsCol = async () => (await db()).collection<MongoRecord>("budgets");
+const monthsCol = async () => (await db()).collection<MongoRecord>("budgetMonths");
 
 /** One category's part of a month's total. */
 export interface MonthShare {
@@ -21,7 +20,7 @@ export interface MonthPlanInput {
   shares: MonthShare[];
 }
 
-/** users/{uid}/budgetMonths/{YYYY-MM} as read. */
+/** An account's monthly plan, with dates decoded from BSON. */
 export interface MonthPlan extends MonthPlanInput {
   month: string;
   endCheck: { onHand: number; checkedAt: Date } | null;
@@ -51,11 +50,11 @@ export class SplitOverTotalError extends Error {
 export async function listBudgets(userId: string): Promise<Budget[]> {
   const plan = await getMonthPlan(userId, yangonMonth(new Date()));
   if (plan) return plan.shares.map(({ category, limit }) => ({ _id: sha256Hex(category), userId, category, limit }));
-  const snap = await budgetsCol(userId).get();
-  return snap.docs
-    .map((doc) => ({ doc, createdAt: toDate(doc.get("createdAt"))?.getTime() ?? 0 }))
-    .sort((a, b) => a.createdAt - b.createdAt || (a.doc.id < b.doc.id ? -1 : a.doc.id > b.doc.id ? 1 : 0))
-    .map(({ doc }) => ({ _id: doc.id, userId, category: doc.get("category"), limit: doc.get("limit") }));
+  const docs = await (await budgetsCol()).find({ userId }).toArray();
+  return docs
+    .map((doc) => ({ doc, id: leafId(doc._id), createdAt: toDate(doc.createdAt)?.getTime() ?? 0 }))
+    .sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    .map(({ doc, id }) => ({ _id: id, userId, category: doc.category, limit: doc.limit }));
 }
 
 /**
@@ -65,51 +64,55 @@ export async function listBudgets(userId: string): Promise<Budget[]> {
  * written either way, so it is still sensible in months without a plan.
  */
 export async function setBudgetLimit(userId: string, category: string, limit: number): Promise<Budget> {
-  const ref = budgetsCol(userId).doc(sha256Hex(category));
+  const col = await budgetsCol();
+  const months = await monthsCol();
+  const id = sha256Hex(category);
+  const key = scopedId(userId, id);
   const now = new Date();
-  const planRef = monthsCol(userId).doc(yangonMonth(now));
-  await db().runTransaction(async (tx) => {
-    await requireActiveAccount(userId, tx);
-    const [snap, planSnap] = await tx.getAll(ref, planRef);
-    if (planSnap.exists) {
+  const planKey = scopedId(userId, yangonMonth(now));
+  await withTransaction(async (session) => {
+    await requireActiveAccount(userId, session);
+    const snap = await col.findOne({ _id: key, userId }, { session });
+    const planSnap = await months.findOne({ _id: planKey, userId }, { session });
+    if (planSnap) {
       const plan = readMonthPlan(planSnap);
       const shares = plan.shares.some((s) => s.category === category)
         ? plan.shares.map((s) => (s.category === category ? { category, limit } : s))
         : [...plan.shares, { category, limit }];
       if (splitOf(shares) > totalOf(plan)) throw new SplitOverTotalError(totalOf(plan));
-      tx.update(planRef, { shares, updatedAt: now });
+      await months.updateOne({ _id: planKey, userId }, { $set: { shares, updatedAt: now } }, { session });
     }
-    if (snap.exists) tx.update(ref, { limit, updatedAt: now });
-    else tx.create(ref, { userId, category, limit, createdAt: now, updatedAt: now });
+    if (snap) await col.updateOne({ _id: key, userId }, { $set: { limit, updatedAt: now } }, { session });
+    else await col.insertOne({ _id: key, userId, category, limit, createdAt: now, updatedAt: now }, { session });
   });
-  return { _id: ref.id, userId, category, limit };
+  return { _id: id, userId, category, limit };
 }
 
-function readMonthPlan(doc: DocumentSnapshot): MonthPlan {
-  const shares: unknown = doc.get("shares");
-  const endCheck = doc.get("endCheck");
+function readMonthPlan(doc: MongoRecord): MonthPlan {
+  const shares: unknown = doc.shares;
+  const endCheck = doc.endCheck;
   return {
-    month: doc.id,
-    newMoney: doc.get("newMoney"),
-    carriedOver: doc.get("carriedOver"),
+    month: leafId(doc._id),
+    newMoney: doc.newMoney,
+    carriedOver: doc.carriedOver,
     shares: Array.isArray(shares) ? shares.map((s) => ({ category: s.category, limit: s.limit })) : [],
     endCheck: endCheck
       ? { onHand: endCheck.onHand, checkedAt: toDate(endCheck.checkedAt) ?? new Date(0) }
       : null,
-    createdAt: toDate(doc.get("createdAt")) ?? new Date(0),
-    updatedAt: toDate(doc.get("updatedAt")) ?? new Date(0),
+    createdAt: toDate(doc.createdAt) ?? new Date(0),
+    updatedAt: toDate(doc.updatedAt) ?? new Date(0),
   };
 }
 
 export async function getMonthPlan(userId: string, month: string): Promise<MonthPlan | null> {
-  const snap = await monthsCol(userId).doc(month).get();
-  return snap.exists ? readMonthPlan(snap) : null;
+  const doc = await (await monthsCol()).findOne({ _id: scopedId(userId, month), userId });
+  return doc ? readMonthPlan(doc) : null;
 }
 
 /** Plans from `from` to `to` ("YYYY-MM", both included), oldest first; months without one are left out. */
 export async function listMonthPlans(userId: string, from: string, to: string): Promise<MonthPlan[]> {
-  const snap = await monthsCol(userId).where("month", ">=", from).where("month", "<=", to).orderBy("month").get();
-  return snap.docs.map(readMonthPlan);
+  const docs = await (await monthsCol()).find({ userId, month: { $gte: from, $lte: to } }).sort({ month: 1 }).toArray();
+  return docs.map(readMonthPlan);
 }
 
 /**
@@ -117,17 +120,18 @@ export async function listMonthPlans(userId: string, from: string, to: string): 
  * categories. The old budgets are left alone: listBudgets reads this month's plan in their place.
  */
 export async function saveMonthPlan(userId: string, month: string, input: MonthPlanInput): Promise<MonthPlan> {
-  const ref = monthsCol(userId).doc(month);
+  const col = await monthsCol();
+  const key = scopedId(userId, month);
   const now = new Date();
   const { newMoney, carriedOver } = input;
   const shares = input.shares.map(({ category, limit }) => ({ category, limit }));
-  return db().runTransaction(async (tx) => {
-    await requireActiveAccount(userId, tx);
-    const snap = await tx.get(ref);
-    const old = snap.exists ? readMonthPlan(snap) : null;
+  return withTransaction(async (session) => {
+    await requireActiveAccount(userId, session);
+    const snap = await col.findOne({ _id: key, userId }, { session });
+    const old = snap ? readMonthPlan(snap) : null;
 
-    if (old) tx.update(ref, { newMoney, carriedOver, shares, updatedAt: now });
-    else tx.create(ref, { month, newMoney, carriedOver, shares, createdAt: now, updatedAt: now });
+    if (old) await col.updateOne({ _id: key, userId }, { $set: { newMoney, carriedOver, shares, updatedAt: now } }, { session });
+    else await col.insertOne({ _id: key, userId, month, newMoney, carriedOver, shares, createdAt: now, updatedAt: now }, { session });
 
     return {
       month,
@@ -143,14 +147,15 @@ export async function saveMonthPlan(userId: string, month: string, input: MonthP
 
 /** Saves (or replaces) the end check; null when the month has no plan. The caller checks the month is over. */
 export async function saveEndCheck(userId: string, month: string, onHand: number): Promise<MonthPlan | null> {
-  const ref = monthsCol(userId).doc(month);
+  const col = await monthsCol();
+  const key = scopedId(userId, month);
   const now = new Date();
-  return db().runTransaction(async (tx) => {
-    await requireActiveAccount(userId, tx);
-    const snap = await tx.get(ref);
-    if (!snap.exists) return null;
+  return withTransaction(async (session) => {
+    await requireActiveAccount(userId, session);
+    const snap = await col.findOne({ _id: key, userId }, { session });
+    if (!snap) return null;
     const endCheck = { onHand, checkedAt: now };
-    tx.update(ref, { endCheck, updatedAt: now });
+    await col.updateOne({ _id: key, userId }, { $set: { endCheck, updatedAt: now } }, { session });
     return { ...readMonthPlan(snap), endCheck, updatedAt: now };
   });
 }

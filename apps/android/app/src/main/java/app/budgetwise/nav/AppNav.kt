@@ -169,7 +169,7 @@ private val SignedOutRoutes = setOf(Routes.LANGUAGE, Routes.WELCOME, Routes.CREA
 private data class TopLevel(val route: String, @StringRes val label: Int, val icon: ImageVector)
 
 private val TopLevels = listOf(
-    TopLevel(Routes.TRANSACTIONS, R.string.nav_transactions, Lucide.Receipt),
+    TopLevel(Routes.TRANSACTIONS, R.string.nav_transactions, Lucide.Transactions),
     TopLevel(Routes.BUDGETS, R.string.nav_budgets, Lucide.Pie),
 )
 

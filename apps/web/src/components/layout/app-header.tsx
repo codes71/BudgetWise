@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Landmark, Menu, LogOut } from 'lucide-react';
+import { Menu, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -72,8 +72,8 @@ export function AppHeader({ activePath, rightHandElements }: AppHeaderProps) {
               <nav className="grid gap-6 text-lg font-medium mt-6">
                 <SheetClose asChild>
                   <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold">
-                    <img src="/logo.png" alt="BudgetWise Logo" className="h-10 w-10" />
-                    <span className="sr-only">BudgetWise</span>
+                    <img src="/logo.png" alt="Pocket Peek Logo" className="h-10 w-10" />
+                    <span className="sr-only">Pocket Peek</span>
                   </Link>
                 </SheetClose>
                 <SheetClose asChild>
@@ -89,8 +89,8 @@ export function AppHeader({ activePath, rightHandElements }: AppHeaderProps) {
             </SheetContent>
           </Sheet>
           <Link className="mr-6 flex items-center space-x-2" href="/dashboard">
-            <img src="/logo.png" alt="BudgetWise Logo" className="h-10 w-10" />
-            <span className="font-bold sm:inline-block">BudgetWise</span>
+            <img src="/logo.png" alt="Pocket Peek Logo" className="h-10 w-10" />
+            <span className="font-bold sm:inline-block">Pocket Peek</span>
           </Link>
           <nav className="hidden items-center space-x-6 text-sm font-medium md:flex">
             <Link href="/dashboard" className={getLinkClassName('/dashboard')}>Dashboard</Link>
