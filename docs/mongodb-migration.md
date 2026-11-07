@@ -2,11 +2,25 @@
 
 Pocket Peek uses its existing server API and custom bcrypt/JWT authentication. This migration changes the server database, preserving logical account and record IDs, existing password hashes, and API response shapes. Google sign-in remains a separate feature. The Android Room database and the existing BudgetWise installation are not modified by these tools.
 
-The tools are implemented in `apps/web/scripts/firestoreSnapshot.ts` and `apps/web/scripts/migrateFirestoreToMongo.ts`. They do not delete, update, or seed Firestore. No command in this guide establishes that a production migration or cutover has already happened.
+The tools are implemented in `apps/web/scripts/firestoreSnapshot.ts` and `apps/web/scripts/migrateFirestoreToMongo.ts`. They do not delete, update, or seed Firestore. The completed production migration is recorded below. The commands remain a historical/operator runbook, not instructions to rerun import against the now-live destination.
+
+## Completed migration and live cutover (7 November 2026)
+
+Coordinator-verified evidence:
+
+- The overnight read-only preflight had 241 source documents. The final frozen export had 242; only `rateLimits` changed from 17 to 18. Account and financial collection hashes were unchanged.
+- The final encrypted frozen export authenticated locally. Create-only import achieved exact 242-record target parity. Source remained unchanged, and independent local data-parity and index readbacks verified all 11 runtime indexes with no TTL.
+- Normal Mongo-backed deployment `dpl_4GZiWjRfKQSb539T3VUs7hLru19t`, from reviewed runtime commit `4a9f51e`, now serves canonical `https://budgetwis3.vercel.app` in personal Vercel project `codes-t/budget-wise`. The unrelated company-default account `thura-s` was untouched and must not be used or changed for this project.
+- Existing reviewer JWT reads matched the prior account data. Fresh password login returned 200 with the same reviewer identity. A temporary reviewer-only 1-kyat transaction saved/replayed with 200, produced one record, then cleanup returned 204; the reviewer account is empty again. No existing user's financial data was modified by this verification.
+- Firestore is retained, old-host mutation WAF protection remains active, and normal Mongo writes are live. The pre-write rollback window has closed. **Do not blindly switch to stale Firestore.** Freeze and reconcile accepted Mongo changes with a separately reviewed process before any rollback.
+
+Release boundary: the coordinating session also verified Play internal release `0.3.0 (4) Pocket Peek internal` as Active and Available to internal testers, released 7 November 2026 at 12:58 PM Myanmar time. The retained, checked `Mytesters` list has four users, and the actual [opt-in invitation](https://play.google.com/apps/internaltest/4699527614541883626) was verified live. Testers currently see `app.pocketpeek` (unreviewed) until setup and first review finish. This does not prove a phone installation, closed-track release, public production release or public policy eligibility. Internal testing does not replace the separate new personal-account closed test of at least 12 continuously opted-in testers for 14 days. Reviewer owner-entry and public declarations remain separate; see [Console submission status](play-store/console-submission.md).
+
+Earlier 241-document dry-run receipts remain historical evidence. Do not compare the now-writable destination to the old frozen snapshot as if no live changes could have occurred.
 
 ## Safety contract
 
-- Read both scripts end-to-end and verify the exact source project, Atlas cluster, destination database, production deployment, and rollback deployment before running them.
+- Read both scripts end-to-end and verify the exact source project, Atlas cluster, destination database, production deployment, and a rollback plan that accounts for accepted Mongo writes before running them.
 - Use the credentials already approved for those systems through a private environment loader. The script does not load `.env.local`, use an interactive Google login, or accept credentials as command arguments. Do not print environment values, connection strings, snapshots, user documents, or passwords.
 - Use a new, dedicated empty Atlas database. `MONGODB_DB` must exactly equal the `--mongo-db` argument. System databases are refused. Use the established Atlas URI through `MONGODB_URI`, never an argument.
 - Quiesce **all old Firestore writers** before the final export and keep them quiesced through import, validation, and promotion. This includes the active production API, direct clients, background jobs, old server instances, and preview deployments. A twice-read fingerprint is a drift detector, not a substitute for a write freeze or a globally consistent Firestore snapshot.
@@ -107,7 +121,7 @@ Before promotion:
 
 ## Rollback
 
-The safest rollback window is before accepting new Mongo writes: keep all old writers frozen, restore the previously verified Firestore-backed deployment, and resume writes there after checking the source still matches the snapshot. Do not delete the imported Atlas database or private snapshot as part of rollback.
+That pre-write rollback window is historical and is no longer available for the current live destination. Before accepting new Mongo writes, the safest rollback window was: keep all old writers frozen, restore the previously verified Firestore-backed deployment, and resume writes there after checking the source still matches the snapshot. Do not delete the imported Atlas database or private snapshot as part of rollback.
 
 After accepting new Mongo writes, an immediate switch to stale Firestore would lose newly accepted changes from the user's view. Freeze writes again, export the current Mongo state, reconcile its new/changed/deleted records and IDs back to the rollback store with an independently reviewed tool, verify parity, then switch. This migration does **not** implement a reverse reconciliation tool or authorize a blind rollback after new writes.
 
@@ -137,11 +151,14 @@ Both files are new and `0600`. Key generation never overwrites an old key. The c
 2. Prepare a reviewed, separate staging directory from the exact current Firestore-backed source. Add only `firestoreSnapshot.ts`, `snapshotEncryption.ts`, `exportFirestoreEncrypted.ts`, and the **public** key file. Verify the intended personal Vercel team/project and the old runtime source. Configure a one-time, explicit staged production build to invoke:
 
 ```sh
+mkdir -p public/_migration
 npx tsx scripts/exportFirestoreEncrypted.ts \
   --public-key 'snapshot-recipient-public.pem' \
-  --output 'public/<fresh-opaque-backup-filename>.json' \
+  --output 'public/_migration/<fresh-opaque-backup-filename>.json' \
   --expect-source-project '<verified-active-project-id>'
 ```
+
+Create the output parent directory in the isolated staging tree before either encrypted export or live-source import. The initial staging failure was a missing output-parent directory, not a source-data or parity problem. Only encrypted envelopes may be written under `public/_migration`; private keys and plaintext snapshots stay outside the source/build tree.
 
 The exporter derives the actual source project from the established runtime `FIREBASE_PROJECT_ID` and uses the same source credential fields or credential-file fallback. It refuses emulator configuration. The optional expected-project guard should be supplied once that identity is known, and a mismatch aborts. It makes two complete captures and requires matching fingerprints, encrypts the complete validated snapshot **in memory**, then writes only the ciphertext envelope with `O_EXCL`, `O_NOFOLLOW`, `0600`, and fsync.
 
@@ -184,12 +201,13 @@ After preserving and verifying the private backup, retire the backup-only deploy
 Copy only reviewed migration scripts, `src/lib/mongodb.ts`, and the public recipient key into the isolated staged source. Keep the RSA private key, decrypted snapshots, and credential files local. Supply the authorized target `MONGODB_URI` and `MONGODB_DB` through the approved deployment environment. Source credential values remain in the existing Vercel environment. Stage without assigning the production domain and do not promote the migration-only deployment.
 
 ```sh
+mkdir -p public/_migration
 npx tsx scripts/importFirestoreLiveToMongo.ts \
   --expect-source-project '<independently-verified-active-project-id>' \
   --expect-source-sha256 '<independently-reviewed-final-source-sha256>' \
   --mongo-db 'pocketpeek_migration_20261107' \
   --public-key 'snapshot-recipient-public.pem' \
-  --encrypted-output 'public/<fresh-opaque-final-backup-filename>.json'
+  --encrypted-output 'public/_migration/<fresh-opaque-final-backup-filename>.json'
 ```
 
 All five flags are mandatory. The source project must match the active established `FIREBASE_PROJECT_ID`, and the destination must exactly match `MONGODB_DB` and the connected client's selected database. System databases, malformed fingerprints, missing source credentials, emulator source settings, or a source snapshot that differs from the independently reviewed final export are refused. The verification connection uses `promoteLongs: false` so native 64-bit BSON values retain their exact comparison type.

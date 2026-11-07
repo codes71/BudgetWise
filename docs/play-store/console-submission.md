@@ -7,14 +7,23 @@ Prepared for developer `thurashark`, support `thurashark@gmail.com`, portfolio `
 Coordinator-verified snapshot, 7 November 2026. Preparation, test results, Console saves, deployment and rollout are separate states.
 
 - Product: **Pocket Peek** (keep the space). Package: `app.pocketpeek`. Signed candidate: `0.3.0`, version code `4`.
-- The owner-created app remains Draft, app ID `4973206447585100258`. Internal release draft 1 has been created; release name and notes were saved and verified live with “Changes saved. You can now preview your release before publishing it.” **No AAB upload or rollout occurred.** Upload is blocked because the connected Brave extension's Allow access to file URLs setting is disabled.
+- App ID `4973206447585100258`, internal release originally prepared as draft 1. Name/notes are verified saved. After the owner enabled extension file-URL access, signed AAB 4 (`0.3.0`) was uploaded and accepted; Play reports Supports 16 KB. Internal preflight has no errors and one optional native debug-symbol warning; R8 mapping is attached. The authorized Save and publish action completed. Parent verified Console screenshot and saved DOM show the internal track Active, latest release `0.3.0 (4) Pocket Peek internal`, Available to internal testers, released 7 November 2026 at 12:58 PM Myanmar time.
 - The approved Folded Pocket logo and 20 custom icons are integrated without UI redesign. Local [store graphics](graphics/README.md) and four real 1080 x 1920 English [screenshots](screenshots/README.md) are ready; optional Myanmar captures are documented. The captures use an optimized debug-signed QA build, not a Play-delivered APK.
 - Native signup/login, persistence, existing light/dark themes and English/Myanmar QA passed on a disposable emulator with synthetic data. Web production build passed. The final full suite passed after the own-key prototype-mapping fix: 29 files, 394 tests.
-- A dedicated empty reviewer account was created on the actual backend and login verified. Its details remain private outside the repository; the owner must enter them in the Console's protected App access form. That Console save and complete restricted-feature review are not established here.
+- The dedicated reviewer account's prior JWT reads remained identical after cutover; fresh password login returned 200 with the same identity. A temporary reviewer-only 1-kyat transaction saved/replayed with 200, stored one record, then cleanup returned 204 and the reviewer account is empty again. No existing user's financial data was modified. Credentials remain private; the owner's Console App access entry and full restricted-feature review are separate.
 - Owner selected 18+ as the intended audience, but its Console form is locked until App access is completed. No ads, Government No, Health None, Finance category and contact details are saved. App-level financial-feature classification, account eligibility and final public declarations remain unresolved.
-- API/privacy/deletion URLs remain on `budgetwis3.vercel.app`. MongoDB/custom-auth source is ready locally, while production remains on Firestore. Read-only encrypted preflight found 241 documents and matched the dry-run plan; **no import or cutover occurred**. The actual Vercel project is personal `codes-t/budget-wise` at `budgetwis3.vercel.app`; its cutover remains pending CLI human/WAF approval through an isolated personal CLI session. The company-default account `thura-s` is unrelated, remains untouched and must never be used or changed for this project.
-- Default store-listing name Pocket Peek, 78-character short description and 1510-character full description are draft-saved and verified live with “Your changes have been saved”. Images are still missing because the extension upload blocker remains. This is not a published listing.
-- See [form-answer facts](#form-answer-facts) and the [Data safety inventory](data-safety-draft.md). Local changes and successful QA do not establish deployed branding, Google approval or a Play install.
+- MongoDB migration and backend cutover are complete. Canonical `https://budgetwis3.vercel.app` serves normal deployment `dpl_4GZiWjRfKQSb539T3VUs7hLru19t` from reviewed runtime commit `4a9f51e`, in personal Vercel project `codes-t/budget-wise`. Exact parity between 242 source and target records plus 11 indexes with no TTL was verified independently; the frozen source remained unchanged. The overnight 241 to final 242 drift was only `rateLimits` increasing from 17 to 18, with unchanged account/financial collection hashes. Firestore is retained; old-host mutation WAF protection remains active and normal Mongo writes are live. **Do not blindly roll back to stale Firestore.** The company-default account `thura-s` is unrelated, remains untouched and must never be used or changed for this project.
+- Default store-listing name Pocket Peek, 78-character short description and 1510-character full description are draft-saved and verified live with “Your changes have been saved”. The approved logo, feature graphic and all four English screenshots are now saved. The internal-track publication is verified separately. This does not establish a reviewed public listing.
+- See [form-answer facts](#form-answer-facts) and the [Data safety inventory](data-safety-draft.md). The normal backend and internal track are live. Google public-policy approval, a Play-delivered install and device acceptance remain separate, unverified checks. App access, owner-selected 18+ audience and public declarations did not block this internal preflight and remain separate work.
+
+### Verified internal tester access
+
+- The retained `Mytesters` list is checked and contains four users.
+- Actual Console opt-in URL: [Pocket Peek internal invitation](https://play.google.com/apps/internaltest/4699527614541883626). The parent independently verified the live invitation page.
+- Testers currently see `app.pocketpeek` (unreviewed) until setup and first review are complete. This is not a public listing approval.
+- No physical-phone install or Play-delivered device acceptance is claimed. There is no closed-track or public production release.
+- Internal testing does not count toward the new personal-account production-access requirement. A separate closed test requires at least 12 testers opted in continuously for 14 days, followed by an application for production access. [Google testing guidance](https://support.google.com/googleplay/android-developer/answer/14151465).
+- The private reviewer App access entry, owner-selected 18+ audience and public declarations remain separate work. Public financial/account eligibility remains unconfirmed, and the support-request draft is unsent.
 
 ### Signed candidate evidence
 
@@ -22,7 +31,7 @@ Coordinator-verified snapshot, 7 November 2026. Preparation, test results, Conso
 - SHA-256: `652cbef32cd6bb80c78f88ac6ce0ac6a2eade66fb179a16a3a19c94dec0d97e5`.
 - AAB signing certificate SHA-256: `f2abec2d9d846d75cee69bafd05f8afe2ef5050247d2c6fca53ba8db5c7368bb`.
 - Packaging/SDK and 16 KB ZIP-alignment checks passed; native libraries match the previously validated binaries, and English/Myanmar resources are included. Verification receipts and R8 mapping are retained beside the AAB.
-- This is verified local signing/package evidence. Google Play App Signing enrollment, the final installed APK signer, upload acceptance and Play-delivered device acceptance remain separate, unverified checks.
+- This is verified local signing/package evidence. The AAB is uploaded and accepted, including Play's Supports 16 KB readback. Internal publication is verified. Google Play App Signing readback, the final installed APK signer and Play-delivered device acceptance remain separate, unverified checks.
 
 ## Account type and financial features
 
@@ -30,7 +39,7 @@ Google's [account requirements](https://support.google.com/googleplay/android-de
 
 Pocket Peek Android stores income, expenses and monthly budgets, extracts draft entries from receipt images, and parses on-device recognized speech using a cloud service. It does not implement banking, custody of funds, payments, transfers, loans, trading, investments or cryptocurrency. The associated web application separately offers AI-generated spending suggestions using transaction summaries and budget goals. Do not claim that this web-only feature is implemented in Android.
 
-Personal-account eligibility for this app is not confirmed. Obtain a Google Play Developer Support determination before certifying that eligibility or submitting Pocket Peek. Do not silently switch account type, remove features, or declare no financial features to get past a form. The account itself can be used for other eligible personal apps.
+Personal-account eligibility for this app is not confirmed. Obtain a Google Play Developer Support determination before certifying that eligibility or making a public Pocket Peek release submission. Do not silently switch account type, remove features, or declare no financial features to get past a form. The account itself can be used for other eligible personal apps.
 
 All apps on closed/open/production tracks must complete the [Financial features declaration](https://support.google.com/googleplay/android-developer/answer/13849271), even when declaring no financial features. This app-level declaration is separate from developer-account eligibility. Check the relevant Other and, for any applicable web functionality, financial-advice choices with Google.
 
@@ -66,12 +75,12 @@ Trader status is a separate owner declaration about commercial activity. A perso
 
 ## App access and remaining declarations
 
-- The dedicated empty reviewer account exists and actual-backend login passed. The owner must enter its details in Console App access; no credential value or private credential-file path belongs in these docs. Verify the saved entry and restricted flows before submission.
+- The dedicated empty reviewer account exists and actual-backend login passed. The owner must enter its details in Console App access; no credential value or private credential-file path belongs in these docs. Verify the saved entry and restricted flows before public submission. This remains separate from the accepted internal preflight.
 - Use `data-safety-draft.md` for the source-based collection inventory. Confirm actual provider contracts, operational logs and backup retention before finalizing sharing/retention answers. No specific retention interval has been verified by this preparation.
 - Pocket Peek's Android release includes no ads or advertising SDK. Do not generalize that answer to other apps planned for this developer account.
 - The owner chose 18+ for Pocket Peek. Its audience form is still locked pending App access; this is not a saved audience declaration. Complete the app content rating independently when available.
 - Use the deployed public privacy/deletion URLs after verifying that they are reachable without login. App deletion must require explicit password confirmation. Do not test by deleting an existing real account.
-- Upload the verified signed Pocket Peek AAB through the current track requirements, with its package/signing identity, backend availability and relevant policy questions checked. Keep the R8 mapping and signed-bundle verification receipt.
+- Signed AAB 4 is accepted and R8 mapping is attached. Internal preflight has zero errors and one optional native debug-symbol warning. The internal publish action is verified as Active and Available to internal testers; retain the signed-bundle verification receipt. Public financial/account eligibility remains unconfirmed, and the support request above has not been sent.
 
 ## Form-answer facts
 
