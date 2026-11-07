@@ -26,16 +26,19 @@ import java.util.concurrent.atomic.AtomicLong
 
 class ModelDownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
 
-    override suspend fun doWork(): Result {
+    override suspend fun doWork(): Result = ModelStore.mutate { download() }
+
+    private suspend fun download(): Result {
         // Work enqueued by an older build names another pack (or a Raj variant); this build cannot fetch it.
         if (inputData.getString(KEY_PACK) != VoicePack.VERSION) return Result.failure(failure("unknown voice pack"))
         val dir = ModelStore.dir(applicationContext)
         dir.mkdirs()
-        showForeground(0f)
 
         val total = VoicePack.downloadBytes.toDouble()
         val current = AtomicLong(0)
         return try {
+            // A large download must not silently fall back to ordinary background execution.
+            showForeground(0f)
             coroutineScope {
                 val reporter = launch {
                     while (true) {
@@ -63,6 +66,9 @@ class ModelDownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
             setProgress(workDataOf(KEY_PROGRESS to 1f))
             notifyReady()
             Result.success()
+        } catch (_: ForegroundUnavailable) {
+            if (runAttemptCount < MAX_ATTEMPTS) Result.retry()
+            else Result.failure(failure("foreground service unavailable"))
         } catch (e: DownloadException.NotConfigured) {
             Result.failure(failure("voice model host not configured (${e.file})"))
         } catch (e: DownloadException.HashMismatch) {
@@ -72,21 +78,23 @@ class ModelDownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
             else Result.failure(failure("http error ${e.code}"))
         } catch (e: IOException) {
             if (runAttemptCount < MAX_ATTEMPTS) Result.retry()
-            else Result.failure(failure("network error: ${e.message}"))
+            else Result.failure(failure("network error"))
         }
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo(0f, indeterminate = true)
 
     private suspend fun showForeground(fraction: Float) {
-        // Starting a foreground service can be refused (background start limits); the download still runs.
         try {
             setForeground(foregroundInfo(fraction, indeterminate = false))
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
+            throw ForegroundUnavailable()
         }
     }
+
+    private class ForegroundUnavailable : Exception()
 
     private fun foregroundInfo(fraction: Float, indeterminate: Boolean): ForegroundInfo {
         val manager = applicationContext.getSystemService(NotificationManager::class.java)

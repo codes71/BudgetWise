@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Firestore } from "firebase-admin/firestore";
-import type { Db } from "mongodb";
+import { MongoClient, type Db } from "mongodb";
 import { encodeValue, makeSnapshot } from "../../scripts/firestoreSnapshot";
 import { planMigration, planSummary } from "../../scripts/migrateFirestoreToMongo";
 import { assertNoTtlIndexes, liveImportArgs, runLiveImport, verifyLiveDestination, verifyRuntimeIndexes, type LiveImportDependencies, type LiveImportFlags } from "../../scripts/importFirestoreLiveToMongo";
 
-const project = "demo-pocketpeek-live-import", databaseName = "pocketpeek_migration_test";
+const project = "demo-pocketpeek-live-import", databaseName = "test-pocketpeek-migration";
 const snapshot = makeSnapshot(project, [{ path: "users/u", data: encodeValue({ password: "synthetic-hash", emailLower: "synthetic@example.com" }), createTime: null, updateTime: null }]);
 const flags: LiveImportFlags = { "expect-source-project": project, "expect-source-sha256": snapshot.sha256, "mongo-db": databaseName, "public-key": "recipient-public.pem", "encrypted-output": "opaque-encrypted.json" };
 const args = (value: object) => Object.entries(value).flatMap(([key, text]) => [`--${key}`, String(text)]);
@@ -13,7 +13,7 @@ const args = (value: object) => Object.entries(value).flatMap(([key, text]) => [
 function dependencies() {
   const events: string[] = [], sourceWrites = { set: vi.fn(), update: vi.fn(), delete: vi.fn() };
   const source = { ...sourceWrites, terminate: async () => { events.push("terminate-source"); } } as unknown as Firestore;
-  const database = { databaseName } as Db;
+  const database = { databaseName, client: new MongoClient("mongodb://127.0.0.1:27017") } as Db;
   const deps: LiveImportDependencies = {
     source: () => { events.push("configure-source"); return { source, projectId: project }; },
     publicKey: async () => { events.push("public-key"); return Buffer.from("synthetic-public-key"); },

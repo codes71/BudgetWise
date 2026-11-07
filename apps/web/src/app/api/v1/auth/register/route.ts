@@ -1,27 +1,19 @@
 import bcrypt from "bcryptjs";
-import { ApiError, handle, readJson } from "@/lib/mobile/errors";
-import { rateLimit } from "@/lib/mobile/rate-limit";
+import { ApiError, handle } from "@/lib/mobile/errors";
+import { authClientIp, limitSignUp, readAuthJson } from "@/lib/auth-credentials";
 import { registerSchema } from "@/lib/mobile/schemas";
 import { signMobileToken } from "@/lib/mobile/token";
 import { createUser } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
-const WINDOW_SEC = 60 * 60;
-
-function clientIp(req: Request): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-}
-
 /**
  * The phone's create account: the same account the web signup makes (bcrypt cost 10, name defaults to the email's
  * local part), then signed in like POST /auth/token. A taken email is 409 so the form can offer sign in instead.
  */
 export const POST = handle(async (req) => {
-  const body = await readJson(req);
-  const { email, password, fullName } = registerSchema.parse(body);
-
-  await rateLimit(`register:ip:${clientIp(req)}`, { limit: 20, windowSec: WINDOW_SEC });
+  const { email, password, fullName } = registerSchema.parse(await readAuthJson(req));
+  await limitSignUp(authClientIp(req.headers));
 
   const user = await createUser({
     email,

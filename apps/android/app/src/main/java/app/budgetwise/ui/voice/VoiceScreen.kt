@@ -450,6 +450,16 @@ private fun ProblemCard(problem: VoiceProblem, actions: VoiceActions) {
             stringResource(R.string.voice_offline_body), stringResource(R.string.voice_type_yourself) to actions.onTypeInstead,
             secondary = stringResource(R.string.action_try_again) to actions.onRetry,
         )
+        VoiceProblem.AiUnavailable -> ProblemCopy(
+            Lucide.CloudOff, colors.blue, stringResource(R.string.cloud_ai_unavailable_title),
+            stringResource(R.string.cloud_ai_unavailable_body), typeInstead,
+            secondary = stringResource(R.string.action_close) to actions.onClose,
+        )
+        VoiceProblem.AiDeclined -> ProblemCopy(
+            Lucide.CircleAlert, colors.coralText, stringResource(R.string.cloud_ai_declined_title),
+            stringResource(R.string.cloud_ai_declined_body), typeInstead,
+            secondary = stringResource(R.string.action_close) to actions.onClose,
+        )
         VoiceProblem.Failed -> ProblemCopy(
             Lucide.CloudAlert, colors.coralText, stringResource(R.string.voice_failed_title),
             stringResource(R.string.voice_failed_body), stringResource(R.string.action_try_again) to actions.onRetry,

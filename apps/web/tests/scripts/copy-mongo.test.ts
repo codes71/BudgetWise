@@ -76,7 +76,7 @@ const run = (write: boolean) => copyMongoToFirestore(mongo, testDb(), { write })
 beforeAll(async () => {
   server = await MongoMemoryServer.create();
   client = await MongoClient.connect(server.getUri());
-  mongo = client.db("budgetwise_copy_test");
+  mongo = client.db("test-pocketpeek-copy");
   passwordHash = await bcrypt.hash("correct-horse", 10);
 });
 afterAll(async () => {

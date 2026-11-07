@@ -67,6 +67,35 @@ class CloudAiDisclosureTest {
         }
     }
 
+    @Test fun oldChoiceDoesNotSkipUpdatedRetentionDisclosureAndOtherPreferencesArePreserved() {
+        preferences.edit().putBoolean("scan_v1", true).putBoolean("voice_v1", true)
+            .putString("unrelated", "keep").commit()
+        var mounted = 0
+        compose.setContent {
+            BudgetWiseTheme {
+                CloudAiConsentGate(CloudAiFeature.SCAN, {}, {}) {
+                    DisposableEffect(Unit) { mounted++; onDispose {} }
+                    Text("Updated consent accepted")
+                }
+            }
+        }
+        compose.onNodeWithText(context.getString(R.string.privacy_scan_body)).assertIsDisplayed()
+        compose.runOnIdle {
+            assertEquals(0, mounted)
+            assertEquals("scan_v2", CloudAiFeature.SCAN.preference)
+            assertEquals("voice_v2", CloudAiFeature.VOICE.preference)
+            assertEquals("keep", preferences.getString("unrelated", null))
+            assertTrue(preferences.getBoolean("scan_v1", false))
+        }
+        compose.onNodeWithText(context.getString(R.string.privacy_scan_agree)).performClick()
+        compose.onNodeWithText("Updated consent accepted").assertIsDisplayed()
+        compose.runOnIdle {
+            assertEquals(1, mounted)
+            assertTrue(preferences.getBoolean(CloudAiFeature.SCAN.preference, false))
+            assertFalse(preferences.getBoolean(CloudAiFeature.VOICE.preference, false))
+        }
+    }
+
     @Test fun closeIsNotConsentAndExplicitAgreementPersistsOnlyThatFeature() {
         var closed = 0
         var mounted = 0

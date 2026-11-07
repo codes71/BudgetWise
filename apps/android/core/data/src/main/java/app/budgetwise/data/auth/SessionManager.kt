@@ -49,6 +49,7 @@ class PendingSignIn internal constructor(val user: UserInfo, val password: Strin
 class SessionManager @Inject constructor(
     private val store: TokenStore,
     private val clock: Clock,
+    private val scanCache: AccountScanCache? = null,
 ) {
     @Volatile private var saved: SavedAccounts = SavedAccounts.EMPTY
 
@@ -83,6 +84,12 @@ class SessionManager @Inject constructor(
     val writableUserId: String? get() = saved.activeId?.takeUnless { it == deletingId || it in removedIds }
     fun wasDeleted(userId: String): Boolean = userId in removedIds
 
+    /** Pin an explicitly captured owner across a local write, including waiting for Room's transaction thread. */
+    suspend fun <T> withWritableAccount(expectedOwner: String, write: suspend () -> T): T = mutex.withLock {
+        check(writableUserId == expectedOwner) { "the account changed" }
+        write()
+    }
+
     /** Startup installs confirmed-deletion receipts before loading saved sessions. Never persist a partial load. */
     fun quarantineConfirmedDeletions(owners: Set<String>) = synchronized(lock) {
         removedIds = removedIds + owners
@@ -90,7 +97,9 @@ class SessionManager @Inject constructor(
     }
 
     suspend fun load() = mutex.withLock {
-        publish(store.load(), pending)
+        val next = store.load()
+        scanCache?.activate(next.activeId?.takeUnless { it in removedIds })
+        publish(next, pending)
     }
 
     /**
@@ -269,7 +278,15 @@ class SessionManager @Inject constructor(
 
     /** Saves first: when the store throws, memory keeps the previous state. */
     private suspend fun commit(next: SavedAccounts, nextPending: Map<String, PendingSignIn>) {
-        if (next != saved) store.save(next)
+        val previousOwner = saved.activeId?.takeUnless { it in removedIds }
+        val nextOwner = next.activeId?.takeUnless { it in removedIds }
+        if (nextOwner != previousOwner) scanCache?.activate(nextOwner)
+        try {
+            if (next != saved) store.save(next)
+        } catch (failure: Exception) {
+            if (nextOwner != previousOwner) scanCache?.activate(previousOwner)
+            throw failure
+        }
         publish(next, nextPending)
     }
 

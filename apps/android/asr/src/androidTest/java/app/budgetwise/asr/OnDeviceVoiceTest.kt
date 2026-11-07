@@ -14,6 +14,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -175,6 +176,18 @@ class OnDeviceVoiceTest {
         val authority = "${context.packageName}.onnxruntime_telemetry_initializer"
         assertNull(context.packageManager.resolveContentProvider(authority, 0))
         Log.i(TAG, "RAN onnxRuntimeTelemetryProviderIsRemoved")
+    }
+
+    /** No model files or personal recordings: exercises both native libraries on the selected runtime. */
+    @Test
+    fun nativeLibrariesLoadWithSyntheticInput() {
+        val pages = android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE)
+        val environment = ai.onnxruntime.OrtEnvironment.getEnvironment()
+        ai.onnxruntime.OnnxTensor.createTensor(environment, arrayOf(FloatArray(480))).use { tensor ->
+            assertTrue(tensor.info.shape.contentEquals(longArrayOf(1, 480)))
+        }
+        WebRtcFrameClassifier().use { vad -> assertFalse(vad.isSpeech(ShortArray(480))) }
+        Log.i(TAG, "RAN nativeLibrariesLoadWithSyntheticInput pageBytes=$pages")
     }
 
     private inline fun <T> timed(block: () -> T): Pair<T, Long> {

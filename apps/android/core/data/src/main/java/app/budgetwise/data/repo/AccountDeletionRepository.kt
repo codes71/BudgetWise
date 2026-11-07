@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.room.withTransaction
 import app.budgetwise.data.auth.SessionManager
+import app.budgetwise.data.auth.AccountScanCache
 import app.budgetwise.data.auth.AccessToken
 import app.budgetwise.data.auth.UserInfo
 import app.budgetwise.data.auth.toGrant
@@ -44,6 +45,7 @@ class AccountDeletionRepository @Inject constructor(
     private val sync: SyncEngine,
     private val writes: CacheWrites,
     private val preferences: DataStore<Preferences>,
+    private val scanCache: AccountScanCache? = null,
 ) {
     suspend fun delete(
         expectedId: String,
@@ -101,6 +103,7 @@ class AccountDeletionRepository @Inject constructor(
     }
 
     private suspend fun cleanup(owner: String) {
+        scanCache?.removeOwner(owner)
         writes.removeOwner(owner) {
             db.withTransaction {
                 db.outboxDao().deleteFor(owner)

@@ -21,6 +21,7 @@ import app.budgetwise.nlu.TxType
 import app.budgetwise.ui.common.MAX_KYAT
 import app.budgetwise.ui.common.TypedKyat
 import app.budgetwise.ui.common.readTypedKyat
+import app.budgetwise.ui.common.bindDraftOwner
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.LocalDate
@@ -201,7 +202,7 @@ sealed interface AddManualEvent {
 
 /**
  * The add form, and the same form changing a saved entry. A new entry is one [NewTransaction] with [Source.MANUAL]
- * through [TransactionStore.addAll]; a change goes through [TransactionStore.replace] (entries never change on the
+ * through [TransactionStore.addAllForOwner]; a change goes through [TransactionStore.replaceForOwner] (entries never change on the
  * server, so the old one is deleted and the changed one saved in its place) and keeps how the entry was added (one from
  * the web becomes typed, as the server takes no web source from the phone) and its transcript. Receipt expenses keep
  * their receipt and share one date, so changing that date moves every entry atomically. Converting an expense to income
@@ -216,11 +217,17 @@ class AddManualViewModel @Inject constructor(
     private val transactions: TransactionStore,
     categories: CategorySource,
     settings: SettingsStore,
-    session: SessionManager,
+    private val session: SessionManager,
     @DeviceClock private val clock: Clock,
     @WorkDispatcher work: CoroutineDispatcher,
     private val saved: SavedStateHandle,
 ) : ViewModel() {
+    private val owner = bindDraftOwner(saved, session.writableUserId, listOf(
+        KEY_TYPE, KEY_AMOUNT, KEY_CATEGORY, KEY_DESCRIPTION, KEY_DATE, KEY_DATE_TOUCHED,
+        KEY_AMOUNT_TOUCHED, KEY_DESCRIPTION_TOUCHED, KEY_CATEGORY_TOUCHED, KEY_CATEGORY_FROM, KEY_FILLED,
+    ))
+    private fun owned(): String = checkNotNull(owner).also { check(session.writableUserId == it) { "the account changed" } }
+
     /** The entry being changed, or null for a new one. */
     private val editId: String? = saved[ARG_CLIENT_ID]
 
@@ -243,7 +250,7 @@ class AddManualViewModel @Inject constructor(
                 .flowOn(work)
                 // Room failed: no chips and no picked category, and the form still works.
                 .catch { }
-                .collect { past -> _state.update { it.copy(past = past) } }
+                .collect { past -> _state.update { it.copy(past = past.takeIf { session.writableUserId == owner }.orEmpty()) } }
         }
         editId?.let { id -> viewModelScope.launch { load(id) } }
         // Freshen the cached list for the next time; offline or signed out the cache (or the built-ins) is used.
@@ -286,7 +293,8 @@ class AddManualViewModel @Inject constructor(
      */
     private suspend fun load(clientId: String) {
         val entry = try {
-            transactions.get(clientId)
+            owned()
+            transactions.get(clientId).also { owned() }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -382,6 +390,10 @@ class AddManualViewModel @Inject constructor(
     }
 
     fun save() {
+        if (owner == null || session.writableUserId != owner) {
+            _state.update { it.copy(saveFailed = true) }
+            return
+        }
         refreshToday()
         val s = _state.value
         if (!s.canSave) return
@@ -401,10 +413,10 @@ class AddManualViewModel @Inject constructor(
                     if (receiptId != null && input.receiptId != null && input.date != before.date) {
                         changeReceiptDate(receiptId, editId, input)
                     } else {
-                        transactions.replace(listOf(editId), listOf(input))
+                        transactions.replaceForOwner(owned(), listOf(editId), listOf(input))
                     }
                 } else {
-                    ReplaceResult.Saved(transactions.addAll(listOf(input)))
+                    ReplaceResult.Saved(transactions.addAllForOwner(owned(), listOf(input)))
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -440,11 +452,11 @@ class AddManualViewModel @Inject constructor(
                 val siblings = receipt?.let { transactions.observeReceipt(it).first() }.orEmpty()
                 if (receipt == null || siblings.isEmpty()) {
                     // A receipt with no entries left is gone too: keep this entry on its own.
-                    transactions.addAll(listOf(input.copy(receiptId = null)))
+                    transactions.addAllForOwner(owned(), listOf(input.copy(receiptId = null)))
                 } else {
                     // Reattaching a saved-as-new expense must not introduce a second date to its receipt.
                     val inputs = siblings.map { it.forReceiptDate(input.date) } + input
-                    if (transactions.replaceReceipt(receipt, siblings.mapTo(HashSet()) { it.clientId }, inputs) == null) {
+                    if (transactions.replaceReceiptForOwner(owned(), receipt, siblings.mapTo(HashSet()) { it.clientId }, inputs) == null) {
                         _state.update { it.copy(saving = false, saveFailed = true) }
                         return@launch
                     }
@@ -466,7 +478,7 @@ class AddManualViewModel @Inject constructor(
             return if (transactions.get(clientId) == null) ReplaceResult.Gone else null
         }
         val inputs = entries.map { if (it.clientId == clientId) input else it.forReceiptDate(input.date) }
-        val ids = transactions.replaceReceipt(receiptId, entries.mapTo(HashSet()) { it.clientId }, inputs)
+        val ids = transactions.replaceReceiptForOwner(owned(), receiptId, entries.mapTo(HashSet()) { it.clientId }, inputs)
         return if (ids != null) ReplaceResult.Saved(ids) else if (transactions.get(clientId) == null) ReplaceResult.Gone else null
     }
 
@@ -489,6 +501,7 @@ class AddManualViewModel @Inject constructor(
      * so a tap meant for Save changes just above it is one tap to undo.
      */
     fun delete() {
+        if (owner == null || session.writableUserId != owner) return
         val id = editId ?: return
         val s = _state.value
         if (!s.loaded || s.busy || s.gone) return
@@ -502,7 +515,7 @@ class AddManualViewModel @Inject constructor(
         _state.update { it.copy(deleting = true, saveFailed = false, deleteFailed = false) }
         viewModelScope.launch {
             try {
-                transactions.delete(id)
+                transactions.deleteForOwner(owned(), id)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {

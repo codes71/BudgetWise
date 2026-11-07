@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "inheritedDiagnostics": 31,
+  "provenance": "Inherited master diagnostics verified during Pocket Peek Mongo/rebrand acceptance on 2026-11-07. Source: mongo-typecheck-final.log and typecheck-comparison-final.json; master merge da855389d54658202b9147954b7bc5862f451f02. Positions are excluded; file, TS code, complete message and occurrence count are retained. Removal is allowed; additions require a code fix, not an automatic baseline update.",
+  "diagnostics": [
+    {
+      "file": "src/app/(authenticated)/myprofile/page.tsx",
+      "code": 18047,
+      "message": "'user' is possibly 'null'.",
+      "count": 10
+    },
+    {
+      "file": "src/app/guest/page.tsx",
+      "code": 2322,
+      "message": "Type '{ transactions: Transaction[]; budgets: Budget[]; categories: string[]; onTransactionAdded: () => void; onTransactionDeleted: () => void; onBudgetSet: () => void; onBudgetUpdated: () => void; }' is not assignable to type 'IntrinsicAttributes'. Property 'transactions' does not exist on type 'IntrinsicAttributes'.",
+      "count": 1
+    },
+    {
+      "file": "src/app/login/page.tsx",
+      "code": 2339,
+      "message": "Property 'error' does not exist on type '{ error: string; } | { user: UserPayload; }'. Property 'error' does not exist on type '{ user: UserPayload; }'.",
+      "count": 2
+    },
+    {
+      "file": "src/app/login/page.tsx",
+      "code": 2339,
+      "message": "Property 'user' does not exist on type '{ error: string; } | { user: UserPayload; }'. Property 'user' does not exist on type '{ error: string; }'.",
+      "count": 2
+    },
+    {
+      "file": "src/app/signup/page.tsx",
+      "code": 2339,
+      "message": "Property 'error' does not exist on type '{ error: string; } | { user: UserPayload; }'. Property 'error' does not exist on type '{ user: UserPayload; }'.",
+      "count": 2
+    },
+    {
+      "file": "src/app/signup/page.tsx",
+      "code": 2339,
+      "message": "Property 'user' does not exist on type '{ error: string; } | { user: UserPayload; }'. Property 'user' does not exist on type '{ error: string; }'.",
+      "count": 2
+    },
+    {
+      "file": "src/lib/auth.ts",
+      "code": 2345,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'Error | undefined'.",
+      "count": 1
+    },
+    {
+      "file": "src/lib/guest-data.ts",
+      "code": 2353,
+      "message": "Object literal may only specify known properties, and 'spent' does not exist in type 'Budget'.",
+      "count": 4
+    },
+    {
+      "file": "src/lib/guest-data.ts",
+      "code": 2741,
+      "message": "Property 'userId' is missing in type '{ _id: string; type: \"expense\"; amount: number; description: string; category: string; date: string; }' but required in type 'Transaction'.",
+      "count": 6
+    },
+    {
+      "file": "src/lib/guest-data.ts",
+      "code": 2741,
+      "message": "Property 'userId' is missing in type '{ _id: string; type: \"income\"; amount: number; description: string; category: string; date: string; }' but required in type 'Transaction'.",
+      "count": 1
+    }
+  ]
+}

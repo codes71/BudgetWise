@@ -1,62 +1,41 @@
-'use server';
-
-/**
- * @fileOverview Provides AI-powered suggestions on areas where users can cut spending.
- *
- * - getSpendingSuggestions - A function that returns spending suggestions.
- * - SpendingSuggestionsInput - The input type for the getSpendingSuggestions function.
- * - SpendingSuggestionsOutput - The return type for the getSpendingSuggestions function.
- */
-
 import * as z from 'zod/v4';
-import { generateStructured } from '@/ai/generate';
+import { formatKyat } from '@/lib/kyat';
 
-const SpendingSuggestionsInputSchema = z.object({
-  historicalData: z
-    .string()
-    .describe(
-      'Historical spending data, including categories, amounts, and dates.  Should be a CSV format string with columns category,amount,date.\nExample: category,amount,date\ngroceries,100,2024-01-01\nutilities,200,2024-01-01'
-    ),
-  budgetGoals: z
-    .string()
-    .describe(
-      'User-defined budget goals for each category. Should be a CSV format string with columns category,budget.\nExample: category,budget\ngroceries,500\nutilities,300'
-    ),
+// A bounded budget comparison, not a chat/advice endpoint. No provider receives ledger data here.
+const InputSchema = z.object({
+  transactions: z.array(z.object({
+    category: z.string().min(1).max(200), amount: z.number().int().safe(),
+    date: z.string(), type: z.enum(['income', 'expense']),
+  })).max(10_000),
+  budgets: z.array(z.object({ category: z.string().min(1).max(200), limit: z.number().int().safe().nonnegative() })).max(1_000),
+  today: z.iso.date(),
 });
-export type SpendingSuggestionsInput = z.infer<typeof SpendingSuggestionsInputSchema>;
-
-const SpendingSuggestionsOutputSchema = z.object({
-  suggestions: z.array(z.string()).describe('AI-powered suggestions on areas to cut spending.'),
-});
-export type SpendingSuggestionsOutput = z.infer<typeof SpendingSuggestionsOutputSchema>;
+export type SpendingSuggestionsInput = z.infer<typeof InputSchema>;
+export type SpendingSuggestionsOutput = { suggestions: string[] };
 
 export async function getSpendingSuggestions(input: SpendingSuggestionsInput): Promise<SpendingSuggestionsOutput> {
-  return generateStructured({
-    schema: SpendingSuggestionsOutputSchema,
-    effort: 'medium',
-    // Claude takes about 20 s here; the default 25 s would send slow days to OpenAI.
-    timeoutMs: 90_000,
-    content: `You are a savvy personal finance advisor. Your goal is to provide highly specific, actionable, and data-driven advice to help a user cut spending.
-
-Analyze the user's historical spending data provided below. Compare it against their stated budget goals.
-
-**Historical Spending Data (CSV):**
-\`\`\`csv
-${input.historicalData}
-\`\`\`
-
-**Budget Goals (CSV):**
-\`\`\`csv
-${input.budgetGoals}
-\`\`\`
-
-Based on your analysis, provide a list of concrete suggestions. For each suggestion:
-1.  **Identify a specific category** where spending is high or over budget.
-2.  **Quantify the problem.** For example, "You spent $150 on 'Entertainment' this month, which is $50 over your $100 budget."
-3.  **Offer a clear, actionable tip.** Instead of "spend less on food," suggest "try meal prepping for lunches to reduce your $200 'Restaurants' spending."
-4.  Keep each suggestion concise and to the point.
-
-Generate at least 3 high-quality suggestions.
-`,
+  const { transactions, budgets, today } = InputSchema.parse(input);
+  const month = today.slice(0, 7);
+  const spent = new Map<string, number>();
+  for (const row of transactions) {
+    if (row.type !== 'expense' || !z.iso.date().safeParse(row.date).success
+      || row.date.slice(0, 7) !== month || row.date > today) continue;
+    const total = (spent.get(row.category) ?? 0) + row.amount;
+    if (!Number.isSafeInteger(total)) throw new Error('Recorded amounts are too large to compare safely.');
+    spent.set(row.category, total);
+  }
+  if (!spent.size) return { suggestions: [`No expense entries are recorded for ${month} through ${today}.`] };
+  const limits = new Map(budgets.map((row) => [row.category, row.limit]));
+  if (limits.size !== budgets.length) throw new Error('Category budgets must be unique.');
+  const suggestions = [...spent].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5).map(([category, amount]) => {
+    const limit = limits.get(category);
+    const start = `${category}: net recorded expenses for ${month} through ${today} are ${formatKyat(amount)}.`;
+    if (limit === undefined) return `${start} No category budget is set; you can add one to compare spending.`;
+    const difference = amount - limit;
+    if (!Number.isSafeInteger(difference)) throw new Error('Recorded amounts are too large to compare safely.');
+    return difference > 0
+      ? `${start} This is ${formatKyat(difference)} over the ${formatKyat(limit)} budget. Review the entries and your planned spending.`
+      : `${start} This leaves ${formatKyat(-difference)} of the ${formatKyat(limit)} budget. Pending or unrecorded spending is not included.`;
   });
+  return { suggestions };
 }

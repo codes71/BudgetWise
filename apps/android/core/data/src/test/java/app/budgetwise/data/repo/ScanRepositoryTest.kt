@@ -44,6 +44,14 @@ class ScanRepositoryTest {
     @After fun tearDown() { h.close() }
 
     @Test
+    fun aScanQueuedUnderAnotherOwnerCannotUploadUsingTheNewOwnersToken() = runBlocking {
+        val expectedOwner = h.sync.session.writableUserId!!
+        h.sync.signInSecond()
+        assertTrue(scan.scan(byteArrayOf(1), "image/jpeg", expectedOwner) is ApiResult.Unauthorized)
+        assertEquals(0, h.apiServer.requestCount)
+    }
+
+    @Test
     fun sendsThePhotoAsBase64WithTheActiveAccountsToken() = runBlocking {
         h.json(
             200,

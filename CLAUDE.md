@@ -11,6 +11,10 @@ for setup and `docs/repo-layout.md` for how the folders fit together.
   Google sign-in are not implemented. Keep account IDs, password hashes, and the existing JWT secret stable.
 - Account-owned mutations must call `requireActiveAccount(userId, session)` inside the same Mongo transaction.
   It touches the account root so a concurrent deletion causes a write conflict; a snapshot read alone is insufficient.
+- The current deletion journal also suppresses restored old roots. Preserve it independently of snapshots; never
+  expire its entries or treat active-store completion as proof that historical recovery copies were removed.
+- Cloud AI must pass the shared server-side provider policy. API keys, server location and client country fields
+  do not establish eligibility. Keep manual entry working when no provider is permitted and never bypass a refusal.
 - Index setup is explicit through `ensureIndexes()`, after migration parity checks. Never deduplicate or delete
   records merely to make a unique index succeed. Keep Firestore source data intact until cutover is verified.
 - Firebase packages/client/scripts are retained for historical source export and migration tests, not the active
@@ -70,8 +74,10 @@ Only one worktree can use these at a time. Check before you start, and stop what
 
 - Android, from `apps/android`:
   `./gradlew :asr:testDebugUnitTest :app:testDebugUnitTest :core:data:testDebugUnitTest :feature:voice:testDebugUnitTest :asr-demo:testDebugUnitTest :nlu:test :app:lintDebug :asr:lintDebug :core:data:lintDebug :feature:voice:lintDebug`
-- Web, from `apps/web`: `npx vitest run` and `npx tsc --noEmit`. `tsc` doesn't pass cleanly yet, so compare its
-  error count with master's.
+- Web, from `apps/web`: `npm test`, `npm run lint`, `npm run build`, then `npm run typecheck`. ESLint checks the source,
+  scripts and tests unconditionally in CI; existing warnings remain visible. The typecheck gate compares full
+  diagnostics against the checked-in inherited baseline, including occurrence counts, and rejects additions.
+  Existing type debt is still allowed; do not update the baseline merely to make a change pass.
 
 ### GitHub
 

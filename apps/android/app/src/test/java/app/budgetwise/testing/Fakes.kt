@@ -204,12 +204,14 @@ class FakeSettingsStore : SettingsStore {
 
 /** In-memory ledger. [rows] is what Room would hold; [added] and [deleted] record the writes. */
 class FakeTransactionStore(initial: List<Transaction> = emptyList()) : TransactionStore {
+    override var writableOwner: String? = TestUser.id
     val rows = MutableStateFlow(initial)
     val added = mutableListOf<NewTransaction>()
     val deleted = mutableListOf<String>()
 
     /** When set, addAll throws it (a Room failure). */
     var addFailure: Exception? = null
+    var addGate: CompletableDeferred<Unit>? = null
 
     /** When set, reading the ledger throws it (a Room failure). */
     var observeFailure: Exception? = null
@@ -231,9 +233,21 @@ class FakeTransactionStore(initial: List<Transaction> = emptyList()) : Transacti
         return ids
     }
 
+    val savedForOwners = mutableListOf<String>()
+    override suspend fun addAllForOwner(owner: String, inputs: List<NewTransaction>): List<String> {
+        addGate?.await()
+        check(writableOwner == owner) { "the account changed" }
+        savedForOwners += owner
+        return addAll(inputs)
+    }
+
     override suspend fun delete(clientId: String) {
         deleted += clientId
         rows.value = rows.value.filterNot { it.clientId == clientId }
+    }
+    override suspend fun deleteForOwner(owner: String, clientId: String) {
+        check(writableOwner == owner) { "the account changed" }
+        delete(clientId)
     }
 
     override fun observeReceipt(receiptId: String): Flow<List<Transaction>> =
@@ -253,11 +267,19 @@ class FakeTransactionStore(initial: List<Transaction> = emptyList()) : Transacti
         rows.value = inputs.zip(ids) { input, id -> input.toPendingRow(id) } + rows.value.filterNot { it.clientId in old }
         return ReplaceResult.Saved(ids)
     }
+    override suspend fun replaceForOwner(owner: String, old: List<String>, inputs: List<NewTransaction>): ReplaceResult {
+        check(writableOwner == owner) { "the account changed" }
+        return replace(old, inputs)
+    }
 
     /** As the repository: replaced (and recorded in [replaced]) only while the receipt's entries are [old]. */
     override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
         if (rows.value.filter { it.receiptId == receiptId }.map { it.clientId }.toSet() != old) return null
         return (replace(old.toList(), inputs) as? ReplaceResult.Saved)?.clientIds
+    }
+    override suspend fun replaceReceiptForOwner(owner: String, receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
+        check(writableOwner == owner) { "the account changed" }
+        return replaceReceipt(receiptId, old, inputs)
     }
 
     private fun NewTransaction.toPendingRow(id: String) = Transaction(
@@ -291,6 +313,7 @@ class FakeBudgetSource(initial: List<Budget> = emptyList()) : BudgetSource {
  * order.
  */
 class FakeMonthPlanSource(initial: List<MonthPlan> = emptyList()) : MonthPlanSource {
+    var writableOwner: String? = TestUser.id
     val plans = MutableStateFlow(initial)
     val refreshes = mutableListOf<Pair<YearMonth, YearMonth>>()
     var refreshResult: ApiResult<Unit> = ApiResult.Ok(Unit)
@@ -329,12 +352,20 @@ class FakeMonthPlanSource(initial: List<MonthPlan> = emptyList()) : MonthPlanSou
         saveGate?.await()
         return onSave(plan).also { if (it is ApiResult.Ok) cache(it.v) }
     }
+    override suspend fun saveForOwner(owner: String, plan: MonthPlan): ApiResult<MonthPlan> {
+        if (writableOwner != owner) return ApiResult.Unauthorized("the account changed")
+        return save(plan)
+    }
 
     override suspend fun saveEndCheck(month: YearMonth, onHandKyat: Long): ApiResult<MonthPlan> {
         endChecks += month to onHandKyat
         log += "endCheck $month $onHandKyat"
         saveGate?.await()
         return onEndCheck(month, onHandKyat).also { if (it is ApiResult.Ok) cache(it.v) }
+    }
+    override suspend fun saveEndCheckForOwner(owner: String, month: YearMonth, onHandKyat: Long): ApiResult<MonthPlan> {
+        if (writableOwner != owner) return ApiResult.Unauthorized("the account changed")
+        return saveEndCheck(month, onHandKyat)
     }
 
     private fun cache(plan: MonthPlan) {
@@ -429,10 +460,14 @@ class FakeSpeech(var texts: List<String> = listOf("ကော်ဖီ သုံ�
 
 class FakeVoiceParser : VoiceParser {
     val calls = mutableListOf<List<String>>()
+    val owners = mutableListOf<String>()
+    var gate: CompletableDeferred<Unit>? = null
     var reply: ApiResult<VoiceParse> = ApiResult.Ok(VoiceParse.Other(""))
 
-    override suspend fun parse(transcripts: List<String>): ApiResult<VoiceParse> {
+    override suspend fun parse(transcripts: List<String>, expectedOwner: String): ApiResult<VoiceParse> {
         calls += transcripts
+        owners += expectedOwner
+        gate?.await()
         return reply
     }
 }

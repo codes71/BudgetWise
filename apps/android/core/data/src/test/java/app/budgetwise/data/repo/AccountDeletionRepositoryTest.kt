@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.budgetwise.data.auth.SessionState
 import app.budgetwise.data.auth.SessionManager
+import app.budgetwise.data.auth.AccountScanCache
 import app.budgetwise.data.db.BudgetEntity
 import app.budgetwise.data.db.MonthPlanEntity
 import app.budgetwise.data.net.NetLogging
@@ -15,6 +16,7 @@ import app.budgetwise.data.sync.SyncEngine
 import app.budgetwise.data.sync.MemoryCursor
 import java.time.Duration
 import java.time.YearMonth
+import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -27,23 +29,31 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import org.junit.Rule
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class AccountDeletionRepositoryTest {
+    @get:Rule val temporary = TemporaryFolder()
     private lateinit var h: RepoHarness
     private lateinit var deletion: AccountDeletionRepository
+    private lateinit var scanCache: AccountScanCache
+    private lateinit var scanDirectory: File
     private val user = SyncHarness.USER
     private val other = SyncHarness.USER2
 
     @Before fun setUp() {
         h = RepoHarness()
+        scanDirectory = temporary.newFolder("scan")
+        scanCache = AccountScanCache(scanDirectory)
+        runBlocking { scanCache.activate(user.id) }
         val client = createOkHttpClient(NetLogging.None).newBuilder().retryOnConnectionFailure(false)
             .readTimeout(2, TimeUnit.SECONDS).connectTimeout(2, TimeUnit.SECONDS).build()
         deletion = AccountDeletionRepository(
             createApiService("http://127.0.0.1:${h.apiServer.port}/api/v1/", client),
-            h.sync.session, h.sync.db, h.sync.engine, h.writes, h.dataStore,
+            h.sync.session, h.sync.db, h.sync.engine, h.writes, h.dataStore, scanCache,
         )
     }
     @After fun close() { h.close() }
@@ -191,6 +201,41 @@ class AccountDeletionRepositoryTest {
         assertEquals(1, h.apiServer.requestCount)
         assertNull(h.sync.session.accountFor(user.email))
         assertNotNull(h.sync.session.accountFor(other.email))
+        assertNull(h.dataStore.data.first()[stringSetPreferencesKey("confirmed_account_deletions")])
+    }
+
+    @Test fun receiptPhotosAreKeptBeforeConfirmationAndAwaitedBeforeDeletionSucceeds() = runBlocking {
+        seed()
+        val scan = scanCache.begin()
+        scan.keep(byteArrayOf(1, 2, 3))
+        val photo = scanDirectory.walkTopDown().single { it.name == "current.jpg" }
+        val partial = File(photo.parentFile, "current.jpg.part").apply { writeBytes(byteArrayOf(4)) }
+        h.json(401, """{"error":{"code":"invalid_password"}}""")
+        assertEquals(AccountDeletionResult.WrongPassword, deletion.delete(user.id, "wrong"))
+        assertTrue(photo.exists())
+        assertTrue(partial.exists())
+        h.apiServer.enqueue(MockResponse().setResponseCode(204))
+        assertEquals(AccountDeletionResult.Success, deletion.delete(user.id, "current"))
+        assertFalse(photo.exists())
+        assertFalse(partial.exists())
+        assertFalse(scan.active)
+        assertNull(h.dataStore.data.first()[stringSetPreferencesKey("confirmed_account_deletions")])
+    }
+
+    @Test fun pendingDeletionRecoveryRemovesItsPhotosAndKeepsAnotherActiveScan() = runBlocking {
+        seed()
+        scanCache.activate(other.id)
+        val otherScan = scanCache.begin()
+        otherScan.keep(byteArrayOf(8, 9))
+        h.sync.signInSecond()
+        h.dataStore.edit { it[stringSetPreferencesKey("confirmed_account_deletions")] = setOf(user.id) }
+        // Simulate a pre-ownership version's interrupted write on disk when recovering a persisted deletion receipt.
+        File(scanDirectory, "current.jpg.part").writeBytes(byteArrayOf(1, 2))
+        deletion.recoverPendingDeletions()
+        assertArrayEquals(byteArrayOf(8, 9), otherScan.kept())
+        assertFalse(File(scanDirectory, "current.jpg.part").exists())
+        assertEquals(other.id, h.sync.session.activeUserId.value)
+        assertEquals(0, h.apiServer.requestCount)
         assertNull(h.dataStore.data.first()[stringSetPreferencesKey("confirmed_account_deletions")])
     }
 

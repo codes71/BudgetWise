@@ -29,7 +29,7 @@ import app.budgetwise.ui.common.SecondaryButton
 import app.budgetwise.ui.theme.BudgetWiseTheme
 import app.budgetwise.ui.theme.forContent
 
-internal enum class CloudAiFeature(val preference: String) { SCAN("scan_v1"), VOICE("voice_v1") }
+internal enum class CloudAiFeature(val preference: String) { SCAN("scan_v2"), VOICE("voice_v2") }
 internal const val CLOUD_AI_CONSENT_PREFERENCES = "cloud_ai_disclosure"
 
 /** Mounts permissions, capture and recording effects only after an explicit, versioned first-use choice. */

@@ -66,6 +66,12 @@ sealed interface VoiceProblem {
     /** The server could not read them; the words are kept for Try again. */
     data object Failed : VoiceProblem
 
+    /** No permitted provider for this request; manual entry remains available. */
+    data object AiUnavailable : VoiceProblem
+
+    /** The provider declined this request; do not resend the same words. */
+    data object AiDeclined : VoiceProblem
+
     /** The session ended. */
     data object SignedOut : VoiceProblem
 
@@ -142,6 +148,8 @@ class VoiceViewModel @Inject constructor(
     private val network: NetworkStatus,
     @DeviceClock clock: Clock,
 ) : ViewModel() {
+    private val owner = transactions.writableOwner
+    private fun sameOwner(): Boolean = owner != null && transactions.writableOwner == owner
     private val _state = MutableStateFlow(VoiceUiState(today = LocalDate.now(clock)))
     val state: StateFlow<VoiceUiState> = _state.asStateFlow()
 
@@ -169,6 +177,7 @@ class VoiceViewModel @Inject constructor(
 
     /** Starts listening; the caller holds the microphone permission. */
     fun listen() {
+        if (!sameOwner()) { problem(VoiceProblem.SignedOut); return }
         if (recording != null) return
         workJob?.cancel()
         val rec = try {
@@ -257,6 +266,8 @@ class VoiceViewModel @Inject constructor(
 
     /** Sends the kept words again (after no connection, or a server failure). */
     fun retry() {
+        val currentProblem = (_state.value.phase as? VoicePhase.Problem)?.problem
+        if (currentProblem == VoiceProblem.AiUnavailable || currentProblem == VoiceProblem.AiDeclined) return
         if (transcripts.isEmpty() || workJob?.isActive == true) return
         workJob = viewModelScope.launch { understand() }
     }
@@ -286,6 +297,7 @@ class VoiceViewModel @Inject constructor(
 
     /** Reads the kept words into entries or an answer; any failure on the way (Room, the session store) is a card. */
     private suspend fun understand() {
+        if (!sameOwner()) { problem(VoiceProblem.SignedOut); return }
         _state.update { it.copy(phase = VoicePhase.Working(WorkStep.UNDERSTANDING)) }
         val next = try {
             reading()
@@ -294,11 +306,11 @@ class VoiceViewModel @Inject constructor(
         } catch (_: Exception) {
             VoicePhase.Problem(VoiceProblem.Failed)
         }
-        _state.update { it.copy(phase = next) }
+        _state.update { it.copy(phase = if (sameOwner()) next else VoicePhase.Problem(VoiceProblem.SignedOut)) }
     }
 
     private suspend fun reading(): VoicePhase =
-        when (val r = parser.parse(transcripts)) {
+        when (val r = parser.parse(transcripts, checkNotNull(owner))) {
             is ApiResult.Ok -> when (val parse = r.v) {
                 is VoiceParse.Add -> VoicePhase.Review(ReviewState(parse.heard, parse.entries.map(::notAfterToday)))
                 is VoiceParse.Question -> VoicePhase.Answer(
@@ -312,7 +324,12 @@ class VoiceViewModel @Inject constructor(
             is ApiResult.Unauthorized -> VoicePhase.Problem(VoiceProblem.SignedOut)
             is ApiResult.Failure ->
                 // Every IOException is "network": a timeout or a reply cut off while the phone is online is not offline.
-                VoicePhase.Problem(if (r.code == NETWORK_ERROR_CODE && !online()) VoiceProblem.Offline else VoiceProblem.Failed)
+                VoicePhase.Problem(when (r.code) {
+                    "ai_unavailable" -> VoiceProblem.AiUnavailable
+                    "parse_declined" -> VoiceProblem.AiDeclined
+                    NETWORK_ERROR_CODE -> if (!online()) VoiceProblem.Offline else VoiceProblem.Failed
+                    else -> VoiceProblem.Failed
+                })
         }
 
     private suspend fun online(): Boolean = try {
@@ -372,12 +389,13 @@ class VoiceViewModel @Inject constructor(
         _state.update { it.copy(phase = VoicePhase.Review(review.copy(saving = true, saveFailed = false))) }
         viewModelScope.launch {
             try {
-                transactions.addAll(inputs)
+                transactions.addAllForOwner(checkNotNull(owner), inputs)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 // Room failed; nothing was saved (one transaction). The review stays for another try.
-                _state.update { it.copy(phase = VoicePhase.Review(review.copy(saving = false, saveFailed = true))) }
+                _state.update { it.copy(phase = if (sameOwner()) VoicePhase.Review(review.copy(saving = false, saveFailed = true))
+                    else VoicePhase.Problem(VoiceProblem.SignedOut)) }
                 return@launch
             }
             _events.send(VoiceEvent.Saved)

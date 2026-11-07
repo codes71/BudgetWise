@@ -89,6 +89,15 @@ class MonthPlanRepositoryTest {
     }
 
     @Test
+    fun stalePlanAndEndCheckNeverUseTheNextAccountsToken() = runBlocking {
+        val owner = h.sync.session.writableUserId!!
+        h.sync.signInSecond()
+        assertTrue(plans.save(MonthPlan(nov, 100, 0, emptyList()), owner) is ApiResult.Unauthorized)
+        assertTrue(plans.saveEndCheck(oct, 100, owner) is ApiResult.Unauthorized)
+        assertEquals(0, h.apiServer.requestCount)
+    }
+
+    @Test
     fun refreshCachesRoundedPlansAndReplacesOnlyThatRange() = runBlocking {
         val owner = SyncHarness.USER.id
         val july = YearMonth.of(2026, 7)

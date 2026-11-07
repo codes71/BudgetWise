@@ -2,8 +2,8 @@
 <resources>
     <string name="privacy_scan_title">Scan with AI</string>
     <string name="privacy_voice_title">Voice with AI</string>
-    <string name="privacy_scan_body">Your photo, its receipt or payment details, and category names are sent to Pocket Peek and processed by Anthropic or OpenAI to read your entries.</string>
-    <string name="privacy_voice_body">Recognized words, including spending details, and category names are sent to Pocket Peek and processed by Anthropic or OpenAI to make entries or understand your question. Audio stays on your phone.</string>
+    <string name="privacy_scan_body">When available, your photo, receipt or payment details, and category names go to Pocket Peek and OpenAI or Anthropic to read draft entries. Providers may retain inputs and outputs for safety or legal reasons, normally up to 30 days with exceptions.</string>
+    <string name="privacy_voice_body">When available, recognized words, spending details and category names go to Pocket Peek and OpenAI or Anthropic to make draft entries or understand a spending question. Audio stays on your phone. Providers may retain inputs and outputs for safety or legal reasons, normally up to 30 days with exceptions.</string>
     <string name="privacy_manual_alternative">You can enter an entry yourself without sending a photo or words to these AI services.</string>
     <string name="privacy_scan_agree">Agree and scan with AI</string>
     <string name="privacy_voice_agree">Agree and use AI voice</string>

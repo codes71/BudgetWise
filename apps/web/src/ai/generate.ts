@@ -1,81 +1,53 @@
 import type * as z from 'zod/v4';
 import { claudeStructured } from '@/ai/claude';
 import { openaiConfigured, openaiStructured } from '@/ai/openai';
-import {
-  CLAUDE_TIMEOUT_MS,
-  DeadlineError,
-  OPENAI_TIMEOUT_MS,
-  RefusalError,
-  type StructuredRequest,
-} from '@/ai/structured';
+import { AiUnavailableError, requestProviders } from '@/ai/provider-policy';
+import { CLAUDE_TIMEOUT_MS, DeadlineError, OPENAI_TIMEOUT_MS, RefusalError, type StructuredRequest } from '@/ai/structured';
 import { logger } from '@/lib/logger';
+import { errorDiagnostics, errorSummary } from '@/lib/error-diagnostics';
 
 export type { Content, Effort } from '@/ai/structured';
-
-// Kept back from a request's deadline so the reply still reaches the phone.
 const RESERVE_MS = 2_000;
-// The least time left worth handing to OpenAI after Claude fails (it answers in about 5 s).
-const OPENAI_MIN_MS = 8_000;
+const FALLBACK_MIN_MS = 8_000;
 
-function describe(err: unknown): string {
-  const status = (err as { status?: unknown })?.status;
-  const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-  return `${typeof status === 'number' ? `${status} ` : ''}${message}`.slice(0, 300);
-}
-
-// Every AI flow comes through here. Claude answers first; when it is down, overloaded, slow,
-// not configured or answers in the wrong shape, the same request goes to OpenAI.
-// A refusal is final and never moves to the other provider.
-// With a deadlineAt, each provider's time is cut to fit it, Claude hands an overload straight to OpenAI
-// instead of retrying, and OpenAI runs only when enough time is left; otherwise a DeadlineError.
+// Every cloud flow resolves the same server-side eligibility policy, including directly called web
+// helpers. A key is not permission. Only the explicitly permitted provider order can be attempted;
+// unknown or ineligible providers are never fallback targets. Refusals remain final.
 export async function generateStructured<Schema extends z.ZodType>(
   request: StructuredRequest<Schema>,
 ): Promise<z.infer<Schema>> {
+  const providers = (await requestProviders()).filter((provider) => provider !== 'openai' || openaiConfigured());
+  if (!providers.length) throw new AiUnavailableError();
   const { deadlineAt } = request;
-  const remaining = () => (deadlineAt === undefined ? Infinity : deadlineAt - Date.now());
-
-  const claudeMs = Math.min(request.timeoutMs ?? CLAUDE_TIMEOUT_MS, remaining() - RESERVE_MS);
-  if (claudeMs <= 0) throw new DeadlineError('No time left for the AI before the deadline.');
-  const started = Date.now();
-  try {
-    return await claudeStructured(
-      deadlineAt === undefined
-        ? request
-        : { ...request, timeoutMs: claudeMs, ...(openaiConfigured() ? { maxRetries: 0 } : {}) },
-    );
-  } catch (claudeError) {
-    // A request the caller gave up on is not a Claude failure: nobody is waiting for OpenAI's answer.
-    if (claudeError instanceof RefusalError || request.signal?.aborted || !openaiConfigured()) throw claudeError;
-    const ms = Date.now() - started;
-    if (remaining() < OPENAI_MIN_MS) {
-      throw new DeadlineError(`Claude failed (${describe(claudeError)}) with no time left for OpenAI.`, {
-        cause: claudeError,
-      });
+  const remaining = () => deadlineAt === undefined ? Infinity : deadlineAt - Date.now();
+  const failures: string[] = [];
+  for (const [index, provider] of providers.entries()) {
+    if (request.signal?.aborted) throw new Error('AI request cancelled.');
+    const timeout = provider === 'anthropic' ? CLAUDE_TIMEOUT_MS : OPENAI_TIMEOUT_MS;
+    const timeoutMs = Math.min(request.timeoutMs ?? timeout, remaining() - RESERVE_MS);
+    if (timeoutMs <= 0 || (index > 0 && remaining() < FALLBACK_MIN_MS)) {
+      throw new DeadlineError('No time left for the AI before the deadline.');
     }
-    // timedOut: Claude used its whole time, so it was slow rather than down.
-    logger.warn('Claude failed, trying OpenAI', {
-      flow: request.flow,
-      ms,
-      timedOut: ms >= claudeMs,
-      error: describe(claudeError),
-    });
+    const started = Date.now();
+    const invoke = provider === 'anthropic' ? claudeStructured : openaiStructured;
     try {
-      return await openaiStructured(
-        deadlineAt === undefined
-          ? request
-          : { ...request, timeoutMs: Math.min(request.timeoutMs ?? OPENAI_TIMEOUT_MS, remaining() - RESERVE_MS) },
-      );
-    } catch (openaiError) {
-      if (openaiError instanceof RefusalError || request.signal?.aborted) throw openaiError;
-      // OpenAI's time was cut to the deadline and used up: the request ran out of time.
-      if (remaining() <= RESERVE_MS) {
-        throw new DeadlineError(`Claude failed (${describe(claudeError)}); OpenAI ran out of time.`, {
-          cause: openaiError,
+      return await invoke(deadlineAt === undefined ? request : {
+        ...request, timeoutMs, ...(index + 1 < providers.length ? { maxRetries: 0 } : {}),
+      });
+    } catch (error) {
+      // Raw SDK messages, stacks and nested causes may contain receipt/transcript content.
+      if (error instanceof RefusalError) throw new RefusalError('AI provider declined this request.');
+      if (request.signal?.aborted) throw new Error('AI request cancelled.');
+      failures.push(`${provider === 'anthropic' ? 'Claude' : 'OpenAI'} failed (${errorSummary(error)})`);
+      if (remaining() <= RESERVE_MS) throw new DeadlineError('AI request ran out of time.');
+      if (index + 1 < providers.length) {
+        if (remaining() < FALLBACK_MIN_MS) throw new DeadlineError('No time left for the permitted fallback.');
+        const ms = Date.now() - started;
+        logger.warn('AI provider failed, trying permitted fallback', {
+          flow: request.flow, ms, timedOut: ms >= timeoutMs, status: errorDiagnostics(error).status,
         });
       }
-      throw new Error(`Claude failed (${describe(claudeError)}); OpenAI failed (${describe(openaiError)})`, {
-        cause: openaiError,
-      });
     }
   }
+  throw new Error(failures.join('; '));
 }

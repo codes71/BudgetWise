@@ -64,6 +64,17 @@ class PlanEditorViewModelTest {
     )
 
     @Test
+    fun aPlanOpenedByOneAccountCannotBeSavedForAnother() = runTest {
+        val vm = vm()
+        vm.onNewMoneyChange("1000")
+        store.writableOwner = "another-owner"
+        plans.writableOwner = "another-owner"
+        vm.save()
+        assertTrue(plans.saved.isEmpty())
+        assertEquals(SaveError.SIGN_IN, vm.state.value.saveError)
+    }
+
+    @Test
     fun startsFromTheMonthsOwnPlan() = runTest {
         val saved = MonthPlan(november, 1_500_000, 280_000, listOf(Budget("Transport", 100_000)))
         plans.plans.value = listOf(octoberPlan.copy(endCheck = EndCheck(280_000, Instant.EPOCH)), saved)

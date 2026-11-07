@@ -1,5 +1,3 @@
-'use server';
-
 /**
  * @fileOverview Provides an AI-powered transaction categorizer.
  *

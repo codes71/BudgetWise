@@ -74,7 +74,7 @@ interface ApiService {
 
     /**
      * What the phone's speech models heard, as text (never audio), read into entries or a spending question. Nothing
-     * is saved. When Claude fails the server asks OpenAI, so an answer can take up to its 60 s limit.
+     * is saved. Only explicitly permitted providers are attempted; the request can take up to its 60 s limit.
      */
     @SlowCall(readSeconds = 65)
     @POST("voice/parse")

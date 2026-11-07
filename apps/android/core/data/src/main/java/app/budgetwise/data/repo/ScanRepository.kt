@@ -81,9 +81,9 @@ class ScanRepository @Inject constructor(
     private val blockedUntil = ConcurrentHashMap<String, Instant>()
 
     /** [image] is JPEG, PNG or WebP bytes ([mediaType]), at most [MAX_IMAGE_BYTES]. */
-    suspend fun scan(image: ByteArray, mediaType: String): ApiResult<ScanReading> {
+    suspend fun scan(image: ByteArray, mediaType: String, expectedOwner: String? = session.writableUserId): ApiResult<ScanReading> {
         require(image.size <= MAX_IMAGE_BYTES) { "the image is larger than the server takes" }
-        val owner = session.activeUserId.value ?: return NOT_SIGNED_IN
+        val owner = expectedOwner?.takeIf { session.writableUserId == it } ?: return NOT_SIGNED_IN
         val token = session.bearerFor(owner) ?: return NOT_SIGNED_IN
         blocked(owner)?.let { return it }
         // Off the main thread: the base64 copy, and the JSON body Retrofit writes while it starts the call, are each

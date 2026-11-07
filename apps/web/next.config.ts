@@ -30,17 +30,6 @@ const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
     config.resolve.alias['@'] = path.resolve(__dirname, 'src');
     
-    // The following externals are only needed for the production build (isServer)
-    // to prevent certain packages from being bundled on the server.
-    if (isServer && process.env.NODE_ENV === 'production') {
-      config.externals = config.externals || [];
-      config.externals.push(
-        '@genkit-ai/googleai',
-        'genkit',
-        'handlebars',
-        'dotprompt'
-      );
-    }
     return config;
   },
 };

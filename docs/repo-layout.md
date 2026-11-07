@@ -184,8 +184,8 @@ One-time settings:
 - Should the voice spike (`apps/android/asr/host/spike`, golden transcripts, Python harness) stay in the repo?
   Kept for now.
 - Is Firebase App Hosting (`apps/web/apphosting.yaml`) still used next to Vercel? If not, it can go.
-- The Genkit leftovers (`src/ai/genkit.ts`, `src/ai/dev.ts`, the genkit packages and README text) are unused
-  since the switch to Claude. Remove them?
+- Removed unused Genkit entry points, packages and build aliases during security hardening. Active AI flows use
+  the direct provider SDKs and explicit eligibility routing. Historical Firestore tooling uses dev dependencies.
 - Keep `GEMINI.md` and `Issues.md` in `apps/web/`, or move them to `docs/`?
 - CI uses `lts/*` for Node; pin a major version instead if builds should not move when a new LTS lands.
 

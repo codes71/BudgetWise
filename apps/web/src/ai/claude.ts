@@ -10,7 +10,7 @@ import {
 } from '@/ai/structured';
 import { logger } from '@/lib/logger';
 
-// Claude, the first choice for every AI flow. Reads ANTHROPIC_API_KEY from the environment (.env.local).
+// Claude is called only when the server eligibility policy permits it (generate.ts).
 export const CLAUDE_MODEL = 'claude-opus-5-5';
 
 let client: Anthropic | undefined;
@@ -52,11 +52,10 @@ export async function claudeStructured<Schema extends z.ZodType>({
     },
     { signal: requestSignal(timeoutMs, signal), ...(maxRetries === undefined ? {} : { maxRetries }) },
   );
-  // Timings, codes and token counts only, never the content. model shows when the fallback model answered.
+  // Timings, fixed stop reasons and token counts only, never content or untrusted provider strings.
   logger.info('Claude answered', {
     flow,
     ms: Date.now() - started,
-    model: response.model,
     stopReason: response.stop_reason,
     inputTokens: response.usage?.input_tokens,
     outputTokens: response.usage?.output_tokens,

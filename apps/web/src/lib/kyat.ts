@@ -25,7 +25,7 @@ export const formatLakh = (kyat: number): string => {
 
 // Form field: coerces the input's text, then applies the same rule as isWholeKyat.
 export const wholeKyatField = z.coerce
-  .number()
+  .number<string | number>()
   .positive("Amount must be positive")
   .int(WHOLE_KYAT_MESSAGE)
   .safe("Amount is too large");

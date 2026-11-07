@@ -13,6 +13,8 @@ import app.budgetwise.testing.MainDispatcherRule
 import app.budgetwise.testing.testTransaction
 import java.time.LocalDate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -307,7 +309,7 @@ class ReceiptViewModelTest {
     fun aSaveThatFindsTheReceiptChangedWritesNothing() = runTest {
         // Changed after the screen's last answer: the store's own check, in its transaction, refuses the save.
         val changedJustNow = object : TransactionStore by store {
-            override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? = null
+            override suspend fun replaceReceiptForOwner(owner: String, receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? = null
         }
         val vm = vm(transactions = changedJustNow)
         vm.startEditing()
@@ -343,6 +345,35 @@ class ReceiptViewModelTest {
         third.startEditing()
         third.stopEditing()
         assertNull(vm(saved).state.value.editing)
+    }
+
+    private fun TestScope.restoreWhileOwnerChangesTo(nextOwner: String?) {
+        val saved = SavedStateHandle(mapOf(ReceiptViewModel.RECEIPT_ID to RECEIPT))
+        vm(saved).startEditing()
+        assertTrue(saved.contains("receipt_editing"))
+        val read = CompletableDeferred<Unit>()
+        val delayed = object : TransactionStore by store {
+            override fun observeReceipt(receiptId: String) = flow {
+                read.await()
+                emit(listOf(groceries, other))
+            }
+        }
+        val restored = vm(saved, delayed)
+        store.writableOwner = nextOwner
+        read.complete(Unit)
+        assertNull(restored.state.value.editing)
+        assertNull(saved.get<String>("receipt_editing"))
+        assertTrue(store.replaced.isEmpty())
+    }
+
+    @Test
+    fun accountSwitchWhileRestoringReceiptEditsDiscardsTheDraftWithoutCrashing() = runTest {
+        restoreWhileOwnerChangesTo("another-owner")
+    }
+
+    @Test
+    fun accountDeletionWhileRestoringReceiptEditsDiscardsTheDraftWithoutCrashing() = runTest {
+        restoreWhileOwnerChangesTo(null)
     }
 
     @Test

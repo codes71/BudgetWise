@@ -57,13 +57,14 @@ class VoiceRepository @Inject constructor(
     private val api: ApiService,
     private val session: SessionManager,
 ) {
-    suspend fun parse(transcripts: List<String>): ApiResult<VoiceParse> {
+    suspend fun parse(transcripts: List<String>, expectedOwner: String? = session.writableUserId): ApiResult<VoiceParse> {
         val texts = transcripts.map { it.trim().take(MAX_TRANSCRIPT) }.filter { it.isNotEmpty() }.distinct().take(MAX_TRANSCRIPTS)
         require(texts.isNotEmpty()) { "nothing was heard" }
-        val owner = session.activeUserId.value ?: return NOT_SIGNED_IN
+        val owner = expectedOwner ?: return NOT_SIGNED_IN
+        if (session.writableUserId != owner) return NOT_SIGNED_IN
         val token = session.bearerFor(owner) ?: return NOT_SIGNED_IN
         return when (val r = safeApi { api.parseVoice(authorization(token), VoiceParseBody(texts)) }) {
-            is ApiResult.Ok -> ApiResult.Ok(r.v.toDomain())
+            is ApiResult.Ok -> if (session.writableUserId == owner) ApiResult.Ok(r.v.toDomain()) else NOT_SIGNED_IN
             is ApiResult.Unauthorized -> {
                 session.onUnauthorized(owner, token)
                 r

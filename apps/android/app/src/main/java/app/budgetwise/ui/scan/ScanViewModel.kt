@@ -95,6 +95,12 @@ enum class ScanProblem {
     /** The server failed (5xx), or answered with something the phone cannot use. The photo is kept. */
     SERVER,
 
+    /** The request has no permitted AI provider; use manual entry rather than retrying the same image. */
+    AI_UNAVAILABLE,
+
+    /** AI declined this image; a retry must not resend the same refused content. */
+    AI_DECLINED,
+
     /** The phone closed BudgetWise while the photo was being read. The photo is kept for Try again. */
     INTERRUPTED,
 
@@ -250,6 +256,14 @@ class ScanViewModel @Inject constructor(
     private val saved: SavedStateHandle,
     @DeviceClock clock: Clock,
 ) : ViewModel() {
+    private val keptPhoto = photos.begin(saved.get<String>(KEY_PHOTO_ID))
+    private val sameOwner = keptPhoto.owner != null && saved.get<String>(KEY_PHOTO_OWNER) == keptPhoto.owner
+    init {
+        if (!sameOwner) saved.keys().filter { it in setOf(KEY_SCAN, KEY_PHOTO, KEY_PHOTO_ID, KEY_PHOTO_OWNER) }
+            .forEach { saved.remove<Any>(it) }
+        saved[KEY_PHOTO_ID] = keptPhoto.id
+        saved[KEY_PHOTO_OWNER] = keptPhoto.owner
+    }
     private val _state = MutableStateFlow(restore(ScanUiState(today = LocalDate.now(clock))))
     val state: StateFlow<ScanUiState> = _state.asStateFlow()
 
@@ -276,7 +290,9 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch { settings.myanmarDigits.collect { on -> _state.update { it.copy(myanmarDigits = on) } } }
         if (saved.get<Boolean>(KEY_PHOTO) == true) {
             viewModelScope.launch {
-                val kept = photos.kept()
+                val restoring = keptPhoto.id
+                val kept = keptPhoto.kept()
+                if (keptPhoto.id != restoring || !keptPhoto.active) return@launch
                 if (kept != null) {
                     _state.update { it.copy(photo = kept) }
                 } else {
@@ -287,7 +303,7 @@ class ScanViewModel @Inject constructor(
             }
         } else {
             // A photo left by a scan the phone closed, which the user never came back to.
-            photos.drop()
+            keptPhoto.drop()
         }
         viewModelScope.launch {
             _state.map { it.toSaved() }.distinctUntilChanged().collect { if (!ended) saved[KEY_SCAN] = it }
@@ -345,6 +361,10 @@ class ScanViewModel @Inject constructor(
             when (outcome) {
                 is Prepared.Ready -> {
                     keep(outcome.photo)
+                    if (!keptPhoto.active) {
+                        retake()
+                        return@launch
+                    }
                     _state.update { it.copy(photo = outcome.photo) }
                     readPhoto()
                 }
@@ -357,7 +377,8 @@ class ScanViewModel @Inject constructor(
     /** On disk too, for after process death. A full disk only means the photo would not survive that. */
     private suspend fun keep(prepared: PreparedPhoto) {
         try {
-            photos.keep(prepared.bytes)
+            keptPhoto.keep(prepared.bytes)
+            saved[KEY_PHOTO_ID] = keptPhoto.id
             saved[KEY_PHOTO] = true
         } catch (e: CancellationException) {
             throw e
@@ -374,7 +395,10 @@ class ScanViewModel @Inject constructor(
     }
 
     /** Reads the kept photo again (No internet, Server, Slow); without one, back to the camera. */
-    fun tryAgain() = if (photo != null) readPhoto() else retake()
+    fun tryAgain() {
+        if (_state.value.problem in setOf(ScanProblem.AI_UNAVAILABLE, ScanProblem.AI_DECLINED)) return
+        if (photo != null) readPhoto() else retake()
+    }
 
     /** Drops the photo and the reply: back to the camera. Cancels getting a photo ready or a read in progress. */
     fun retake() {
@@ -394,10 +418,15 @@ class ScanViewModel @Inject constructor(
 
     private fun dropPhoto() {
         saved.remove<Boolean>(KEY_PHOTO)
-        photos.drop()
+        keptPhoto.drop()
     }
 
     private fun readPhoto() {
+        if (!keptPhoto.active) {
+            retake()
+            return
+        }
+        val owner = keptPhoto.owner ?: return
         val prepared = photo ?: return
         reading?.cancel()
         waiting?.cancel()
@@ -410,7 +439,7 @@ class ScanViewModel @Inject constructor(
             // The whole read, upload and AI together: a slow upload that keeps moving never hits a socket timeout.
             val result = withTimeoutOrNull(READ_LIMIT) {
                 try {
-                    scanner.scan(prepared.bytes, prepared.mediaType)
+                    scanner.scan(prepared.bytes, prepared.mediaType, owner)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (_: Exception) {
@@ -419,6 +448,10 @@ class ScanViewModel @Inject constructor(
                 }
             }
             notice.cancel()
+            if (!keptPhoto.active) {
+                retake()
+                return@launch
+            }
             when (result) {
                 null -> fail(ScanProblem.SLOW)
                 is ApiResult.Ok -> show(result.v)
@@ -436,6 +469,8 @@ class ScanViewModel @Inject constructor(
         // Every IOException is "network": a timeout or a reply cut off on a phone that is online is a slow connection.
         NETWORK_ERROR_CODE -> if (online()) ScanProblem.SLOW else ScanProblem.NO_INTERNET
         ScanRepository.RATE_LIMITED, "http_429" -> ScanProblem.TOO_MANY
+        "ai_unavailable" -> ScanProblem.AI_UNAVAILABLE
+        "scan_declined" -> ScanProblem.AI_DECLINED
         // A photo the server would not take; this phone always sends a JPEG under the limit, so it is an odd photo.
         "invalid_image", "image_too_large" -> ScanProblem.UNREADABLE
         // The AI read failed (scan_failed), the server is down, or its reply was not one the phone can use (an HTML
@@ -613,10 +648,15 @@ class ScanViewModel @Inject constructor(
     )
 
     private fun save(inputs: List<NewTransaction>) {
+        if (!keptPhoto.active) {
+            retake()
+            return
+        }
+        val owner = keptPhoto.owner ?: return
         _state.update { it.copy(saving = true, saveFailed = false) }
         viewModelScope.launch {
             val ids = try {
-                transactions.addAll(inputs)
+                transactions.addAllForOwner(owner, inputs)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -628,6 +668,8 @@ class ScanViewModel @Inject constructor(
             ended = true
             saved.remove<String>(KEY_SCAN)
             dropPhoto()
+            saved.remove<String>(KEY_PHOTO_ID)
+            saved.remove<String>(KEY_PHOTO_OWNER)
             _state.update { it.copy(photo = null) }
             _events.send(ScanEvent.Saved(ids, _state.value.merchant))
         }
@@ -635,7 +677,7 @@ class ScanViewModel @Inject constructor(
 
     override fun onCleared() {
         // Scanning was closed: the receipt photo goes. Not called on process death, when it must stay.
-        photos.drop()
+        keptPhoto.drop()
     }
 
     /** The scan as it was when the phone closed BudgetWise, if it was past the camera. */
@@ -670,6 +712,8 @@ class ScanViewModel @Inject constructor(
         // SavedStateHandle keys: the scan as one JSON string, and whether ScanPhotos holds its photo.
         private const val KEY_SCAN = "scan"
         private const val KEY_PHOTO = "photoKept"
+        private const val KEY_PHOTO_ID = "photoScanId"
+        private const val KEY_PHOTO_OWNER = "photoOwner"
     }
 }
 

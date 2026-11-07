@@ -7,12 +7,12 @@ const isRealDate = (s: string): boolean => {
 };
 
 export const loginSchema = z.object({
-  // Web signup only enforces HTML type="email", so `a@b` is a real account; let the lookup decide.
+  // Legacy web accounts can use `a@b` and short/long passwords. Let the lookup decide.
   email: z.string().trim().min(1).max(254),
   password: z.string().min(1),
 });
 
-/** The phone's create account form. The web signup's rules: HTML type="email" and at least 6 characters. */
+/** Shared server validation for web and mobile account creation. */
 export const registerSchema = z.object({
   email: z
     .string()

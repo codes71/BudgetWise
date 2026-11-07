@@ -60,6 +60,13 @@ describe("POST /api/v1/auth/register", () => {
     expect((await res.json()).error.code).toBe("invalid_json");
   });
 
+  it("413 for an oversized request, without creating an account", async () => {
+    const res = await register({ email: "aye@example.com", password: "teashop26", unused: "x".repeat(17000) });
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ error: { code: "payload_too_large", message: "Request body is too large" } });
+    expect(await findUserByEmail("aye@example.com")).toBeNull();
+  });
+
   it("21st sign up from one address within the hour is 429", async () => {
     const ip = freshIp();
     for (let i = 0; i < 20; i++) {

@@ -54,9 +54,7 @@ jobs:
 
       - run: npm ci
 
-      # `next lint` has no ESLint config yet; this step turns on once one is added.
       - name: Lint
-        if: hashFiles('apps/web/eslint.config.*', 'apps/web/.eslintrc*') != ''
         run: npm run lint
 
       - name: Unit and API tests (Mongo replica set plus isolated legacy copy)
@@ -64,3 +62,7 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Build first so Next's generated route types are included in the standalone compiler pass.
+      - name: TypeScript diagnostic baseline gate
+        run: npm run typecheck

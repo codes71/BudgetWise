@@ -1,6 +1,7 @@
 import * as z from "zod/v4";
 import { scanImage, type ScanOutput } from "@/ai/flows/scan-image";
 import { DeadlineError, RefusalError, ROUTE_DEADLINE_MS } from "@/ai/structured";
+import { AiUnavailableError } from "@/ai/provider-policy";
 import { logger } from "@/lib/logger";
 import { requireUser } from "@/lib/mobile/bearer";
 import { ApiError, handle, readJson } from "@/lib/mobile/errors";
@@ -17,8 +18,8 @@ import {
 import { scanRequestSchema } from "@/lib/mobile/schemas";
 
 export const dynamic = "force-dynamic";
-// Reading one image takes a few seconds. The AI work has ROUTE_DEADLINE_MS from arrival, Claude and the
-// OpenAI fallback together, so a slow read still ends in a JSON reply inside these 60 s.
+// AI work has ROUTE_DEADLINE_MS from arrival across the permitted provider order, so a slow read
+// still ends in a JSON reply inside these 60 s.
 export const maxDuration = 60;
 
 async function readImage(req: Request) {
@@ -56,9 +57,12 @@ export const POST = handle(async (req) => {
       logger.info("Scan cancelled", { ms });
       throw new ApiError(502, "scan_failed", "Could not read the image, please try again");
     }
+    if (err instanceof AiUnavailableError) {
+      throw new ApiError(503, "ai_unavailable", "AI assistance is unavailable here. You can enter transactions manually.");
+    }
     if (err instanceof RefusalError) {
       // Final: the same image is declined again, so the phone is not told to resend it.
-      logger.warn("Scan declined by the model", { ms, error: err.message });
+      logger.warn("Scan declined by the model", { ms });
       throw new ApiError(422, "scan_declined", "This image could not be read");
     }
     if (err instanceof DeadlineError) {

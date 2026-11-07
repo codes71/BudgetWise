@@ -125,6 +125,32 @@ class ScanResultCardTest {
     }
 
     @Test
+    fun unavailableAiOffersManualEntryAndRetakeWithoutNetworkRetry() {
+        show(ScanProblem.AI_UNAVAILABLE)
+        compose.onNodeWithText(context.getString(R.string.cloud_ai_unavailable_title)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.cloud_ai_unavailable_body)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.action_try_again)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.scan_enter_yourself)).performClick()
+        compose.onNodeWithText(context.getString(R.string.scan_retake)).performClick()
+        compose.runOnIdle {
+            assertEquals(1, manual)
+            assertEquals(1, retakes)
+            assertEquals(0, retries)
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "my-rMM-w411dp-h914dp")
+    fun declinedAiExplainsManualEntryWithoutNetworkRetry() {
+        show(ScanProblem.AI_DECLINED)
+        compose.onNodeWithText(context.getString(R.string.cloud_ai_declined_title)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.cloud_ai_declined_body)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.action_try_again)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.scan_enter_yourself)).performClick()
+        compose.runOnIdle { assertEquals(1, manual); assertEquals(0, retries) }
+    }
+
+    @Test
     fun connectionProblemsStillRetryTheKeptPhoto() {
         show(ScanProblem.SERVER)
         compose.onNodeWithText(context.getString(R.string.action_try_again)).performClick()

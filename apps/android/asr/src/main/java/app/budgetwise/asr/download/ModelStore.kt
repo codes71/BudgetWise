@@ -6,9 +6,16 @@ import app.budgetwise.asr.VoicePack
 import app.budgetwise.asr.engine.VoiceFiles
 import org.json.JSONObject
 import java.io.File
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** On-disk layout: `noBackupFilesDir/models/voice/<VoicePack.VERSION>/{model files, verified.json}`. */
 internal object ModelStore {
+    private val mutation = Mutex()
+
+    /** A cancelled worker can still be unwinding IO. Cleanup must wait before removing its files. */
+    suspend fun <T> mutate(block: suspend () -> T): T = mutation.withLock { block() }
+
     const val MARKER = "verified.json"
     private const val PACK_DIR = "voice"
 

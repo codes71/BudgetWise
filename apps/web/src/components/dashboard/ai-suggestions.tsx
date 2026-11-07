@@ -7,7 +7,6 @@ import { Lightbulb } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { generateSuggestions } from '@/app/actions';
-import type { Transaction, Budget } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 
 interface AiSuggestionsProps {
@@ -45,9 +44,9 @@ export function AiSuggestions({ children }: AiSuggestionsProps) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>AI Spending Suggestions</DialogTitle>
+          <DialogTitle>Spending Suggestions</DialogTitle>
           <DialogDescription>
-            Get smart recommendations on where you can save money based on your spending habits.
+            Compare this month’s saved spending with your budgets. These observations are informational, not financial advice.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
@@ -73,13 +72,13 @@ export function AiSuggestions({ children }: AiSuggestionsProps) {
             </ul>
           ) : (
             <div className="text-center text-muted-foreground py-8">
-              <p>Click the button below to generate your personalized suggestions.</p>
+              <p>Check your recorded spending against your category budgets. No AI provider receives this comparison.</p>
             </div>
           )}
         </div>
         <DialogFooter>
           <Button onClick={handleGetSuggestions} disabled={isLoading || !transactions.length || !budgets.length}>
-            {isLoading ? 'Generating...' : suggestions.length > 0 ? 'Regenerate' : 'Get Suggestions'}
+            {isLoading ? 'Comparing...' : suggestions.length > 0 ? 'Compare Again' : 'Get Suggestions'}
           </Button>
         </DialogFooter>
       </DialogContent>
