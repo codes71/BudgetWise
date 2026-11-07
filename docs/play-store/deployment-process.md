@@ -69,7 +69,7 @@ Do not dispatch the release workflow as a test: dispatch with approval publishes
 
 ## Verified implementation results (7 November 2026)
 
-- 51 local release-tool tests passed, including synthetic approval, configuration, signature, artifact, workflow-wiring and mocked Play inventory/readback failures.
+- 53 local release-tool tests passed, including synthetic approval, configuration, signature, artifact, workflow-wiring, wrapped Base64 keystore compatibility and mocked Play inventory/readback failures.
 - The workflow's local Android command passed: 975 tests across 101 suites, zero failures/errors/skips, debug build, and selected debug/friends/release lint. Gradle reported BUILD SUCCESSFUL. Lint printed nonfatal fix-generation diagnostics; no lint gate failed.
 - actionlint 1.7.12 and bash syntax checks passed for all three affected workflows. Shellcheck was unavailable, so it was not run.
 - The new verifier passed on the retained signed 0.3.0 (4) AAB without rebuilding it, matching its recorded hash, upload certificate, canonical API and all seven native libraries. This is packaging evidence, not a new Play-delivery test.

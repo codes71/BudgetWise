@@ -216,6 +216,39 @@ class WorkflowContractTest(unittest.TestCase):
                         self.assertIn('pip install -r tools/android-release/requirements-test.txt', script)
                         self.assertTrue(any(s.get('uses', '').startswith('actions/setup-python@') for s in job['steps']))
 
+    def test_keystore_decoder_accepts_wrapped_base64_and_keeps_file_private(self):
+        import base64
+        import os
+        import stat
+        steps = self.workflow['jobs']['publish']['steps']
+        decoder = next(s['run'] for s in steps if s.get('name') == 'Decode the upload keystore into the runner temporary directory')
+        script = decoder.partition('\n')[2].rpartition('\nPY')[0]
+        payload = b'synthetic-keystore-bytes' * 20
+        for encoded in [base64.b64encode(payload).decode(), base64.encodebytes(payload).decode()]:
+            with self.subTest(wrapped='\n' in encoded), tempfile.TemporaryDirectory() as directory:
+                env = {'RUNNER_TEMP': directory, 'GITHUB_ENV': str(Path(directory) / 'github-env'),
+                       'ANDROID_KEYSTORE_BASE64': encoded}
+                with mock.patch.dict(os.environ, env, clear=True):
+                    exec(compile(script, '<workflow-keystore-decoder>', 'exec'), {})
+                target = Path(directory) / 'upload-keystore.jks'
+                self.assertEqual(payload, target.read_bytes())
+                self.assertEqual(0o600, stat.S_IMODE(target.stat().st_mode))
+
+    def test_keystore_decoder_refuses_invalid_or_empty_base64_before_file_creation(self):
+        import binascii
+        import os
+        steps = self.workflow['jobs']['publish']['steps']
+        decoder = next(s['run'] for s in steps if s.get('name') == 'Decode the upload keystore into the runner temporary directory')
+        script = decoder.partition('\n')[2].rpartition('\nPY')[0]
+        for encoded in ['bad!data', ' \n\t']:
+            with self.subTest(encoded=encoded), tempfile.TemporaryDirectory() as directory:
+                env = {'RUNNER_TEMP': directory, 'GITHUB_ENV': str(Path(directory) / 'github-env'),
+                       'ANDROID_KEYSTORE_BASE64': encoded}
+                with mock.patch.dict(os.environ, env, clear=True):
+                    with self.assertRaises((binascii.Error, SystemExit)):
+                        exec(compile(script, '<workflow-keystore-decoder>', 'exec'), {})
+                self.assertFalse((Path(directory) / 'upload-keystore.jks').exists())
+
     def test_input_data_is_not_interpolated_into_shell(self):
         for job in self.workflow["jobs"].values():
             for step in job["steps"]:

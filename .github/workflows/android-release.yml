@@ -144,7 +144,9 @@ jobs:
           import base64, os
           from pathlib import Path
           target = Path(os.environ["RUNNER_TEMP"]) / "upload-keystore.jks"
-          data = base64.b64decode(os.environ["ANDROID_KEYSTORE_BASE64"], validate=True)
+          # Preserve wrapped Base64 accepted by the previous decoder; still reject invalid data.
+          encoded = "".join(os.environ["ANDROID_KEYSTORE_BASE64"].split())
+          data = base64.b64decode(encoded, validate=True)
           if not data:
               raise SystemExit("Empty upload keystore")
           descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
