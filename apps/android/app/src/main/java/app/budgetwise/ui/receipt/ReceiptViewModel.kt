@@ -139,8 +139,15 @@ class ReceiptViewModel @Inject constructor(
         // may have changed the receipt, or deleted it.
         saved.get<String>(EDITING)?.let { SavedEditing.from(it) }?.let { kept ->
             viewModelScope.launch {
-                if (entries().map { it.clientId }.toSet() == kept.fromIds) {
-                    local.update { it.copy(editing = kept.lines, editingIds = kept.fromIds, editingBase = kept.baseKyat) }
+                try {
+                    if (entries().map { it.clientId }.toSet() == kept.fromIds) {
+                        local.update { it.copy(editing = kept.lines, editingIds = kept.fromIds, editingBase = kept.baseKyat) }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // The account changed or Room could not restore the receipt. Keep the un-restored draft empty;
+                    // the local collector below removes it from saved state instead of crashing or reviving it.
                 }
             }
         }
