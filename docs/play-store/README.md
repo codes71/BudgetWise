@@ -1,5 +1,7 @@
 # Google Play release preparation
 
+For the implemented approved-trigger internal publisher, owner-or-agent approval, required configuration and offline tests, see [deployment process](deployment-process.md). Ordinary pushes/tags do not publish. The workflow fails on missing release configuration and publishes internal only after its checks pass.
+
 Pocket Peek uses the standard Android `release` variant for Google Play. It has direct APK updates disabled and excludes `REQUEST_INSTALL_PACKAGES` and the friends update FileProvider. Google Play distributes future native updates.
 
 ## Verified preparation status (7 November 2026)
@@ -45,7 +47,7 @@ cd apps/android
   -Pbudgetwise.releaseApiBaseUrl=https://budgetwis3.vercel.app/api/v1/
 ```
 
-Upload the `.aab`, not the friends APK. Retain the R8 mapping for crash retracing. Use the explicit version and real HTTPS API URL when dispatching the existing `Pocket Peek Android release` workflow. Its Play service-account secret is optional and is not configured by this preparation; a local bundle does not establish an upload or a reviewed release.
+Upload the `.aab`, not the friends APK. Retain the R8 mapping for crash retracing. The `Pocket Peek Android release` workflow now requires explicit source SHA, version, notes and owner-or-agent approval, plus signing, canonical API and Play configuration. It runs checks before automatically publishing to internal testing. A local bundle does not establish a Play upload, publication or delivery; verify each recorded outcome. See [deployment process](deployment-process.md).
 
 The project targets API 36. Confirm the final bundle's identity, signer, production API URL, language resources, manifest permissions, native library page alignment and bundle configuration before uploading. [Target API policy](https://support.google.com/googleplay/android-developer/answer/11926878), [16 KB support](https://developer.android.com/guide/practices/page-sizes).
 
