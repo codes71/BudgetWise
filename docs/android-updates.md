@@ -36,6 +36,7 @@ The APK is at `apps/android/app/build/outputs/apk/friends/app-friends.apk`. Reta
 Run the focused release-tool tests from the repository root:
 
 ```sh
+python3 -m pip install -r tools/android-release/requirements-test.txt
 python3 -m unittest discover -s tools/android-release -p 'test_*.py' -v
 ```
 

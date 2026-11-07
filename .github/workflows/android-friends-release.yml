@@ -39,8 +39,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
       - name: Test release verification tools
-        run: python3 -m unittest discover -s tools/android-release -p 'test_*.py' -v
+        run: |
+          python3 -m pip install -r tools/android-release/requirements-test.txt
+          python3 -m unittest discover -s tools/android-release -p 'test_*.py' -v
 
       - uses: actions/setup-java@v6
         with:

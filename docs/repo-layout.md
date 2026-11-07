@@ -132,7 +132,7 @@ following commits fix what the move broke:
 | web-ci.yml | PRs and pushes to master touching `apps/web/**` | Node LTS, `npm ci`, lint once an ESLint config exists, `vitest run`, `next build` |
 | web-deploy.yml | push to master (production), PRs (preview), manual | Vercel CLI `pull`, `build`, `deploy --prebuilt` from the repo root |
 | android-ci.yml | PRs and pushes to master touching `apps/android/**` | JDK 17, Gradle cache, unit tests for :app, :core:data, :nlu, :feature:voice, `:app:assembleDebug`, lint |
-| android-release.yml | manual, or a tag `pocket-peek-android-v*` | signed `app.pocketpeek` release AAB, uploaded to the Play internal track when configured |
+| android-release.yml | explicit approved manual dispatch only | exact-SHA Android checks, signed verified AAB, automatic internal publication and independent version/hash readback |
 | android-friends-release.yml | manual only | signed friends APK, verified release descriptor and artifact; no publishing or master writes |
 
 Notes:
@@ -143,10 +143,11 @@ Notes:
 - `next lint` has no ESLint config or dependency yet, so the lint step stays off until one is added.
 - android-ci builds no native code and runs no instrumented tests. The ASR modules need the NDK, CMake and the
   llama.cpp submodule; checkout leaves the submodule out, so Gradle skips them.
-- The existing release/deploy workflows skip with a notice when their secrets are missing (also true for PRs
-  from forks). The manual friends-release workflow instead fails if its signing or API configuration is missing.
-- android-release keeps the signed AAB and `mapping.txt` as a workflow artifact. It uploads only when the Play
-  secret and the API URL variable are both set, and as a `draft` by default.
+- The Play and friends release workflows fail when required release configuration is missing. Other deployment
+  workflows may still skip; inspect their actual steps before interpreting a successful result.
+- android-release accepts owner or agent approval through an explicit dispatch, runs tests for the exact SHA,
+  verifies the signed bundle, publishes internal with status completed, and independently checks version/hash.
+  It retains the candidate and receipts for 90 days. See [deployment process](play-store/deployment-process.md).
 - android-friends-release keeps the verified APK, descriptor, checksum and `mapping.txt` as artifacts for 30 days.
   Publishing its GitHub release and promoting the static Vercel descriptor are separate actions described in
   [Android friends updates](android-updates.md).
@@ -165,6 +166,7 @@ GitHub repository variable:
 
 - `BUDGETWISE_RELEASE_API_BASE_URL`: the live `https://.../api/v1/` URL the release app calls.
 - `BUDGETWISE_FRIENDS_SIGNING_CERT_SHA256`: public SHA-256 fingerprint of the friends release signing certificate.
+- `BUDGETWISE_PLAY_UPLOAD_CERT_SHA256`: public SHA-256 fingerprint of the approved Play AAB upload certificate.
 
 One-time settings:
 
