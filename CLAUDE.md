@@ -78,7 +78,7 @@ Only one worktree can use these at a time. Check before you start, and stop what
 - The repo is `codes71/BudgetWise` and it is public. Use the `codes71` account on each command with
   `GH_TOKEN=$(gh auth token --user codes71) gh ...`. Don't run `gh auth switch` (other sessions share it), and
   never `git config --global`.
-- Open PRs against `master`. Merging to `master` deploys the web app to production, so only the user merges.
+- Open PRs against `master`. Merging to `master` deploys the web app to production.
 
 ### Finishing
 
