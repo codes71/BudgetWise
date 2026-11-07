@@ -10,7 +10,7 @@ import androidx.compose.ui.unit.dp
 import app.budgetwise.R
 
 /**
- * The BudgetWise tile (brand/logo-mark.svg). It carries its own contrast, so it sits on any background. Decorative:
+ * The approved Pocket Peek symbol (brand/symbol-color.svg). It carries its own contrast, so it sits on any background. Decorative:
  * the app name is always written next to it.
  */
 @Composable

@@ -1,13 +1,24 @@
-# BudgetWise repository layout
+# Pocket Peek repository layout
+
+## Current persistence and release change (2026-11-07)
+
+The Pocket Peek branch uses native MongoDB persistence through `apps/web/src/lib/mongodb.ts`, with explicit server-only `MONGODB_URI` and `MONGODB_DB`. Users, email claims, transactions, budgets, monthly plans, categories, and rate-limit windows move together. Existing account and API record IDs remain strings; password hashes and the existing JWT secret must be preserved. Android keeps its Room cache and uses the HTTP API, not a direct database SDK.
+
+Authentication is the app's own bcrypt/Jose email-password flow. Firebase Authentication, Google sign-in, and Firestore realtime listeners are not active runtime features. Optional AI extraction/parsing and web suggestions use the backend provider flows independently of the database choice.
+
+This documents the source transition, not a completed production migration. Preserve the source Firestore database and a private immutable snapshot until destination counts, content/type parity, indexes, native tests, and independent API/account readbacks have passed. Unknown source records and exact Firestore-specific type information are retained in migration companion collections rather than silently dropped. Once Atlas accepts new writes, rollback requires reconciling those writes before switching back to a static Firestore source.
+
+The new Android identity is `app.pocketpeek`, version `0.3.0` / code `4`. It installs separately from legacy `app.budgetwise`, leaving that install and its local data intact. New-package sign-in restores synced backend data, not another package's unsynced cache, session, or model files. Old update feeds remain separate.
+
+For runtime configuration and current verification commands, see [README.md](../README.md). The native Mongo test project uses an owned replica set on dynamic ports and a unique test database. Do not use Atlas for destructive test fixtures. Firebase dependencies, the local emulator, and the older Mongo-to-Firestore copier remain for historical migration/export verification only.
 
 ## Play release preparation (2026-11-05)
 
-See [the Play release guide](play-store/README.md) for the signed `release` AAB, signing continuity, internal/closed testing, metadata and Data safety preparation. The public `/privacy` and `/delete-account` pages and password-confirmed `DELETE /api/v1/account` support Play's account-data requirements. Account-owned writes check the active account inside their Firestore transaction so stale sessions cannot recreate deleted data. Android removes only the confirmed deleted account's local data, with durable retry/recovery markers; ordinary sign-out still preserves data. First-use scan/voice disclosure precedes permissions and cloud processing.
+See [the Play release guide](play-store/README.md) for the signed `release` AAB, signing continuity, internal/closed testing, metadata and Data safety preparation. The public `/privacy` and `/delete-account` pages and password-confirmed `DELETE /api/v1/account` support Play's account-data requirements. In the MongoDB implementation, account-owned transactions touch the active account root to conflict with concurrent deletion and prevent stale sessions from recreating data. Android removes only the confirmed deleted account's local data, with durable retry/recovery markers; ordinary sign-out still preserves data. First-use scan/voice disclosure precedes permissions and cloud processing.
 
-Verification can use `BUDGETWISE_TEST_PROJECT_ID=demo-budgetwise-play-release` with the local Firestore emulator to keep release tests separate from the main dev database. These preparation files do not establish a Play upload, production deployment or reviewed release.
+Earlier Firestore-only verification used `BUDGETWISE_TEST_PROJECT_ID=demo-budgetwise-play-release`. Those test results do not validate the MongoDB transition. The current preparation files do not establish a Play upload, production deployment, or reviewed release.
 
-Written 2026-10-29 on branch `chore/monorepo` (worktree `/Users/code/Projects/BudgetWise-mono`). Nothing here
-has been pushed or deployed.
+The repository-layout history below was written 2026-10-29 on branch `chore/monorepo` (worktree `/Users/code/Projects/BudgetWise-mono`). Its dated branch surveys and cleanup procedures describe that earlier consolidation, not current production state or permission to repeat old actions.
 
 ## The layout
 
@@ -15,7 +26,7 @@ has been pushed or deployed.
 .github/workflows/  one pipeline per deployment (see "CI" below)
 apps/web/           Next.js web app and the /api/v1 mobile API, deployed on Vercel
 apps/android/       Android Gradle project: app, core/data, nlu, feature/voice, asr, asr-demo
-brand/              logo and icon sources; render.py writes into both apps
+brand/              approved logo/icon sources; render.py writes web/store exports only
 docs/               plans, specs and this file
 README.md  .gitignore  .gitmodules
 ```
@@ -121,15 +132,14 @@ following commits fix what the move broke:
 | web-ci.yml | PRs and pushes to master touching `apps/web/**` | Node LTS, `npm ci`, lint once an ESLint config exists, `vitest run`, `next build` |
 | web-deploy.yml | push to master (production), PRs (preview), manual | Vercel CLI `pull`, `build`, `deploy --prebuilt` from the repo root |
 | android-ci.yml | PRs and pushes to master touching `apps/android/**` | JDK 17, Gradle cache, unit tests for :app, :core:data, :nlu, :feature:voice, `:app:assembleDebug`, lint |
-| android-release.yml | manual, or a tag `android-v*` | signed release AAB, uploaded to the Play internal track |
+| android-release.yml | manual, or a tag `pocket-peek-android-v*` | signed `app.pocketpeek` release AAB, uploaded to the Play internal track when configured |
 | android-friends-release.yml | manual only | signed friends APK, verified release descriptor and artifact; no publishing or master writes |
 
 Notes:
 
 - Pushes to other branches do not run CI; open a PR for that.
-- web-ci sets up Java 21, not 17: `npm test` starts the Firestore emulator from the firebase-tools 15
-  devDependency, and that version refuses anything older (`MIN_SUPPORTED_JAVA_MAJOR_VERSION = 21`).
-- The web build needs no secrets or database URL; `next build` never opens Firestore.
+- Retained Firestore export/copy tests need Java 21 for the firebase-tools 15 emulator. MongoDB runtime tests need a disposable replica set and a test-only database; the separate Vitest projects exercise native Mongo runtime and historical copy behavior.
+- The web build needs no secrets or database URL; the native Mongo connection is lazy and `next build` does not open it.
 - `next lint` has no ESLint config or dependency yet, so the lint step stays off until one is added.
 - android-ci builds no native code and runs no instrumented tests. The ASR modules need the NDK, CMake and the
   llama.cpp submodule; checkout leaves the submodule out, so Gradle skips them.
@@ -163,10 +173,8 @@ One-time settings:
 - Vercel: keep one deployer. Either turn off Git deployments (disconnect the repo under Settings, Git, or add
   `"git": {"deploymentEnabled": false}` to `apps/web/vercel.json`) and let web-deploy.yml deploy, or keep Vercel's
   Git deploys and delete web-deploy.yml. Both on means two deploys per push.
-- Vercel: the app's environment variables stay in the Vercel project; `vercel pull` fetches them.
-- Play Console: create the app `app.budgetwise`, turn on Play App Signing (the keystore in the secrets is the
-  upload key), and upload the first AAB by hand (take it from the workflow artifact). Give the service account
-  release rights for the app. Switch the upload status to `completed` once the first release has been reviewed.
+- Vercel: runtime database variables are `MONGODB_URI` and `MONGODB_DB`; preserve the existing `JWT_SECRET`. Keep private values in the established environment workflow, never in source or public artifacts. Retained Firebase credentials are for authorized source export/rollback work, not the new runtime.
+- Play Console: the owner created Pocket Peek with `app.pocketpeek`. Configure Play App Signing for this new package and upload its verified AAB to internal testing. Manual Console upload does not need a Play API service account. The optional workflow API account is separate from Google sign-in and database authentication.
 - Firebase App Hosting, if it is still used: set the backend's root directory to `apps/web`.
 
 ## Open questions
@@ -181,7 +189,7 @@ One-time settings:
 
 ## Finish later
 
-### a. Merge feat/firestore and feat/android-accounts
+### a. Historical: merge feat/firestore and feat/android-accounts
 
 Done on 2026-10-29 (see "What each branch held"). For any later work on those branches, or any other branch
 cut from the old layout, merge the same way:
@@ -201,7 +209,7 @@ Also list new files outside `apps/`, `docs/`, `brand/` and
 git diff --name-only --diff-filter=A HEAD^1 HEAD | grep -vE '^(apps|docs|brand|\.github)/'
 ```
 
-### b. Make /Users/code/Projects/BudgetWise the one folder
+### b. Historical: make /Users/code/Projects/BudgetWise the one folder
 
 After chore/monorepo is merged to master (needs the owner's go-ahead to push):
 
@@ -217,7 +225,7 @@ After chore/monorepo is merged to master (needs the owner's go-ahead to push):
    `npm ci` in `apps/web`.
 6. Only if voice work resumes: `git submodule update --init apps/android/asr/third_party/llama.cpp`.
 
-### c. Worktrees that can then go
+### c. Historical: worktrees that could then go
 
 Use `git worktree remove <path>` (never `--force`); it refuses when there is uncommitted work. It deletes
 ignored files, so copy any `.superpowers/` ledger you want first.

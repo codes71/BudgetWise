@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from "react";
 import type { Transaction } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
+import { Add as PlusCircle } from "@/components/brand/pocket-peek-icons";
 import { OverviewCards } from "./overview-cards";
 import { SpendingChart } from "./spending-chart";
 import { BudgetGoals } from "./budget-goals";

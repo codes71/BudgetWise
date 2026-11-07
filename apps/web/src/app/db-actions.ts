@@ -1,6 +1,7 @@
 'use server';
 
 import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
 import { getMonthPlan, listBudgets, monthPlanSummary, setBudgetLimit, SplitOverTotalError, yangonMonth } from '@/lib/budgets';
 import type { LeanTransaction } from '@/lib/mobile/dto';
 import { getCategoriesForUser } from '@/lib/mobile/reference-data';
@@ -12,7 +13,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { logger } from '@/lib/logger';
 import { isWholeKyat } from '@/lib/kyat';
-import { db } from '@/lib/firestore';
+import { scopedId, withTransaction } from '@/lib/mongodb';
 import { requireActiveAccount } from '@/lib/account-access';
 
 async function getUserId(): Promise<string> {
@@ -35,7 +36,7 @@ const webTransactionFields = z.object({
 const isoOrUndefined = (value: Date | string | undefined) =>
   value === undefined ? undefined : new Date(value).toISOString();
 
-// The UI keys rows by `_id`, which is the Firestore doc id.
+// The UI keys rows by their original logical id, without the storage owner prefix.
 function toWebTransaction(userId: string, row: LeanTransaction): Transaction {
   return {
     _id: String(row._id),
@@ -56,9 +57,9 @@ function toWebTransaction(userId: string, row: LeanTransaction): Transaction {
 export async function getTransactions(): Promise<Transaction[]> {
   const userId = await getUserId();
   console.log('Fetching transactions for user:', userId);
-  const snap = await transactionsCol(userId).get();
+  const docs = await (await transactionsCol()).find({ userId }).toArray();
   // Newest date first.
-  return snap.docs
+  return docs
     .map((doc) => toWebTransaction(userId, toLeanTransaction(doc)))
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
@@ -87,13 +88,14 @@ export async function addTransaction(
     if (!fields.success) return null;
     const now = new Date();
     const data = { ...fields.data, userId, source: 'web' as const, createdAt: now, updatedAt: now };
-    const ref = transactionsCol(userId).doc();
-    await db().runTransaction(async (tx) => {
-      await requireActiveAccount(userId, tx);
-      tx.create(ref, data);
+    const id = randomUUID();
+    const col = await transactionsCol();
+    await withTransaction(async (session) => {
+      await requireActiveAccount(userId, session);
+      await col.insertOne({ _id: scopedId(userId, id), ...data }, { session });
     });
     revalidatePath('/');
-    return { ...data, _id: ref.id, createdAt: now.toISOString(), updatedAt: now.toISOString() };
+    return { ...data, _id: id, createdAt: now.toISOString(), updatedAt: now.toISOString() };
   } catch (error) {
     logger.error('Error adding transaction', error as Error);
     return null;

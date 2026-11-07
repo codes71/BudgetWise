@@ -40,9 +40,9 @@ data class MonthEndLink(val account: String, val month: YearMonth) {
         }
 
         /** [MainActivity]'s action for a tap on the notification or on its Check it. */
-        const val ACTION_OPEN = "app.budgetwise.action.OPEN_MONTH_END"
-        private const val EXTRA_ACCOUNT = "app.budgetwise.extra.ACCOUNT"
-        private const val EXTRA_MONTH = "app.budgetwise.extra.MONTH"
+        const val ACTION_OPEN = "app.pocketpeek.action.OPEN_MONTH_END"
+        private const val EXTRA_ACCOUNT = "app.pocketpeek.extra.ACCOUNT"
+        private const val EXTRA_MONTH = "app.pocketpeek.extra.MONTH"
 
         /** The link in [intent]'s extras; null when one is missing or the month does not read. */
         fun from(intent: Intent?): MonthEndLink? {

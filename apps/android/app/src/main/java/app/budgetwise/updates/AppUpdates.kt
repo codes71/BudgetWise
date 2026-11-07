@@ -11,6 +11,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import app.budgetwise.BuildConfig
+import app.budgetwise.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
@@ -202,7 +203,7 @@ class AppUpdates internal constructor(
                 val intent = Intent(Intent.ACTION_VIEW)
                     .setDataAndType(uri, "application/vnd.android.package-archive")
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                intent.clipData = ClipData.newRawUri("BudgetWise update", uri)
+                intent.clipData = ClipData.newRawUri(context.getString(R.string.updates_prompt_title), uri)
                 activity.startActivity(intent)
                 setState(token, UpdateState.Ready(candidate))
             } catch (e: CancellationException) {

@@ -1,3 +1,4 @@
+import { scopedId } from "@/lib/mongodb";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearDb, newUserId, seedAccount, testDb } from "../helpers/db";
 import { req } from "../helpers/request";
@@ -28,7 +29,7 @@ beforeEach(async () => {
   claude.mockReset();
   const { seedCategories } = await import("../../scripts/seedCategories");
   await seedCategories(testDb());
-  await testDb().collection("users").doc(userA).collection("categories").doc("c1").set({ name: "အလှူ" });
+  await testDb().collection("userCategories").replaceOne({ _id: scopedId(userA, "c1"), userId: userA }, { ...{ name: "အလှူ" }, _id: scopedId(userA, "c1"), userId: userA }, { upsert: true });
 });
 
 const parse = (token: string | undefined, body: unknown = { transcripts: ["ကော်ဖီ သုံး ထောင်"] }) =>

@@ -156,7 +156,7 @@ class MonthEndNotifierTest {
 
         assertNull(MonthEndLink.opened(Intent(open).addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)))
         assertNull(MonthEndLink.opened(Intent(open).setAction(Intent.ACTION_MAIN)))
-        assertNull(MonthEndLink.opened(Intent(open).putExtra("app.budgetwise.extra.MONTH", "October")))
+        assertNull(MonthEndLink.opened(Intent(open).putExtra("app.pocketpeek.extra.MONTH", "October")))
         assertNull(MonthEndLink.opened(null))
     }
 

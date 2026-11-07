@@ -1,32 +1,44 @@
-import { db } from "@/lib/firestore";
+import { randomUUID } from "node:crypto";
+import { beforeAll, afterAll } from "vitest";
+import type { Collection, CollectionOptions, Db, Document } from "mongodb";
+import { db, ensureIndexes, mongoClient, type MongoRecord } from "@/lib/mongodb";
 
-// Tests must only ever talk to the local emulator.
-function emulatorTarget(): { host: string; projectId: string } {
-  const host = process.env.FIRESTORE_EMULATOR_HOST;
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  if (host !== "127.0.0.1:8085" || !projectId?.startsWith("demo-")) {
-    throw new Error("Tests need FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 and a demo- FIREBASE_PROJECT_ID");
+type TestDb = Omit<Db, "collection"> & {
+  collection<TSchema extends Document = MongoRecord>(name: string, options?: CollectionOptions): Collection<TSchema>;
+};
+let database: TestDb;
+
+function assertLocalTestTarget(): void {
+  const uri = process.env.MONGODB_URI;
+  if (!uri || !/^mongodb:\/\/127\.0\.0\.1:\d+(?:[,/?]|$)/.test(uri)
+      || !/^test-pocketpeek-[a-z0-9-]+$/.test(process.env.MONGODB_DB ?? "")) {
+    throw new Error("Tests require their owned loopback Mongo replica set and test-pocketpeek- database");
   }
-  return { host, projectId };
 }
 
-export function testDb() {
-  emulatorTarget();
-  return db();
+beforeAll(async () => {
+  assertLocalTestTarget();
+  database = await db() as TestDb;
+  await ensureIndexes();
+});
+afterAll(async () => { await (await mongoClient()).close(); });
+
+export function testDb(): TestDb {
+  assertLocalTestTarget();
+  if (!database) throw new Error("Test database has not initialized");
+  return database;
 }
 
+/** Delete only this run's synthetic records, preserving indexes for concurrency checks. */
 export async function clearDb(): Promise<void> {
-  const { host, projectId } = emulatorTarget();
-  const res = await fetch(`http://${host}/emulator/v1/projects/${projectId}/databases/(default)/documents`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error(`Clearing the emulator failed with ${res.status}`);
+  const database = testDb();
+  for (const { name } of await database.listCollections({}, { nameOnly: true }).toArray()) {
+    await database.collection(name).deleteMany({});
+  }
 }
 
-/** A fresh user id shaped like a Firestore auto id. */
-export const newUserId = (): string => testDb().collection("users").doc().id;
+export const newUserId = (): string => randomUUID();
 
-/** Authenticated API fixtures need an actual active account, not only a correctly signed JWT. */
 export async function seedAccount(userId: string, email = `${userId}@example.com`): Promise<void> {
-  await testDb().collection("users").doc(userId).set({ email, emailLower: email.toLowerCase() });
+  await testDb().collection("users").insertOne({ _id: userId, email, emailLower: email.toLowerCase() });
 }

@@ -6,7 +6,7 @@ import { FloatingAiSuggestions } from '@/components/dashboard/floating-ai-sugges
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'BudgetWise',
+  title: 'Pocket Peek',
   description: 'A budgeting and expense tracking app.',
   icons: {
     icon: '/favicon.ico',

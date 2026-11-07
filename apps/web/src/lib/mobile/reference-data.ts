@@ -1,27 +1,24 @@
-import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { listBudgets } from "@/lib/budgets";
-import { db, isDocId, toDate, userDoc } from "@/lib/firestore";
+import { db, isDocId, toDate, type MongoRecord } from "@/lib/mongodb";
 
 const byName = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-// Global categories (categories/{slug}) in their seeded order, then the user's own.
+// Global categories in their seeded order, then the user's own categories.
 export async function getCategoriesForUser(userId: string): Promise<string[]> {
+  const database = await db();
   const [globals, own] = await Promise.all([
-    db().collection("categories").get(),
-    isDocId(userId) ? userDoc(userId).collection("categories").get() : null,
+    database.collection<MongoRecord>("categories").find({}).toArray(),
+    isDocId(userId) ? database.collection<MongoRecord>("userCategories").find({ userId }).toArray() : [],
   ]);
-  const sortKey = (doc: QueryDocumentSnapshot) => {
-    const sort = doc.get("sort");
-    return typeof sort === "number" ? sort : Number.MAX_SAFE_INTEGER;
-  };
-  const created = (doc: QueryDocumentSnapshot) => toDate(doc.get("createdAt"))?.getTime() ?? 0;
+  const sortKey = (doc: MongoRecord) => typeof doc.sort === "number" ? doc.sort : Number.MAX_SAFE_INTEGER;
+  const created = (doc: MongoRecord) => toDate(doc.createdAt)?.getTime() ?? 0;
   const names = [
-    ...globals.docs
-      .sort((a, b) => sortKey(a) - sortKey(b) || byName(a.get("name"), b.get("name")))
-      .map((doc) => doc.get("name")),
-    ...(own?.docs ?? [])
-      .sort((a, b) => created(a) - created(b) || byName(a.get("name"), b.get("name")))
-      .map((doc) => doc.get("name")),
+    ...globals
+      .sort((a, b) => sortKey(a) - sortKey(b) || byName(a.name, b.name))
+      .map((doc) => doc.name),
+    ...own
+      .sort((a, b) => created(a) - created(b) || byName(a.name, b.name))
+      .map((doc) => doc.name),
   ];
   return [...new Set(names.filter((name): name is string => typeof name === "string" && name.length > 0))];
 }

@@ -1,0 +1,15 @@
+{
+  "family": "Nunito",
+  "requestedStyle": "ExtraBold",
+  "weight": 800,
+  "upstreamFont": "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/Nunito%5Bwght%5D.ttf",
+  "upstreamLicense": "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/OFL.txt",
+  "license": "SIL Open Font License 1.1",
+  "retrieved": "2026-11-07",
+  "files": {
+    "Nunito-ExtraBold.ttf": "7bf8b6eafd48a7a814e6a727cb1a93903d90ce57b49af55e26e902489cf7716b",
+    "OFL.txt": "580df76c95a1ec5ab878ceb25bb3d85c6a076804e9c970c8c6972aea775fdf65",
+    "Nunito-Variable.ttf": "bb55a5ca5c2042335b3991af27c4d0705d0ef41cac6164ac737fd8f2a1e85207"
+  },
+  "derivation": "Nunito-ExtraBold.ttf is a static weight-800 instance made with fontTools from Nunito-Variable.ttf. Logo SVG text is converted to paths."
+}

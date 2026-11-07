@@ -4,9 +4,12 @@ import bcrypt from "bcryptjs";
 import { MongoClient, ObjectId, type Db } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { Timestamp } from "firebase-admin/firestore";
-import { clearDb, testDb } from "../helpers/db";
+import { clearLegacyFirestore as clearDb, legacyFirestore as testDb } from "../helpers/legacy-firestore";
+import { clearDb as clearMongo, testDb as mongoDb } from "../helpers/db";
 import { req } from "../helpers/request";
 import { copyMongoToFirestore, formatReport } from "../../scripts/copyMongoToFirestore";
+import { captureSource } from "../../scripts/firestoreSnapshot";
+import { importSnapshot, planMigration } from "../../scripts/migrateFirestoreToMongo";
 
 let server: MongoMemoryServer;
 let client: MongoClient;
@@ -81,6 +84,7 @@ afterAll(async () => {
   await server?.stop();
 });
 beforeEach(async () => {
+  await clearMongo();
   await clearDb();
   await mongo.dropDatabase();
   await seedMongo();
@@ -151,6 +155,11 @@ describe("copyMongoToFirestore", () => {
 
   it("copied accounts work with the mobile API: login, list, and resubmitting a copied clientId", async () => {
     await run(true);
+    // Exercise the real historical Mongo->Firestore->current Mongo roundtrip.
+    const snapshot = await captureSource(testDb(), process.env.FIREBASE_PROJECT_ID!);
+    const plan = planMigration(snapshot);
+    const imported = await importSnapshot(mongoDb() as Db, snapshot, plan);
+    expect(imported.matching).toBe(plan.length);
     const { POST: login } = await import("@/app/api/v1/auth/token/route");
     const res = await (login as (r: Request) => Promise<Response>)(
       req("POST", "/api/v1/auth/token", { body: { email: "ALICE@example.com", password: "correct-horse" }, ip: "10.7.7.7" }),
@@ -170,7 +179,7 @@ describe("copyMongoToFirestore", () => {
       }),
     );
     expect((await again.json()).saved[0].id).toBe(mobileTx.toHexString());
-    expect((await users().doc(alice.toHexString()).collection("transactions").get()).size).toBe(2);
+    expect(await mongoDb().collection("transactions").countDocuments({ userId: alice.toHexString() })).toBe(2);
   });
 
   it("is idempotent and never brings back a doc deleted after the copy", async () => {
@@ -195,13 +204,14 @@ describe("copyMongoToFirestore", () => {
   });
 
   it("skips a Mongo user whose email already signed up on Firestore, with their data", async () => {
-    const { createUser } = await import("@/lib/users");
-    const fresh = await createUser({ email: "BOB@example.com" });
+    const fresh = { id: "existing-firestore-user" };
+    await users().doc(fresh.id).set({ email: "BOB@example.com", emailLower: "bob@example.com" });
+    await testDb().collection("userEmails").doc(sha("bob@example.com")).set({ userId: fresh.id });
     const report = await run(true);
     expect(report.users).toMatchObject({ created: 1, emailTaken: 1 });
     expect(report.userCategories).toMatchObject({ created: 0, userSkipped: 1 });
     expect((await users().doc(bob.toHexString()).get()).exists).toBe(false);
-    expect((await testDb().collection("userEmails").doc(sha("bob@example.com")).get()).get("userId")).toBe(fresh!.id);
+    expect((await testDb().collection("userEmails").doc(sha("bob@example.com")).get()).get("userId")).toBe(fresh.id);
   });
 
   it("prints counts only, no emails or names", async () => {

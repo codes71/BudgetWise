@@ -9,7 +9,7 @@ export function PublicPolicyLayout({ title, children }: { title: string; childre
         <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-6">
           <Link href="/" className="inline-flex min-h-12 items-center gap-2 rounded-md font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Image src="/logo.png" alt="" width={24} height={24} aria-hidden="true" />
-            BudgetWise
+            Pocket Peek
           </Link>
           <nav aria-label="Privacy and account" className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
             <Link href="/privacy" className="inline-flex min-h-12 items-center rounded-md underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Privacy policy</Link>

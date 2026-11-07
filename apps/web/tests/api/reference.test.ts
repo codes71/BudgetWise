@@ -1,3 +1,4 @@
+import { scopedId } from "@/lib/mongodb";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { clearDb, newUserId, seedAccount, testDb } from "../helpers/db";
@@ -24,10 +25,10 @@ beforeEach(async () => {
 describe("GET /api/v1/categories", () => {
   it("returns global plus user-specific, excludes other users'", async () => {
     const fs = testDb();
-    await fs.collection("categories").doc("food").set({ name: "Food", sort: 0 });
-    await fs.collection("categories").doc("rent").set({ name: "Rent", sort: 1 });
-    await fs.collection("users").doc(userA).collection("categories").doc("c1").set({ name: "Mine" });
-    await fs.collection("users").doc(userB).collection("categories").doc("c2").set({ name: "Theirs" });
+    await testDb().collection("categories").replaceOne({ _id: "food" }, { ...{ name: "Food", sort: 0 }, _id: "food" }, { upsert: true });
+    await testDb().collection("categories").replaceOne({ _id: "rent" }, { ...{ name: "Rent", sort: 1 }, _id: "rent" }, { upsert: true });
+    await testDb().collection("userCategories").replaceOne({ _id: scopedId(userA, "c1"), userId: userA }, { ...{ name: "Mine" }, _id: scopedId(userA, "c1"), userId: userA }, { upsert: true });
+    await testDb().collection("userCategories").replaceOne({ _id: scopedId(userB, "c2"), userId: userB }, { ...{ name: "Theirs" }, _id: scopedId(userB, "c2"), userId: userB }, { upsert: true });
     const res = await GET_CATEGORIES(req("GET", "/api/v1/categories", { token: tokenA }));
     expect(res.status).toBe(200);
     const { categories } = await res.json();
@@ -37,7 +38,7 @@ describe("GET /api/v1/categories", () => {
   it("lists globals in seeded order, then the user's own", async () => {
     const { seedCategories, DEFAULT_CATEGORIES } = await import("../../scripts/seedCategories");
     await seedCategories(testDb());
-    await testDb().collection("users").doc(userA).collection("categories").doc("c1").set({ name: "Mine" });
+    await testDb().collection("userCategories").replaceOne({ _id: scopedId(userA, "c1"), userId: userA }, { ...{ name: "Mine" }, _id: scopedId(userA, "c1"), userId: userA }, { upsert: true });
     const { categories } = await (await GET_CATEGORIES(req("GET", "/api/v1/categories", { token: tokenA }))).json();
     expect(categories).toEqual([...DEFAULT_CATEGORIES, "Mine"]);
   });
@@ -52,10 +53,8 @@ describe("GET /api/v1/categories", () => {
 describe("GET /api/v1/budgets", () => {
   it("returns only caller's, as {category, limit}", async () => {
     const fs = testDb();
-    await fs.collection("users").doc(userA).collection("budgets").doc(sha("Food"))
-      .set({ userId: userA, category: "Food", limit: 5000, createdAt: new Date() });
-    await fs.collection("users").doc(userB).collection("budgets").doc(sha("Rent"))
-      .set({ userId: userB, category: "Rent", limit: 9000, createdAt: new Date() });
+    await testDb().collection("budgets").replaceOne({ _id: scopedId(userA, sha("Food")), userId: userA }, { ...{ userId: userA, category: "Food", limit: 5000, createdAt: new Date() }, _id: scopedId(userA, sha("Food")), userId: userA }, { upsert: true });
+    await testDb().collection("budgets").replaceOne({ _id: scopedId(userB, sha("Rent")), userId: userB }, { ...{ userId: userB, category: "Rent", limit: 9000, createdAt: new Date() }, _id: scopedId(userB, sha("Rent")), userId: userB }, { upsert: true });
     const res = await GET_BUDGETS(req("GET", "/api/v1/budgets", { token: tokenA }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ budgets: [{ category: "Food", limit: 5000 }] });

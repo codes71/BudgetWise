@@ -1,0 +1,86 @@
+{
+  "palette": {
+    "forest": "#143429",
+    "sage": "#6CB299",
+    "mint": "#F3FCF8",
+    "coral": "#E76E50"
+  },
+  "method": "WCAG sRGB relative luminance, unrounded ratio used for pass/fail",
+  "thresholds": {
+    "normal_text_AA": 4.5,
+    "large_text_or_meaningful_graphics_AA": 3,
+    "normal_text_AAA": 7
+  },
+  "pairs": [
+    {
+      "pair": [
+        "forest",
+        "sage"
+      ],
+      "ratio": 5.45137513626208,
+      "normal_text_AA": true,
+      "large_text_or_meaningful_graphics_AA": true,
+      "normal_text_AAA": false
+    },
+    {
+      "pair": [
+        "forest",
+        "mint"
+      ],
+      "ratio": 12.936945389771763,
+      "normal_text_AA": true,
+      "large_text_or_meaningful_graphics_AA": true,
+      "normal_text_AAA": true
+    },
+    {
+      "pair": [
+        "forest",
+        "coral"
+      ],
+      "ratio": 4.342670551512764,
+      "normal_text_AA": false,
+      "large_text_or_meaningful_graphics_AA": true,
+      "normal_text_AAA": false
+    },
+    {
+      "pair": [
+        "sage",
+        "mint"
+      ],
+      "ratio": 2.373152657155497,
+      "normal_text_AA": false,
+      "large_text_or_meaningful_graphics_AA": false,
+      "normal_text_AAA": false
+    },
+    {
+      "pair": [
+        "sage",
+        "coral"
+      ],
+      "ratio": 1.2553047880556125,
+      "normal_text_AA": false,
+      "large_text_or_meaningful_graphics_AA": false,
+      "normal_text_AAA": false
+    },
+    {
+      "pair": [
+        "mint",
+        "coral"
+      ],
+      "ratio": 2.9790298933141943,
+      "normal_text_AA": false,
+      "large_text_or_meaningful_graphics_AA": false,
+      "normal_text_AAA": false
+    }
+  ],
+  "usage": {
+    "default": "forest text and icons on mint; mint text and icons on forest",
+    "supporting": "forest text and icons on sage",
+    "accent": "coral used decoratively. Coral on forest is sufficient for large text and meaningful graphics, not normal text. Coral on mint is below 3:1 and cannot be the only meaningful control indicator.",
+    "states": "Use shape, text and icon changes alongside color. No additional hue is introduced."
+  },
+  "sources": [
+    "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html",
+    "https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html"
+  ]
+}

@@ -25,10 +25,10 @@ describe("account revocation", () => {
     await seedAccount("revoked", "session@example.com");
     const token = await browserSession("revoked");
     expect(await verifySession()).toMatchObject({ userId: "revoked" });
-    await testDb().collection("users").doc("revoked").update({ deletionStartedAt: new Date() });
+    await testDb().collection("users").updateOne({ _id: "revoked" }, { $set: { deletionStartedAt: new Date() } });
     expect(await verifySessionToken(token)).toMatchObject({ userId: "revoked" });
     expect(await verifySession()).toBeNull();
-    await testDb().collection("users").doc("revoked").delete();
+    await testDb().collection("users").deleteOne({ _id: "revoked" });
     expect(await verifySession()).toBeNull();
   });
 
@@ -36,10 +36,12 @@ describe("account revocation", () => {
     const actions = await import("@/app/db-actions");
     await seedAccount("gone", "session@example.com");
     await browserSession("gone");
-    await testDb().collection("users").doc("gone").delete();
+    await testDb().collection("users").deleteOne({ _id: "gone" });
     await expect(actions.addTransaction({ amount: 10, category: "Food", description: "late", type: "expense", date: "2026-11-01" }))
       .rejects.toThrow("logged in");
     expect(await actions.setBudget({ category: "Food", limit: 100 })).toBeNull();
-    expect(await testDb().collection("users").doc("gone").listCollections()).toHaveLength(0);
+    for (const name of ["transactions", "budgets", "budgetMonths", "userCategories"]) {
+      expect(await testDb().collection(name).countDocuments({ userId: "gone" })).toBe(0);
+    }
   });
 });

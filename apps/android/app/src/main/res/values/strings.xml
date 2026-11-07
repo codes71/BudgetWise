@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">BudgetWise</string>
+    <string name="app_name" translatable="false">Pocket Peek</string>
 
     <!-- Common -->
     <string name="action_cancel">Cancel</string>
@@ -23,7 +23,7 @@
     <string name="chip_synced_description">Synced. Open sync details</string>
     <string name="chip_syncing_description">Syncing. Open sync details</string>
     <string name="chip_offline_description">Offline. Entries sync when you\'re online</string>
-    <string name="chip_not_synced_description">Not synced. Couldn\'t reach BudgetWise</string>
+    <string name="chip_not_synced_description">Not synced. Couldn\'t reach Pocket Peek</string>
     <string name="chip_sign_in_description">Session ended. Sign in to sync</string>
     <string name="chip_could_not_sync_description">Some entries couldn\'t sync. Open Settings</string>
 
@@ -48,7 +48,7 @@
     </plurals>
     <string name="login_error_needs_internet_title">No internet connection</string>
     <string name="login_error_needs_internet">Connect to sign in to this account for the first time.</string>
-    <string name="login_error_server_title">BudgetWise isn\'t responding</string>
+    <string name="login_error_server_title">Pocket Peek isn\'t responding</string>
     <string name="login_error_server">Try again in a moment.</string>
     <string name="login_error_generic_title">Something went wrong</string>
     <string name="login_error_generic">Try again.</string>
@@ -90,11 +90,11 @@
     <string name="transactions_deleted_detail">%1$s, %2$s</string>
     <string name="transactions_undo">Undo</string>
     <string name="transactions_empty_title">No entries yet</string>
-    <string name="transactions_empty_message">Add what you spend and earn. Your entries sync with BudgetWise on the web.</string>
+    <string name="transactions_empty_message">Add what you spend and earn. Your entries sync with Pocket Peek on the web.</string>
     <string name="transactions_add_first">Add your first expense</string>
     <string name="transactions_loading">Loading your entries</string>
     <string name="transactions_refresh_failed">Couldn\'t refresh</string>
-    <string name="transactions_unreachable">Couldn\'t reach BudgetWise. Your entries are safe on this phone.</string>
+    <string name="transactions_unreachable">Couldn\'t reach Pocket Peek. Your entries are safe on this phone.</string>
     <string name="transactions_refresh_offline">You\'re offline. Your entries are safe on this phone.</string>
 
     <!-- The month chart (%2$s, or %1$s in spending_same, is last month's name) -->
@@ -315,7 +315,7 @@
     <string name="reminders_remind_tonight">Remind me tonight</string>
     <!-- Asked once, after the first plan is saved, before Android asks to allow notifications -->
     <string name="reminders_ask_title">Remind you when a month ends?</string>
-    <string name="reminders_ask_body">On the 1st, BudgetWise asks if what\'s left of the month is really on hand.</string>
+    <string name="reminders_ask_body">On the 1st, Pocket Peek asks if what\'s left of the month is really on hand.</string>
     <string name="reminders_ask_allow">Allow</string>
     <string name="reminders_ask_not_now">Not now</string>
 
@@ -331,7 +331,7 @@
     <string name="settings_sync_syncing">Syncing…</string>
     <string name="settings_sync_waiting">Waiting to sync</string>
     <string name="settings_sync_synced">Synced</string>
-    <string name="settings_sync_offline">Couldn\'t reach BudgetWise</string>
+    <string name="settings_sync_offline">Couldn\'t reach Pocket Peek</string>
     <string name="settings_sync_needs_sign_in">Sign in again to sync</string>
     <string name="settings_sync_needs_sign_in_detail">Your session ended.</string>
     <plurals name="settings_sync_rejected">
@@ -391,7 +391,7 @@
     <string name="login_new_here">New here?</string>
     <string name="login_make_account">Make an account</string>
     <string name="income_title">What comes in this month?</string>
-    <string name="income_subtitle">Salary, shop takings, money from family. BudgetWise takes what you spend away from it.</string>
+    <string name="income_subtitle">Salary, shop takings, money from family. Pocket Peek takes what you spend away from it.</string>
     <string name="income_from">From</string>
     <string name="income_source_salary">Salary</string>
     <string name="income_source_shop">Shop</string>
@@ -453,7 +453,7 @@
     <string name="voice_offline_body">Understanding what you said needs the internet. What you said is kept, so you can try again when you\'re online.</string>
     <string name="voice_type_yourself">Type it yourself</string>
     <string name="voice_failed_title">Couldn\'t work that out</string>
-    <string name="voice_failed_body">BudgetWise couldn\'t reach the service that understands speech. What you said is kept.</string>
+    <string name="voice_failed_body">Pocket Peek couldn\'t reach the service that understands speech. What you said is kept.</string>
     <string name="voice_signed_out_title">Sign in to use voice</string>
     <string name="voice_signed_out_body">Your session ended. Sign in again from Settings, or type the entry.</string>
     <string name="voice_listen_failed_title">Couldn\'t listen back</string>
@@ -518,7 +518,7 @@
     <string name="settings_cloud_parse">Understand what I say</string>
     <string name="settings_cloud_parse_detail">Sends recognized words to Anthropic, or OpenAI if needed, never your voice. Voice needs this.</string>
     <string name="setup_voice_title">Say what you spend</string>
-    <string name="setup_voice_subtitle">Tell BudgetWise “coffee 3,000” in Burmese or English, and it writes the entry for you.</string>
+    <string name="setup_voice_subtitle">Tell Pocket Peek “coffee 3,000” in Burmese or English, and it writes the entry for you.</string>
     <string name="setup_voice_example_becomes">becomes %1$s</string>
     <string name="setup_voice_example_result">%1$s, %2$s</string>
     <string name="setup_voice_size">A one-time download of %1$s</string>
@@ -534,7 +534,7 @@
     <string name="scan_hint">Fit the whole receipt in the frame</string>
     <string name="scan_choose_photo">Choose a photo</string>
     <string name="scan_take_photo">Take the photo</string>
-    <string name="scan_camera_off_title">BudgetWise can\'t use the camera</string>
+    <string name="scan_camera_off_title">Pocket Peek can\'t use the camera</string>
     <string name="scan_camera_off_detail">Allow the camera to photograph a receipt, or choose a photo you already have.</string>
     <string name="scan_allow_camera">Allow camera</string>
     <string name="scan_reading_title">Reading the photo</string>
@@ -545,8 +545,8 @@
     <string name="scan_unsupported_title">This wallet is not supported yet</string>
     <string name="scan_unsupported_detail">Scanning supports shop receipts, KPay slips and KPay history. Choose one of those, or enter this transaction yourself.</string>
     <string name="scan_foreign_title">This receipt uses another currency</string>
-    <string name="scan_foreign_currency_detail">The currency is %1$s. BudgetWise records kyat only. Enter the amount you paid in kyat yourself.</string>
-    <string name="scan_foreign_detail">BudgetWise records kyat only. Enter the amount you paid in kyat yourself.</string>
+    <string name="scan_foreign_currency_detail">The currency is %1$s. Pocket Peek records kyat only. Enter the amount you paid in kyat yourself.</string>
+    <string name="scan_foreign_detail">Pocket Peek records kyat only. Enter the amount you paid in kyat yourself.</string>
     <string name="scan_total_only_title">The total is readable</string>
     <string name="scan_total_only_detail">The items could not be read. Review the printed total as one expense and choose its category, or retake the photo to try reading the items.</string>
     <string name="scan_review_total">Review total</string>
@@ -578,7 +578,7 @@
         <item quantity="other">You can read 20 photos an hour. Try again in %s minutes, or enter it yourself.</item>
     </plurals>
     <string name="scan_interrupted_title">The reading stopped</string>
-    <string name="scan_interrupted_detail">BudgetWise was closed while it read your photo. The photo is kept, so you can try again.</string>
+    <string name="scan_interrupted_detail">Pocket Peek was closed while it read your photo. The photo is kept, so you can try again.</string>
     <string name="scan_title_receipt">Check the receipt</string>
     <string name="scan_title_payment">Check the payment</string>
     <string name="scan_title_history">Check the payments</string>
@@ -667,10 +667,10 @@
     <string name="settings_voice_unsupported_detail">Voice needs at least %1$s GB of memory, more than this phone has.</string>
     <!-- Optional in-app updates for the friends distribution. -->
     <string name="updates_section">App updates</string>
-    <string name="updates_prompt_title">BudgetWise update</string>
+    <string name="updates_prompt_title">Pocket Peek update</string>
     <string name="updates_not_now">Not now</string>
     <string name="updates_later">Later</string>
-    <string name="updates_idle">Keep BudgetWise up to date</string>
+    <string name="updates_idle">Keep Pocket Peek up to date</string>
     <string name="updates_idle_detail">Check for new features and fixes.</string>
     <string name="updates_checking">Checking for updates</string>
     <string name="updates_current">You have the latest version</string>
@@ -698,8 +698,8 @@
     <string name="updates_download_failed_detail">Your current version is still ready to use. Try downloading again.</string>
     <string name="updates_install_failed">Update wasn\'t installed</string>
     <string name="updates_install_failed_detail">You can try again or keep using your current version.</string>
-    <string name="updates_permission">Allow BudgetWise to install its updates</string>
-    <string name="updates_permission_detail">Open Android settings and allow updates from BudgetWise, then return here.</string>
+    <string name="updates_permission">Allow Pocket Peek to install its updates</string>
+    <string name="updates_permission_detail">Open Android settings and allow updates from Pocket Peek, then return here.</string>
     <string name="updates_not_configured">No update is published yet</string>
     <string name="updates_not_configured_detail">Keep using this version and check again later.</string>
     <string name="account_privacy_section">Privacy and account</string>
@@ -707,7 +707,7 @@
     <string name="account_privacy_link_failed">Open this address in your browser: %1$s</string>
     <string name="account_delete">Delete account</string>
     <string name="account_delete_title">Permanently delete your account?</string>
-    <string name="account_delete_detail">This deletes %1$s and all its expenses, income, receipt entries, budgets and plans from BudgetWise and this phone. Other accounts on this phone stay.</string>
+    <string name="account_delete_detail">This deletes %1$s and all its expenses, income, receipt entries, budgets and plans from Pocket Peek and this phone. Other accounts on this phone stay.</string>
     <string name="account_delete_unsynced">Entries that have not synced yet will also be deleted. This cannot be undone.</string>
     <string name="account_delete_password">Current password</string>
     <string name="account_delete_wrong_password">That password does not match. Try again.</string>

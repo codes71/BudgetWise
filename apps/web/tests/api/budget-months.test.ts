@@ -1,6 +1,7 @@
+import { leafId } from "@/lib/mongodb";
+import { scopedId } from "@/lib/mongodb";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
-import { Timestamp } from "firebase-admin/firestore";
 import { clearDb, newUserId, seedAccount, testDb } from "../helpers/db";
 import { req } from "../helpers/request";
 import { yangonMonth } from "@/lib/budgets";
@@ -15,8 +16,6 @@ let tokenB: string;
 const userA = newUserId();
 const userB = newUserId();
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
-const monthsCol = (userId: string) => testDb().collection("users").doc(userId).collection("budgetMonths");
-const budgetsCol = (userId: string) => testDb().collection("users").doc(userId).collection("budgets");
 
 /** "2026-11" plus n months. */
 const addMonths = (month: string, n: number) => {
@@ -42,9 +41,9 @@ beforeEach(async () => {
   await Promise.all([seedAccount(userA, "a@x.com"), seedAccount(userB, "b@x.com")]);
   const fs = testDb();
   for (const [i, name] of ["Food", "Housing", "Transport", "Bills", "Rent"].entries()) {
-    await fs.collection("categories").doc(name.toLowerCase()).set({ name, sort: i });
+    await testDb().collection("categories").replaceOne({ _id: name.toLowerCase() }, { ...{ name, sort: i }, _id: name.toLowerCase() }, { upsert: true });
   }
-  await fs.collection("users").doc(userA).collection("categories").doc("c1").set({ name: "Pets" });
+  await testDb().collection("userCategories").replaceOne({ _id: scopedId(userA, "c1"), userId: userA }, { ...{ name: "Pets" }, _id: scopedId(userA, "c1"), userId: userA }, { upsert: true });
 });
 
 const plan = (over: Record<string, unknown> = {}) => ({
@@ -66,9 +65,9 @@ const endCheck = (token: string | undefined, month: string, body: unknown) =>
   });
 const errorCode = async (res: Response) => (await res.json()).error.code;
 const legacy = async (userId: string) =>
-  (await budgetsCol(userId).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  (await testDb().collection("budgets").find({ userId: userId }).toArray()).map((d) => ({ id: leafId(d._id), ...d }));
 const seedLegacy = async (userId: string, category: string, limit: number, createdAt: Date) =>
-  budgetsCol(userId).doc(sha(category)).set({ userId, category, limit, createdAt, updatedAt: createdAt });
+  testDb().collection("budgets").replaceOne({ _id: scopedId(userId, sha(category)), userId: userId }, { ...{ userId, category, limit, createdAt, updatedAt: createdAt }, _id: scopedId(userId, sha(category)), userId: userId }, { upsert: true });
 
 describe("yangonMonth", () => {
   it("turns over at midnight in Yangon (UTC+06:30)", () => {
@@ -84,7 +83,7 @@ describe("auth", () => {
     expect((await put(undefined, thisMonth, plan())).status).toBe(401);
     expect((await endCheck(undefined, lastMonth, { onHand: 1 })).status).toBe(401);
     expect(await errorCode(await put("not-a-token", thisMonth, plan()))).toBe("unauthorized");
-    expect((await monthsCol(userA).get()).size).toBe(0);
+    expect((await testDb().collection("budgetMonths").find({ userId: userA }).toArray()).length).toBe(0);
   });
 });
 
@@ -108,10 +107,12 @@ describe("PUT /api/v1/budget-months/{month}", () => {
     });
     expect(new Date(body.month.updatedAt).getTime()).toBeGreaterThan(0);
 
-    const stored = (await monthsCol(userA).doc(lastMonth).get()).data()!;
-    expect(Object.keys(stored).sort()).toEqual(["carriedOver", "createdAt", "month", "newMoney", "shares", "updatedAt"]);
+    const stored = (await testDb().collection("budgetMonths").findOne({ _id: scopedId(userA, lastMonth), userId: userA }))!;
+    expect(Object.keys(stored).sort()).toEqual(["_id", "carriedOver", "createdAt", "month", "newMoney", "shares", "updatedAt", "userId"]);
+    expect(stored._id).toBe(scopedId(userA, lastMonth));
+    expect(stored.userId).toBe(userA);
     expect(stored.month).toBe(lastMonth);
-    expect(stored.createdAt).toBeInstanceOf(Timestamp);
+    expect(stored.createdAt).toBeInstanceOf(Date);
     expect(stored.shares).toEqual(body.month.shares);
   });
 
@@ -127,7 +128,7 @@ describe("PUT /api/v1/budget-months/{month}", () => {
       { category: "Bills", limit: 200 },
       { category: "Food", limit: 300 },
     ]);
-    const stored = (await monthsCol(userA).doc(lastMonth).get()).data()!;
+    const stored = (await testDb().collection("budgetMonths").findOne({ _id: scopedId(userA, lastMonth), userId: userA }))!;
     expect(stored.shares).toEqual(month.shares);
     expect(stored).not.toHaveProperty("extra");
   });
@@ -171,31 +172,31 @@ describe("PUT /api/v1/budget-months/{month}", () => {
       expect(res.status, JSON.stringify(over)).toBe(422);
       expect(await errorCode(res)).toBe("validation_failed");
     }
-    expect((await monthsCol(userA).get()).size).toBe(0);
+    expect((await testDb().collection("budgetMonths").find({ userId: userA }).toArray()).length).toBe(0);
   });
 
   it("422 split_over_total when the shares add up to more than the total", async () => {
     const res = await put(tokenA, lastMonth, plan({ shares: [{ category: "Food", limit: 2280001 }] }));
     expect(res.status).toBe(422);
     expect(await errorCode(res)).toBe("split_over_total");
-    expect((await monthsCol(userA).doc(lastMonth).get()).exists).toBe(false);
+    expect(((await testDb().collection("budgetMonths").findOne({ _id: scopedId(userA, lastMonth), userId: userA })) !== null)).toBe(false);
   });
 
   it("422 unknown_category for a name not in GET /categories, including another user's", async () => {
-    await testDb().collection("users").doc(userB).collection("categories").doc("c2").set({ name: "Theirs" });
+    await testDb().collection("userCategories").replaceOne({ _id: scopedId(userB, "c2"), userId: userB }, { ...{ name: "Theirs" }, _id: scopedId(userB, "c2"), userId: userB }, { upsert: true });
     for (const category of ["Holidays", "food", "Theirs"]) {
       const res = await put(tokenA, lastMonth, plan({ shares: [{ category, limit: 100 }] }));
       expect(res.status).toBe(422);
       expect(await errorCode(res)).toBe("unknown_category");
     }
-    expect((await monthsCol(userA).doc(lastMonth).get()).exists).toBe(false);
+    expect(((await testDb().collection("budgetMonths").findOne({ _id: scopedId(userA, lastMonth), userId: userA })) !== null)).toBe(false);
   });
 
   it("replacing a plan keeps its createdAt and end check", async () => {
     const month = addMonths(thisMonth, -2);
     await put(tokenA, month, plan());
     const checked = await (await endCheck(tokenA, month, { onHand: 250000 })).json();
-    const before = (await monthsCol(userA).doc(month).get()).data()!;
+    const before = (await testDb().collection("budgetMonths").findOne({ _id: scopedId(userA, month), userId: userA }))!;
     await new Promise((r) => setTimeout(r, 25));
 
     const res = await put(tokenA, month, { newMoney: 1500000, carriedOver: 0, shares: [{ category: "Rent", limit: 700000 }] });
@@ -209,18 +210,18 @@ describe("PUT /api/v1/budget-months/{month}", () => {
     });
     expect(dto.updatedAt > checked.month.updatedAt).toBe(true);
 
-    const after = (await monthsCol(userA).doc(month).get()).data()!;
-    expect(after.createdAt.isEqual(before.createdAt)).toBe(true);
+    const after = (await testDb().collection("budgetMonths").findOne({ _id: scopedId(userA, month), userId: userA }))!;
+    expect((after.createdAt.getTime() === before.createdAt.getTime())).toBe(true);
     expect(after.endCheck.onHand).toBe(250000);
-    expect(after.endCheck.checkedAt.isEqual(before.endCheck.checkedAt)).toBe(true);
+    expect((after.endCheck.checkedAt.getTime() === before.endCheck.checkedAt.getTime())).toBe(true);
     expect(after.shares).toEqual([{ category: "Rent", limit: 700000 }]);
   });
 
   it("each user has their own plans", async () => {
     await put(tokenA, lastMonth, plan());
     await put(tokenB, lastMonth, plan({ newMoney: 5, carriedOver: 0, shares: [] }));
-    expect((await monthsCol(userA).doc(lastMonth).get()).get("newMoney")).toBe(2000000);
-    expect((await monthsCol(userB).doc(lastMonth).get()).get("newMoney")).toBe(5);
+    expect((await testDb().collection("budgetMonths").findOne({ _id: scopedId(userA, lastMonth), userId: userA }))!.newMoney).toBe(2000000);
+    expect((await testDb().collection("budgetMonths").findOne({ _id: scopedId(userB, lastMonth), userId: userB }))!.newMoney).toBe(5);
   });
 });
 
@@ -277,10 +278,10 @@ describe("this month's plan is what the budgets list shows", () => {
     ["next", nextMonth],
   ])("saving %s month's plan leaves the old budget rows untouched", async (_, month) => {
     await seedTwo();
-    const before = (await budgetsCol(userA).get()).docs.map((d) => [d.id, d.data()]);
+    const before = (await testDb().collection("budgets").find({ userId: userA }).toArray()).map((d) => [leafId(d._id), d]);
     const res = await put(tokenA, month, plan({ shares: [{ category: "Food", limit: 700000 }, { category: "Bills", limit: 300000 }] }));
     expect(res.status).toBe(200);
-    expect((await budgetsCol(userA).get()).docs.map((d) => [d.id, d.data()])).toEqual(before);
+    expect((await testDb().collection("budgets").find({ userId: userA }).toArray()).map((d) => [leafId(d._id), d])).toEqual(before);
   });
 });
 
@@ -355,9 +356,9 @@ describe("PUT /api/v1/budget-months/{month}/end-check", () => {
     expect(second.endCheck.onHand).toBe(0);
     expect(second.endCheck.checkedAt > first.endCheck.checkedAt).toBe(true);
 
-    const stored = (await monthsCol(userA).doc(lastMonth).get()).data()!;
+    const stored = (await testDb().collection("budgetMonths").findOne({ _id: scopedId(userA, lastMonth), userId: userA }))!;
     expect(stored.endCheck.onHand).toBe(0);
-    expect(stored.endCheck.checkedAt).toBeInstanceOf(Timestamp);
+    expect(stored.endCheck.checkedAt).toBeInstanceOf(Date);
     expect(stored.shares).toEqual(plan().shares);
   });
 
@@ -373,7 +374,7 @@ describe("PUT /api/v1/budget-months/{month}/end-check", () => {
     const res = await endCheck(tokenA, lastMonth, { onHand: 1 });
     expect(res.status).toBe(404);
     expect(await errorCode(res)).toBe("not_found");
-    expect((await monthsCol(userA).doc(lastMonth).get()).exists).toBe(false);
+    expect(((await testDb().collection("budgetMonths").findOne({ _id: scopedId(userA, lastMonth), userId: userA })) !== null)).toBe(false);
   });
 
   it.each([
@@ -384,7 +385,7 @@ describe("PUT /api/v1/budget-months/{month}/end-check", () => {
     const res = await endCheck(tokenA, month, { onHand: 1 });
     expect(res.status).toBe(422);
     expect(await errorCode(res)).toBe("month_not_over");
-    expect((await monthsCol(userA).doc(month).get()).get("endCheck")).toBeUndefined();
+    expect((await testDb().collection("budgetMonths").findOne({ _id: scopedId(userA, month), userId: userA }))!.endCheck).toBeUndefined();
   });
 
   it("422 validation_failed for a bad amount", async () => {
@@ -394,7 +395,7 @@ describe("PUT /api/v1/budget-months/{month}/end-check", () => {
       expect(res.status, JSON.stringify(body)).toBe(422);
       expect(await errorCode(res)).toBe("validation_failed");
     }
-    expect((await monthsCol(userA).doc(lastMonth).get()).get("endCheck")).toBeUndefined();
+    expect((await testDb().collection("budgetMonths").findOne({ _id: scopedId(userA, lastMonth), userId: userA }))!.endCheck).toBeUndefined();
   });
 
   it("400 invalid_month", async () => {

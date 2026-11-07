@@ -5,7 +5,7 @@
     <string name="draft3_create_eyebrow">STEP 1 · ACCOUNT</string>
     <string name="draft3_create_title">Make it yours.</string>
     <string name="draft3_create_subtitle">Keep your entries together across devices.</string>
-    <string name="draft3_login_eyebrow" translatable="false">BUDGETWISE</string>
+    <string name="draft3_login_eyebrow" translatable="false">Pocket Peek</string>
     <string name="draft3_login_subtitle">Pick up where you left off.</string>
     <string name="draft3_income_header">Your first income</string>
     <string name="draft3_income_eyebrow">STEP 2 · STARTING POINT</string>

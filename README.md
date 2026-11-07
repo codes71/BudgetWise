@@ -1,156 +1,102 @@
-# BudgetWise 💰📊✨
+# Pocket Peek
 
-BudgetWise is a modern, AI-powered personal finance application built with Next.js and Firebase. It empowers users to track expenses, manage budgets, visualize spending patterns, and receive intelligent insights—all in a secure, responsive interface. This project showcases full-stack development skills, including server-side rendering, real-time data handling, and seamless AI integration for enhanced user experience.
+Pocket Peek is an Android and web app for recording income and expenses, planning monthly budgets, and seeing where money goes. Optional receipt scanning and voice parsing help prepare entries for the user to review.
+
+## Current migration status
+
+This branch replaces server-side Firestore persistence with MongoDB Atlas and rebrands the Android app as **Pocket Peek**, package `app.pocketpeek`. The source changes do not establish that the production migration, deployment, or Play release has completed. Keep the source Firestore database intact until a private snapshot, destination parity checks, account checks, and the production cutover are verified.
+
+The repository name and existing production API host remain unchanged. The new Android package installs separately from legacy `app.budgetwise`; it does not automatically inherit the old app's local-only entries, session, or downloaded models. Signing in restores data that the existing account has synced to the backend.
 
 ## Repository layout
 
-- `apps/web/`: the Next.js web app and the `/api/v1` mobile API (deployed on Vercel). Run the npm commands below from here; paths such as `src/...` and `scripts/...` are relative to it.
-- `apps/android/`: the Android app (Gradle project; run `./gradlew` from here).
-- `brand/`: logo and icon sources for both apps. `docs/`: plans and specs.
-- `.github/workflows/`: one CI pipeline per deployment.
+- `apps/web/`: the Next.js web app and `/api/v1` mobile API, deployed on Vercel. Run npm commands below from this directory.
+- `apps/android/`: the Android Gradle project. Run `./gradlew` here.
+- `brand/`: logo and icon sources shared by both apps.
+- `docs/`: release guidance, architecture notes, plans, and historical evidence.
+- `.github/workflows/`: CI, deployment, and Android release workflows.
 
-See [docs/repo-layout.md](docs/repo-layout.md) for the CI pipelines, the secrets they need and the history of this layout.
+See [docs/repo-layout.md](docs/repo-layout.md) for the layout and workflow inventory.
 
-## ✨ Key Features
+## Architecture
 
-- **Interactive Dashboard**: Real-time overview of financial health with overview cards, recent transactions, spending charts (using Recharts), and budget progress trackers. 📊
-- **Smart Transaction Management**: Add, categorize, and track income/expenses with AI-assisted data extraction and categorization flows. 💳
-- **Budget & Goal Setting**: Create and monitor category-based budgets with visual progress indicators and goal alerts. 🎯
-- **AI-Powered Suggestions**: Get personalized spending recommendations, anomaly detection, and optimization tips via Genkit AI flows. 🧠🤖
-- **Custom Categories & Icons**: Organize finances with user-defined categories and intuitive icon selection for better visualization. 🏷️
-- **Secure User Authentication**: Robust signup/login with Firebase Auth, including protected routes and session management. 🔒
-- **Guest Mode & Responsive UI**: Explore features without signup; fully responsive design works on desktop, tablet, and mobile. 📱💻
-- **Theme Support**: Light/dark mode toggle for personalized experience. 🌙☀️
+Android keeps an account-scoped Room cache and calls the HTTPS backend API. The API and web server use the MongoDB Node.js driver through `apps/web/src/lib/mongodb.ts`; database credentials stay on the server and never belong in the Android binary or browser bundle.
 
-## 🏗️ Project Architecture & Skills Showcased
+- **Data:** MongoDB collections store users, email claims, transactions, budgets, monthly plans, categories, and rate-limit windows.
+- **Authentication:** the application's own email/password flow uses bcrypt password hashes and Jose-signed session/bearer tokens. Firebase Authentication and Google sign-in are not implemented. Either can be evaluated separately without changing the database again.
+- **Account safety:** account-owned mutations run in MongoDB transactions. Each touches the account root so a concurrent deletion invalidates the writer. Password-confirmed deletion locks the account, removes its owned runtime and migrated companion records, and releases only its own email claims.
+- **AI:** optional scan, voice, categorization, and spending-suggestion flows call Claude first, with the configured OpenAI fallback. Database choice does not select an AI provider. Android recognizes audio locally and sends recognized text for parsing.
+- **UI:** Next.js App Router, React, TypeScript, Tailwind, Radix/Shadcn components, and Recharts. Android uses Jetpack Compose.
+- **Historical tooling:** Firebase packages and Firestore scripts remain for snapshot/export, migration verification, and historical tests. Their presence does not mean the active runtime uses Firebase Authentication or Firestore listeners.
 
-This application demonstrates advanced full-stack capabilities:
+## Getting started
 
-- **Next.js 15 App Router**: Organized routing with `(authenticated)` layout for protected pages, server actions for form handling (`actions.ts`, `db-actions.ts`), and middleware for auth checks (`src/middleware.ts`).
-- **Firestore Data Layer**: Server-side Firestore access for users, budgets, categories, and transactions (`src/lib/firestore.ts`, `src/lib/users.ts`, `src/lib/budgets.ts`, `src/lib/mobile/`).
-- **AI Integration with Genkit**: Custom flows for transaction data extraction, categorization, and spending suggestions (`src/ai/flows/`), powered by Google AI. Development server runs concurrently with the app for seamless testing.
-- **State Management & Hooks**: Context providers for auth and theme (`src/context/`), custom hooks like `use-toast` for UI feedback.
-- **UI Components**: Reusable Shadcn/UI components (built on Radix UI and Tailwind) for modals, charts, forms, and more, emphasizing accessible and customizable design.
-- **Validation & Forms**: Zod schemas integrated with React Hook Form for secure, client/server-side validation.
-- **Real-Time & Security**: Firebase for authentication, Firestore for data storage/retrieval, with admin SDK for server-side ops. Bcryptjs for password hashing and Jose for JWT handling.
-- **Performance Optimizations**: Turbopack for dev, lazy loading, and efficient charting with Recharts.
+Use Node.js and npm supported by the installed dependencies. Node 22 or 24 is suitable for the retained Firebase tooling. MongoDB must support multi-document transactions, so use Atlas or a local replica set, not a standalone `mongod`.
 
-The codebase follows best practices: clean separation of concerns, ESLint/Prettier linting, and scripts for seeding data (`scripts/seedCategories.ts`).
-
-## 🚀 Tech Stack
-
-### Frontend
-- **Next.js 15.3.3** ⚛️: Server-side rendering, API routes, and static generation.
-- **TypeScript 5.9.2** 📘: Type safety across the application.
-- **Tailwind CSS 3.4.1** 🎨: Utility-first styling with animations.
-- **Shadcn/UI** 🧩: Headless UI components (Accordion, Dialog, Chart, etc.) on Radix UI.
-- **Recharts 2.15.1** 📈: Declarative charting for spending visualizations.
-- **React Hook Form 7.54.2 + Zod 3.24.2** 📝: Form handling and validation.
-- **Next Themes 0.3.0** 🌙: Theme management.
-- **Lucide React 0.475.0** 🔍: Icons for UI elements.
-
-### Backend & Database
-- **Firebase 11.9.1 + Firebase Admin 12.2.0** 🔥: Authentication, Firestore for real-time data, and cloud functions compatibility.
-- **Jose 5.6.3 + Bcryptjs 2.4.3** 🔑: JWT tokens and password security.
-
-### AI & Integrations
-- **Genkit 1.15.5** 🤖: AI framework with Google AI integration (`@genkit-ai/googleai`).
-- **Date-fns 3.6.0** 📅: Date manipulation for transactions.
-
-### Tools & Utils
-- **Concurrently 9.2.0**: Parallel dev servers for Next.js and Genkit.
-- **Class Variance Authority (CVA) + Clsx + Tailwind Merge**: Dynamic class composition for components.
-- **Lodash 4.17.21**: Utility functions.
-
-## 🛠️ Getting Started
-
-### Prerequisites
-- Node.js (v18 or higher)
-- npm or pnpm
-- Firebase project (for auth and database)
-
-### Installation
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/codes71/BudgetWise.git
-   cd BudgetWise/apps/web
-   ```
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-### Environment Variables
-All data lives in Cloud Firestore, accessed on the server with `firebase-admin` (`src/lib/firestore.ts`). Create a `.env.local` file in `apps/web/` (it is git-ignored) with placeholder values replaced:
+```bash
+git clone https://github.com/codes71/BudgetWise.git
+cd BudgetWise/apps/web
+npm ci
 ```
-# Firestore, option A: service account fields (what Vercel uses)
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project-id.iam.gserviceaccount.com
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 
-# Firestore, option B: path to a service account key file instead of the three above
-# GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/service-account.json
+### Runtime environment
 
-# Firestore, option C: the local emulator (see "Firestore emulator" below)
-# FIRESTORE_EMULATOR_HOST=127.0.0.1:8085
-# FIREBASE_PROJECT_ID=demo-budgetwise
+Create an ignored `apps/web/.env.local` using private values supplied through the established credential workflow. Never put real credentials in commands, documentation, source control, or public artifacts.
 
-JWT_SECRET=at-least-32-characters-long (web sessions and the mobile API under /api/v1)
-ANTHROPIC_API_KEY=your-anthropic-api-key (optional, only for the AI features)
-OPENAI_API_KEY=your-openai-api-key (optional, the fallback when Claude is down)
-# OPENAI_MODEL=gpt-6.1-sol (optional, the fallback model)
+```dotenv
+MONGODB_URI=<private Atlas connection URI or local replica-set URI>
+MONGODB_DB=pocketpeek_dev
+JWT_SECRET=<existing secret of at least 32 characters>
+ANTHROPIC_API_KEY=<optional private AI key>
+OPENAI_API_KEY=<optional private fallback key>
+# OPENAI_MODEL=<optional fallback model>
 ```
-- AI features (scan, voice, categories, spending tips) ask Claude first. When Claude fails (down, overloaded, no answer within 25 s, not configured, or an answer in the wrong shape), the same request goes to OpenAI if `OPENAI_API_KEY` is set. A refusal is final and is not sent to OpenAI. Requests to OpenAI are sent with `store: false`. The phone routes (scan, voice) give the AI 50 s from the moment the request arrives: Claude's time is cut to fit, an overload goes straight to OpenAI instead of being retried, and OpenAI runs only when at least 8 s are left. Each provider logs its time, model, stop reason and token counts, never the content. Code: `apps/web/src/ai/generate.ts`.
-- The server picks credentials in this order: `FIRESTORE_EMULATOR_HOST`, then the three `FIREBASE_*` fields, then `GOOGLE_APPLICATION_CREDENTIALS`. With none of them set it fails with a clear error; it never falls back to a local gcloud login.
-- `FIREBASE_PRIVATE_KEY` may contain literal `\n` sequences; they are turned into newlines.
-- Firestore needs no indexes or rules files for this app: the server uses only single-field queries, and the admin SDK is not subject to security rules.
 
-#### Data layout
-- `users/{userId}` with `email`, `emailLower`, bcrypt `password`, profile fields, `createdAt`, `updatedAt`.
-- `userEmails/{sha256(emailLower)}` holds `{ userId }`, so an email can only be registered once in any letter case.
-- `users/{userId}/transactions/{id}`: phone rows use their `clientId` as the id, web rows get an auto id.
-- `users/{userId}/budgets/{sha256(category)}`, `users/{userId}/categories/{id}` and global `categories/{slug}`.
-- `rateLimits/{sha256(key)}` for login and scan rate limiting. Expired windows are reset on the next attempt.
+`MONGODB_DB` is explicit; the runtime does not silently select a database from a URI or fall back to Firestore. Preserve the existing `JWT_SECRET` during migration so existing sessions and bearer tokens retain their signature identity. Preserve account IDs and bcrypt hashes as well.
 
-### Running the Application
-#### Development Mode
+The driver reuses a bounded connection pool in warm Vercel functions. Index creation is an explicit setup step using `ensureIndexes()` from `src/lib/mongodb.ts`, after migration parity checks and before enabling traffic. It is not an automatic runtime migration. Duplicate email or transaction-client identities must stop the cutover for review rather than discard records.
+
+AI requests ask Claude first. On provider failure, timeout, missing configuration, or an invalid response shape, the same request may go to OpenAI when configured and enough time remains. Refusals are final. OpenAI requests set `store: false`. The phone AI routes have a 50-second request budget. See `src/ai/generate.ts`; do not treat an API option as proof of every provider's retention policy.
+
+### MongoDB data layout
+
+Existing Firestore document IDs remain strings, including accounts originally copied from MongoDB. New accounts use UUIDs. Do not convert existing IDs to fresh MongoDB ObjectIds.
+
+| Collection | Identity and contents |
+|---|---|
+| `users` | `_id` is the existing account ID; email, normalized email, bcrypt hash, profile, timestamps, and any deletion lock |
+| `userEmails` | `_id` is `sha256(emailLower)` and `userId` owns the claim |
+| `transactions` | `_id` is `userId/originalRecordId`; `userId` scopes access, while the API keeps the original leaf ID |
+| `budgets`, `budgetMonths`, `userCategories` | account-scoped `_id` and `userId`; monthly plan IDs keep `YYYY-MM` |
+| `categories` | shared category IDs/slugs |
+| `rateLimits` | `_id` is `sha256(key)`; expired windows reset on the next request, with no automatic TTL deletion |
+| `_firestoreArchive`, `_firestoreTypes` | lossless migration companions for unmapped documents and Firestore-specific type precision; account-owned companions carry `ownerId` |
+
+### Development and verification
+
 ```bash
 npm run dev
 ```
-This starts Next.js on http://localhost:9002 and Genkit dev server concurrently. Open [http://localhost:9002](http://localhost:9002) in your browser.
 
-#### Seed Categories (Optional)
-Creates the default global categories; it never overwrites existing ones, so it is safe to rerun.
-```bash
-npm run seed:categories
-```
+This starts Next.js on port 9002. It does not start a Genkit server. Check whether another worktree owns the port before starting a server. Genkit scripts and packages are retained legacy tooling, not a required production build step.
 
-#### Firestore emulator
-For local development without a Firebase project, run the emulator (needs Java 21+, the minimum for firebase-tools 15; the script uses `JAVA_HOME`, else a JDK 21+ from `/usr/libexec/java_home`, else Android Studio's bundled JDK):
-```bash
-npm run emulator
-```
-Then start the app with `FIRESTORE_EMULATOR_HOST=127.0.0.1:8085` and `FIREBASE_PROJECT_ID=demo-budgetwise`. `demo-` projects exist only in the emulator.
+`npm run seed:categories` inserts missing shared categories and preserves existing ones. Read the script and verify the destination database before running it; production seeding is a separate write operation.
 
-#### Tests
 ```bash
 npm test
-```
-The test run starts the Firestore emulator itself (or reuses one already running on port 8085) and clears it between tests.
-
-#### One-time copy from MongoDB
-`scripts/copyMongoToFirestore.ts` copies an existing MongoDB database into Firestore, keeping user and transaction ids so the Android app keeps working. It is a dry run unless `--write` is passed, never overwrites existing docs, and prints counts only.
-```bash
-MONGODB_URI="mongodb+srv://user:password@cluster.example.net/budgetWise" npm run copy:mongo-to-firestore
-MONGODB_URI="mongodb+srv://user:password@cluster.example.net/budgetWise" npm run copy:mongo-to-firestore -- --write
-```
-Run it with the same Firestore variables as the app, before the Firestore version takes traffic.
-
-#### Production Build
-```bash
+npx tsc --noEmit
 npm run build
-npm start
 ```
+
+`npm test` runs the MongoDB runtime and historical Firestore-copy Vitest projects. Runtime tests start an owned MongoDB replica set on dynamic ports with a unique `test-pocketpeek-*` database, and stop it afterward. `npx vitest run --project mongo` runs only native runtime tests. The legacy-copy project uses a separate emulator-only Firestore project and preserves any shared emulator. Never point cleanup at Atlas or a shared development database. TypeScript has an existing diagnostic baseline; compare new diagnostics rather than claiming the repository is clean.
+
+For a production build, `npm run build` does not need a database connection. `npm start` runs the built app and its database-backed routes need the private runtime configuration.
+
+### Firestore migration and rollback
+
+The source Firestore client in `src/lib/firestore.ts`, Firebase dependencies, and `scripts/copyMongoToFirestore.ts` are retained for historical export/verification. The old copy direction is MongoDB to Firestore; it is not the current Atlas migration or a live synchronization mechanism. Do not run its `--write` mode as part of this migration.
+
+The production migration needs an immutable private source snapshot, stable account/record IDs and hashes, source-to-destination counts and content parity, required indexes, an interval with writes quiesced for the final copy, and independent API/account verification after cutover. MongoDB must be verified before the active deployment changes. Keep Firestore intact as the rollback source. Once MongoDB accepts new writes, switching back to the old source alone would lose those new writes; reconcile them before a rollback.
 
 ### Phone API: create account
 `POST /api/v1/auth/register` makes the same account as the web signup and signs it in, so the phone can create an account without the web.
@@ -201,15 +147,15 @@ npm start
 ```
 
 ### Deployment
-- **Vercel**: Push to GitHub and connect to Vercel; it auto-detects Next.js. Set `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` and `JWT_SECRET` (plus `ANTHROPIC_API_KEY` for AI features, and `OPENAI_API_KEY` for the fallback) in the Vercel dashboard.
-- Ensure Genkit is built: `npm run genkit:build` before deploy.
 
-## 🤝 Contributing
-Contributions welcome! Fork the repo, create a feature branch, and submit a PR. For major changes, open an issue first.
+Vercel hosts `apps/web`. Configure `MONGODB_URI`, `MONGODB_DB`, and the existing `JWT_SECRET` on the server, plus optional AI keys. Keep preview and disposable-test credentials separate from production. A source change or successful local build is not a deployment readback.
 
-## 📄 License
-MIT License. See [LICENSE](LICENSE) for details.
+For this migration, verify the actual Vercel project, database, source snapshot, candidate deployment, and write-cutover plan before promotion. No separate `genkit:build` step is required for the active Claude/OpenAI flows.
 
----
+## Contributing
 
-*Built with passion for clean code and innovative finance tools. 🚀*
+Use an isolated worktree, preserve unrelated changes, and follow `CLAUDE.md` for verification and release boundaries. The GitHub repository remains `codes71/BudgetWise`.
+
+## License
+
+MIT License. See [LICENSE](LICENSE).

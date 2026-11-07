@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "brand": "Pocket Peek",
+  "package_reference": "app.pocketpeek",
+  "concept": {
+    "id": "01",
+    "name": "Folded Pocket",
+    "approval": "User explicitly selected the first logo, its colors, accent and contrast."
+  },
+  "approved_colors": {
+    "forest": "#143429",
+    "sage": "#6CB299",
+    "mint": "#F3FCF8",
+    "coral": "#E76E50"
+  },
+  "approved_original_artwork": "source/approved-original.png",
+  "approval_scope": "Approved logo exports, custom icons, and four-color palette only. Preserve the existing product UI. No global font or theme changes.",
+  "source_note": "Editable vectors reconstruct the selected generated direction, with outlined Nunito ExtraBold lettering. The user has seen the logo variants and all 20 icons in the HTML preview and accepted the package for handoff. This is not authorization to redesign the app UI or publish/deploy.",
+  "source_selection": "logo-studio/selection.json, schema_version 2, owner-selected Folded Pocket 01"
+}

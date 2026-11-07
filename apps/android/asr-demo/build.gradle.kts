@@ -7,7 +7,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "app.budgetwise.asr.demo"
+        applicationId = "app.pocketpeek.asr.demo"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

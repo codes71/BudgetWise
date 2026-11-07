@@ -15,17 +15,17 @@ import org.robolectric.RobolectricTestRunner
 class UpdatePolicyTest {
     private val apk = "signed APK bytes".toByteArray()
     private fun descriptor() = JSONObject().apply {
-        put("schemaVersion", 1); put("channel", "friends"); put("applicationId", "app.budgetwise")
+        put("schemaVersion", 1); put("channel", "friends"); put("applicationId", "app.pocketpeek")
         put("versionCode", 2); put("versionName", "0.2.0"); put("minSdk", 26)
-        put("apkUrl", "https://github.com/codes71/BudgetWise/releases/download/android-v0.2.0/budgetwise.apk")
+        put("apkUrl", "https://github.com/codes71/BudgetWise/releases/download/pocket-peek-android-friends-v0.3.0-4/PocketPeek-0.3.0-4.apk")
         put("sha256", UpdatePolicy.hash(apk)); put("sizeBytes", apk.size); put("notes", "Updates")
     }
-    private fun parse(json: JSONObject = descriptor()) = UpdatePolicy.parse(json.toString().toByteArray(), "app.budgetwise")
+    private fun parse(json: JSONObject = descriptor()) = UpdatePolicy.parse(json.toString().toByteArray(), "app.pocketpeek")
     private val release get() = requireNotNull(parse())
 
     @Test fun acceptsPinnedReleaseAndExplicitEmptyFeed() {
         assertEquals(2L, release.versionCode)
-        assertNull(parse(JSONObject("""{"schemaVersion":1,"channel":"friends","applicationId":"app.budgetwise","release":null}""")))
+        assertNull(parse(JSONObject("""{"schemaVersion":1,"channel":"friends","applicationId":"app.pocketpeek","release":null}""")))
     }
 
     @Test fun missingFlatFieldsAreNotAnEmptyFeed() {
@@ -39,11 +39,19 @@ class UpdatePolicyTest {
         }
     }
 
+    @Test fun refusesLegacyBudgetWiseMetadataAndApkIdentity() {
+        assertThrows(InvalidUpdate::class.java) { parse(descriptor().put("applicationId", "app.budgetwise")) }
+        assertThrows(InvalidUpdate::class.java) {
+            parse(JSONObject("""{"schemaVersion":1,"channel":"friends","applicationId":"app.budgetwise","release":null}"""))
+        }
+        assertThrows(InvalidUpdate::class.java) { identity(application = "app.budgetwise") }
+    }
+
     @Test fun refusesMalformedNumbersAndOversizeMetadata() {
         for ((key, value) in listOf("versionCode" to "2", "versionCode" to 1.5, "minSdk" to -1, "sizeBytes" to UpdatePolicy.MAX_APK_BYTES + 1)) {
             assertThrows(InvalidUpdate::class.java) { parse(descriptor().put(key, value)) }
         }
-        assertThrows(InvalidUpdate::class.java) { UpdatePolicy.parse(ByteArray(32 * 1024 + 1), "app.budgetwise") }
+        assertThrows(InvalidUpdate::class.java) { UpdatePolicy.parse(ByteArray(32 * 1024 + 1), "app.pocketpeek") }
     }
 
     @Test fun refusesForeignRepositoryCredentialsNonHttpsAndNonApkAssets() {
@@ -94,9 +102,9 @@ class UpdatePolicyTest {
     }
 
     private fun identity(
-        application: String = "app.budgetwise", version: Long = 2, minimum: Int = 26,
+        application: String = "app.pocketpeek", version: Long = 2, minimum: Int = 26,
         installed: Set<String> = setOf("release-cert"), archive: Set<String> = installed,
-    ) = UpdatePolicy.requireIdentity(release, "app.budgetwise", 1, 35, application, version, minimum, installed, archive)
+    ) = UpdatePolicy.requireIdentity(release, "app.pocketpeek", 1, 35, application, version, minimum, installed, archive)
 
     @Test fun acceptsSamePackageNewerVersionAndExactSignerSet() = identity()
 

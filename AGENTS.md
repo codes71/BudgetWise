@@ -1,3 +1,15 @@
+# Pocket Peek persistence
+
+- The runtime backend uses native MongoDB through `apps/web/src/lib/mongodb.ts`, with server-only `MONGODB_URI`
+  and explicit `MONGODB_DB`. Use Atlas or a replica set because account-owned writes require transactions.
+- Authentication is custom bcrypt/Jose email-password login. Firebase Authentication and Google sign-in are absent.
+- Preserve existing account IDs, password hashes, JWT identity, API leaf record IDs, and account ownership during migration.
+- Call the transactional account guard before every account-owned write. Its parent write is required to conflict
+  with deletion; replacing it with a read-only check breaks that protection under Mongo snapshot isolation.
+- Firestore packages and scripts remain for historical export/verification. They do not identify the active database.
+- Keep migration snapshots private, preserve the source, and verify content/count parity and indexes before cutover.
+  Source code and local tests alone do not establish a successful production migration.
+
 <!-- better-design:start -->
 ## Better Design
 

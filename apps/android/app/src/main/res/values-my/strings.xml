@@ -22,7 +22,7 @@
     <string name="chip_synced_description">စင့်ခ်ပြီးပါပြီ။ စင့်ခ် အသေးစိတ် ကြည့်ရန်</string>
     <string name="chip_syncing_description">စင့်ခ်လုပ်နေသည်။ စင့်ခ် အသေးစိတ် ကြည့်ရန်</string>
     <string name="chip_offline_description">အင်တာနက် မရှိပါ။ အင်တာနက်ရလျှင် စာရင်းများ စင့်ခ်လုပ်ပါမည်</string>
-    <string name="chip_not_synced_description">မစင့်ခ်ရသေးပါ။ BudgetWise နှင့် ချိတ်ဆက်၍ မရပါ</string>
+    <string name="chip_not_synced_description">မစင့်ခ်ရသေးပါ။ Pocket Peek နှင့် ချိတ်ဆက်၍ မရပါ</string>
     <string name="chip_sign_in_description">ဝင်ထားချိန် ကုန်သွားပါပြီ။ စင့်ခ်လုပ်ရန် ပြန်ဝင်ပါ</string>
     <string name="chip_could_not_sync_description">စာရင်းအချို့ စင့်ခ်လုပ်၍ မရပါ။ ဆက်တင် ဖွင့်ရန်</string>
 
@@ -45,7 +45,7 @@
     </plurals>
     <string name="login_error_needs_internet_title">အင်တာနက် မရှိပါ</string>
     <string name="login_error_needs_internet">ဤအကောင့်ဖြင့် ပထမဆုံးအကြိမ် ဝင်ရန် အင်တာနက် ချိတ်ဆက်ပါ။</string>
-    <string name="login_error_server_title">BudgetWise က ယခု မတုံ့ပြန်နိုင်ပါ</string>
+    <string name="login_error_server_title">Pocket Peek က ယခု မတုံ့ပြန်နိုင်ပါ</string>
     <string name="login_error_server">ခဏနေမှ ထပ်ကြိုးစားပါ။</string>
     <string name="login_error_generic_title">တစ်ခုခု မှားသွားပါသည်</string>
     <string name="login_error_generic">ထပ်ကြိုးစားပါ။</string>
@@ -85,11 +85,11 @@
     <string name="transactions_deleted_detail">%1$s၊ %2$s</string>
     <string name="transactions_undo">ပြန်ယူမည်</string>
     <string name="transactions_empty_title">စာရင်း မရှိသေးပါ</string>
-    <string name="transactions_empty_message">သုံးငွေနှင့် ဝင်ငွေများကို ထည့်ပါ။ ဝဘ်ပေါ်ရှိ BudgetWise နှင့် စင့်ခ်ဖြစ်ပါမည်။</string>
+    <string name="transactions_empty_message">သုံးငွေနှင့် ဝင်ငွေများကို ထည့်ပါ။ ဝဘ်ပေါ်ရှိ Pocket Peek နှင့် စင့်ခ်ဖြစ်ပါမည်။</string>
     <string name="transactions_add_first">ပထမဆုံး သုံးငွေ ထည့်မည်</string>
     <string name="transactions_loading">စာရင်းများ ဖွင့်နေသည်</string>
     <string name="transactions_refresh_failed">အသစ် ပြန်မယူနိုင်ပါ</string>
-    <string name="transactions_unreachable">BudgetWise နှင့် ချိတ်ဆက်၍ မရပါ။ စာရင်းများ ဤဖုန်းထဲတွင် ရှိနေပါသည်။</string>
+    <string name="transactions_unreachable">Pocket Peek နှင့် ချိတ်ဆက်၍ မရပါ။ စာရင်းများ ဤဖုန်းထဲတွင် ရှိနေပါသည်။</string>
     <string name="transactions_refresh_offline">အင်တာနက် မရှိပါ။ စာရင်းများ ဤဖုန်းထဲတွင် ရှိနေပါသည်။</string>
 
     <!-- The month chart -->
@@ -274,7 +274,7 @@
     <string name="reminders_text_over">%1$sလ မစီစဉ်မီ လက်ထဲတွင် တကယ်ရှိသည့် ငွေကို စစ်ပါ။</string>
     <string name="reminders_remind_tonight">ဒီည ပြန်သတိပေးပါ</string>
     <string name="reminders_ask_title">လကုန်တိုင်း သတိပေးရမလား</string>
-    <string name="reminders_ask_body">လဆန်း ၁ ရက်နေ့တွင် ကျန်ငွေ လက်ထဲ တကယ်ရှိမရှိ BudgetWise က မေးပါမည်။</string>
+    <string name="reminders_ask_body">လဆန်း ၁ ရက်နေ့တွင် ကျန်ငွေ လက်ထဲ တကယ်ရှိမရှိ Pocket Peek က မေးပါမည်။</string>
     <string name="reminders_ask_allow">ခွင့်ပြုမည်</string>
     <string name="reminders_ask_not_now">နောက်မှ</string>
 
@@ -288,7 +288,7 @@
     <string name="settings_sync_syncing">စင့်ခ်လုပ်နေသည်…</string>
     <string name="settings_sync_waiting">စင့်ခ်လုပ်ရန် စောင့်နေသည်</string>
     <string name="settings_sync_synced">စင့်ခ်ပြီးပါပြီ</string>
-    <string name="settings_sync_offline">BudgetWise နှင့် ချိတ်ဆက်၍ မရပါ</string>
+    <string name="settings_sync_offline">Pocket Peek နှင့် ချိတ်ဆက်၍ မရပါ</string>
     <string name="settings_sync_needs_sign_in">စင့်ခ်လုပ်ရန် ပြန်ဝင်ပါ</string>
     <string name="settings_sync_needs_sign_in_detail">ဝင်ထားချိန် ကုန်သွားပါပြီ။</string>
     <plurals name="settings_sync_rejected">
@@ -456,7 +456,7 @@
     <string name="settings_cloud_parse">ပြောသည်ကို နားလည်ရန်</string>
     <string name="settings_cloud_parse_detail">နားလည်ရရှိသော စကားလုံးများကို Anthropic၊ လိုအပ်လျှင် OpenAI သို့ ပို့ပြီး အသံကို မပို့ပါ။ အသံဖြင့် ထည့်ရန် ဤအရာ လိုသည်။</string>
     <string name="setup_voice_title">သုံးငွေကို ပြောပါ</string>
-    <string name="setup_voice_subtitle">BudgetWise ကို “ကော်ဖီ သုံးထောင်” ဟု မြန်မာ သို့မဟုတ် အင်္ဂလိပ်လို ပြောလျှင် စာရင်းကို ရေးပေးပါမည်။</string>
+    <string name="setup_voice_subtitle">Pocket Peek ကို “ကော်ဖီ သုံးထောင်” ဟု မြန်မာ သို့မဟုတ် အင်္ဂလိပ်လို ပြောလျှင် စာရင်းကို ရေးပေးပါမည်။</string>
     <string name="setup_voice_example_becomes">%1$s ဖြစ်လာမည်</string>
     <string name="setup_voice_example_result">%1$s၊ %2$s</string>
     <string name="setup_voice_size">%1$s တစ်ကြိမ်သာ ဒေါင်းလုဒ်ဆွဲရန်</string>
@@ -472,7 +472,7 @@
     <string name="scan_hint">ဘောက်ချာ တစ်ခုလုံး ဘောင်ထဲ ဝင်အောင် ထားပါ</string>
     <string name="scan_choose_photo">ဓာတ်ပုံ ရွေးရန်</string>
     <string name="scan_take_photo">ဓာတ်ပုံ ရိုက်ရန်</string>
-    <string name="scan_camera_off_title">BudgetWise က ကင်မရာကို သုံးခွင့် မရှိပါ</string>
+    <string name="scan_camera_off_title">Pocket Peek က ကင်မရာကို သုံးခွင့် မရှိပါ</string>
     <string name="scan_camera_off_detail">ဘောက်ချာ ဓာတ်ပုံရိုက်ရန် ကင်မရာကို ခွင့်ပြုပါ၊ သို့မဟုတ် ရှိပြီးသား ဓာတ်ပုံကို ရွေးပါ။</string>
     <string name="scan_allow_camera">ကင်မရာ ခွင့်ပြုရန်</string>
     <string name="scan_reading_title">ဓာတ်ပုံကို ဖတ်နေသည်</string>
@@ -483,8 +483,8 @@
     <string name="scan_unsupported_title">ဤငွေပေးချေမှုအက်ပ်ကို မပံ့ပိုးသေးပါ</string>
     <string name="scan_unsupported_detail">ဆိုင်ဘောက်ချာ၊ KPay ပြေစာနှင့် KPay မှတ်တမ်းကိုသာ စကင်ဖတ်နိုင်ပါသည်။ ထိုပုံများကို ရွေးပါ၊ သို့မဟုတ် ဤငွေစာရင်းကို ကိုယ်တိုင် ထည့်ပါ။</string>
     <string name="scan_foreign_title">ဤဘောက်ချာသည် အခြားငွေကြေးကို သုံးထားသည်</string>
-    <string name="scan_foreign_currency_detail">ငွေကြေးမှာ %1$s ဖြစ်သည်။ BudgetWise တွင် ကျပ်ဖြင့်သာ မှတ်တမ်းတင်နိုင်ပါသည်။ ကျပ်ဖြင့် ပေးချေခဲ့သောပမာဏကို ကိုယ်တိုင် ထည့်ပါ။</string>
-    <string name="scan_foreign_detail">BudgetWise တွင် ကျပ်ဖြင့်သာ မှတ်တမ်းတင်နိုင်ပါသည်။ ကျပ်ဖြင့် ပေးချေခဲ့သောပမာဏကို ကိုယ်တိုင် ထည့်ပါ။</string>
+    <string name="scan_foreign_currency_detail">ငွေကြေးမှာ %1$s ဖြစ်သည်။ Pocket Peek တွင် ကျပ်ဖြင့်သာ မှတ်တမ်းတင်နိုင်ပါသည်။ ကျပ်ဖြင့် ပေးချေခဲ့သောပမာဏကို ကိုယ်တိုင် ထည့်ပါ။</string>
+    <string name="scan_foreign_detail">Pocket Peek တွင် ကျပ်ဖြင့်သာ မှတ်တမ်းတင်နိုင်ပါသည်။ ကျပ်ဖြင့် ပေးချေခဲ့သောပမာဏကို ကိုယ်တိုင် ထည့်ပါ။</string>
     <string name="scan_total_only_title">စုစုပေါင်းကို ဖတ်နိုင်ပါသည်</string>
     <string name="scan_total_only_detail">ပစ္စည်းများကို ဖတ်၍ မရပါ။ စုစုပေါင်းကို အသုံးစရိတ်တစ်ခုအဖြစ် စစ်ဆေးပြီး အမျိုးအစားရွေးပါ၊ သို့မဟုတ် ပစ္စည်းများကို ဖတ်နိုင်ရန် ဓာတ်ပုံပြန်ရိုက်ပါ။</string>
     <string name="scan_review_total">စုစုပေါင်း စစ်ဆေးရန်</string>
@@ -515,7 +515,7 @@
         <item quantity="other">တစ်နာရီလျှင် ဓာတ်ပုံ ၂၀ ပုံ ဖတ်နိုင်ပါသည်။ %s မိနစ်အကြာတွင် ထပ်ကြိုးစားပါ၊ သို့မဟုတ် ကိုယ်တိုင် ထည့်ပါ။</item>
     </plurals>
     <string name="scan_interrupted_title">ဖတ်နေမှု ရပ်သွားသည်</string>
-    <string name="scan_interrupted_detail">ဓာတ်ပုံကို ဖတ်နေစဉ် BudgetWise ပိတ်သွားပါသည်။ ဓာတ်ပုံကို သိမ်းထားသဖြင့် ထပ်ကြိုးစားနိုင်ပါသည်။</string>
+    <string name="scan_interrupted_detail">ဓာတ်ပုံကို ဖတ်နေစဉ် Pocket Peek ပိတ်သွားပါသည်။ ဓာတ်ပုံကို သိမ်းထားသဖြင့် ထပ်ကြိုးစားနိုင်ပါသည်။</string>
     <string name="scan_title_receipt">ဘောက်ချာကို စစ်ပါ</string>
     <string name="scan_title_payment">ငွေပေးချေမှုကို စစ်ပါ</string>
     <string name="scan_title_history">ငွေပေးချေမှုများကို စစ်ပါ</string>
@@ -587,10 +587,10 @@
     <string name="settings_voice_unsupported_detail">အသံအတွက် မှတ်ဉာဏ် (RAM) အနည်းဆုံး %1$s GB လိုပြီး ဤဖုန်းတွင် ထိုထက်နည်းသည်။</string>
     <!-- Optional in-app updates for the friends distribution. -->
     <string name="updates_section">အက်ပ် အပ်ဒိတ်</string>
-    <string name="updates_prompt_title">BudgetWise အပ်ဒိတ်</string>
+    <string name="updates_prompt_title">Pocket Peek အပ်ဒိတ်</string>
     <string name="updates_not_now">ယခု မလုပ်သေးပါ</string>
     <string name="updates_later">နောက်မှ</string>
-    <string name="updates_idle">BudgetWise ကို နောက်ဆုံးဗားရှင်း သုံးပါ</string>
+    <string name="updates_idle">Pocket Peek ကို နောက်ဆုံးဗားရှင်း သုံးပါ</string>
     <string name="updates_idle_detail">လုပ်ဆောင်ချက်အသစ်နှင့် ပြင်ဆင်ချက်များ ရှိမရှိ စစ်ပါ။</string>
     <string name="updates_checking">အပ်ဒိတ် ရှိမရှိ စစ်နေသည်</string>
     <string name="updates_current">နောက်ဆုံးဗားရှင်းကို သုံးနေပါသည်</string>
@@ -618,8 +618,8 @@
     <string name="updates_download_failed_detail">လက်ရှိဗားရှင်းကို ဆက်သုံးနိုင်ပါသည်။ ဒေါင်းလုဒ် ထပ်လုပ်ပါ။</string>
     <string name="updates_install_failed">အပ်ဒိတ် မထည့်သွင်းရပါ</string>
     <string name="updates_install_failed_detail">ထပ်စမ်းနိုင်သည် သို့မဟုတ် လက်ရှိဗားရှင်းကို ဆက်သုံးနိုင်သည်။</string>
-    <string name="updates_permission">BudgetWise ကို ၎င်း၏အပ်ဒိတ်များ ထည့်သွင်းခွင့် ပြုပါ</string>
-    <string name="updates_permission_detail">Android ဆက်တင်ကို ဖွင့်၍ BudgetWise မှ အပ်ဒိတ်ကို ခွင့်ပြုပြီး ဤနေရာသို့ ပြန်လာပါ။</string>
+    <string name="updates_permission">Pocket Peek ကို ၎င်း၏အပ်ဒိတ်များ ထည့်သွင်းခွင့် ပြုပါ</string>
+    <string name="updates_permission_detail">Android ဆက်တင်ကို ဖွင့်၍ Pocket Peek မှ အပ်ဒိတ်ကို ခွင့်ပြုပြီး ဤနေရာသို့ ပြန်လာပါ။</string>
     <string name="updates_not_configured">အပ်ဒိတ် မထုတ်ပြန်ရသေးပါ</string>
     <string name="updates_not_configured_detail">ဤဗားရှင်းကို ဆက်သုံးပြီး နောက်မှ ထပ်စစ်ပါ။</string>
     <string name="account_privacy_section">ကိုယ်ရေးအချက်အလက်နှင့် အကောင့်</string>
@@ -627,7 +627,7 @@
     <string name="account_privacy_link_failed">ဤလိပ်စာကို ဘရောက်ဇာတွင် ဖွင့်ပါ။ %1$s</string>
     <string name="account_delete">အကောင့် ဖျက်မည်</string>
     <string name="account_delete_title">အကောင့်ကို အပြီးဖျက်မလား</string>
-    <string name="account_delete_detail">%1$s နှင့် ၎င်း၏ အသုံးစရိတ်၊ ဝင်ငွေ၊ ဘောက်ချာစာရင်း၊ ဘတ်ဂျက်နှင့် အစီအစဉ်အားလုံးကို BudgetWise နှင့် ဤဖုန်းမှ ဖျက်ပါမည်။ ဤဖုန်းရှိ အခြားအကောင့်များကို ဆက်ထားပါမည်။</string>
+    <string name="account_delete_detail">%1$s နှင့် ၎င်း၏ အသုံးစရိတ်၊ ဝင်ငွေ၊ ဘောက်ချာစာရင်း၊ ဘတ်ဂျက်နှင့် အစီအစဉ်အားလုံးကို Pocket Peek နှင့် ဤဖုန်းမှ ဖျက်ပါမည်။ ဤဖုန်းရှိ အခြားအကောင့်များကို ဆက်ထားပါမည်။</string>
     <string name="account_delete_unsynced">မချိတ်ဆက်ရသေးသော စာရင်းများလည်း ဖျက်ပါမည်။ ပြန်ယူ၍ မရပါ။</string>
     <string name="account_delete_password">လက်ရှိ စကားဝှက်</string>
     <string name="account_delete_wrong_password">စကားဝှက် မမှန်ပါ။ ထပ်စမ်းပါ။</string>

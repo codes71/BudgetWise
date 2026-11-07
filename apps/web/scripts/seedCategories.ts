@@ -1,11 +1,10 @@
-// Seeds the global categories into Firestore as categories/{slug} { name, sort }.
+// Seeds the global categories into MongoDB with slug ids and { name, sort }.
 //
 //   npm run seed:categories
 //
-// Uses the same Firestore config as the app (see src/lib/firestore.ts). It
-// only creates missing docs and never overwrites one, so it is safe to rerun.
-import type { Firestore } from 'firebase-admin/firestore';
-import { ALREADY_EXISTS, categorySlug, db, errorCode } from '../src/lib/firestore';
+// Uses the app's MongoDB config. Only inserts missing docs, never overwrites.
+import type { Db } from 'mongodb';
+import { categorySlug, db, isDuplicateKey, type MongoRecord } from '../src/lib/mongodb';
 
 export const DEFAULT_CATEGORIES = [
   'Groceries',
@@ -18,15 +17,16 @@ export const DEFAULT_CATEGORIES = [
   'Other',
 ];
 
-export async function seedCategories(firestore: Firestore = db()): Promise<{ created: number; existing: number }> {
+export async function seedCategories(database?: Db): Promise<{ created: number; existing: number }> {
+  const categories = (database ?? await db()).collection<MongoRecord>('categories');
   let created = 0;
   let existing = 0;
   for (const [sort, name] of DEFAULT_CATEGORIES.entries()) {
     try {
-      await firestore.collection('categories').doc(categorySlug(name)).create({ name, sort });
+      await categories.insertOne({ _id: categorySlug(name), name, sort });
       created++;
     } catch (err) {
-      if (errorCode(err) !== ALREADY_EXISTS) throw err;
+      if (!isDuplicateKey(err)) throw err;
       existing++;
     }
   }

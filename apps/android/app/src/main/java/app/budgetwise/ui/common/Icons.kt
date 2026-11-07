@@ -36,12 +36,12 @@ private fun lucide(name: String, vararg paths: Any, strokeWidth: Float = 1.75f):
         .build()
 
 /**
- * The kit's icons, copied path for path from its boards (Lucide, ISC license). Circles and rectangles are written as
- * paths. Decorative everywhere: the text next to each one says what it means.
+ * Approved Pocket Peek artwork replaces semantically matching icons. Remaining icons come from the existing
+ * boards (Lucide, ISC license). Decorative everywhere: the text next to each one says what it means.
  */
 object Lucide {
-    /** Gear (settings). */
-    val Settings by lazy { lucide("Settings", "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z", "M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0Z") }
+    /** Settings. */
+    val Settings by lazy { PocketPeekIcons.Settings }
 
     /** Synced. */
     val CloudCheck by lazy { lucide("CloudCheck", "m17 15-5.5 5.5L9 18", "M5 17.743A7 7 0 1 1 15.71 10h1.79a4.5 4.5 0 0 1 1.5 8.742") }
@@ -53,19 +53,19 @@ object Lucide {
     val CloudAlert by lazy { lucide("CloudAlert", "M12 12v4", "M12 20h.01", "M17 18h.5a1 1 0 0 0 0-9h-1.79A7 7 0 1 0 7 17.708") }
 
     /** Food and Drink. */
-    val Utensils by lazy { lucide("Utensils", "M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2", "M7 2v20", "M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7") }
+    val Utensils by lazy { PocketPeekIcons.Food }
 
     /** Transport. */
-    val Bus by lazy { lucide("Bus", "M8 6v6", "M15 6v6", "M2 12h19.6", "M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3", "M5 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0Z", "M9 18h5", "M14 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0Z") }
+    val Bus by lazy { PocketPeekIcons.Transport }
 
     /** Income. */
-    val ArrowDownLeft by lazy { lucide("ArrowDownLeft", "M17 7 7 17", "M17 17H7V7") }
+    val ArrowDownLeft by lazy { PocketPeekIcons.Income }
 
     /** Expense. */
     val ArrowUpRight by lazy { lucide("ArrowUpRight", "M7 7h10v10", "M7 17 17 7") }
 
     /** Groceries. */
-    val Cart by lazy { lucide("Cart", "M7 21a1 1 0 1 0 2 0a1 1 0 1 0 -2 0Z", "M18 21a1 1 0 1 0 2 0a1 1 0 1 0 -2 0Z", "M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12") }
+    val Cart by lazy { PocketPeekIcons.Shopping }
 
     /** Utilities. */
     val Zap by lazy { lucide("Zap", "M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z") }
@@ -74,10 +74,10 @@ object Lucide {
     val Film by lazy { lucide("Film", "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2Z", "M7 3v18", "M3 7.5h4", "M3 12h18", "M3 16.5h4", "M17 3v18", "M17 7.5h4", "M17 16.5h4") }
 
     /** Housing. */
-    val Home by lazy { lucide("Home", "M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8", "M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z") }
+    val Home by lazy { PocketPeekIcons.Home }
 
     /** Health. */
-    val Cross by lazy { lucide("Cross", "M4 9a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a1 1 0 0 1 1 1v4a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-4a1 1 0 0 1 1-1h4a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-4a1 1 0 0 1-1-1V4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4a1 1 0 0 1-1 1z") }
+    val Cross by lazy { PocketPeekIcons.Health }
 
     /** Other. */
     val Shapes by lazy { lucide("Shapes", "M8.3 10a.7.7 0 0 1-.626-1.079L11.4 3a.7.7 0 0 1 1.198-.043L16.3 8.9a.7.7 0 0 1-.572 1.1Z", "M4 14h5a1 1 0 0 1 1 1v5a1 1 0 0 1 -1 1h-5a1 1 0 0 1 -1 -1v-5a1 1 0 0 1 1 -1Z", "M14 17.5a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0Z") }
@@ -85,26 +85,29 @@ object Lucide {
     /** A category of the user's own. */
     val Tag by lazy { lucide("Tag", "M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z", dot("M7 7.5a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0Z")) }
 
-    /** Transactions (bottom bar). */
-    val Receipt by lazy { lucide("Receipt", "M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z", "M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8", "M12 17.5v-11") }
+    /** Transactions (bottom bar and empty transaction lists). */
+    val Transactions by lazy { PocketPeekIcons.Transactions }
+
+    /** A receipt. */
+    val Receipt by lazy { PocketPeekIcons.Receipt }
 
     /** A scanned receipt's entries, as one row of the list. */
-    val ReceiptText by lazy { lucide("ReceiptText", "M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z", "M14 8H8", "M16 12H8", "M13 16H8") }
+    val ReceiptText by lazy { PocketPeekIcons.Receipt }
 
     /** Budgets (bottom bar). */
-    val Pie by lazy { lucide("Pie", "M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z", "M21.21 15.89A10 10 0 1 1 8 2.83") }
+    val Pie by lazy { PocketPeekIcons.Budget }
 
     /** Add. */
-    val Plus by lazy { lucide("Plus", "M5 12h14", "M12 5v14") }
+    val Plus by lazy { PocketPeekIcons.Add }
 
     /** Close. */
-    val X by lazy { lucide("X", "M18 6 6 18", "m6 6 12 12") }
+    val X by lazy { PocketPeekIcons.Close }
 
     /** Back. */
     val ArrowLeft by lazy { lucide("ArrowLeft", "m12 19-7-7 7-7", "M19 12H5") }
 
     /** Selected, done. */
-    val Check by lazy { lucide("Check", "M20 6 9 17l-5-5") }
+    val Check by lazy { PocketPeekIcons.Check }
 
     /** Arrow right: a primary button that goes on to the next step. */
     val ArrowRightBold by lazy { lucide("ArrowRightBold", "M5 12h14", "m13 6 6 6-6 6", strokeWidth = 2.25f) }
@@ -113,13 +116,7 @@ object Lucide {
     val ArrowUpBold by lazy { lucide("ArrowUpBold", "M12 19V5", "m5 12 7-7 7 7", strokeWidth = 2.25f) }
 
     /** Wallet: Everything else, the part of a month's budget no category has. */
-    val Wallet by lazy {
-        lucide(
-            "Wallet",
-            "M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1",
-            "M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4",
-        )
-    }
+    val Wallet by lazy { PocketPeekIcons.Wallet }
 
     /** Opens a picker or a collapsed row. */
     val ChevronDown by lazy { lucide("ChevronDown", "m6 9 6 6 6-6") }
@@ -128,10 +125,10 @@ object Lucide {
     val ChevronLeft by lazy { lucide("ChevronLeft", "m15 18-6-6 6-6") }
 
     /** Next month. */
-    val ChevronRight by lazy { lucide("ChevronRight", "m9 18 6-6-6-6") }
+    val ChevronRight by lazy { PocketPeekIcons.ChevronRight }
 
     /** Date. */
-    val Calendar by lazy { lucide("Calendar", "M8 2v4", "M16 2v4", "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2Z", "M3 10h18") }
+    val Calendar by lazy { PocketPeekIcons.Calendar }
 
     /** Description. */
     val Lines by lazy { lucide("Lines", "M15 18H3", "M17 6H3", "M21 12H3") }
@@ -197,25 +194,25 @@ object Lucide {
     val Refresh by lazy { lucide("Refresh", "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8", "M21 3v5h-5", "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16", "M8 16H3v5") }
 
     /** No budgets yet. */
-    val PiggyBank by lazy { lucide("PiggyBank", "M11 17h3v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-3a3.16 3.16 0 0 0 2-2h1a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-1a5 5 0 0 0-2-4V3a4 4 0 0 0-3.2 1.6l-.3.4H11a6 6 0 0 0-6 6v1a5 5 0 0 0 2 4v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1z", "M16 10h.01", "M2 8v1a2 2 0 0 0 2 2h1") }
+    val PiggyBank by lazy { PocketPeekIcons.Budget }
 
     /** About. */
     val Info by lazy { lucide("Info", "M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0Z", "M12 16v-4", "M12 8h.01") }
 
-    /** The Add pill's plus, drawn heavier (2.25) as on the boards. */
-    val PlusBold by lazy { lucide("PlusBold", "M5 12h14", "M12 5v14", strokeWidth = 2.25f) }
+    /** The Add pill's plus, using the approved Add artwork. */
+    val PlusBold by lazy { PocketPeekIcons.Add }
 
     /** A receipt item's count stepper, with [PlusBold]. */
     val MinusBold by lazy { lucide("MinusBold", "M5 12h14", strokeWidth = 2.25f) }
 
-    /** The type selector's arrows and the selected category's check, drawn at 2 as on the boards. */
+    /** The type selector's icons and the selected category's check. */
     val ArrowUpRightBold by lazy { lucide("ArrowUpRightBold", "M7 7h10v10", "M7 17 17 7", strokeWidth = 2f) }
 
-    val ArrowDownLeftBold by lazy { lucide("ArrowDownLeftBold", "M17 7 7 17", "M17 17H7V7", strokeWidth = 2f) }
+    val ArrowDownLeftBold by lazy { PocketPeekIcons.Income }
 
-    val CheckBold by lazy { lucide("CheckBold", "M20 6 9 17l-5-5", strokeWidth = 2f) }
+    val CheckBold by lazy { PocketPeekIcons.Check }
 
-    val Mic by lazy { lucide("Mic", "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z", "M19 10v2a7 7 0 0 1-14 0v-2", "M12 19v3") }
+    val Mic by lazy { PocketPeekIcons.Microphone }
 
     val MicOff by lazy { lucide("MicOff", "M12 19v3", "M15 9.34V5a3 3 0 0 0-5.68-1.33", "M16.95 16.95A7 7 0 0 1 5 12v-2", "M18.89 13.23A7 7 0 0 0 19 12v-2", "m2 2 20 20", "M9 9v3a3 3 0 0 0 5.12 2.12") }
 
@@ -231,7 +228,7 @@ object Lucide {
 
     val Cloud by lazy { lucide("Cloud", "M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z") }
 
-    val MicBold by lazy { lucide("MicBold", "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z", "M19 10v2a7 7 0 0 1-14 0v-2", "M12 19v3", strokeWidth = 2f) }
+    val MicBold by lazy { PocketPeekIcons.Microphone }
 
     val WifiOff by lazy { lucide("WifiOff", "M12 20h.01", "M8.5 16.429a5 5 0 0 1 7 0", "M5 12.859a10 10 0 0 1 5.17-2.69", "M19 12.859a10 10 0 0 0-2.007-1.523", "M2 8.82a15 15 0 0 1 4.177-2.643", "M22 8.82a15 15 0 0 0-11.288-3.764", "m2 2 20 20") }
 }

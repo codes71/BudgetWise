@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { db, isDocId, sha256Hex, userDoc } from "@/lib/firestore";
+import { db, isDocId, sha256Hex, withTransaction, type MongoRecord } from "@/lib/mongodb";
 import { emailDocId } from "@/lib/users";
 import { ApiError } from "@/lib/mobile/errors";
 import { rateLimit } from "@/lib/mobile/rate-limit";
@@ -9,19 +9,31 @@ const userRateKeys = (userId: string) => [
 ];
 
 async function purgeChildren(userId: string): Promise<void> {
-  for (const collection of await userDoc(userId).listCollections()) await db().recursiveDelete(collection);
+  const database = await db();
+  const shared = new Set(["users", "userEmails", "rateLimits", "categories"]);
+  for (const { name } of await database.listCollections({}, { nameOnly: true }).toArray()) {
+    if (shared.has(name) || name.startsWith("system.")) continue;
+    // Known runtime records and future flat collections use userId. Lossless migration companions use ownerId.
+    const filter = name === "_firestoreArchive" || name === "_firestoreTypes"
+      ? { $or: [{ ownerId: userId }, { _id: `users/${userId}` }] }
+      : { userId };
+    await database.collection<MongoRecord>(name).deleteMany(filter);
+  }
 }
 
 /** Earlier versions allowed orphan child records; absence of the root alone is not proof deletion completed. */
 async function finishMissingAccount(userId: string): Promise<void> {
   try {
     await purgeChildren(userId);
-    const indexes = await db().collection("userEmails").where("userId", "==", userId).get();
-    await db().runTransaction(async (tx) => {
-      const [root, ...claims] = await tx.getAll(userDoc(userId), ...indexes.docs.map((doc) => doc.ref));
-      if (root.exists) throw new Error("Account identity unexpectedly exists");
-      for (const claim of claims) if (claim.exists && claim.get("userId") === userId) tx.delete(claim.ref);
-      for (const key of userRateKeys(userId)) tx.delete(db().collection("rateLimits").doc(sha256Hex(key)));
+    const database = await db();
+    await withTransaction(async (session) => {
+      if (await database.collection<MongoRecord>("users").findOne({ _id: userId }, { session })) {
+        throw new Error("Account identity unexpectedly exists");
+      }
+      await database.collection<MongoRecord>("userEmails").deleteMany({ userId }, { session });
+      await database.collection<MongoRecord>("rateLimits").deleteMany(
+        { _id: { $in: userRateKeys(userId).map(sha256Hex) } }, { session },
+      );
     });
   } catch {
     throw new ApiError(503, "deletion_incomplete", "Deletion has started but could not finish. Please try again.");
@@ -34,57 +46,59 @@ async function finishMissingAccount(userId: string): Promise<void> {
  */
 export async function deleteAccount(userId: string, password: string): Promise<void> {
   if (!isDocId(userId)) throw new ApiError(401, "unauthorized", "Authentication required");
-  const root = userDoc(userId);
-  const before = await root.get();
+  const database = await db();
+  const users = database.collection<MongoRecord>("users");
+  const before = await users.findOne({ _id: userId });
   // A signed identity can retry a lost successful response. It cannot authorize deletion of another uid.
-  if (!before.exists) return finishMissingAccount(userId);
+  if (!before) return finishMissingAccount(userId);
 
   try {
     await rateLimit(`delete-account:user:${userId}`, { limit: 5, windowSec: 15 * 60 });
   } catch (error) {
     // A concurrent confirmed deletion may remove the root between the initial read and limiter transaction.
-    if (!(await root.get()).exists) return finishMissingAccount(userId);
+    if (!(await users.findOne({ _id: userId }))) return finishMissingAccount(userId);
     throw error;
   }
-  const passwordHash = before.get("password");
+  const passwordHash = before.password;
   if (typeof passwordHash !== "string" || !(await bcrypt.compare(password, passwordHash))) {
     throw new ApiError(401, "invalid_password", "Current password is incorrect");
   }
 
-  const claimed = await db().runTransaction(async (tx) => {
-    const current = await tx.get(root);
-    if (!current.exists) return null;
-    if (current.get("password") !== passwordHash) {
+  const claimed = await withTransaction(async (session) => {
+    const current = await users.findOne({ _id: userId }, { session });
+    if (!current) return null;
+    if (current.password !== passwordHash) {
       throw new ApiError(401, "invalid_password", "Current password is incorrect");
     }
-    const emailLower = current.get("emailLower");
+    const emailLower = current.emailLower;
     if (typeof emailLower !== "string" || !emailLower) throw new Error("Account email index is missing");
-    if (!current.get("deletionStartedAt")) tx.update(root, { deletionStartedAt: new Date() });
+    // Always touch the root, including retries, to conflict with any in-flight account-owned writer.
+    await users.updateOne({ _id: userId }, {
+      $set: { deletionStartedAt: current.deletionStartedAt || new Date() }, $inc: { _writeFence: 1 },
+    }, { session });
     return { emailLower };
   });
   if (!claimed) return finishMissingAccount(userId);
 
   try {
-    // Current and migrated financial/category records all live below this account root. Recursive deletion also
-    // covers nested/future subcollections without relying on a hard-coded list of financial record types.
+    // The locked root fences account-owned writes while all runtime and archived descendant data is purged.
     await purgeChildren(userId);
 
-    const emailRef = db().collection("userEmails").doc(emailDocId(claimed.emailLower));
-    const ownedIndexes = await db().collection("userEmails").where("userId", "==", userId).get();
-    const indexes = [emailRef, ...ownedIndexes.docs.map((doc) => doc.ref)]
-      .filter((ref, index, all) => all.findIndex((other) => other.path === ref.path) === index);
-    await db().runTransaction(async (tx) => {
-      const [current, ...emails] = await tx.getAll(root, ...indexes);
-      if (!current.exists) return; // Another identical deletion already completed.
-      if (!current.get("deletionStartedAt") || current.get("emailLower") !== claimed.emailLower) {
+    await withTransaction(async (session) => {
+      const current = await users.findOne({ _id: userId }, { session });
+      if (!current) return; // Another identical deletion already completed.
+      if (!current.deletionStartedAt || current.emailLower !== claimed.emailLower) {
         throw new Error("Account deletion lock changed");
       }
-      // A reused or inconsistent index must never delete another account's email claim.
-      for (const email of emails) if (email.exists && email.get("userId") === userId) tx.delete(email.ref);
-      const ownedEmail = emails.some((email) => email.ref.path === emailRef.path && email.exists && email.get("userId") === userId);
+      const emails = database.collection<MongoRecord>("userEmails");
+      const ownedEmail = await emails.findOne({ _id: emailDocId(claimed.emailLower), userId }, { session });
+      // Reused or inconsistent claims owned by another account are deliberately preserved.
+      await emails.deleteMany({ userId }, { session });
       const accountRateKeys = [...userRateKeys(userId), ...(ownedEmail ? [`auth:email:${sha256Hex(claimed.emailLower)}`] : [])];
-      for (const key of accountRateKeys) tx.delete(db().collection("rateLimits").doc(sha256Hex(key)));
-      tx.delete(root);
+      await database.collection<MongoRecord>("rateLimits").deleteMany(
+        { _id: { $in: accountRateKeys.map(sha256Hex) } }, { session },
+      );
+      await users.deleteOne({ _id: userId }, { session });
     });
   } catch {
     // Retain the lock and password for a same-identity, password-verified retry. Never report partial success.
