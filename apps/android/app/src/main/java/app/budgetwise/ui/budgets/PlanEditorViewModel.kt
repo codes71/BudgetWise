@@ -240,6 +240,8 @@ class PlanEditorViewModel @Inject constructor(
     settings: SettingsStore,
     @DeviceClock clock: Clock,
 ) : ViewModel() {
+    private val owner = app.budgetwise.ui.common.bindDraftOwner(handle, transactions.writableOwner,
+        listOf(STATE_DIRECT_STEP, STATE_DIRECT_CATEGORY))
     val month: YearMonth = handle.get<String>(ARG_MONTH)?.let(::parseMonth) ?: YearMonth.now(clock)
     private val zone: ZoneId = clock.zone
     private val tickCarry: Boolean = handle.get<Boolean>(ARG_TICK_CARRY) ?: false
@@ -425,7 +427,8 @@ class PlanEditorViewModel @Inject constructor(
         val plan = MonthPlan(month, s.newMoneyKyat, s.carriedKyat, s.shares.map { Budget(it.category, it.amountKyat) })
         viewModelScope.launch {
             val result = try {
-                plans.save(plan)
+                if (owner == null || transactions.writableOwner != owner) ApiResult.Unauthorized("the account changed")
+                else plans.saveForOwner(owner, plan)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -435,7 +438,8 @@ class PlanEditorViewModel @Inject constructor(
             when (result) {
                 is ApiResult.Ok -> {
                     _state.update { it.copy(saving = false) }
-                    _events.send(PlanEditorEvent.Saved)
+                    if (transactions.writableOwner == owner) _events.send(PlanEditorEvent.Saved)
+                    else _state.update { it.copy(saveError = SaveError.SIGN_IN) }
                 }
                 is ApiResult.Unauthorized -> _state.update { it.copy(saving = false, saveError = SaveError.SIGN_IN) }
                 is ApiResult.Failure -> _state.update {

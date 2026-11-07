@@ -25,7 +25,7 @@ Android keeps an account-scoped Room cache and calls the HTTPS backend API. The 
 - **Data:** MongoDB collections store users, email claims, transactions, budgets, monthly plans, categories, and rate-limit windows.
 - **Authentication:** the application's own email/password flow uses bcrypt password hashes and Jose-signed session/bearer tokens. Firebase Authentication and Google sign-in are not implemented. Either can be evaluated separately without changing the database again.
 - **Account safety:** account-owned mutations run in MongoDB transactions. Each touches the account root so a concurrent deletion invalidates the writer. Password-confirmed deletion records durable recovery-cleanup intent while locking the account, removes owned runtime and migrated companion records, and releases only its own email claims. Recovery-copy cleanup remains explicitly pending. See [the deletion and restore contract](docs/mongodb-migration.md#deletion-journal-and-recovery-safety).
-- **AI:** optional scan, voice, categorization, and spending-suggestion flows call Claude first, with the configured OpenAI fallback. Database choice does not select an AI provider. Android recognizes audio locally and sends recognized text for parsing.
+- **AI:** optional scan, voice and categorization require explicitly confirmed provider eligibility and a permitted request country. Missing policy fails closed with manual entry available. Only permitted providers can receive a non-refusal fallback. Android recognizes audio locally and sends recognized text for parsing. Web spending suggestions use fixed comparisons of the signed-in account's saved spending and budgets without cloud AI. See [provider policy](docs/ai-provider-policy.md).
 - **UI:** Next.js App Router, React, TypeScript, Tailwind, Radix/Shadcn components, and Recharts. Android uses Jetpack Compose.
 - **Historical tooling:** Firebase packages and Firestore scripts remain for snapshot/export, migration verification, and historical tests. Their presence does not mean the active runtime uses Firebase Authentication or Firestore listeners.
 
@@ -85,6 +85,7 @@ This starts Next.js on port 9002. It does not start a Genkit server. Check wheth
 
 ```bash
 npm test
+npm run lint
 npm run build
 npm run typecheck
 ```

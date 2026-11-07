@@ -98,6 +98,8 @@ class ReceiptViewModel @Inject constructor(
     settings: SettingsStore,
     private val saved: SavedStateHandle,
 ) : ViewModel() {
+    private val owner = app.budgetwise.ui.common.bindDraftOwner(saved, transactions.writableOwner, listOf(EDITING))
+    private fun owned(): String = checkNotNull(owner).also { check(transactions.writableOwner == it) { "the account changed" } }
     private val receiptId: String = checkNotNull(saved[RECEIPT_ID]) { "the receipt route carries its id" }
 
     private data class Local(
@@ -165,14 +167,14 @@ class ReceiptViewModel @Inject constructor(
         }
         if (into != null) {
             val joined = into.toNew(category, into.description).copy(amountKyat = into.amountKyat + entry.amountKyat, items = into.items + entry.items)
-            transactions.replace(listOf(into.clientId, clientId), listOf(joined))
+            transactions.replaceForOwner(owned(), listOf(into.clientId, clientId), listOf(joined))
             return@write
         }
         val description = entry.merchant
             ?.takeIf { descriptions.wrote(entry.description, it, entry.category) }
             ?.let { descriptions.describe(it, category) }
             ?: entry.description
-        transactions.replace(listOf(clientId), listOf(entry.toNew(category, description)))
+        transactions.replaceForOwner(owned(), listOf(clientId), listOf(entry.toNew(category, description)))
     }
 
     /**
@@ -186,7 +188,7 @@ class ReceiptViewModel @Inject constructor(
 
     /** Deletes [clientIds] at once, with no Undo: for when there is no list under the receipt to offer one. */
     fun deleteNow(clientIds: List<String>) = write {
-        transactions.replace(clientIds, emptyList())
+        transactions.replaceForOwner(owned(), clientIds, emptyList())
     }
 
     /**
@@ -239,7 +241,7 @@ class ReceiptViewModel @Inject constructor(
                 val merchant = old.firstNotNullOfOrNull { it.merchant }
                 val day = old.maxOfOrNull { it.date }
                 val inputs = lines.filter { it.amountKyat > 0 }.map { it.toNew(merchant, day ?: it.date) }
-                if (transactions.replaceReceipt(receiptId, l.editingIds, inputs) == null) {
+                if (transactions.replaceReceiptForOwner(owned(), receiptId, l.editingIds, inputs) == null) {
                     local.update { it.copy(saving = false, changed = true) }
                 } else {
                     local.update { it.copy(editing = null, editingIds = emptySet(), saving = false) }
@@ -254,7 +256,10 @@ class ReceiptViewModel @Inject constructor(
     }
 
     /** The receipt's entries as Room has them now (the screen may be a moment behind). */
-    private suspend fun entries(): List<Transaction> = transactions.observeReceipt(receiptId).first()
+    private suspend fun entries(): List<Transaction> {
+        owned()
+        return transactions.observeReceipt(receiptId).first().also { owned() }
+    }
 
     private fun write(block: suspend () -> Unit) {
         local.update { it.copy(saveFailed = false) }

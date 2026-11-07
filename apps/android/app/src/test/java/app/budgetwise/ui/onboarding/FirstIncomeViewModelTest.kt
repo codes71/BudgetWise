@@ -42,6 +42,19 @@ class FirstIncomeViewModelTest {
     }
 
     @Test
+    fun aQueuedFirstIncomeNeverBecomesTheNextAccountsEntry() = runTest {
+        val vm = viewModel()
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        store.addGate = gate
+        vm.onAmountChange("1000")
+        vm.save("Salary")
+        store.writableOwner = "another-owner"
+        gate.complete(Unit)
+        assertTrue(store.added.isEmpty())
+        assertTrue(vm.state.value.saveFailed)
+    }
+
+    @Test
     fun theIncomeIsSavedAsOneIncomeEntryForToday() = runTest {
         val vm = viewModel()
         val events = collectEvents(vm)

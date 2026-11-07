@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { WHOLE_KYAT_MESSAGE, formatKyat, formatLakh, wholeKyatField } from "@/lib/kyat";
 
 describe("wholeKyatField", () => {
@@ -34,5 +36,23 @@ describe("formatKyat and formatLakh", () => {
     [4999, "0 lakh"],
   ])("%d is %s", (kyat, text) => {
     expect(formatLakh(kyat)).toBe(text);
+  });
+});
+
+// Exercise the actual field schema through the upgraded browser-form resolver.
+describe("whole-kyat form resolver", () => {
+  const resolve = zodResolver(z.object({ amount: wholeKyatField }));
+  const options = { fields: {}, shouldUseNativeValidation: false };
+
+  it("submits the coerced numeric value rather than the input text", async () => {
+    const result = await resolve({ amount: "12500" }, undefined, options);
+    expect(result.values).toEqual({ amount: 12500 });
+    expect(result.errors).toEqual({});
+  });
+
+  it("keeps the existing decimal error and does not submit an invalid value", async () => {
+    const result = await resolve({ amount: "12.50" }, undefined, options);
+    expect(result.values).toEqual({});
+    expect(result.errors).toMatchObject({ amount: { message: WHOLE_KYAT_MESSAGE } });
   });
 });

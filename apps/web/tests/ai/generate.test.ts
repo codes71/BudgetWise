@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as z from "zod/v4";
 
+vi.mock("@/ai/provider-policy", async (original) => ({ ...(await original<typeof import("@/ai/provider-policy")>()), requestProviders: vi.fn() }));
 vi.mock("@/ai/claude", () => ({ claudeStructured: vi.fn() }));
 vi.mock("@/ai/openai", () => ({ openaiStructured: vi.fn(), openaiConfigured: vi.fn() }));
 import { claudeStructured } from "@/ai/claude";
+import { requestProviders, AiUnavailableError } from "@/ai/provider-policy";
 import { generateStructured } from "@/ai/generate";
 import { openaiConfigured, openaiStructured } from "@/ai/openai";
 import { DeadlineError, RefusalError } from "@/ai/structured";
@@ -14,6 +16,7 @@ const configured = vi.mocked(openaiConfigured);
 const request = { schema: z.object({ category: z.string() }), content: "x", effort: "low" as const };
 
 beforeEach(() => {
+  vi.mocked(requestProviders).mockReset().mockResolvedValue(["anthropic", "openai"]);
   vi.useRealTimers();
   claude.mockReset();
   openai.mockReset();
@@ -177,5 +180,30 @@ describe("private provider errors", () => {
     expect(String(failure)).not.toContain(marker);
     expect(failure).not.toHaveProperty("cause");
     expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain(marker);
+  });
+});
+
+
+describe("server eligibility is final", () => {
+  it("calls no SDK when eligibility is unknown or blocked", async () => {
+    vi.mocked(requestProviders).mockResolvedValue([]);
+    await expect(generateStructured(request)).rejects.toBeInstanceOf(AiUnavailableError);
+    expect(claude).not.toHaveBeenCalled();
+    expect(openai).not.toHaveBeenCalled();
+  });
+  it("uses OpenAI directly for an OpenAI-only eligible request and never tries Claude on failure", async () => {
+    vi.mocked(requestProviders).mockResolvedValue(["openai"]);
+    openai.mockResolvedValue({ category: "Food" });
+    await expect(generateStructured(request)).resolves.toEqual({ category: "Food" });
+    expect(claude).not.toHaveBeenCalled();
+    openai.mockRejectedValue(new Error("private-content"));
+    await expect(generateStructured(request)).rejects.toThrow("OpenAI failed (unexpected)");
+    expect(claude).not.toHaveBeenCalled();
+  });
+  it("honors permitted provider order and refuses without any fallback", async () => {
+    vi.mocked(requestProviders).mockResolvedValue(["openai", "anthropic"]);
+    openai.mockRejectedValue(new RefusalError("private-content"));
+    await expect(generateStructured(request)).rejects.toBeInstanceOf(RefusalError);
+    expect(claude).not.toHaveBeenCalled();
   });
 });

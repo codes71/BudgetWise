@@ -106,6 +106,29 @@ class AddManualViewModelTest {
         clock: Clock = this.clock,
     ) = AddManualViewModel(transactions, categories, settings, sessionManager, clock, main.dispatcher, saved)
 
+    @Test
+    fun aManualDraftCannotBeSavedAfterAnAccountSwitchAndCannotRestoreIntoTheNewOwner() = runTest {
+        val saved = SavedStateHandle()
+        val before = vm(saved = saved)
+        before.onAmountChange("1000"); before.onDescriptionChange("private old-account draft"); before.onCategoryChange("Groceries")
+        session.signIn("new-token", clock.instant().plus(Duration.ofDays(20)), TestUser.copy(id = "another-owner", email = "another@example.com"))
+        store.writableOwner = "another-owner"
+        before.save()
+        assertTrue(before.state.value.saveFailed)
+        assertTrue(store.added.isEmpty())
+        val after = vm(saved = SavedStateHandle(saved.keys().associateWith { saved.get<Any>(it) }))
+        assertEquals("", after.state.value.description)
+        assertEquals("", after.state.value.amountDigits)
+    }
+
+    @Test
+    fun anUnownedLegacyManualDraftIsDiscardedInsteadOfAssignedToTheCurrentAccount() = runTest {
+        val after = vm(saved = SavedStateHandle(mapOf("description" to "private legacy draft", "amount" to "1000", "category" to "Groceries")))
+        assertEquals("", after.state.value.description)
+        assertEquals("", after.state.value.amountDigits)
+        assertNull(after.state.value.category)
+    }
+
     /** The phone's clock, moved on by a test (a form left open over midnight). */
     private class MovableClock(var now: Instant, private val zone: ZoneId) : Clock() {
         override fun getZone(): ZoneId = zone
@@ -599,12 +622,12 @@ class AddManualViewModelTest {
         store.rows.value = listOf(rice, taxi)
         var race = true
         val racing = object : TransactionStore by store {
-            override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
+            override suspend fun replaceReceiptForOwner(owner: String, receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
                 if (race) {
                     race = false
                     store.rows.value = listOf(rice, taxi.copy(clientId = "changed-taxi", amountKyat = 4_000))
                 }
-                return store.replaceReceipt(receiptId, old, inputs)
+                return store.replaceReceiptForOwner(owner, receiptId, old, inputs)
             }
         }
         val vm = vm(transactions = racing, saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to "rice")))
@@ -632,9 +655,9 @@ class AddManualViewModelTest {
         val taxi = receiptExpense("taxi", 3_000, "Transport")
         store.rows.value = listOf(rice, taxi)
         val racing = object : TransactionStore by store {
-            override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
+            override suspend fun replaceReceiptForOwner(owner: String, receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
                 store.rows.value = listOf(taxi)
-                return store.replaceReceipt(receiptId, old, inputs)
+                return store.replaceReceiptForOwner(owner, receiptId, old, inputs)
             }
         }
         val vm = vm(transactions = racing, saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to "rice")))
@@ -710,9 +733,9 @@ class AddManualViewModelTest {
         val taxi = receiptExpense("taxi", 3_000, "Transport")
         store.rows.value = listOf(rice, taxi)
         val racing = object : TransactionStore by store {
-            override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
+            override suspend fun replaceReceiptForOwner(owner: String, receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
                 store.rows.value = listOf(taxi.copy(clientId = "changed-taxi"))
-                return store.replaceReceipt(receiptId, old, inputs)
+                return store.replaceReceiptForOwner(owner, receiptId, old, inputs)
             }
         }
         val vm = vm(transactions = racing, saved = SavedStateHandle(mapOf(AddManualViewModel.ARG_CLIENT_ID to "rice")))

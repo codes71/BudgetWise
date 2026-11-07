@@ -1,6 +1,6 @@
 import type * as z from 'zod/v4';
 
-// Shared by the AI flows and both providers: Claude answers first, OpenAI only when Claude fails (generate.ts).
+// Shared by the AI flows and eligible providers. generate.ts enforces the server-side policy and order.
 export type Effort = 'low' | 'medium' | 'high';
 
 export type ImageType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
@@ -20,7 +20,7 @@ export type StructuredRequest<Schema extends z.ZodType> = {
   schema: Schema;
   content: Content;
   effort: Effort;
-  // How long each provider gets, its own retries included: Claude CLAUDE_TIMEOUT_MS, then OpenAI OPENAI_TIMEOUT_MS
+  // How long each permitted provider gets, retries included: Claude CLAUDE_TIMEOUT_MS or OpenAI OPENAI_TIMEOUT_MS
   // when left out.
   timeoutMs?: number;
   // When the whole request must be done (epoch ms), both providers included. generate.ts fits each provider's

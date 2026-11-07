@@ -58,6 +58,14 @@ class VoiceRepositoryTest {
     }
 
     @Test
+    fun aStaleVoiceRequestNeverUploadsWithTheNextAccountsToken() = runBlocking {
+        val owner = h.sync.session.writableUserId!!
+        h.sync.signInSecond()
+        assertTrue(voice.parse(listOf("private old-account words"), owner) is ApiResult.Unauthorized)
+        assertEquals(0, h.apiServer.requestCount)
+    }
+
+    @Test
     fun badEntriesAreDroppedNeverFilledIn() {
         fun entry(type: String = "expense", amount: Double = 5000.0, date: String = "2026-10-29", category: String = "Transport") =
             VoiceEntryDto(type, amount, category, "တက္ကစီ", date)

@@ -51,7 +51,7 @@ class ScanViewModelTest {
     private val zone = ZoneId.of("Asia/Yangon")
     private val today = LocalDate.parse("2026-10-30")
     private val day = LocalDate.parse("2026-10-23")
-    private val store = FakeTransactionStore(emptyList())
+    private val store = FakeTransactionStore(emptyList()).apply { writableOwner = "test-owner" }
     private val photo = PreparedPhoto(byteArrayOf(1, 2, 3), Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888))
 
     private var reply: ApiResult<ScanReading> = ApiResult.Ok(receipt())
@@ -543,6 +543,24 @@ class ScanViewModelTest {
         assertEquals(ScanStage.CAMERA, vm.state.value.stage)
         assertNull(vm.state.value.totalKyat)
         assertTrue(vm.state.value.lines.isEmpty())
+    }
+
+    @Test
+    fun providerUnavailableAndDeclinedAreManualEntryStatesAndNeverResendTheSamePhoto() = runTest {
+        for ((code, problem) in listOf("ai_unavailable" to ScanProblem.AI_UNAVAILABLE, "scan_declined" to ScanProblem.AI_DECLINED)) {
+            reply = ApiResult.Failure(code, "synthetic provider state", retryable = false)
+            val before = sent.size
+            val vm = viewModel()
+            vm.read(photo)
+            assertEquals(problem, vm.state.value.problem)
+            assertEquals(ScanStage.PROBLEM, vm.state.value.stage)
+            assertEquals(before + 1, sent.size)
+            vm.tryAgain()
+            assertEquals("no resending a blocked or refused request", before + 1, sent.size)
+            assertTrue(store.added.isEmpty())
+            vm.retake()
+            assertEquals(ScanStage.CAMERA, vm.state.value.stage)
+        }
     }
 
     @Test

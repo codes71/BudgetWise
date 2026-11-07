@@ -5,6 +5,15 @@ git: the four pack files and `r01.wav` .. `r18.wav` are pushed into the test APK
 
 Never use `connectedDebugAndroidTest`: it uninstalls the test APK afterwards, which deletes the pushed files.
 
+## Isolated native compatibility smoke check
+
+`nativeLibrariesLoadWithSyntheticInput` needs no downloaded models or recordings. It allocates an ONNX tensor,
+classifies synthetic silence with WebRTC VAD, and logs the actual runtime page size. Build with
+`./gradlew :asr:assembleDebugAndroidTest`, then install the resulting test APK using `adb -s <owned-emulator> install`
+and run only `OnDeviceVoiceTest#nativeLibrariesLoadWithSyntheticInput` with `am instrument -w` on that same serial.
+Verify the `RAN` line and `pageBytes=16384` before claiming a 16 KB native smoke pass. This does not prove model
+inference accuracy, full speech performance or a Play-delivered build. Do not point this command at the owner's phone.
+
 From `apps/android`:
 
 ```

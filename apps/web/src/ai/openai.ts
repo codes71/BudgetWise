@@ -9,7 +9,7 @@ import {
 } from '@/ai/structured';
 import { logger } from '@/lib/logger';
 
-// OpenAI, used only when Claude fails (generate.ts). Reads OPENAI_API_KEY from the environment (.env.local).
+// OpenAI can be primary or fallback only when the server eligibility policy permits it (generate.ts).
 // GPT-6.1 Sol matched Claude on the Burmese voice check (14 of 14 amounts, 4 of 4 questions, about 5 s)
 // and on a test receipt; GPT-5.5 matched too but took about 12 s. OPENAI_MODEL in the environment swaps it.
 export const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-6.1-sol';

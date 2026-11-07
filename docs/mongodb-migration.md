@@ -12,9 +12,33 @@ The journal is excluded from account-child purges, survives root deletion and lo
 
 The journal lives in the existing runtime database, separate from account-owned records. It must remain authoritative outside anything being restored. Never replace it with an older database snapshot, include an old copy as restore authority, or delete it during rollback. Whole-database recovery must preserve the latest journal separately and merge its complete deletion history before restoring account records. A journal missing from an old snapshot does not mean no account has been deleted. These rules also apply to new Mongo snapshots, provider recovery copies and rollback to retained Firestore.
 
+Normal API/session access, account-owned write transactions and direct public-profile lookup also consult this journal. A restored old root without `deletionStartedAt` cannot reactivate a requested-deletion identity. Password login rejects such a restored root, including the mobile retry-login route. An actually locked root still permits password-confirmed deletion retry, and a valid old signed identity can finish deletion of restored remnants. The account-root write fence remains required alongside the journal read so a concurrent deletion conflicts with an in-flight write.
+
 Historical migration tools cannot safely implement that contract, so their production writes now fail closed. There is no production bypass flag. `importSnapshot` permits only demo-project fixtures into test databases whose constructed Mongo client has exclusively loopback endpoints; reverse-copy fixture writes also verify the constructed Firestore client uses a demo project and loopback emulator. Unknown transport shapes fail closed. A future production restore needs separately reviewed code using the latest authoritative journal, suppression for roots, email claims, every owned/archived descendant, and a write freeze or equivalent transaction fencing so deletion cannot race with restoration. Count/hash parity against an old snapshot alone is insufficient.
 
 This is a code safeguard and durable cleanup intent, not proof that recovery copies were removed. Retained Firestore data, encrypted local snapshots, backup-only deployments and provider recovery copies still need an owner-approved inventory, physical cleanup procedure, retention basis/window and verification. No such live action or retention decision is authorized by this source change. The API's successful active-account deletion response does not attest that those operations have completed. Resolve the recovery operations and policy before production promotion or claiming the complete deletion lifecycle is ready.
+
+### Local recovery suppression dry-run
+
+`apps/web/scripts/planRecoverySuppression.ts` reads only two private local files and prints counts/fingerprints. It has no network adapter, write mode, importable output records or production bypass. It does not establish that the supplied journal is current or complete, authorize a restore, or remove any copy. Do not obtain a live journal export without separate production-read authorization.
+
+The journal input must be a separately preserved, complete export of the latest `_accountDeletionJournal`, rather than a collection from the historical snapshot. Its strict envelope is `{ format: "pocket-peek-deletion-journal", version: 1, sourceId, exportedAt, requests }`. `sourceId` is an independently reviewed non-secret identifier for the authoritative store. Export dates are ISO strings; requests are sorted by unique `_id` and contain only the runtime journal fields (`_id`, `formatVersion`, `requestedAt`, `activeStore`, optional `activeStoreCompletedAt`, `recoveryCleanup`). No email, raw account ID or account content belongs in it. Record its fingerprint using the exported `journalFingerprint` function in a separate trusted export receipt. The export producer, complete inventory, currentness and write freeze must be reviewed before any real restore tooling is authorized; a matching self-supplied hash is not that evidence.
+
+After independently reviewing both source identities and fingerprints, run from `apps/web`:
+
+```sh
+npx tsx scripts/planRecoverySuppression.ts \
+  --snapshot '/private/owner-only-directory/historical-snapshot.json' \
+  --journal '/private/owner-only-directory/current-deletion-journal.json' \
+  --expect-source-project '<reviewed-historical-project>' \
+  --expect-snapshot-sha256 '<trusted-snapshot-fingerprint>' \
+  --expect-journal-source '<reviewed-current-store-id>' \
+  --expect-journal-sha256 '<trusted-journal-fingerprint>'
+```
+
+Both inputs must be owner-only regular files; symlinks are refused. Suppression includes every journal request, even after both cleanup statuses are complete. Roots, descendants, email claims and flat/archive rows with matching ownership are counted as suppressed. Conflicting or invalid ownership aborts. Old journal rows, migration markers and rate counters are withheld; unknown unowned records are held for mapping review. A re-registered email owner's new immutable ID is distinct. The result deliberately says `restoreAuthorized: false` and `journalCompletenessVerified: false`. Never turn the `otherwiseEligibleDocuments` count into approval to import those records.
+
+See [the operational recovery-copy plan](account-deletion-operations.md) for target inventory, independent gates, retention decisions and verification receipts. No retention period is selected by this code.
 
 ## Completed migration and live cutover (7 November 2026)
 

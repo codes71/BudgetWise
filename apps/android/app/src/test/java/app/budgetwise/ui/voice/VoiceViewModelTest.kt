@@ -62,6 +62,35 @@ class VoiceViewModelTest {
     private val VoiceViewModel.phase get() = state.value.phase
 
     @Test
+    fun aLateParseIsDiscardedAndQueuedVoiceSaveCannotCrossAccounts() = runTest {
+        val (vm, events) = start()
+        parser.reply = ApiResult.Ok(VoiceParse.Add("private words", listOf(coffee)))
+        parser.gate = kotlinx.coroutines.CompletableDeferred()
+        vm.listen(); vm.done()
+        val original = store.writableOwner!!
+        store.writableOwner = "another-owner"
+        parser.gate!!.complete(Unit)
+        assertEquals(VoicePhase.Problem(VoiceProblem.SignedOut), vm.phase)
+        assertEquals(listOf(original), parser.owners)
+        assertTrue(store.added.isEmpty())
+        assertTrue(events.none { it == VoiceEvent.Saved })
+    }
+
+    @Test
+    fun aVoiceSaveWaitingForRoomRetainsItsOriginalOwner() = runTest {
+        val (vm, events) = start()
+        parser.reply = ApiResult.Ok(VoiceParse.Add("private words", listOf(coffee)))
+        vm.listen(); vm.done()
+        store.addGate = kotlinx.coroutines.CompletableDeferred()
+        vm.save()
+        store.writableOwner = "another-owner"
+        store.addGate!!.complete(Unit)
+        assertTrue(store.added.isEmpty())
+        assertEquals(VoicePhase.Problem(VoiceProblem.SignedOut), vm.phase)
+        assertTrue(events.none { it == VoiceEvent.Saved })
+    }
+
+    @Test
     fun whatWasSaidBecomesEntriesToCheckThenIsSavedAsVoice() = runTest {
         val (vm, events) = start()
         assertEquals(listOf<VoiceEvent>(VoiceEvent.NeedMic), events)
@@ -95,6 +124,21 @@ class VoiceViewModelTest {
         vm.done()
         assertEquals(VoicePhase.Problem(VoiceProblem.NothingHeard), vm.phase)
         assertTrue(parser.calls.isEmpty())
+    }
+
+    @Test
+    fun providerUnavailableAndDeclinedOfferManualEntryWithoutResendingWords() = runTest {
+        for ((code, problem) in listOf("ai_unavailable" to VoiceProblem.AiUnavailable, "parse_declined" to VoiceProblem.AiDeclined)) {
+            val (vm, _) = start()
+            parser.reply = ApiResult.Failure(code, "synthetic provider state", retryable = false)
+            val before = parser.calls.size
+            vm.listen(); vm.done()
+            assertEquals(VoicePhase.Problem(problem), vm.phase)
+            assertEquals(before + 1, parser.calls.size)
+            vm.retry()
+            assertEquals("a refusal or unavailable provider is not retried", before + 1, parser.calls.size)
+            assertTrue(store.added.isEmpty())
+        }
     }
 
     @Test

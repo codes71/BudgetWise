@@ -4,7 +4,8 @@ import { SignJWT } from "jose";
 import { Collection } from "mongodb";
 import { clearDb, testDb } from "../helpers/db";
 import { req } from "../helpers/request";
-import { createUser, emailDocId, updateUserProfile } from "@/lib/users";
+import { createUser, emailDocId, getUserById, updateUserProfile } from "@/lib/users";
+import { authenticatePassword } from "@/lib/auth-credentials";
 import { signMobileToken } from "@/lib/mobile/token";
 import { scopedId, sha256Hex } from "@/lib/mongodb";
 import { requireUser } from "@/lib/mobile/bearer";
@@ -198,6 +199,28 @@ describe("DELETE /api/v1/account", () => {
     expect(await user(replacement!.id)).not.toBeNull();
     expect(await journal(userA)).toEqual(firstJournal);
     expect(await journal(replacement!.id)).toBeNull();
+  });
+
+  it("keeps a journaled identity inaccessible if an old unlocked root and records are restored", async () => {
+    const oldRoot = (await user(userA))!;
+    expect((await remove()).status).toBe(204);
+    // Synthetic recovery of a snapshot made before deletion. The latest journal must survive separately.
+    await testDb().collection("users").insertOne(oldRoot);
+    await testDb().collection("transactions").insertOne({ _id: scopedId(userA, "old"), userId: userA, amount: 100 });
+    await expect(requireUser(req("GET", "/x", { token: tokenA }))).rejects.toMatchObject({ status: 401 });
+    await expect(saveBatch(userA, [item])).rejects.toMatchObject({ status: 401 });
+    await expect(setBudgetLimit(userA, "Food", 1)).rejects.toMatchObject({ status: 401 });
+    expect(await getUserById(userA)).toBeNull();
+    expect(await authenticatePassword("delete-a@example.com", password)).toBeNull();
+    expect(await authenticatePassword("delete-a@example.com", password, { allowDeletionRetry: true })).toBeNull();
+    expect((await LOGIN(req("POST", "/api/v1/auth/token", {
+      body: { email: "delete-a@example.com", password }, ip: "203.0.113.3",
+    }))).status).toBe(401);
+    // The original signed identity can still finish password-confirmed deletion of the restored records.
+    expect((await remove()).status).toBe(204);
+    expect(await user(userA)).toBeNull();
+    expect(await ownedCount(userA)).toBe(0);
+    expect(await journal(userA)).toMatchObject({ activeStore: "complete", recoveryCleanup: "pending" });
   });
 
   it("cleans old orphan owned records and email claims before a missing-root204", async () => {

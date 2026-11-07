@@ -55,7 +55,8 @@ const transactionSchema = z.object({
   date: z.date(),
 });
 
-type TransactionFormData = z.infer<typeof transactionSchema>;
+type TransactionFormInput = z.input<typeof transactionSchema>;
+type TransactionFormData = z.output<typeof transactionSchema>;
 
 interface AddTransactionProps {
   onTransactionAdded: (transaction: Omit<Transaction, 'id' | '_id' | 'userId'>) => void;
@@ -71,7 +72,7 @@ export function AddTransaction({ onTransactionAdded, children }: AddTransactionP
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const form = useForm<TransactionFormData>({
+  const form = useForm<TransactionFormInput, unknown, TransactionFormData>({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       description: '',

@@ -95,6 +95,8 @@ interface SyncControls {
 
 /** The ledger as the transaction screens use it: Room flows and offline-first writes ([TransactionRepository]). */
 interface TransactionStore {
+    /** Capture when a form opens; its writes must retain this owner across suspension and account switches. */
+    val writableOwner: String?
     fun observe(): Flow<List<Transaction>>
 
     /** The active account's spending from [from] to [to] (both included), per day and category, for the month chart. */
@@ -109,7 +111,7 @@ interface TransactionStore {
     /** Saves PENDING rows plus their outbox ops and requests a sync; works offline. Returns the new clientIds. */
     suspend fun addAll(inputs: List<NewTransaction>): List<String>
 
-    /** A scan belongs to the account that opened it, even when its save waits behind another Room transaction. */
+    /** A draft belongs to the account that opened it, even when its save waits behind another Room transaction. */
     suspend fun addAllForOwner(owner: String, inputs: List<NewTransaction>): List<String>
 
     /**
@@ -117,14 +119,17 @@ interface TransactionStore {
      * nothing written, when an entry to change is gone already (deleted elsewhere while the screen was open).
      */
     suspend fun replace(old: List<String>, inputs: List<NewTransaction>): ReplaceResult
+    suspend fun replaceForOwner(owner: String, old: List<String>, inputs: List<NewTransaction>): ReplaceResult
 
     /**
      * [replace] for receipt [receiptId]'s entries, only while they are still exactly [old]; null, with nothing written,
      * when a sync changed them in the meantime.
      */
     suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>?
+    suspend fun replaceReceiptForOwner(owner: String, receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>?
 
     suspend fun delete(clientId: String)
+    suspend fun deleteForOwner(owner: String, clientId: String)
 }
 
 /** Monthly limits from the Room cache ([BudgetRepository]); [refresh] replaces the cache with the server list. */
@@ -149,9 +154,11 @@ interface MonthPlanSource {
 
     /** Creates or replaces [plan]'s month; online only. */
     suspend fun save(plan: MonthPlan): ApiResult<MonthPlan>
+    suspend fun saveForOwner(owner: String, plan: MonthPlan): ApiResult<MonthPlan>
 
     /** What is really on hand after [month] ended; online only, and only once the month is over. */
     suspend fun saveEndCheck(month: YearMonth, onHandKyat: Long): ApiResult<MonthPlan>
+    suspend fun saveEndCheckForOwner(owner: String, month: YearMonth, onHandKyat: Long): ApiResult<MonthPlan>
 }
 
 /** Whether the phone can reach the internet, for the header's Offline chip. */
@@ -177,7 +184,7 @@ fun interface ReceiptScanner {
 
 /** Reads what the phone heard (text only) into entries or a spending question, on the server ([VoiceRepository]). */
 fun interface VoiceParser {
-    suspend fun parse(transcripts: List<String>): ApiResult<VoiceParse>
+    suspend fun parse(transcripts: List<String>, expectedOwner: String): ApiResult<VoiceParse>
 }
 
 /**
@@ -247,6 +254,7 @@ class DefaultSyncControls @Inject constructor(
  * saves): a cancelled Room transaction would roll back an entry the user saw being saved.
  */
 class DefaultTransactionStore @Inject constructor(private val repo: TransactionRepository) : TransactionStore {
+    override val writableOwner: String? get() = repo.writableOwner
     override fun observe(): Flow<List<Transaction>> = repo.observe()
 
     override fun observeDailySpend(from: LocalDate, to: LocalDate): Flow<List<DailySpend>> = repo.observeDailySpend(from, to)
@@ -263,10 +271,17 @@ class DefaultTransactionStore @Inject constructor(private val repo: TransactionR
     override suspend fun replace(old: List<String>, inputs: List<NewTransaction>): ReplaceResult =
         withContext(NonCancellable) { repo.replace(old, inputs) }
 
+    override suspend fun replaceForOwner(owner: String, old: List<String>, inputs: List<NewTransaction>) =
+        withContext(NonCancellable) { repo.replace(old, inputs, expectedOwner = owner) }
+
     override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>) =
         withContext(NonCancellable) { repo.replaceReceipt(receiptId, old, inputs) }
 
+    override suspend fun replaceReceiptForOwner(owner: String, receiptId: String, old: Set<String>, inputs: List<NewTransaction>) =
+        withContext(NonCancellable) { repo.replaceReceipt(receiptId, old, inputs, expectedOwner = owner) }
+
     override suspend fun delete(clientId: String) = withContext(NonCancellable) { repo.delete(clientId) }
+    override suspend fun deleteForOwner(owner: String, clientId: String) = withContext(NonCancellable) { repo.delete(clientId, owner) }
 }
 
 /**
@@ -319,9 +334,12 @@ class DefaultMonthPlanSource @Inject constructor(private val repo: MonthPlanRepo
     override suspend fun refresh(from: YearMonth, to: YearMonth): ApiResult<Unit> = repo.refresh(from, to)
 
     override suspend fun save(plan: MonthPlan) = withContext(NonCancellable) { repo.save(plan) }
+    override suspend fun saveForOwner(owner: String, plan: MonthPlan) = withContext(NonCancellable) { repo.save(plan, owner) }
 
     override suspend fun saveEndCheck(month: YearMonth, onHandKyat: Long) =
         withContext(NonCancellable) { repo.saveEndCheck(month, onHandKyat) }
+    override suspend fun saveEndCheckForOwner(owner: String, month: YearMonth, onHandKyat: Long) =
+        withContext(NonCancellable) { repo.saveEndCheck(month, onHandKyat, owner) }
 }
 
 class DefaultCategorySource @Inject constructor(private val repo: CategoryRepository) : CategorySource {
@@ -337,7 +355,7 @@ class DefaultReceiptScanner @Inject constructor(private val repo: ScanRepository
 }
 
 class DefaultVoiceParser @Inject constructor(private val repo: VoiceRepository) : VoiceParser {
-    override suspend fun parse(transcripts: List<String>): ApiResult<VoiceParse> = repo.parse(transcripts)
+    override suspend fun parse(transcripts: List<String>, expectedOwner: String): ApiResult<VoiceParse> = repo.parse(transcripts, expectedOwner)
 }
 
 class DefaultOnDeviceSpeech @Inject constructor(private val stt: OnnxSpeechToText) : OnDeviceSpeech {

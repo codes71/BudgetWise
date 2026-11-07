@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
 import { ApiError } from "@/lib/mobile/errors";
 import { rateLimit } from "@/lib/mobile/rate-limit";
-import { sha256Hex } from "@/lib/mongodb";
+import { db, sha256Hex } from "@/lib/mongodb";
 import { findUserByEmail } from "@/lib/users";
+import { hasDeletionRequest } from "@/lib/account-deletion-journal";
 
 // Same cost as signup. Missing, passwordless and deleting accounts still perform one compare.
 const DUMMY_HASH = "$2a$10$vLjJiV2q4BmEOHfVG2glG.QeAjpjs4IEt0FJ2gGTGOgRJ12WKjdU6";
@@ -26,7 +27,11 @@ export async function authenticatePassword(email: string, password: string, opti
   const user = await findUserByEmail(email);
   // Mobile must recover a token after an interrupted deletion. Ordinary account access still requires
   // an active root; only the deletion endpoint accepts that token for a locked account.
-  const activeHash = user?.password && (!user.deletionStartedAt || options.allowDeletionRetry) ? user.password : undefined;
+  const suppressed = user ? await hasDeletionRequest(await db(), user.id) : false;
+  const mayAuthenticate = user && (user.deletionStartedAt
+    ? options.allowDeletionRetry
+    : !suppressed);
+  const activeHash = mayAuthenticate ? user.password : undefined;
   // bcrypt uses the first 72 UTF-8 bytes. Keep at least 73 UTF-16 units and a complete trailing
   // surrogate pair: bcryptjs rejects a high surrogate split by slicing, even past its 72-byte limit.
   // This preserves the hashed byte prefix while avoiding encoding an unbounded legacy password.

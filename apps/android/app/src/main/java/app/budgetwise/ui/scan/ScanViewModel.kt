@@ -95,6 +95,12 @@ enum class ScanProblem {
     /** The server failed (5xx), or answered with something the phone cannot use. The photo is kept. */
     SERVER,
 
+    /** The request has no permitted AI provider; use manual entry rather than retrying the same image. */
+    AI_UNAVAILABLE,
+
+    /** AI declined this image; a retry must not resend the same refused content. */
+    AI_DECLINED,
+
     /** The phone closed BudgetWise while the photo was being read. The photo is kept for Try again. */
     INTERRUPTED,
 
@@ -389,7 +395,10 @@ class ScanViewModel @Inject constructor(
     }
 
     /** Reads the kept photo again (No internet, Server, Slow); without one, back to the camera. */
-    fun tryAgain() = if (photo != null) readPhoto() else retake()
+    fun tryAgain() {
+        if (_state.value.problem in setOf(ScanProblem.AI_UNAVAILABLE, ScanProblem.AI_DECLINED)) return
+        if (photo != null) readPhoto() else retake()
+    }
 
     /** Drops the photo and the reply: back to the camera. Cancels getting a photo ready or a read in progress. */
     fun retake() {
@@ -460,6 +469,8 @@ class ScanViewModel @Inject constructor(
         // Every IOException is "network": a timeout or a reply cut off on a phone that is online is a slow connection.
         NETWORK_ERROR_CODE -> if (online()) ScanProblem.SLOW else ScanProblem.NO_INTERNET
         ScanRepository.RATE_LIMITED, "http_429" -> ScanProblem.TOO_MANY
+        "ai_unavailable" -> ScanProblem.AI_UNAVAILABLE
+        "scan_declined" -> ScanProblem.AI_DECLINED
         // A photo the server would not take; this phone always sends a JPEG under the limit, so it is an odd photo.
         "invalid_image", "image_too_large" -> ScanProblem.UNREADABLE
         // The AI read failed (scan_failed), the server is down, or its reply was not one the phone can use (an HTML

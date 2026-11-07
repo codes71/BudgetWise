@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { db, isDuplicateKey, isDocId, sha256Hex, toDate, withTransaction, type MongoRecord } from "@/lib/mongodb";
 import type { UserPayload } from "@/lib/types";
 import { requireActiveAccount } from "@/lib/account-access";
+import { hasDeletionRequest } from "@/lib/account-deletion-journal";
 
 export interface UserRecord {
   id: string;
@@ -48,7 +49,9 @@ export async function findUserByEmail(rawEmail: string): Promise<UserRecord | nu
 
 export async function getUserById(userId: string): Promise<UserRecord | null> {
   if (!isDocId(userId)) return null;
-  const record = await (await db()).collection<MongoRecord>("users").findOne({ _id: userId });
+  const database = await db();
+  if (await hasDeletionRequest(database, userId)) return null;
+  const record = await database.collection<MongoRecord>("users").findOne({ _id: userId });
   return record ? fromDocument(record) : null;
 }
 

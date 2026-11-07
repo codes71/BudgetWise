@@ -86,6 +86,43 @@ class TransactionRepositoryTest {
     }
 
     @Test
+    fun queuedReplaceReceiptAndDeleteCannotUseTheNextAccount() = runBlocking {
+        val owner = h.sync.session.writableUserId!!
+        val id = repo.addAll(listOf(input(100))).single()
+        h.sync.signInSecond()
+        for (write in listOf<suspend () -> Unit>(
+            { repo.replace(listOf(id), listOf(input(200)), owner) },
+            { repo.replaceReceipt("receipt", setOf(id), listOf(input(200)), owner) },
+            { repo.delete(id, owner) },
+        )) {
+            try { write(); fail("a stale form must not write after its owner changes") } catch (_: IllegalStateException) { }
+        }
+        assertEquals(100L, h.sync.tx.byClientId(id)!!.amountKyat)
+        // Even a current-account delete by an old clientId must preserve the other account's row.
+        repo.delete(id)
+        assertNotNull(h.sync.tx.byClientId(id))
+    }
+
+    @Test
+    fun aReplaceWaitingForRoomRetainsTheOpeningOwnerThroughEveryStoreCall() = runBlocking {
+        val owner = h.sync.session.writableUserId!!
+        val id = repo.addAll(listOf(input(100))).single()
+        val holdingRoom = CompletableDeferred<Unit>()
+        val releaseRoom = CompletableDeferred<Unit>()
+        val busy = async(Dispatchers.IO) { h.sync.db.withTransaction { holdingRoom.complete(Unit); releaseRoom.await() } }
+        holdingRoom.await()
+        val saving = async(start = CoroutineStart.UNDISPATCHED) { repo.replace(listOf(id), listOf(input(200)), owner) }
+        val switching = async(start = CoroutineStart.UNDISPATCHED) { h.sync.signInSecond() }
+        assertFalse(switching.isCompleted)
+        releaseRoom.complete(Unit); busy.await()
+        val result = saving.await() as ReplaceResult.Saved
+        switching.await()
+        assertEquals(owner, h.sync.tx.byClientId(result.clientIds.single())!!.ownerId)
+        assertEquals(200L, h.sync.tx.byClientId(result.clientIds.single())!!.amountKyat)
+        assertTrue(h.sync.tx.observeAll(h.sync.session.writableUserId!!).first().isEmpty())
+    }
+
+    @Test
     fun addAllWritesRowsAndOutboxAtomically() = runBlocking {
         // Force the second outbox insert to fail: the first row and op must roll back with it.
         h.sync.db.openHelper.writableDatabase.execSQL(

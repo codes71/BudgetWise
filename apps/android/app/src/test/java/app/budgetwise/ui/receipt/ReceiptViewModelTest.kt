@@ -307,7 +307,7 @@ class ReceiptViewModelTest {
     fun aSaveThatFindsTheReceiptChangedWritesNothing() = runTest {
         // Changed after the screen's last answer: the store's own check, in its transaction, refuses the save.
         val changedJustNow = object : TransactionStore by store {
-            override suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? = null
+            override suspend fun replaceReceiptForOwner(owner: String, receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? = null
         }
         val vm = vm(transactions = changedJustNow)
         vm.startEditing()

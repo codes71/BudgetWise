@@ -86,12 +86,12 @@ class MonthPlanRepository @Inject constructor(
     }
 
     /** Creates or replaces [plan]'s month on the server; its end check there is kept, so [MonthPlan.endCheck] is not sent. */
-    suspend fun save(plan: MonthPlan): ApiResult<MonthPlan> = send(plan.month) { auth ->
+    suspend fun save(plan: MonthPlan, expectedOwner: String? = session.writableUserId): ApiResult<MonthPlan> = send(plan.month, expectedOwner) { auth ->
         val body = MonthPlanBody(plan.newMoneyKyat, plan.carriedOverKyat, plan.shares.map { ShareBody(it.category, it.limitKyat) })
         api.saveMonthPlan(auth, plan.month.toString(), body)
     }
 
-    suspend fun saveEndCheck(month: YearMonth, onHandKyat: Long): ApiResult<MonthPlan> = send(month) { auth ->
+    suspend fun saveEndCheck(month: YearMonth, onHandKyat: Long, expectedOwner: String? = session.writableUserId): ApiResult<MonthPlan> = send(month, expectedOwner) { auth ->
         api.saveEndCheck(auth, month.toString(), EndCheckBody(onHandKyat))
     }
 
@@ -99,8 +99,9 @@ class MonthPlanRepository @Inject constructor(
      * Sends a write for [month] with the active account's token and caches the plan the server answers with, for the
      * account that sent it even if another one became active meanwhile. A failure writes nothing.
      */
-    private suspend fun send(month: YearMonth, call: suspend (auth: String) -> MonthPlanResponse): ApiResult<MonthPlan> {
-        val owner = session.activeUserId.value ?: return NOT_SIGNED_IN
+    private suspend fun send(month: YearMonth, expectedOwner: String?, call: suspend (auth: String) -> MonthPlanResponse): ApiResult<MonthPlan> {
+        val owner = expectedOwner ?: return NOT_SIGNED_IN
+        if (session.writableUserId != owner) return NOT_SIGNED_IN
         val token = session.bearerFor(owner) ?: return NOT_SIGNED_IN
         return when (val r = safeApi { call(authorization(token)) }) {
             is ApiResult.Ok -> {

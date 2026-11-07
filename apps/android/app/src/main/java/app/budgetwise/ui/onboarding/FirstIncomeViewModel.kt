@@ -67,6 +67,7 @@ class FirstIncomeViewModel @Inject constructor(
     settings: SettingsStore,
     @DeviceClock private val clock: Clock,
 ) : ViewModel() {
+    private val owner = transactions.writableOwner
     private val _state = MutableStateFlow(FirstIncomeUiState(today = LocalDate.now(clock)))
     val state: StateFlow<FirstIncomeUiState> = _state.asStateFlow()
 
@@ -107,7 +108,7 @@ class FirstIncomeViewModel @Inject constructor(
         _state.update { it.copy(today = today, saving = true, saveFailed = false) }
         viewModelScope.launch {
             try {
-                transactions.addAll(listOf(input))
+                transactions.addAllForOwner(checkNotNull(owner), listOf(input))
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {

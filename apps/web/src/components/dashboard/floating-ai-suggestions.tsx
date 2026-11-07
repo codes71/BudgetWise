@@ -14,10 +14,10 @@ export function FloatingAiSuggestions() {
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
-      <AiSuggestions>
+      <AiSuggestions key={user.userId}>
         <Button size="icon" className="rounded-full h-14 w-14 shadow-lg">
           <Sparkles className="h-6 w-6" />
-          <span className="sr-only">AI Suggestions</span>
+          <span className="sr-only">Spending Suggestions</span>
         </Button>
       </AiSuggestions>
     </div>

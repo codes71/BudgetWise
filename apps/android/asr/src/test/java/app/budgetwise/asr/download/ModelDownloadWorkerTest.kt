@@ -39,12 +39,35 @@ class ModelDownloadWorkerTest {
         ModelStore.modelsRoot(context).deleteRecursively()
     }
 
-    private fun run(attempt: Int = 0, pack: String = VoicePack.VERSION): ListenableWorker.Result = runBlocking {
-        TestListenableWorkerBuilder<ModelDownloadWorker>(context)
+    private fun run(attempt: Int = 0, pack: String = VoicePack.VERSION, foregroundFailure: Boolean = false): ListenableWorker.Result = runBlocking {
+        val builder = TestListenableWorkerBuilder<ModelDownloadWorker>(context)
             .setInputData(workDataOf(ModelDownloadWorker.KEY_PACK to pack))
             .setRunAttemptCount(attempt)
+        if (foregroundFailure) builder.setForegroundUpdater { _, _, _ ->
+            throw IllegalStateException("foreground start rejected")
+        }
+        builder
             .build()
             .doWork()
+    }
+
+    @Test
+    fun foregroundStartRefusalNeverDownloadsSilently() {
+        var fetched = 0
+        ModelDownloadWorker.fetcher = { _, _, _ -> fetched++ }
+        assertEquals(ListenableWorker.Result.retry(), run(foregroundFailure = true))
+        assertEquals(0, fetched)
+        assertNull(ModelStore.verified(context))
+    }
+
+    @Test
+    fun repeatedForegroundRefusalFailsWithoutNetworkOrUnboundedRetries() {
+        var fetched = 0
+        ModelDownloadWorker.fetcher = { _, _, _ -> fetched++ }
+        val result = run(attempt = 5, foregroundFailure = true)
+        assertTrue(result is ListenableWorker.Result.Failure)
+        assertEquals("foreground service unavailable", result.outputData().getString(ModelDownloadWorker.KEY_REASON))
+        assertEquals(0, fetched)
     }
 
     private fun writeSized(dest: File, bytes: Long) {

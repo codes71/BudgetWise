@@ -72,6 +72,8 @@ class TransactionRepository @Inject constructor(
     private val tx = db.transactionDao()
     private val outbox = db.outboxDao()
 
+    val writableOwner: String? get() = session.writableUserId
+
     fun observe(): Flow<List<Transaction>> = session.activeUserId.flatMapLatest { owner ->
         if (owner == null) flowOf(emptyList()) else tx.observeAll(owner).map { rows -> rows.map { it.toDomain() } }
     }
@@ -89,7 +91,8 @@ class TransactionRepository @Inject constructor(
     /** One of the active account's entries, or null when it is gone (deleted, or another account's). */
     suspend fun get(clientId: String): Transaction? {
         val owner = session.activeUserId.value ?: return null
-        return tx.byClientId(clientId)?.takeIf { it.ownerId == owner && !it.deleted }?.toDomain()
+        val row = tx.byClientId(clientId)
+        return row?.takeIf { session.activeUserId.value == owner && it.ownerId == owner && !it.deleted }?.toDomain()
     }
 
     /** The active account's rows not yet confirmed by the server (queued, rejected, or awaiting delete). */
@@ -125,8 +128,9 @@ class TransactionRepository @Inject constructor(
      * With [inputs] it is a change, and [ReplaceResult.Gone] when any of [old] is gone already; without, it deletes what
      * is left of [old]. [ReplaceResult.Saved] has the stored clientIds as [addAll] gives them, the new ones first.
      */
-    suspend fun replace(old: List<String>, inputs: List<NewTransaction>): ReplaceResult {
-        val result = db.withTransaction { replaceHeld(old, inputs) }
+    suspend fun replace(old: List<String>, inputs: List<NewTransaction>, expectedOwner: String? = session.writableUserId): ReplaceResult {
+        val owner = checkNotNull(expectedOwner) { "no account is signed in" }
+        val result = session.withWritableAccount(owner) { db.withTransaction { replaceHeld(old, inputs, owner) } }
         if (result is ReplaceResult.Saved) syncScheduler.requestAfterWrite()
         return result
     }
@@ -137,10 +141,12 @@ class TransactionRepository @Inject constructor(
      * over. Null, with nothing written, when they are not. Otherwise it is [replace], with its order: the new entries'
      * CREATEs before the originals' DELETEs, as one edit, so a refused change never loses the receipt on the server.
      */
-    suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>): List<String>? {
-        val owner = checkNotNull(session.writableUserId) { "no account is signed in" }
-        val result = db.withTransaction {
-            if (tx.receiptClientIds(owner, receiptId).toSet() != old) null else replaceHeld(old.toList(), inputs)
+    suspend fun replaceReceipt(receiptId: String, old: Set<String>, inputs: List<NewTransaction>, expectedOwner: String? = session.writableUserId): List<String>? {
+        val owner = checkNotNull(expectedOwner) { "no account is signed in" }
+        val result = session.withWritableAccount(owner) {
+            db.withTransaction {
+                if (tx.receiptClientIds(owner, receiptId).toSet() != old) null else replaceHeld(old.toList(), inputs, owner)
+            }
         }
         if (result !is ReplaceResult.Saved) return null
         syncScheduler.requestAfterWrite()
@@ -148,12 +154,11 @@ class TransactionRepository @Inject constructor(
     }
 
     /** [replace]'s writes; the caller holds the Room transaction and requests the sync. */
-    private suspend fun replaceHeld(old: List<String>, inputs: List<NewTransaction>): ReplaceResult {
+    private suspend fun replaceHeld(old: List<String>, inputs: List<NewTransaction>, owner: String): ReplaceResult {
         if (inputs.isEmpty()) {
-            old.forEach { syncEngine.enqueueDelete(it) }
+            old.forEach { if (tx.byClientId(it)?.ownerId == owner) syncEngine.enqueueDelete(it) }
             return ReplaceResult.Saved(emptyList())
         }
-        val owner = checkNotNull(session.writableUserId) { "no account is signed in" }
         // As get() sees it: a tombstone, or another account's row after a switch while the form was open, is gone.
         val rows = old.associateWith { tx.byClientId(it) }
         if (rows.values.any { it == null || it.deleted || it.ownerId != owner }) return ReplaceResult.Gone
@@ -164,9 +169,9 @@ class TransactionRepository @Inject constructor(
         }
         val fresh = inputs.filter { it.clientId !in inPlace }.map { if (it.clientId in rows) it.copy(clientId = null) else it }
         val group = joinedGroup(old) ?: UUID.randomUUID().toString()
-        val ids = store(fresh, group)
+        val ids = store(fresh, group, owner = owner)
         old.forEach { syncEngine.enqueueDelete(it, group.takeIf { _ -> it !in inPlace }) }
-        val kept = store(inputs.filter { it.clientId in inPlace }, group, reuse = inPlace)
+        val kept = store(inputs.filter { it.clientId in inPlace }, group, reuse = inPlace, owner = owner)
         requeueDeletes(group)
         return ReplaceResult.Saved(ids + kept)
     }
@@ -199,7 +204,7 @@ class TransactionRepository @Inject constructor(
         inputs: List<NewTransaction>,
         group: String? = null,
         reuse: Set<String> = emptySet(),
-        owner: String = checkNotNull(session.writableUserId) { "no account is signed in" },
+        owner: String,
     ): List<String> {
         if (inputs.isEmpty()) return emptyList()
         val now = clock.instant()
@@ -243,8 +248,11 @@ class TransactionRepository @Inject constructor(
     }
 
     /** Deletes locally at once ([SyncEngine.enqueueDelete] handles never-synced and synced rows), then syncs. */
-    suspend fun delete(clientId: String) {
-        syncEngine.enqueueDelete(clientId)
+    suspend fun delete(clientId: String, expectedOwner: String? = session.writableUserId) {
+        val owner = checkNotNull(expectedOwner) { "no account is signed in" }
+        session.withWritableAccount(owner) {
+            db.withTransaction { if (tx.byClientId(clientId)?.ownerId == owner) syncEngine.enqueueDelete(clientId) }
+        }
         syncScheduler.requestAfterWrite()
     }
 

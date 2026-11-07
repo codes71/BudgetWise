@@ -52,8 +52,10 @@ class DefaultModelManager(
         localFailure.value = null
         if (files() != null) return
         val remaining = withContext(Dispatchers.IO) {
-            ModelStore.deleteStale(context)
-            VoicePack.downloadBytes - ModelStore.bytesOnDisk(context)
+            ModelStore.mutate {
+                ModelStore.deleteStale(context)
+                VoicePack.downloadBytes - ModelStore.bytesOnDisk(context)
+            }
         }.coerceAtLeast(0L)
         if (!storage.hasRoomFor(remaining)) {
             localFailure.value = ModelState.NOT_ENOUGH_STORAGE
@@ -72,7 +74,12 @@ class DefaultModelManager(
 
     override suspend fun delete() {
         workManager.cancelUniqueWork(ModelDownloadWorker.UNIQUE_NAME).await()
-        withContext(Dispatchers.IO) { ModelStore.packRoot(context).deleteRecursively() }
+        ModelStore.mutate {
+            withContext(Dispatchers.IO) {
+                val root = ModelStore.packRoot(context)
+                if (root.exists() && !root.deleteRecursively()) throw java.io.IOException("could not remove voice models")
+            }
+        }
         localFailure.value = null
         _state.value = ModelState.Missing
     }

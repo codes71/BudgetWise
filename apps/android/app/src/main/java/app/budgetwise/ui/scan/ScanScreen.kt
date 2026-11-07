@@ -746,6 +746,16 @@ internal fun ProblemCard(
             stringResource(R.string.scan_interrupted_title), stringResource(R.string.scan_interrupted_detail),
             tryAgain to onTryAgain, enterYourself to onEnterYourself,
         )
+        ScanProblem.AI_UNAVAILABLE -> Card(
+            Lucide.CloudOff, colors.blue,
+            stringResource(R.string.cloud_ai_unavailable_title), stringResource(R.string.cloud_ai_unavailable_body),
+            enterYourself to onEnterYourself, stringResource(R.string.scan_retake) to onRetake,
+        )
+        ScanProblem.AI_DECLINED -> Card(
+            Lucide.CircleAlert, colors.coralText,
+            stringResource(R.string.cloud_ai_declined_title), stringResource(R.string.cloud_ai_declined_body),
+            enterYourself to onEnterYourself, stringResource(R.string.scan_retake) to onRetake,
+        )
         ScanProblem.SERVER -> Card(
             Lucide.CloudAlert, colors.coralText,
             stringResource(R.string.login_error_server_title), stringResource(R.string.login_error_server),

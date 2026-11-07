@@ -516,7 +516,7 @@
     <string name="settings_voice_download">Download</string>
     <string name="settings_voice_failed">Voice download stopped</string>
     <string name="settings_cloud_parse">Understand what I say</string>
-    <string name="settings_cloud_parse_detail">Sends recognized words to Anthropic, or OpenAI if needed, never your voice. Voice needs this.</string>
+    <string name="settings_cloud_parse_detail">Sends recognized words to Pocket Peek and OpenAI or Anthropic when available, never your voice. You can type entries instead.</string>
     <string name="setup_voice_title">Say what you spend</string>
     <string name="setup_voice_subtitle">Tell Pocket Peek “coffee 3,000” in Burmese or English, and it writes the entry for you.</string>
     <string name="setup_voice_example_becomes">becomes %1$s</string>
@@ -720,4 +720,8 @@
     <string name="account_delete_local_failed">The account was deleted online, but cleanup on this phone did not finish. Enter your password and try again.</string>
     <string name="account_delete_failed">Deletion could not be confirmed. Your phone data is kept. Try again.</string>
     <string name="account_delete_done">Account deleted.</string>
+    <string name="cloud_ai_unavailable_title">AI is unavailable</string>
+    <string name="cloud_ai_unavailable_body">AI is unavailable for this request. You can enter it yourself.</string>
+    <string name="cloud_ai_declined_title">AI could not process this</string>
+    <string name="cloud_ai_declined_body">AI could not process this request. You can enter it yourself.</string>
 </resources>

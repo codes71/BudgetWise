@@ -8,6 +8,7 @@ import { req } from "../helpers/request";
 vi.mock("@/ai/generate", () => ({ generateStructured: vi.fn() }));
 import { generateStructured } from "@/ai/generate";
 import type { ScanOutput } from "@/ai/flows/scan-image";
+import { AiUnavailableError } from "@/ai/provider-policy";
 import { DeadlineError, RefusalError } from "@/ai/structured";
 
 const claude = vi.mocked(generateStructured);
@@ -393,5 +394,18 @@ describe("POST /api/v1/scan", () => {
     info.mockRestore();
     expect(errors).toBe(0);
     expect(lines).toContain("Scan cancelled");
+  });
+});
+
+
+describe("provider availability", () => {
+  it("returns an explicit manual-entry response when no provider is permitted", async () => {
+    claude.mockRejectedValue(new AiUnavailableError());
+    const response = await scan(tokenA);
+    expect(response.status).toBe(503);
+    expect((await response.json()).error).toEqual({
+      code: "ai_unavailable", message: "AI assistance is unavailable here. You can enter transactions manually.",
+    });
+    expect(await testDb().collection("transactions").countDocuments({})).toBe(0);
   });
 });

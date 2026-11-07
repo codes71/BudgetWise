@@ -5,6 +5,13 @@ import { sha256Hex, type MongoRecord } from "./mongodb";
 export const DELETION_JOURNAL = "_accountDeletionJournal";
 export const deletionIdentityKey = (userId: string): string => sha256Hex(`account-deletion:v1:${userId}`);
 
+/** Every recorded request suppresses normal access, regardless of cleanup progress or an old restored root. */
+export async function hasDeletionRequest(database: Db, userId: string, session?: ClientSession): Promise<boolean> {
+  return Boolean(await database.collection<MongoRecord>(DELETION_JOURNAL).findOne(
+    { _id: deletionIdentityKey(userId) }, { session, projection: { _id: 1 } },
+  ));
+}
+
 /** No email, password, transcript or financial data belongs in the suppression journal. */
 export async function recordDeletionRequest(database: Db, userId: string, session: ClientSession): Promise<void> {
   await database.collection<MongoRecord>(DELETION_JOURNAL).updateOne(

@@ -15,6 +15,10 @@ import { verifySession } from '@/lib/auth';
 import { authClientIp, authenticatePassword, limitSignIn, limitSignUp } from '@/lib/auth-credentials';
 import { loginSchema, registerSchema } from '@/lib/mobile/schemas';
 import { ApiError } from '@/lib/mobile/errors';
+import { AiUnavailableError } from '@/ai/provider-policy';
+import { listBudgets } from '@/lib/budgets';
+import { transactionsCol } from '@/lib/mobile/transactions-service';
+import { yangonDate } from '@/lib/mobile/scan';
 
 const secretKey = new TextEncoder().encode(process.env.JWT_SECRET);
 
@@ -178,28 +182,25 @@ export async function updateUser(formData: FormData) {
 }
 
 
-export async function generateSuggestions(transactions: Transaction[], budgets: Budget[]) {
-  if (!(await verifySession())) return { error: 'Sign in to use this feature.' };
-  const historicalData =
-    'category,amount,date\n' +
-    transactions
-      .filter((t) => t.type === 'expense')
-      .map((t) => `${t.category},${t.amount},${t.date}`)
-      .join('\n');
-
-  const budgetGoals =
-    'category,budget\n' +
-    budgets
-      .map((b) => (b.limit ? `${b.category},${b.limit}` : ''))
-      .filter(Boolean)
-      .join('\n');
-
+// Keep the existing action contract, but client arrays are not authority for a financial comparison.
+export async function generateSuggestions(_transactions: Transaction[], _budgets: Budget[]) {
+  const session = await verifySession();
+  if (!session || session.isGuest) return { error: 'Sign in to compare your saved spending and budgets.' };
   try {
-    const result = await getSpendingSuggestions({ historicalData, budgetGoals });
+    const today = yangonDate(new Date());
+    const [rows, budgets] = await Promise.all([
+      (await transactionsCol()).find({ userId: session.userId, type: 'expense',
+        date: { $gte: `${today.slice(0, 7)}-01`, $lte: today } },
+        { projection: { category: 1, amount: 1, date: 1, type: 1 } }).limit(10_001).toArray(),
+      listBudgets(session.userId),
+    ]);
+    const result = await getSpendingSuggestions({ transactions: rows.map((row) => ({
+      category: row.category, amount: row.amount, date: row.date, type: row.type,
+    })), budgets, today });
     return { suggestions: result.suggestions };
   } catch (error) {
-    logger.error('Error generating suggestions', error as Error);
-    return { error: 'Failed to generate suggestions. Please try again.' };
+    logger.error('Error generating suggestions', error);
+    return { error: 'Could not compare your saved spending and budgets. You can review them on the dashboard.' };
   }
 }
 
@@ -217,8 +218,7 @@ export async function getCategorySuggestion(description: string, categories: str
 export async function processScreenshot(base64Image: string) {
   if (!(await verifySession())) return { success: false, error: 'Sign in to use this feature.' };
   try {
-    // Call the Genkit flow function directly with the input.
-    // The flow function itself is the callable server action.
+    // The authenticated action calls the bounded extraction helper.
     const extractedData = await extractTransactionData({
       image: base64Image,
     });
@@ -232,7 +232,9 @@ export async function processScreenshot(base64Image: string) {
     logger.error("Error processing screenshot", error as Error);
     return {
       success: false,
-      error: "Failed to process screenshot. Please try again.",
+      error: error instanceof AiUnavailableError
+        ? "AI assistance is unavailable here. You can enter the transaction manually."
+        : "Failed to process screenshot. You can enter the transaction manually or try again.",
     };
   }
 }

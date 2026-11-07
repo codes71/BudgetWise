@@ -6,6 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
@@ -30,6 +32,43 @@ class VoiceReviewTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val today = LocalDate.parse("2026-11-02")
     private val entry = VoiceEntry(TxType.EXPENSE, 2000, "Food and Drink", "Mohinga", today.minusDays(1), dateGuessed = false)
+
+    @Test
+    fun unavailableAiOffersManualEntryAndCloseWithoutNetworkRetry() {
+        var manual = 0
+        var retries = 0
+        var closed = 0
+        compose.setContent {
+            BudgetWiseTheme {
+                VoiceScreen(VoiceUiState(today, VoicePhase.Problem(VoiceProblem.AiUnavailable)),
+                    VoiceActions(onTypeInstead = { manual++ }, onRetry = { retries++ }, onClose = { closed++ }))
+            }
+        }
+        compose.onNodeWithText(context.getString(R.string.cloud_ai_unavailable_title)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.cloud_ai_unavailable_body)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.action_try_again)).assertDoesNotExist()
+        compose.onAllNodesWithText(context.getString(R.string.voice_type_instead)).onLast().performClick()
+        compose.onNodeWithText(context.getString(R.string.action_close)).performClick()
+        compose.runOnIdle { assertEquals(1, manual); assertEquals(1, closed); assertEquals(0, retries) }
+    }
+
+    @Test
+    @Config(qualifiers = "my-rMM-w411dp-h914dp")
+    fun declinedAiExplainsManualEntryWithoutNetworkRetry() {
+        var manual = 0
+        var retries = 0
+        compose.setContent {
+            BudgetWiseTheme {
+                VoiceScreen(VoiceUiState(today, VoicePhase.Problem(VoiceProblem.AiDeclined)),
+                    VoiceActions(onTypeInstead = { manual++ }, onRetry = { retries++ }))
+            }
+        }
+        compose.onNodeWithText(context.getString(R.string.cloud_ai_declined_title)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.cloud_ai_declined_body)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.action_try_again)).assertDoesNotExist()
+        compose.onAllNodesWithText(context.getString(R.string.voice_type_instead)).onLast().performClick()
+        compose.runOnIdle { assertEquals(1, manual); assertEquals(0, retries) }
+    }
 
     @Test
     fun anEntryIsChangedOnAFormWithTheDayChipsAndKeepsTheChange() {

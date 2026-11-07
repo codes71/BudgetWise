@@ -119,6 +119,7 @@ class MonthEndViewModel @Inject constructor(
     private val sync: SyncControls,
     private val session: SessionManager,
 ) : ViewModel() {
+    private val openingOwner = session.writableUserId
     val month: YearMonth = handle.get<String>(ARG_MONTH)?.let(PlanEditorViewModel::parseMonth) ?: YearMonth.now(clock).minusMonths(1)
 
     private val asked = MutableStateFlow(false)
@@ -211,21 +212,21 @@ class MonthEndViewModel @Inject constructor(
         val gap = s.gapKyat.takeIf { s.addGap && it > 0 }
         // The account the screen was answered for. The check and the entry go to the active account, so each waits
         // until it is sure that is still this one.
-        val owner = session.activeUserId.value
+        val owner = openingOwner
         _state.update { it.copy(saving = true, error = null) }
         viewModelScope.launch {
             val error = withContext(NonCancellable) {
                 if (owner == null) return@withContext EndCheckError.SIGN_IN
                 if (session.activeUserId.value != owner) return@withContext EndCheckError.ACCOUNT_CHANGED
-                when (val result = plans.saveEndCheckSafely(month, onHand)) {
+                when (val result = plans.saveEndCheckSafely(owner, month, onHand)) {
                     is ApiResult.Ok -> {
                         // The month is checked: its reminder goes, whatever happens to the entry.
-                        reminders.checked(month)
+                        if (session.activeUserId.value == owner) reminders.checked(month)
                         when {
-                            gap == null -> null
                             // Another account became active while the check was saved: its ledger is not this one's.
                             session.activeUserId.value != owner -> EndCheckError.ACCOUNT_CHANGED
-                            !addGapEntry(gap, notRecorded) -> EndCheckError.ENTRY_FAILED
+                            gap == null -> null
+                            !addGapEntry(owner, gap, notRecorded) -> EndCheckError.ENTRY_FAILED
                             else -> null
                         }
                     }
@@ -238,8 +239,8 @@ class MonthEndViewModel @Inject constructor(
         }
     }
 
-    private suspend fun MonthPlanSource.saveEndCheckSafely(month: YearMonth, onHand: Long) = try {
-        saveEndCheck(month, onHand)
+    private suspend fun MonthPlanSource.saveEndCheckSafely(owner: String, month: YearMonth, onHand: Long) = try {
+        saveEndCheckForOwner(owner, month, onHand)
     } catch (e: CancellationException) {
         throw e
     } catch (_: Exception) {
@@ -248,8 +249,8 @@ class MonthEndViewModel @Inject constructor(
     }
 
     /** False when Room could not save it; the check is saved, so Next again saves it again and retries the entry. */
-    private suspend fun addGapEntry(gap: Long, description: String): Boolean = try {
-        transactions.addAll(
+    private suspend fun addGapEntry(owner: String, gap: Long, description: String): Boolean = try {
+        transactions.addAllForOwner(owner,
             listOf(NewTransaction(TxType.EXPENSE, gap, GAP_CATEGORY, description, month.atEndOfMonth(), Source.MANUAL, transcript = null)),
         )
         true

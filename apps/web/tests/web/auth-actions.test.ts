@@ -2,6 +2,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearDb, testDb } from "../helpers/db";
 import bcrypt from "bcryptjs";
 import { req } from "../helpers/request";
+import { scopedId } from "@/lib/mongodb";
+import { yangonDate } from "@/lib/mobile/scan";
 
 const { jar, requestHeaders } = vi.hoisted(() => ({ jar: new Map<string, string>(), requestHeaders: new Headers() }));
 
@@ -177,5 +179,31 @@ describe("getUserDetails and updateUser", () => {
     await testDb().collection("users").deleteOne({ _id: res.user.userId });
     expect(await actions.getUserDetails()).toBeNull();
     expect(await actions.updateUser(form({ fullName: "x" }))).toEqual({ error: "User not found" });
+  });
+});
+
+
+describe("budget observations use authenticated server data", () => {
+  it("requires sign-in instead of comparing arbitrary caller data", async () => {
+    expect(await actions.generateSuggestions([], [])).toEqual({ error: 'Sign in to compare your saved spending and budgets.' });
+  });
+  it("ignores client financial arrays and isolates the current owner and month", async () => {
+    const signed = await actions.signUp(form({ email: 'compare@example.com', password: 'synthetic-password' }));
+    if (!('user' in signed)) throw new Error(signed.error);
+    const userId = signed.user.userId;
+    const today = yangonDate(new Date());
+    const row = { userId, category: 'Food', amount: 12_000, type: 'expense', date: today };
+    await testDb().collection('transactions').insertMany([
+      { ...row, _id: scopedId(userId, 'own') },
+      { ...row, _id: scopedId('another-owner', 'other'), userId: 'another-owner', category: 'OTHER-OWNER-PRIVATE', amount: 900_000 },
+      { ...row, _id: scopedId(userId, 'old'), date: '2020-01-01', amount: 700_000 },
+      { ...row, _id: scopedId(userId, 'future'), date: '2099-01-01', amount: 800_000 },
+    ]);
+    await testDb().collection('budgets').insertOne({ _id: scopedId(userId, 'food'), userId, category: 'Food', limit: 10_000 });
+    const result = await actions.generateSuggestions([{ category: 'CLIENT-INJECTED', amount: 999_999 }] as never, []);
+    expect(result.suggestions).toHaveLength(1);
+    expect(result.suggestions?.[0]).toContain('12,000 Ks. This is 2,000 Ks over the 10,000 Ks budget');
+    expect(JSON.stringify(result)).not.toContain('OTHER-OWNER-PRIVATE');
+    expect(JSON.stringify(result)).not.toContain('CLIENT-INJECTED');
   });
 });

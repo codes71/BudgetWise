@@ -10,7 +10,7 @@ import {
 } from '@/ai/structured';
 import { logger } from '@/lib/logger';
 
-// Claude, the first choice for every AI flow. Reads ANTHROPIC_API_KEY from the environment (.env.local).
+// Claude is called only when the server eligibility policy permits it (generate.ts).
 export const CLAUDE_MODEL = 'claude-opus-5-5';
 
 let client: Anthropic | undefined;

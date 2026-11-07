@@ -8,10 +8,16 @@ import androidx.work.NetworkType
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.testing.WorkManagerTestInitHelper
+import androidx.work.testing.TestListenableWorkerBuilder
+import androidx.work.workDataOf
 import app.budgetwise.asr.download.ModelDownloadWorker
 import app.budgetwise.asr.download.ModelStore
 import app.budgetwise.asr.download.StorageCheck
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -299,6 +305,35 @@ class DefaultModelManagerTest {
         assertEquals(ModelState.Missing, m.state.value)
         assertNull(m.files())
         assertFalse(ModelStore.packRoot(context).exists())
+    }
+
+    @Test
+    fun cleanupWaitsForAnUnwindingWriterAndCannotLeaveRecreatedModels() = runBlocking<Unit> {
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        ModelDownloadWorker.fetcher = { f, dest, _ ->
+            if (!started.isCompleted) {
+                started.complete(Unit)
+                release.await()
+            }
+            dest.parentFile!!.mkdirs()
+            java.io.RandomAccessFile(dest, "rw").use { it.setLength(f.bytes) }
+        }
+        // A direct worker models IO still finishing after WorkManager acknowledges cancellation.
+        val worker = TestListenableWorkerBuilder<ModelDownloadWorker>(context)
+            .setInputData(workDataOf(ModelDownloadWorker.KEY_PACK to VoicePack.VERSION)).build()
+        val download = async(Dispatchers.Default) { worker.doWork() }
+        withTimeout(5_000) { started.await() }
+        val deletion = async(Dispatchers.Default) { manager().delete() }
+        try {
+            delay(100)
+            assertFalse("cleanup must wait for the writer", deletion.isCompleted)
+        } finally {
+            release.complete(Unit)
+        }
+        withTimeout(5_000) { download.await(); deletion.await() }
+        assertFalse(ModelStore.packRoot(context).exists())
+        assertNull(ModelStore.verified(context))
     }
 
     @Test

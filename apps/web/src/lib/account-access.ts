@@ -1,6 +1,7 @@
 import type { ClientSession } from "mongodb";
 import { db, isDocId, type MongoRecord } from "@/lib/mongodb";
 import { ApiError } from "@/lib/mobile/errors";
+import { hasDeletionRequest } from "@/lib/account-deletion-journal";
 
 const unauthorized = () => new ApiError(401, "unauthorized", "Authentication required");
 
@@ -23,6 +24,9 @@ export async function requireAccountRecord(userId: string, session?: ClientSessi
  */
 export async function requireActiveAccount(userId: string, session?: ClientSession): Promise<void> {
   if (!isDocId(userId)) throw unauthorized();
+  // A preserved journal is authoritative even if a recovery accidentally restores an unlocked old root.
+  // Keep the root write below: this journal read alone cannot fence a concurrent deletion transaction.
+  if (await hasDeletionRequest(await db(), userId, session)) throw unauthorized();
   if (!session) {
     if ((await requireAccountRecord(userId)).deletionStartedAt) throw unauthorized();
     return;

@@ -454,7 +454,7 @@
     <string name="settings_voice_download">ဒေါင်းလုဒ်</string>
     <string name="settings_voice_failed">အသံ ဒေါင်းလုဒ် ရပ်သွားသည်</string>
     <string name="settings_cloud_parse">ပြောသည်ကို နားလည်ရန်</string>
-    <string name="settings_cloud_parse_detail">နားလည်ရရှိသော စကားလုံးများကို Anthropic၊ လိုအပ်လျှင် OpenAI သို့ ပို့ပြီး အသံကို မပို့ပါ။ အသံဖြင့် ထည့်ရန် ဤအရာ လိုသည်။</string>
+    <string name="settings_cloud_parse_detail">ရရှိသည့် စာသားကို Pocket Peek နှင့် ရရှိနိုင်သော OpenAI သို့မဟုတ် Anthropic သို့ ပို့ပါသည်။ အသံကို မပို့ပါ။ ကိုယ်တိုင် စာရိုက်ထည့်နိုင်ပါသည်။</string>
     <string name="setup_voice_title">သုံးငွေကို ပြောပါ</string>
     <string name="setup_voice_subtitle">Pocket Peek ကို “ကော်ဖီ သုံးထောင်” ဟု မြန်မာ သို့မဟုတ် အင်္ဂလိပ်လို ပြောလျှင် စာရင်းကို ရေးပေးပါမည်။</string>
     <string name="setup_voice_example_becomes">%1$s ဖြစ်လာမည်</string>
@@ -640,4 +640,8 @@
     <string name="account_delete_local_failed">အွန်လိုင်းအကောင့်ကို ဖျက်ပြီးသော်လည်း ဖုန်းမှ ရှင်းလင်းခြင်း မပြီးပါ။ စကားဝှက်ထည့်၍ ထပ်စမ်းပါ။</string>
     <string name="account_delete_failed">ဖျက်ပြီးကြောင်း အတည်မပြုနိုင်ပါ။ ဖုန်းအချက်အလက်ကို ဆက်ထားပါသည်။ ထပ်စမ်းပါ။</string>
     <string name="account_delete_done">အကောင့်ကို ဖျက်ပြီးပါပြီ။</string>
+    <string name="cloud_ai_unavailable_title">AI ကို အသုံးမပြုနိုင်ပါ</string>
+    <string name="cloud_ai_unavailable_body">ဤတောင်းဆိုမှုအတွက် AI ကို အသုံးမပြုနိုင်ပါ။ ကိုယ်တိုင် စာရင်းထည့်နိုင်ပါသည်။</string>
+    <string name="cloud_ai_declined_title">AI က ဤအရာကို မဖတ်နိုင်ပါ</string>
+    <string name="cloud_ai_declined_body">AI က ဤတောင်းဆိုမှုကို မဆောင်ရွက်နိုင်ပါ။ ကိုယ်တိုင် စာရင်းထည့်နိုင်ပါသည်။</string>
 </resources>

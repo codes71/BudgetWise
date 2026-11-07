@@ -7,6 +7,7 @@ import { req } from "../helpers/request";
 vi.mock("@/ai/generate", () => ({ generateStructured: vi.fn() }));
 import { generateStructured } from "@/ai/generate";
 import type { VoiceOutput } from "@/ai/flows/parse-voice";
+import { AiUnavailableError } from "@/ai/provider-policy";
 import { DeadlineError, RefusalError } from "@/ai/structured";
 
 const claude = vi.mocked(generateStructured);
@@ -247,5 +248,18 @@ describe("POST /api/v1/voice/parse", () => {
     quiet.mockRestore();
     expect(res.status).toBe(504);
     expect((await res.json()).error.code).toBe("parse_timeout");
+  });
+});
+
+
+describe("provider availability", () => {
+  it("returns an explicit manual-entry response when no provider is permitted", async () => {
+    claude.mockRejectedValue(new AiUnavailableError());
+    const response = await parse(tokenA);
+    expect(response.status).toBe(503);
+    expect((await response.json()).error).toEqual({
+      code: "ai_unavailable", message: "AI assistance is unavailable here. You can enter transactions manually.",
+    });
+    expect(await testDb().collection("transactions").countDocuments({})).toBe(0);
   });
 });

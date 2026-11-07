@@ -83,6 +83,19 @@ class MonthEndViewModelTest {
         mutableListOf<MonthEndEvent>().also { list -> backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.toList(list) } }
 
     @Test
+    fun anEndCheckOpenedByOneAccountCannotBeSentForTheNextAccount() = runTest {
+        val vm = vm()
+        vm.onAnswer(OnHand.YES)
+        session.signIn("new-token", clock.instant().plus(Duration.ofDays(20)), TestUser.copy(id = "another-owner", email = "another@example.com"))
+        store.writableOwner = "another-owner"
+        plans.writableOwner = "another-owner"
+        vm.next("Not recorded")
+        assertTrue(plans.endChecks.isEmpty())
+        assertTrue(store.added.isEmpty())
+        assertEquals(EndCheckError.ACCOUNT_CHANGED, vm.state.value.error)
+    }
+
+    @Test
     fun showsWhatIsLeftOfTheMonthAndAsksTheServerForItsPlan() = runTest {
         val state = vm().state.value
 
