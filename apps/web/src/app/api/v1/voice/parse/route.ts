@@ -39,7 +39,7 @@ export const POST = handle(async (req) => {
     }
     if (err instanceof RefusalError) {
       // Final: the same words are declined again, so the phone is not told to resend them.
-      logger.warn("Voice parse declined by the model", { ms, error: err.message });
+      logger.warn("Voice parse declined by the model", { ms });
       throw new ApiError(422, "parse_declined", "That could not be understood");
     }
     if (err instanceof DeadlineError) {

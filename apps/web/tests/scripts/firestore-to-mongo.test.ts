@@ -3,7 +3,7 @@ import { mkdtemp, chmod, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Timestamp, GeoPoint, type Firestore } from "firebase-admin/firestore";
-import { Long, type Db, type Document } from "mongodb";
+import { Long, MongoClient, type Db, type Document } from "mongodb";
 import { captureSource, encodeValue, makeSnapshot, readSnapshot, summarize, validateSnapshot, writeSnapshot, type SnapshotDocument } from "../../scripts/firestoreSnapshot";
 import { assertSourceUnchanged, canonicalBson, importSnapshot, inspectDestination, planMigration, planSummary } from "../../scripts/migrateFirestoreToMongo";
 
@@ -16,7 +16,8 @@ function fakeMongo(initial: Record<string, Document[]> = {}) {
   const collections = new Map(Object.entries(initial).map(([key, rows]) => [key, new Map(rows.map((r) => [String(r._id), r]))]));
   const writes: string[] = [];
   const db = {
-    databaseName: "pocketpeek_migration_test",
+    databaseName: "test-pocketpeek-migration",
+    client: new MongoClient("mongodb://127.0.0.1:27017"), // Never connected.
     listCollections() { return { toArray: async () => [...collections.keys()].map((name) => ({ name })) }; },
     collection(name: string) {
       return {
@@ -220,7 +221,7 @@ describe("create-only migration verification", () => {
     expect(mongo.writes).toEqual([]);
   });
   it("rejects a marker from another snapshot or database", async () => {
-    const mongo = fakeMongo({ _migrationControl: [{ _id: "firestore-to-mongo-v1", snapshotSha256: "wrong", sourceProjectId: project, destinationDb: "pocketpeek_migration_test" }] });
+    const mongo = fakeMongo({ _migrationControl: [{ _id: "firestore-to-mongo-v1", snapshotSha256: "wrong", sourceProjectId: project, destinationDb: "test-pocketpeek-migration" }] });
     await expect(inspectDestination(mongo.db, plan, s)).rejects.toThrow("different migration");
   });
   it("rejects source drift, even though the destination could already be exact", async () => {

@@ -143,4 +143,12 @@ describe("POST /api/v1/auth/token", () => {
     expect((await login({ email: "", password: "x" })).status).toBe(422);
     expect((await login({ email: "a@b.co" })).status).toBe(422);
   });
+
+  it("rejects an oversized body before password hashing or account lookup", async () => {
+    const spy = vi.spyOn(bcrypt, "compare");
+    const res = await login({ email: "alice@example.com", password: "x".repeat(17000) });
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ error: { code: "payload_too_large", message: "Request body is too large" } });
+    expect(spy).not.toHaveBeenCalled();
+  });
 });

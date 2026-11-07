@@ -3,6 +3,7 @@ import { db, isDocId, sha256Hex, withTransaction, type MongoRecord } from "@/lib
 import { emailDocId } from "@/lib/users";
 import { ApiError } from "@/lib/mobile/errors";
 import { rateLimit } from "@/lib/mobile/rate-limit";
+import { DELETION_JOURNAL, recordActiveStoreDeletion, recordDeletionRequest } from "@/lib/account-deletion-journal";
 
 const userRateKeys = (userId: string) => [
   `scan:user:${userId}`, `voice:user:${userId}`, `delete-account:user:${userId}`,
@@ -10,7 +11,7 @@ const userRateKeys = (userId: string) => [
 
 async function purgeChildren(userId: string): Promise<void> {
   const database = await db();
-  const shared = new Set(["users", "userEmails", "rateLimits", "categories"]);
+  const shared = new Set(["users", "userEmails", "rateLimits", "categories", DELETION_JOURNAL]);
   for (const { name } of await database.listCollections({}, { nameOnly: true }).toArray()) {
     if (shared.has(name) || name.startsWith("system.")) continue;
     // Known runtime records and future flat collections use userId. Lossless migration companions use ownerId.
@@ -24,8 +25,15 @@ async function purgeChildren(userId: string): Promise<void> {
 /** Earlier versions allowed orphan child records; absence of the root alone is not proof deletion completed. */
 async function finishMissingAccount(userId: string): Promise<void> {
   try {
-    await purgeChildren(userId);
     const database = await db();
+    // Record suppression before removing old orphan records, including retries of pre-journal deletions.
+    await withTransaction(async (session) => {
+      if (await database.collection<MongoRecord>("users").findOne({ _id: userId }, { session })) {
+        throw new Error("Account identity unexpectedly exists");
+      }
+      await recordDeletionRequest(database, userId, session);
+    });
+    await purgeChildren(userId);
     await withTransaction(async (session) => {
       if (await database.collection<MongoRecord>("users").findOne({ _id: userId }, { session })) {
         throw new Error("Account identity unexpectedly exists");
@@ -34,6 +42,7 @@ async function finishMissingAccount(userId: string): Promise<void> {
       await database.collection<MongoRecord>("rateLimits").deleteMany(
         { _id: { $in: userRateKeys(userId).map(sha256Hex) } }, { session },
       );
+      await recordActiveStoreDeletion(database, userId, session);
     });
   } catch {
     throw new ApiError(503, "deletion_incomplete", "Deletion has started but could not finish. Please try again.");
@@ -42,7 +51,8 @@ async function finishMissingAccount(userId: string): Promise<void> {
 
 /**
  * Deletes one authenticated account. The root remains as a write lock and reauthentication record until all
- * owned child collections are gone. No permanent identity tombstone is retained after success.
+ * owned child collections are gone. A minimal identity-hash journal survives the root so recovery-copy
+ * cleanup remains pending and future reviewed restores can suppress the deleted identity.
  */
 export async function deleteAccount(userId: string, password: string): Promise<void> {
   if (!isDocId(userId)) throw new ApiError(401, "unauthorized", "Authentication required");
@@ -76,6 +86,8 @@ export async function deleteAccount(userId: string, password: string): Promise<v
     await users.updateOne({ _id: userId }, {
       $set: { deletionStartedAt: current.deletionStartedAt || new Date() }, $inc: { _writeFence: 1 },
     }, { session });
+    // A journal failure rolls back the lock too. No purge can run without durable recovery-cleanup intent.
+    await recordDeletionRequest(database, userId, session);
     return { emailLower };
   });
   if (!claimed) return finishMissingAccount(userId);
@@ -99,6 +111,7 @@ export async function deleteAccount(userId: string, password: string): Promise<v
         { _id: { $in: accountRateKeys.map(sha256Hex) } }, { session },
       );
       await users.deleteOne({ _id: userId }, { session });
+      await recordActiveStoreDeletion(database, userId, session);
     });
   } catch {
     // Retain the lock and password for a same-identity, password-verified retry. Never report partial success.

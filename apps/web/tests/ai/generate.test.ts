@@ -36,7 +36,8 @@ describe("generateStructured", () => {
     openai.mockResolvedValue({ category: "Transport" });
     await expect(generateStructured(request)).resolves.toEqual({ category: "Transport" });
     expect(openai).toHaveBeenCalledWith(request);
-    expect(String(vi.mocked(console.warn).mock.calls[0][0])).toContain("529 Error: Overloaded");
+    expect(JSON.parse(String(vi.mocked(console.warn).mock.calls[0][0])).context.status).toBe(529);
+    expect(String(vi.mocked(console.warn).mock.calls[0][0])).not.toContain("Overloaded");
   });
 
   it("does not move a refusal to OpenAI", async () => {
@@ -45,11 +46,11 @@ describe("generateStructured", () => {
     expect(openai).not.toHaveBeenCalled();
   });
 
-  it("throws Claude's error when OpenAI is not configured", async () => {
+  it("throws a content-free failure when OpenAI is not configured", async () => {
     configured.mockReturnValue(false);
     const err = new Error("connection refused");
     claude.mockRejectedValue(err);
-    await expect(generateStructured(request)).rejects.toBe(err);
+    await expect(generateStructured(request)).rejects.toThrow('Claude failed (unexpected)');
     expect(openai).not.toHaveBeenCalled();
   });
 
@@ -65,7 +66,7 @@ describe("generateStructured", () => {
     claude.mockRejectedValue(new Error("timed out"));
     openai.mockRejectedValue(Object.assign(new Error("rate limited"), { status: 429 }));
     await expect(generateStructured(request)).rejects.toThrow(
-      "Claude failed (Error: timed out); OpenAI failed (429 Error: rate limited)",
+      "Claude failed (unexpected); OpenAI failed (http 429)",
     );
   });
 });
@@ -116,7 +117,7 @@ describe("generateStructured with a deadline", () => {
     claude.mockRejectedValue(err);
     const out = generateStructured(within(7_000));
     await expect(out).rejects.toBeInstanceOf(DeadlineError);
-    await expect(out).rejects.toMatchObject({ cause: err });
+    await expect(out).rejects.not.toHaveProperty("cause");
     expect(openai).not.toHaveBeenCalled();
   });
 
@@ -146,8 +147,35 @@ describe("generateStructured with a deadline", () => {
     gone.abort();
     const err = new Error("Request was aborted.");
     claude.mockRejectedValue(err);
-    await expect(generateStructured({ ...within(50_000), signal: gone.signal })).rejects.toBe(err);
+    await expect(generateStructured({ ...within(50_000), signal: gone.signal })).rejects.toThrow('AI request cancelled.');
     expect(openai).not.toHaveBeenCalled();
     expect(console.warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("private provider errors", () => {
+  it('sanitizes non-fallback and refusal failures before framework reporting can see them', async () => {
+    const marker = 'PRIVATE-TRANSCRIPT-SENTINEL';
+    configured.mockReturnValue(false);
+    for (const error of [new Error(marker, { cause: new Error(marker) }), new RefusalError(marker)]) {
+      claude.mockRejectedValue(error);
+      const failure = await generateStructured(request).catch((value: Error) => value);
+      expect(failure).toBeInstanceOf(Error);
+      expect(String(failure)).not.toContain(marker);
+      expect(failure).not.toHaveProperty('cause');
+    }
+  });
+  it("keeps provider messages, nested causes and stacks out of fallback logs and combined errors", async () => {
+    const marker = "PRIVATE-RECEIPT-AND-PASSWORD-SENTINEL";
+    claude.mockRejectedValue(Object.assign(new Error(marker, { cause: new Error(marker) }), {
+      status: 529, name: marker, stack: marker,
+    }));
+    openai.mockRejectedValue(Object.assign(new Error(marker), { status: 429, stack: marker }));
+    const failure = await generateStructured({ ...request, flow: "scan" }).catch((error: Error) => error);
+    expect(failure).toBeInstanceOf(Error);
+    expect(String(failure)).toContain("http 529");
+    expect(String(failure)).not.toContain(marker);
+    expect(failure).not.toHaveProperty("cause");
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain(marker);
   });
 });

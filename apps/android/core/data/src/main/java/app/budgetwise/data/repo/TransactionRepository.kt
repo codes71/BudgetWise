@@ -104,9 +104,12 @@ class TransactionRepository @Inject constructor(
      * id this account already holds is the same entry saved again, and is skipped. Description and transcript go through [BurmeseTextNormalizer.prepare] (Zawgyi to Unicode, NFC,
      * whitespace) before they are stored. Throws [IllegalStateException] when no account is signed in.
      */
-    suspend fun addAll(inputs: List<NewTransaction>): List<String> {
+    suspend fun addAll(inputs: List<NewTransaction>, expectedOwner: String? = session.writableUserId): List<String> {
         if (inputs.isEmpty()) return emptyList()
-        val ids = db.withTransaction { store(inputs) }
+        val owner = checkNotNull(expectedOwner) { "no account is signed in" }
+        val ids = session.withWritableAccount(owner) {
+            db.withTransaction { store(inputs, owner = owner) }
+        }
         if (ids.isNotEmpty()) syncScheduler.requestAfterWrite()
         return ids
     }
@@ -192,9 +195,13 @@ class TransactionRepository @Inject constructor(
      * [addAll]'s rows and CREATE ops, part of the edit [group] when there is one; the caller holds the Room transaction.
      * [reuse] are tombstones of entries rewritten in place: an input with one of those ids takes it over.
      */
-    private suspend fun store(inputs: List<NewTransaction>, group: String? = null, reuse: Set<String> = emptySet()): List<String> {
+    private suspend fun store(
+        inputs: List<NewTransaction>,
+        group: String? = null,
+        reuse: Set<String> = emptySet(),
+        owner: String = checkNotNull(session.writableUserId) { "no account is signed in" },
+    ): List<String> {
         if (inputs.isEmpty()) return emptyList()
-        val owner = checkNotNull(session.writableUserId) { "no account is signed in" }
         val now = clock.instant()
         // Converting Zawgyi to Unicode can lengthen the text, so the server's limit is checked on what is stored.
         val descriptions = inputs.map { BurmeseTextNormalizer.prepare(it.description) }

@@ -231,6 +231,12 @@ class FakeTransactionStore(initial: List<Transaction> = emptyList()) : Transacti
         return ids
     }
 
+    val savedForOwners = mutableListOf<String>()
+    override suspend fun addAllForOwner(owner: String, inputs: List<NewTransaction>): List<String> {
+        savedForOwners += owner
+        return addAll(inputs)
+    }
+
     override suspend fun delete(clientId: String) {
         deleted += clientId
         rows.value = rows.value.filterNot { it.clientId == clientId }

@@ -1,6 +1,7 @@
-/** Read-only Firestore export and create-only Mongo import. Never deletes or updates source data. */
+/** Read-only Firestore export/verification; create-only imports are now restricted to isolated fixtures. */
 import { BSON, Long, MongoClient, type Db, type Document } from "mongodb";
 import { Firestore, Timestamp } from "firebase-admin/firestore";
+import { assertSyntheticFirestoreSource, assertSyntheticMongoTarget, RECOVERY_WRITE_BLOCKED } from "./recoveryWriteSafety";
 import {
   captureSource, digest, MigrationError, readSnapshot, summarize, writeSnapshot,
   type Encoded, type FirestoreSnapshot, type SnapshotDocument,
@@ -109,6 +110,8 @@ export async function inspectDestination(mongo: Db, plan: PlannedDocument[], sna
 
 /** Only insertOne is used for app records. Existing matching records are resumable; differences abort. */
 export async function importSnapshot(mongo: Db, snapshot: FirestoreSnapshot, plan: PlannedDocument[]): Promise<{ inserted: number; matching: number }> {
+  assertSyntheticFirestoreSource(snapshot.projectId);
+  assertSyntheticMongoTarget(mongo);
   const before = await inspectDestination(mongo, plan, snapshot);
   const controls = mongo.collection<Document & { _id: string }>(CONTROL);
   const current = await controls.findOne({ _id: CONTROL_ID });
@@ -160,6 +163,7 @@ function connectSource(projectId: string): Firestore {
 
 export async function main(args = process.argv.slice(2)): Promise<void> {
   const flags = parseArgs(args), mode = flags.mode, project = flags["source-project"];
+  if (mode === "import") throw new MigrationError(RECOVERY_WRITE_BLOCKED);
   let source: Firestore | undefined, client: MongoClient | undefined;
   try {
     if (mode === "export") {

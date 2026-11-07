@@ -1,4 +1,4 @@
-/** Explicit one-time server-side import. Source credentials and plaintext snapshots never leave process memory. */
+/** Historical server-side importer. Real entry point is disabled pending a reviewed deletion-aware restore. */
 import { MongoClient, type Db, type Document } from "mongodb";
 import type { Firestore } from "firebase-admin/firestore";
 import { ensureIndexes, mongoClient as runtimeMongoClient } from "../src/lib/mongodb";
@@ -6,6 +6,7 @@ import { MigrationError, summarize, type FirestoreSnapshot } from "./firestoreSn
 import { configuredSource, captureStableSource } from "./exportFirestoreEncrypted";
 import { assertSourceUnchanged, canonicalBson, importSnapshot, inspectDestination, planMigration, planSummary, type PlannedDocument } from "./migrateFirestoreToMongo";
 import { encryptSnapshot, readPublicSnapshotKey, writeEncryptedSnapshot } from "./snapshotEncryption";
+import { RECOVERY_WRITE_BLOCKED, assertSyntheticFirestoreSource, assertSyntheticMongoTarget } from "./recoveryWriteSafety";
 
 export interface LiveImportFlags {
   "expect-source-project": string;
@@ -118,6 +119,9 @@ const defaults: LiveImportDependencies = {
 
 /** Injectable only for local pure tests. The CLI always uses the real guarded dependencies above. */
 export async function runLiveImport(flags: LiveImportFlags, dependencies: LiveImportDependencies = defaults) {
+  // The completed cutover is historical. Real live-source writes require a new journal-aware restore.
+  if (dependencies === defaults) throw new MigrationError(RECOVERY_WRITE_BLOCKED);
+  assertSyntheticFirestoreSource(flags["expect-source-project"]);
   // Validate programmatic callers as strictly as the CLI before using either credential environment.
   liveImportArgs(Object.entries(flags).flatMap(([key, value]) => [`--${key}`, value]));
   if (process.env.MONGODB_DB !== flags["mongo-db"]) throw new MigrationError("MONGODB_DB must exactly match the explicit --mongo-db destination.");
@@ -134,6 +138,7 @@ export async function runLiveImport(flags: LiveImportFlags, dependencies: LiveIm
     // An authenticated encrypted backup must be durably written before any target records or indexes can be created.
     await dependencies.encryptedBackup(snapshot, publicKey, flags["encrypted-output"]);
     target = await dependencies.connectMongo(uri, flags["mongo-db"]);
+    assertSyntheticMongoTarget(target.database);
     if (target.database.databaseName !== flags["mongo-db"]) throw new MigrationError("Connected MongoDB destination does not match the explicit target.");
     await dependencies.noTtl(target.database);
     await dependencies.sourceUnchanged(source, snapshot);

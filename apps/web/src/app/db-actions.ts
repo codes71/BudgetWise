@@ -56,7 +56,6 @@ function toWebTransaction(userId: string, row: LeanTransaction): Transaction {
 
 export async function getTransactions(): Promise<Transaction[]> {
   const userId = await getUserId();
-  console.log('Fetching transactions for user:', userId);
   const docs = await (await transactionsCol()).find({ userId }).toArray();
   // Newest date first.
   return docs

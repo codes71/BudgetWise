@@ -2,7 +2,19 @@
 
 Pocket Peek uses its existing server API and custom bcrypt/JWT authentication. This migration changes the server database, preserving logical account and record IDs, existing password hashes, and API response shapes. Google sign-in remains a separate feature. The Android Room database and the existing BudgetWise installation are not modified by these tools.
 
-The tools are implemented in `apps/web/scripts/firestoreSnapshot.ts` and `apps/web/scripts/migrateFirestoreToMongo.ts`. They do not delete, update, or seed Firestore. The completed production migration is recorded below. The commands remain a historical/operator runbook, not instructions to rerun import against the now-live destination.
+The tools are implemented in `apps/web/scripts/firestoreSnapshot.ts` and `apps/web/scripts/migrateFirestoreToMongo.ts`. They do not delete, update, or seed Firestore. The completed production migration is recorded below. Import commands shown here are historical receipts of the migration process, not runnable recovery instructions. The current CLI rejects `--mode import`, the live-source import entry point, and reverse-copy `--write` before store access. Read-only export, verification and local authenticated decryption remain available. Fixture-only write helpers require local `test-pocketpeek-*` Mongo databases and demo Firestore sources or an actual loopback emulator target.
+
+## Deletion journal and recovery safety
+
+The account-deletion request now records `_accountDeletionJournal` in the same majority-committed Mongo transaction that locks the account. The journal key is SHA-256 of a versioned domain plus the immutable account ID. It stores request time, active-store status/completion time, and `recoveryCleanup: pending`. It contains no email, password hash, profile, transcript or financial values. Hashes are pseudonymous identifiers, not anonymous data. New accounts can reuse an email because suppression refers to the old immutable account ID.
+
+The journal is excluded from account-child purges, survives root deletion and lost-response retries, and is created before orphan cleanup when an authenticated old identity has no root. A failure to record the request rolls back the lock and prevents a purge. Only runtime and imported companion removal changes `activeStore` to `complete`; it never changes `recoveryCleanup` to complete. No TTL, expiry deadline, background purge, Firestore mutation or encrypted-backup deletion is implemented by this change.
+
+The journal lives in the existing runtime database, separate from account-owned records. It must remain authoritative outside anything being restored. Never replace it with an older database snapshot, include an old copy as restore authority, or delete it during rollback. Whole-database recovery must preserve the latest journal separately and merge its complete deletion history before restoring account records. A journal missing from an old snapshot does not mean no account has been deleted. These rules also apply to new Mongo snapshots, provider recovery copies and rollback to retained Firestore.
+
+Historical migration tools cannot safely implement that contract, so their production writes now fail closed. There is no production bypass flag. `importSnapshot` permits only demo-project fixtures into test databases whose constructed Mongo client has exclusively loopback endpoints; reverse-copy fixture writes also verify the constructed Firestore client uses a demo project and loopback emulator. Unknown transport shapes fail closed. A future production restore needs separately reviewed code using the latest authoritative journal, suppression for roots, email claims, every owned/archived descendant, and a write freeze or equivalent transaction fencing so deletion cannot race with restoration. Count/hash parity against an old snapshot alone is insufficient.
+
+This is a code safeguard and durable cleanup intent, not proof that recovery copies were removed. Retained Firestore data, encrypted local snapshots, backup-only deployments and provider recovery copies still need an owner-approved inventory, physical cleanup procedure, retention basis/window and verification. No such live action or retention decision is authorized by this source change. The API's successful active-account deletion response does not attest that those operations have completed. Resolve the recovery operations and policy before production promotion or claiming the complete deletion lifecycle is ready.
 
 ## Completed migration and live cutover (7 November 2026)
 
@@ -194,7 +206,7 @@ The bounded exporter permits at most 128 MiB of serialized plaintext in memory a
 
 After preserving and verifying the private backup, retire the backup-only deployment through the normal approved lifecycle. Do not remove a deployment while it is still the only verified copy of the encrypted backup, and never delete the Firestore source as backup cleanup.
 
-## Explicit live-source import inside the established credential environment
+## Historical live-source import inside the established credential environment
 
 `scripts/importFirestoreLiveToMongo.ts` is a separate one-time entry point for a final frozen-source migration when Firestore credentials must remain inside the established production build environment. It is never invoked by the ordinary app, API, or package build. Read it and its imported helpers end-to-end before staging it. The parent must already have completed the old-writer freeze, independently reviewed the **final** encrypted export's source project and fingerprint, and approved the exact empty Atlas target.
 

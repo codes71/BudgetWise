@@ -59,9 +59,13 @@ class ScanViewModelTest {
 
     /** The server never answers (a stalled upload): the read is only ended by its time limit or Cancel. */
     private var hang = false
-    private val scanner = ReceiptScanner { image, _ ->
+    private var scanGate: CompletableDeferred<Unit>? = null
+    private val scannedForOwners = mutableListOf<String>()
+    private val scanner = ReceiptScanner { image, _, owner ->
         sent += image
+        scannedForOwners += owner
         if (hang) awaitCancellation()
+        scanGate?.await()
         reply
     }
     private val network = FakeNetworkStatus(online = false)
@@ -78,7 +82,11 @@ class ScanViewModelTest {
         viewModel(SavedStateHandle(saved.keys().associateWith { saved.get<Any>(it) }))
 
     /** [ScanPhotos] in memory: the "disk" outlives a view model, as the cache file outlives the process. */
-    private class FakeScanPhotos : ScanPhotos {
+    private class FakeScanPhotos : ScanPhotos, ScanPhotoStore {
+        override var owner = "test-owner"
+        override val id = "test-scan"
+        override var active = true
+        override fun begin(restoredId: String?) = this
         var opened: OpenedPhoto? = null
         var dark = false
         var failure: Throwable? = null
@@ -743,5 +751,65 @@ class ScanViewModelTest {
         again.captured(camera)
         again.retake()
         assertNull(photos.disk)
+    }
+
+    @Test
+    fun anotherOwnerCannotRestoreThePreviousOwnersReviewOrPhoto() = runTest {
+        val saved = SavedStateHandle()
+        viewModel(saved).captured(camera)
+        assertNotNull(photos.disk)
+        photos.owner = "another-owner"
+        val restored = afterProcessDeath(saved)
+        assertEquals(ScanStage.CAMERA, restored.state.value.stage)
+        assertTrue(restored.state.value.lines.isEmpty())
+        assertNull(restored.photo)
+        assertEquals(1, sent.size)
+    }
+
+    @Test
+    fun accountTransitionDuringPreparationCannotUploadOrSaveTheOldReceipt() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        photos.gate = gate
+        val vm = viewModel()
+        vm.captured(camera)
+        photos.active = false
+        gate.complete(Unit)
+        assertTrue(sent.isEmpty())
+        assertEquals(ScanStage.CAMERA, vm.state.value.stage)
+        vm.addEntries { it.category }
+        assertTrue(store.added.isEmpty())
+    }
+
+    @Test
+    fun accountTransitionAfterReviewCannotSaveItsEntriesToTheNextOwner() = runTest {
+        val vm = viewModel()
+        vm.captured(camera)
+        assertEquals(ScanStage.REVIEW, vm.state.value.stage)
+        photos.active = false
+        vm.addEntries { it.category }
+        assertEquals(ScanStage.CAMERA, vm.state.value.stage)
+        assertTrue(store.added.isEmpty())
+    }
+
+    @Test
+    fun lateNetworkReplyCannotRestoreAReviewAfterAccountTransition() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        scanGate = gate
+        val vm = viewModel()
+        vm.captured(camera)
+        photos.active = false
+        photos.owner = "another-owner"
+        gate.complete(Unit)
+        assertEquals(listOf("test-owner"), scannedForOwners)
+        assertEquals(ScanStage.CAMERA, vm.state.value.stage)
+        assertTrue(vm.state.value.lines.isEmpty())
+    }
+
+    @Test
+    fun scanSaveCarriesTheOwnerThatOpenedTheScanToTheRepositoryBoundary() = runTest {
+        val vm = viewModel()
+        vm.captured(camera)
+        vm.addEntries { it.category }
+        assertEquals(listOf("test-owner"), store.savedForOwners)
     }
 }

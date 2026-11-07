@@ -98,7 +98,7 @@ export async function openaiStructured<Schema extends z.ZodType>({
       model: OPENAI_MODEL,
       reasoning: { effort },
       max_output_tokens: 16000,
-      // Receipts and what people say about their money are not kept on OpenAI's side.
+      // Disables response application-state storage. Provider safety retention can still apply.
       store: false,
       input: [{ role: 'user', content: toOpenAIContent(content) }],
       text: { format: { type: 'json_schema', name: 'output', strict: true, schema: strictSchema(json) } },
@@ -109,7 +109,6 @@ export async function openaiStructured<Schema extends z.ZodType>({
   logger.info('OpenAI answered', {
     flow,
     ms: Date.now() - started,
-    model: response.model,
     status: response.status,
     inputTokens: response.usage?.input_tokens,
     outputTokens: response.usage?.output_tokens,

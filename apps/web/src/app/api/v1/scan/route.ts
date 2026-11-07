@@ -58,7 +58,7 @@ export const POST = handle(async (req) => {
     }
     if (err instanceof RefusalError) {
       // Final: the same image is declined again, so the phone is not told to resend it.
-      logger.warn("Scan declined by the model", { ms, error: err.message });
+      logger.warn("Scan declined by the model", { ms });
       throw new ApiError(422, "scan_declined", "This image could not be read");
     }
     if (err instanceof DeadlineError) {

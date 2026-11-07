@@ -109,6 +109,9 @@ interface TransactionStore {
     /** Saves PENDING rows plus their outbox ops and requests a sync; works offline. Returns the new clientIds. */
     suspend fun addAll(inputs: List<NewTransaction>): List<String>
 
+    /** A scan belongs to the account that opened it, even when its save waits behind another Room transaction. */
+    suspend fun addAllForOwner(owner: String, inputs: List<NewTransaction>): List<String>
+
     /**
      * An edit: deletes [old] and saves [inputs] in their place, in one go; works offline. [ReplaceResult.Gone], with
      * nothing written, when an entry to change is gone already (deleted elsewhere while the screen was open).
@@ -169,7 +172,7 @@ interface CategorySource {
 
 /** Reads a photo of a receipt or KPay screen into entries on the server ([ScanRepository]); saves nothing. */
 fun interface ReceiptScanner {
-    suspend fun scan(image: ByteArray, mediaType: String): ApiResult<ScanReading>
+    suspend fun scan(image: ByteArray, mediaType: String, expectedOwner: String): ApiResult<ScanReading>
 }
 
 /** Reads what the phone heard (text only) into entries or a spending question, on the server ([VoiceRepository]). */
@@ -254,6 +257,9 @@ class DefaultTransactionStore @Inject constructor(private val repo: TransactionR
 
     override suspend fun addAll(inputs: List<NewTransaction>) = withContext(NonCancellable) { repo.addAll(inputs) }
 
+    override suspend fun addAllForOwner(owner: String, inputs: List<NewTransaction>) =
+        withContext(NonCancellable) { repo.addAll(inputs, expectedOwner = owner) }
+
     override suspend fun replace(old: List<String>, inputs: List<NewTransaction>): ReplaceResult =
         withContext(NonCancellable) { repo.replace(old, inputs) }
 
@@ -327,7 +333,7 @@ class DefaultCategorySource @Inject constructor(private val repo: CategoryReposi
 }
 
 class DefaultReceiptScanner @Inject constructor(private val repo: ScanRepository) : ReceiptScanner {
-    override suspend fun scan(image: ByteArray, mediaType: String) = repo.scan(image, mediaType)
+    override suspend fun scan(image: ByteArray, mediaType: String, expectedOwner: String) = repo.scan(image, mediaType, expectedOwner)
 }
 
 class DefaultVoiceParser @Inject constructor(private val repo: VoiceRepository) : VoiceParser {

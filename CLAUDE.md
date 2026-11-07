@@ -70,8 +70,9 @@ Only one worktree can use these at a time. Check before you start, and stop what
 
 - Android, from `apps/android`:
   `./gradlew :asr:testDebugUnitTest :app:testDebugUnitTest :core:data:testDebugUnitTest :feature:voice:testDebugUnitTest :asr-demo:testDebugUnitTest :nlu:test :app:lintDebug :asr:lintDebug :core:data:lintDebug :feature:voice:lintDebug`
-- Web, from `apps/web`: `npx vitest run` and `npx tsc --noEmit`. `tsc` doesn't pass cleanly yet, so compare its
-  error count with master's.
+- Web, from `apps/web`: `npm test`, `npm run build`, then `npm run typecheck`. The typecheck gate compares full
+  diagnostics against the checked-in inherited baseline, including occurrence counts, and rejects additions.
+  Existing type debt is still allowed; do not update the baseline merely to make a change pass.
 
 ### GitHub
 

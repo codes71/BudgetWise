@@ -98,7 +98,7 @@ export function DeleteAccountForm() {
     return (
       <section role="status" aria-live="polite" className="space-y-4 rounded-lg border p-6">
         <h2 ref={successHeading} tabIndex={-1} className="text-xl font-semibold focus:outline-none">Your account has been deleted</h2>
-        <p>Your Pocket Peek account and synced financial data have been removed. This cannot be undone.</p>
+        <p>Your active Pocket Peek account and synced financial records have been removed. This cannot be undone. Recovery-copy cleanup is recorded separately and may still be pending.</p>
         <p className="text-sm text-muted-foreground">Offline copies on other devices may remain until you remove that saved account or clear the app&apos;s storage there.</p>
         <Link href="/privacy" className="inline-flex min-h-12 items-center underline underline-offset-4">Read the privacy policy</Link>
       </section>

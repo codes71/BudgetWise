@@ -1,10 +1,8 @@
-// One-time copy of the BudgetWise data from MongoDB into Firestore.
+// Historical one-time copy of BudgetWise data from MongoDB into Firestore.
 //
-// Dry run by default: reads both sides and prints what it would create.
-//   MONGODB_URI=... npm run copy:mongo-to-firestore             (dry run)
-//   MONGODB_URI=... npm run copy:mongo-to-firestore -- --write  (copies)
+// CLI is read-only: --write is disabled until a reviewed deletion-aware restore exists.
+// The exported writer remains available only for isolated local demo fixtures.
 // Firestore is configured exactly as for the app (see src/lib/firestore.ts).
-// Run it before the Firestore app takes traffic.
 //
 // - Users and transactions keep their Mongo ObjectId hex as the doc id, so
 //   mobile JWT user ids and the Android app's server ids stay valid.
@@ -19,6 +17,7 @@ import { MongoClient, ObjectId, type Db, type Document } from 'mongodb';
 import type { DocumentReference, Firestore } from 'firebase-admin/firestore';
 import { categorySlug, db, isDocId, sha256Hex } from '../src/lib/firestore';
 import { emailDocId, normalizeEmail } from '../src/lib/users';
+import { assertSyntheticFirestoreTarget, assertSyntheticMongoTarget, RECOVERY_WRITE_BLOCKED } from './recoveryWriteSafety';
 
 const READ_CHUNK = 100;
 const WRITE_CHUNK = 400;
@@ -145,6 +144,10 @@ export async function copyMongoToFirestore(
   firestore: Firestore,
   { write }: { write: boolean },
 ): Promise<CopyReport> {
+  if (write) {
+    assertSyntheticMongoTarget(mongo);
+    assertSyntheticFirestoreTarget(firestore);
+  }
   // Users, oldest first, so the oldest of a set of case-variant emails wins.
   const mongoUsers = (await mongo.collection('users').find({}).toArray())
     .map((u) => ({ u, id: idOf(u._id), created: dateOr(u.createdAt, idTime(u._id)) }))
@@ -324,7 +327,7 @@ export function formatReport(report: CopyReport, write: boolean): string {
       .map(([k, v]) => `${k === 'created' ? verb : k} ${v}`)
       .join(', ')}`;
   return [
-    write ? 'Mode: write.' : 'Mode: dry run, nothing written. Re-run with --write to copy.',
+    write ? 'Mode: write.' : 'Mode: dry run, nothing written. Historical production writes are disabled.',
     line('users', report.users),
     line('transactions', report.transactions),
     line('budgets', report.budgets),
@@ -336,6 +339,7 @@ export function formatReport(report: CopyReport, write: boolean): string {
 
 async function main() {
   const write = process.argv.includes('--write');
+  if (write) throw new Error(RECOVERY_WRITE_BLOCKED);
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error('MONGODB_URI is not set');
   const target = process.env.FIRESTORE_EMULATOR_HOST

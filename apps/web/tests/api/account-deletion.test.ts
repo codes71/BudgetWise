@@ -10,6 +10,7 @@ import { scopedId, sha256Hex } from "@/lib/mongodb";
 import { requireUser } from "@/lib/mobile/bearer";
 import { saveBatch } from "@/lib/mobile/transactions-service";
 import { saveEndCheck, saveMonthPlan, setBudgetLimit } from "@/lib/budgets";
+import { DELETION_JOURNAL, deletionIdentityKey } from "@/lib/account-deletion-journal";
 
 let DELETE: (request: Request, context?: unknown) => Promise<Response>;
 let LOGIN: (request: Request, context?: unknown) => Promise<Response>;
@@ -19,6 +20,7 @@ let tokenA: string;
 const password = "deletion-test-password";
 const user = (id: string) => testDb().collection("users").findOne({ _id: id });
 const emailClaim = (email: string) => testDb().collection("userEmails").findOne({ _id: emailDocId(email) });
+const journal = (id: string) => testDb().collection(DELETION_JOURNAL).findOne({ _id: deletionIdentityKey(id) });
 const remove = (token = tokenA, body: unknown = { password }) => DELETE(req("DELETE", "/api/v1/account", { token, body }));
 const item = { clientId: "00000000-0000-4000-8000-000000000001", type: "expense" as const,
   amount: 1, category: "Food", description: "late sync", date: "2026-11-01", source: "manual" as const };
@@ -73,6 +75,14 @@ describe("DELETE /api/v1/account", () => {
     expect(await user(userA)).toBeNull();
     expect(await ownedCount(userA)).toBe(0);
     expect(await emailClaim("delete-a@example.com")).toBeNull();
+    expect(await journal(userA)).toMatchObject({ activeStore: "complete", recoveryCleanup: "pending" });
+    expect((await journal(userA))!.requestedAt).toBeInstanceOf(Date);
+    expect((await journal(userA))!.activeStoreCompletedAt).toBeInstanceOf(Date);
+    expect(await journal(userB)).toBeNull();
+    const retained = JSON.stringify(await journal(userA));
+    for (const secret of [userA, "delete-a@example.com", "password", "private words", "email", "userId"]) {
+      expect(retained).not.toContain(secret);
+    }
     expect(await user(userB)).not.toBeNull();
     expect(await testDb().collection("transactions").findOne({ _id: scopedId(userB, "entry") })).not.toBeNull();
     expect(await testDb().collection("_firestoreArchive").findOne({ _id: `users/${userB}/future-records/nested/details/one` })).not.toBeNull();
@@ -108,6 +118,8 @@ describe("DELETE /api/v1/account", () => {
     expect(first.status).toBe(503);
     expect((await first.json()).error.code).toBe("deletion_incomplete");
     expect((await user(userA))!.deletionStartedAt).toBeTruthy();
+    expect(await journal(userA)).toMatchObject({ activeStore: "pending", recoveryCleanup: "pending" });
+    const requestedAt = (await journal(userA))!.requestedAt;
     await expect(requireUser(req("GET", "/x", { token: tokenA }))).rejects.toMatchObject({ status: 401 });
     const login = await LOGIN(req("POST", "/api/v1/auth/token", {
       body: { email: "delete-a@example.com", password }, ip: "203.0.113.3",
@@ -118,6 +130,7 @@ describe("DELETE /api/v1/account", () => {
     failure.mockRestore();
     expect((await remove(retryToken)).status).toBe(204);
     expect(await user(userA)).toBeNull();
+    expect(await journal(userA)).toMatchObject({ activeStore: "complete", requestedAt, recoveryCleanup: "pending" });
   });
 
   it("blocks all account-owned writers while owned-data deletion is in progress", async () => {
@@ -177,11 +190,14 @@ describe("DELETE /api/v1/account", () => {
 
   it("is idempotent after a lost success response and never deletes a re-registered email owner", async () => {
     expect((await remove()).status).toBe(204);
+    const firstJournal = await journal(userA);
     const replacement = await createUser({ email: "delete-a@example.com", passwordHash: await bcrypt.hash(password, 10) });
     expect(replacement!.id).not.toBe(userA);
     expect((await remove(tokenA, { password: "already gone" })).status).toBe(204);
     expect((await emailClaim("delete-a@example.com"))!.userId).toBe(replacement!.id);
     expect(await user(replacement!.id)).not.toBeNull();
+    expect(await journal(userA)).toEqual(firstJournal);
+    expect(await journal(replacement!.id)).toBeNull();
   });
 
   it("cleans old orphan owned records and email claims before a missing-root204", async () => {
@@ -190,6 +206,7 @@ describe("DELETE /api/v1/account", () => {
     expect((await remove(tokenA, { password: "root already gone" })).status).toBe(204);
     expect(await ownedCount(userA)).toBe(0);
     expect(await emailClaim("delete-a@example.com")).toBeNull();
+    expect(await journal(userA)).toMatchObject({ activeStore: "complete", recoveryCleanup: "pending" });
     expect(await testDb().collection("transactions").findOne({ _id: scopedId(userB, "entry") })).not.toBeNull();
   });
 
@@ -201,6 +218,42 @@ describe("DELETE /api/v1/account", () => {
     expect((await emailClaim("delete-a@example.com"))!.userId).toBe(userB);
     expect(await user(userB)).not.toBeNull();
     expect((await testDb().collection("rateLimits").findOne({ _id: rateKey }))!.count).toBe(4);
+  });
+
+  it("rolls back the account lock and never purges if recovery-cleanup intent cannot be recorded", async () => {
+    await seedFinancialData();
+    const original = Collection.prototype.updateOne;
+    vi.spyOn(Collection.prototype, "updateOne").mockImplementation(function (this: Collection, ...args: any[]) {
+      if (this.collectionName === DELETION_JOURNAL) return Promise.reject(new Error("journal unavailable"));
+      return (original as any).apply(this, args);
+    });
+    expect((await remove()).status).toBeGreaterThanOrEqual(500);
+    expect((await user(userA))!.deletionStartedAt).toBeUndefined();
+    expect(await ownedCount(userA)).toBe(7);
+    expect(await journal(userA)).toBeNull();
+  });
+
+  it("keeps the same durable cleanup request through simultaneous deletion retries", async () => {
+    await seedFinancialData();
+    const results = await Promise.all([remove(), remove()]);
+    expect(results.map((response) => response.status)).toEqual([204, 204]);
+    expect(await testDb().collection(DELETION_JOURNAL).countDocuments({})).toBe(1);
+    expect(await journal(userA)).toMatchObject({ activeStore: "complete", recoveryCleanup: "pending" });
+    expect(await ownedCount(userA)).toBe(0);
+    expect(await user(userB)).not.toBeNull();
+  });
+
+  it("does not purge missing-root orphans until their recovery-cleanup request is durable", async () => {
+    await seedFinancialData();
+    await testDb().collection("users").deleteOne({ _id: userA });
+    const original = Collection.prototype.updateOne;
+    vi.spyOn(Collection.prototype, "updateOne").mockImplementation(function (this: Collection, ...args: any[]) {
+      if (this.collectionName === DELETION_JOURNAL) return Promise.reject(new Error("journal unavailable"));
+      return (original as any).apply(this, args);
+    });
+    expect((await remove()).status).toBe(503);
+    expect(await ownedCount(userA)).toBe(7);
+    expect(await journal(userA)).toBeNull();
   });
 
   it("expires only a matching valid browser session cookie", async () => {

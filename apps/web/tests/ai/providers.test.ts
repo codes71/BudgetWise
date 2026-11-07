@@ -86,7 +86,7 @@ describe("openaiStructured", () => {
   const message = (part: object) => ({ type: "message", content: [part] });
   beforeEach(() => create.mockReset());
 
-  it("asks for a strict schema, keeps nothing on OpenAI and parses the answer", async () => {
+  it("asks for a strict schema, disables response storage and parses the answer", async () => {
     create.mockResolvedValue({ status: "completed", output: [message({ type: "output_text" })],
       output_text: '{"category":"Food","note":null}' });
     await expect(openaiStructured({ schema, content: "x", effort: "low" })).resolves.toEqual({ category: "Food" });
@@ -143,17 +143,18 @@ describe("claudeStructured", () => {
     expect(parse.mock.calls[0][1]).not.toHaveProperty("maxRetries");
   });
 
-  it("logs the model, stop reason, tokens and time, but not the content", async () => {
+  it("logs fixed stop reasons, tokens and time, but no content or provider model strings", async () => {
     parse.mockResolvedValue(answer());
     await claudeStructured({ schema, content: "secret receipt text", effort: "low", flow: "scan" });
     const [line] = infoLines();
     expect(line.message).toBe("Claude answered");
     expect(line.context).toMatchObject({
-      flow: "scan", ms: expect.any(Number), model: "claude-opus-5-5", stopReason: "end_turn",
+      flow: "scan", ms: expect.any(Number), stopReason: "end_turn",
       inputTokens: 1200, outputTokens: 80,
     });
     expect(JSON.stringify(line)).not.toContain("secret");
     expect(JSON.stringify(line)).not.toContain("Food");
+    expect(line.context).not.toHaveProperty("model");
   });
 
   it("throws a RefusalError when Claude declines, after logging the stop reason", async () => {

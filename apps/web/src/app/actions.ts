@@ -3,15 +3,18 @@
 import { getSpendingSuggestions } from '@/ai/flows/spending-suggestions';
 import { categorizeTransaction } from '@/ai/flows/categorize-transaction';
 import type { Transaction, Budget, UserPayload } from '@/lib/types';
-import { createUser, findUserByEmail, getUserById, toPublicUser, updateUserProfile } from '@/lib/users';
+import { createUser, getUserById, toPublicUser, updateUserProfile, type UserRecord } from '@/lib/users';
 import bcrypt from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/logger';
 import { extractTransactionData } from '@/ai/flows/extract-transaction-data';
 import { verifySession } from '@/lib/auth';
+import { authClientIp, authenticatePassword, limitSignIn, limitSignUp } from '@/lib/auth-credentials';
+import { loginSchema, registerSchema } from '@/lib/mobile/schemas';
+import { ApiError } from '@/lib/mobile/errors';
 
 const secretKey = new TextEncoder().encode(process.env.JWT_SECRET);
 
@@ -35,14 +38,12 @@ async function decrypt(token: string): Promise<any> {
 }
 
 export async function signUp(formData: FormData): Promise<{ error: string } | { user: UserPayload }> {
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
-
-  if (!email?.trim() || !password) {
-    return { error: 'Email and password are required.' };
-  }
+  const parsed = registerSchema.safeParse({ email: formData.get('email'), password: formData.get('password') });
+  if (!parsed.success) return { error: 'Enter a valid email and a password between 6 and 200 characters.' };
+  const { email, password } = parsed.data;
 
   try {
+    await limitSignUp(authClientIp(await headers()));
     const hashedPassword = await bcrypt.hash(password, 10);
     // Fails when the email exists in any letter case.
     const newUser = await createUser({
@@ -53,34 +54,32 @@ export async function signUp(formData: FormData): Promise<{ error: string } | { 
     if (!newUser) {
       return { error: 'User with this email already exists.' };
     }
-    // Automatically sign in the user after registration
-    return await signIn(formData);
+    // Signup has its own limit. Issue the session without consuming the login allowance.
+    return await createPasswordSession(newUser);
   } catch (error) {
+    if (error instanceof ApiError && error.status === 429) return { error: 'Too many requests. Please try again later.' };
     logger.error('Error signing up', error as Error);
     return { error: 'An unexpected error occurred.' };
   }
 }
 
 export async function signIn(formData: FormData): Promise<{ error: string } | { user: UserPayload }> {
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
-
-  if (!email || !password) {
-    return { error: 'Email and password are required.' };
+  const parsed = loginSchema.safeParse({ email: formData.get('email'), password: formData.get('password') });
+  if (!parsed.success) return { error: 'Invalid email or password.' };
+  const { email, password } = parsed.data;
+  try {
+    await limitSignIn(email, authClientIp(await headers()));
+    const user = await authenticatePassword(email, password);
+    if (!user) return { error: 'Invalid email or password.' };
+    return await createPasswordSession(user);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 429) return { error: 'Too many requests. Please try again later.' };
+    logger.error('Error signing in', error as Error);
+    return { error: 'An unexpected error occurred.' };
   }
+}
 
-  const user = await findUserByEmail(email);
-
-  if (!user || !user.password || user.deletionStartedAt) {
-    return { error: 'Invalid email or password.' };
-  }
-  
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-
-  if (!isPasswordValid) {
-    return { error: 'Invalid email or password.' };
-  }
-
+async function createPasswordSession(user: UserRecord): Promise<{ user: UserPayload }> {
   // Create session
   const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
   const userPayload = {
@@ -227,18 +226,13 @@ export async function processScreenshot(base64Image: string) {
     // The flow's output is already a structured and validated object.
     // No need for complex parsing or checks like .output().
 
-    // Log the result for debugging
-    // logger.info("Successfully extracted data:", { data: extractedData });
-
     return { success: true, data: extractedData };
   } catch (error) {
     // Catch any errors from the flow's internal logic.
     logger.error("Error processing screenshot", error as Error);
     return {
       success: false,
-      error:
-        (error as Error).message ||
-        "Failed to process screenshot. Please try again.",
+      error: "Failed to process screenshot. Please try again.",
     };
   }
 }

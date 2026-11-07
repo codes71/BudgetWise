@@ -24,7 +24,7 @@ Android keeps an account-scoped Room cache and calls the HTTPS backend API. The 
 
 - **Data:** MongoDB collections store users, email claims, transactions, budgets, monthly plans, categories, and rate-limit windows.
 - **Authentication:** the application's own email/password flow uses bcrypt password hashes and Jose-signed session/bearer tokens. Firebase Authentication and Google sign-in are not implemented. Either can be evaluated separately without changing the database again.
-- **Account safety:** account-owned mutations run in MongoDB transactions. Each touches the account root so a concurrent deletion invalidates the writer. Password-confirmed deletion locks the account, removes its owned runtime and migrated companion records, and releases only its own email claims.
+- **Account safety:** account-owned mutations run in MongoDB transactions. Each touches the account root so a concurrent deletion invalidates the writer. Password-confirmed deletion records durable recovery-cleanup intent while locking the account, removes owned runtime and migrated companion records, and releases only its own email claims. Recovery-copy cleanup remains explicitly pending. See [the deletion and restore contract](docs/mongodb-migration.md#deletion-journal-and-recovery-safety).
 - **AI:** optional scan, voice, categorization, and spending-suggestion flows call Claude first, with the configured OpenAI fallback. Database choice does not select an AI provider. Android recognizes audio locally and sends recognized text for parsing.
 - **UI:** Next.js App Router, React, TypeScript, Tailwind, Radix/Shadcn components, and Recharts. Android uses Jetpack Compose.
 - **Historical tooling:** Firebase packages and Firestore scripts remain for snapshot/export, migration verification, and historical tests. Their presence does not mean the active runtime uses Firebase Authentication or Firestore listeners.
@@ -71,6 +71,7 @@ Existing Firestore document IDs remain strings, including accounts originally co
 | `categories` | shared category IDs/slugs |
 | `rateLimits` | `_id` is `sha256(key)`; expired windows reset on the next request, with no automatic TTL deletion |
 | `_firestoreArchive`, `_firestoreTypes` | lossless migration companions for unmapped documents and Firestore-specific type precision; account-owned companions carry `ownerId` |
+| `_accountDeletionJournal` | versioned account-ID hash, request/completion times and active-store/recovery-cleanup statuses; survives account purge, has no TTL, and must be preserved outside restored snapshots |
 
 ### Development and verification
 
@@ -84,11 +85,11 @@ This starts Next.js on port 9002. It does not start a Genkit server. Check wheth
 
 ```bash
 npm test
-npx tsc --noEmit
 npm run build
+npm run typecheck
 ```
 
-`npm test` runs the MongoDB runtime and historical Firestore-copy Vitest projects. Runtime tests start an owned MongoDB replica set on dynamic ports with a unique `test-pocketpeek-*` database, and stop it afterward. `npx vitest run --project mongo` runs only native runtime tests. The legacy-copy project uses a separate emulator-only Firestore project and preserves any shared emulator. Never point cleanup at Atlas or a shared development database. TypeScript has an existing diagnostic baseline; compare new diagnostics rather than claiming the repository is clean.
+`npm test` runs the MongoDB runtime and historical Firestore-copy Vitest projects. Runtime tests start an owned MongoDB replica set on dynamic ports with a unique `test-pocketpeek-*` database, and stop it afterward. `npx vitest run --project mongo` runs only native runtime tests. The legacy-copy project uses a separate emulator-only Firestore project and preserves any shared emulator. Never point cleanup at Atlas or a shared development database. After the build generates Next route types, `npm run typecheck` rejects new diagnostics by file, TypeScript code, full message and occurrence count against the inherited baseline. Passing this gate does not mean the existing type debt is cleared.
 
 For a production build, `npm run build` does not need a database connection. `npm start` runs the built app and its database-backed routes need the private runtime configuration.
 
